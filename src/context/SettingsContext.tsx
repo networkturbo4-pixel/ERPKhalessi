@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { authenticateServer } from '../utils/diskPersistence';
 import {
   TenantCustomization,
   CompanyInfo,
@@ -1101,6 +1102,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
 
     setIsAuthenticated(true);
+    void authenticateServer(updatedLoginUser.pin);
     logAuditEvent(
       'auth',
       authNote?.includes('Authenticator') ? 'warning' : 'info',

@@ -12,6 +12,61 @@ const DEVICE_LOCAL_KEYS = new Set<string>([
   'khalessi_erp_checkpoint_v3',
 ]);
 
+// Claves que el servidor de producción (cPanel) sincroniza; el resto permanece en cada navegador
+const SERVER_SYNC_KEYS = [
+  'khalessi_erp_settings_v3',
+  'khalessi_erp_rbac_v3',
+  'khalessi_erp_hr_v1',
+  'khalessi_erp_audit_v1',
+  'khalessi_erp_complaints_v1',
+  'kh_store_builder_v2',
+  'kh_catalog_products',
+  'kh_product_categories_v1',
+  'kh_erp_benefits_v1',
+  'kh_floor_tables_v1',
+];
+
+const SETTINGS_KEY = 'khalessi_erp_settings_v3';
+const TOKEN_KEY = 'erp_api_token';
+
+export function getServerToken(): string {
+  try {
+    const raw = localStorage.getItem(TOKEN_KEY);
+    if (!raw) return '';
+    const parsed = JSON.parse(raw) as { token: string; expires: number };
+    if (parsed.expires * 1000 < Date.now()) return '';
+    return parsed.token;
+  } catch {
+    return '';
+  }
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getServerToken();
+  return token ? { 'x-erp-token': token } : {};
+}
+
+let onServerAuthenticated: (() => void) | null = null;
+
+/** Se llama tras un inicio de sesión correcto para habilitar la escritura en el servidor. */
+export async function authenticateServer(pin: string): Promise<boolean> {
+  try {
+    const res = await fetch('/api/auth.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin }),
+    });
+    if (!(res.headers.get('content-type') || '').includes('json')) return false; // desarrollo local
+    const body = await res.json();
+    if (!res.ok || !body.success || !body.token) return false;
+    localStorage.setItem(TOKEN_KEY, JSON.stringify({ token: body.token, expires: body.expires }));
+    onServerAuthenticated?.();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function isSharedKey(key: string): boolean {
   return (key.startsWith('kh') || key.startsWith('khalessi')) && !DEVICE_LOCAL_KEYS.has(key);
 }
@@ -114,10 +169,16 @@ export async function initDiskPersistence(): Promise<void> {
               headers: {
                 'Content-Type': 'application/json',
                 'x-client-id': CLIENT_ID,
+                ...authHeaders(),
               },
               body: payloadBody,
               ...(payloadBody.length < 48_000 ? { keepalive: true } : {}),
             });
+            if (res.status === 401) {
+              // Token vencido: se descarta; las siguientes escrituras serán anónimas (ignoradas) hasta volver a iniciar sesión
+              localStorage.removeItem(TOKEN_KEY);
+              return;
+            }
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             if (memoryMirror.get(key) === op.value) {
               failedSyncValues.delete(key);
@@ -127,6 +188,7 @@ export async function initDiskPersistence(): Promise<void> {
               method: 'DELETE',
               headers: {
                 'x-client-id': CLIENT_ID,
+                ...authHeaders(),
               },
               keepalive: true,
             });
@@ -192,6 +254,25 @@ export async function initDiskPersistence(): Promise<void> {
     }
   };
 
+  let lastHash = '';
+
+  const mergePublicSettings = (remoteJson: string): string => {
+    try {
+      const remote = JSON.parse(remoteJson);
+      if (!remote || !remote.__public) return remoteJson;
+      delete remote.__public;
+      const local = JSON.parse(memoryMirror.get(SETTINGS_KEY) ?? originalGetItem(SETTINGS_KEY) ?? '{}');
+      const merged = { ...local, ...remote };
+      // El estado de navegación es propio de cada dispositivo
+      for (const k of ['activeTenantId', 'branchScope', 'activeTab']) {
+        if (local[k] !== undefined) merged[k] = local[k];
+      }
+      return JSON.stringify(merged);
+    } catch {
+      return remoteJson;
+    }
+  };
+
   const reconcileFromServer = async (emitEvents: boolean) => {
     // Flush any previously failed local writes before reading from server
     if (failedSyncValues.size > 0) {
@@ -204,11 +285,16 @@ export async function initDiskPersistence(): Promise<void> {
 
     const fetchStartedAt = Date.now();
     try {
-      const res = await fetch('/api/storage', { cache: 'no-store' });
+      const url = lastHash ? `/api/storage?h=${lastHash}` : '/api/storage';
+      const res = await fetch(url, { cache: 'no-store', headers: authHeaders() });
       if (!res.ok) return;
-      const records: Record<string, string> = await res.json();
-      for (const [key, value] of Object.entries(records)) {
-        if (typeof value !== 'string' || !isSharedKey(key)) continue;
+      if (!(res.headers.get('content-type') || '').includes('json')) return;
+      const records: Record<string, string | boolean> = await res.json();
+      if (records.unchanged === true) return;
+      lastHash = res.headers.get('x-content-hash') || '';
+      for (const [key, rawValue] of Object.entries(records)) {
+        if (typeof rawValue !== 'string' || !isSharedKey(key)) continue;
+        const value = key === SETTINGS_KEY ? mergePublicSettings(rawValue) : rawValue;
 
         // Never overwrite a key that has an active write, a queued retry, or was just modified locally
         if ((inFlightWrites.get(key) || 0) > 0) continue;
@@ -220,6 +306,26 @@ export async function initDiskPersistence(): Promise<void> {
     } catch {
       // Fallback smoothly to standard browser localStorage
     }
+  };
+
+  onServerAuthenticated = () => {
+    lastHash = '';
+    void (async () => {
+      try {
+        const res = await fetch('/api/storage', { cache: 'no-store', headers: authHeaders() });
+        const onServer: Record<string, string> =
+          res.ok && (res.headers.get('content-type') || '').includes('json') ? await res.json() : {};
+        for (const key of SERVER_SYNC_KEYS) {
+          const local = memoryMirror.get(key) ?? originalGetItem(key);
+          if (local !== null && local !== undefined && typeof onServer[key] !== 'string') {
+            enqueueServerSync(key, { action: 'set', value: local });
+          }
+        }
+        await reconcileFromServer(true);
+      } catch {
+        // sin servidor: modo local
+      }
+    })();
   };
 
   // 1. Pre-load persisted data from disk before React mounts

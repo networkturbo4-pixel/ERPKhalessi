@@ -8,6 +8,7 @@
  */
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/storage-lib.php';
 
 header("Content-Type: application/json; charset=UTF-8");
 
@@ -53,6 +54,9 @@ switch ($action) {
         break;
 
     case 'deploy':
+        if (verifyToken(requestToken()) === null) {
+            sendResponse(['success' => false, 'error' => 'Solo un administrador con sesión activa puede actualizar'], 401);
+        }
         // Descargar el tarball o zipball del repositorio y actualizar archivos
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             sendResponse(['success' => false, 'error' => 'Método POST requerido'], 405);

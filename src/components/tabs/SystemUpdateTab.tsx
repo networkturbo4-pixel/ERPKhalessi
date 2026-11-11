@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { PermissionGate } from '../common/PermissionGate';
+import { getServerToken } from '../../utils/diskPersistence';
 import { GitBranch, GitCommit, RefreshCw, Terminal, Database, HardDrive, Cpu, Activity, CheckCircle, AlertTriangle, ArrowUpCircle } from 'lucide-react';
 
 export const SystemUpdateTab: React.FC = () => {
@@ -88,7 +89,7 @@ export const SystemUpdateTab: React.FC = () => {
     ]);
 
     try {
-      const response = await fetch('/api/system-update.php?action=deploy', { method: 'POST' });
+      const response = await fetch('/api/system-update.php?action=deploy', { method: 'POST', headers: { 'x-erp-token': getServerToken() } });
       const type = response.headers.get('content-type') || '';
       if (!type.includes('json')) {
         throw new Error('El servidor no tiene /api/system-update.php (¿estás en local?). No se aplicó ningún cambio.');

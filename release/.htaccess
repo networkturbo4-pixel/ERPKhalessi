@@ -6,13 +6,15 @@
   RewriteCond %{HTTPS} off
   RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+  # API de almacenamiento compartido (deben ir ANTES de la regla de directorios)
+  RewriteRule ^api/storage/stream/?$ api/storage/stream.php [L,QSA]
+  RewriteRule ^api/storage/?$ api/storage.php [L,QSA]
+  RewriteRule ^api/storage/([^/]+)$ api/storage.php?key=$1 [L,QSA]
+
   # Servir archivos o directorios estáticos existentes directamente
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
-
-  # Soporte para endpoint SSE stream de persistencia en cPanel
-  RewriteRule ^api/storage/stream$ api/storage/stream.php [L]
 
   # Redirigir todas las demás rutas a index.html (SPA Fallback)
   RewriteRule ^ index.html [L]
@@ -33,3 +35,8 @@
   ExpiresByType text/css "access plus 1 year"
   ExpiresByType application/javascript "access plus 1 year"
 </IfModule>
+
+# Nunca servir credenciales ni librerias internas
+<FilesMatch "^(config\.local\.php|config\.php|storage-lib\.php)$">
+  Require all denied
+</FilesMatch>

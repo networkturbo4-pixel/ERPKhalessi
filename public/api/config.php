@@ -7,7 +7,7 @@
 // Cabeceras HTTP para permitir comunicación con React (CORS) y formato JSON
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-ERP-Token, X-Client-Id");
 header("Content-Type: application/json; charset=UTF-8");
 
 // Manejo de preflight OPTIONS en navegadores modernos
@@ -16,11 +16,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-// Configuración de credenciales de Base de Datos en cPanel
-define('DB_HOST', 'localhost');
-define('DB_USER', 'pizzjkyq_erpkhale');
-define('DB_PASS', 'Khalessi2026@');
-define('DB_NAME', 'pizzjkyq_khalessierp');
+// Las credenciales reales viven en config.local.php (no versionado)
+if (file_exists(__DIR__ . '/config.local.php')) {
+    require __DIR__ . '/config.local.php';
+}
+defined('DB_HOST') || define('DB_HOST', 'localhost');
+defined('DB_USER') || define('DB_USER', 'CAMBIAR_USUARIO');
+defined('DB_PASS') || define('DB_PASS', 'CAMBIAR_PASSWORD');
+defined('DB_NAME') || define('DB_NAME', 'CAMBIAR_BASE');
 define('DB_CHARSET', 'utf8mb4');
 
 function getDbConnection() {

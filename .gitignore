@@ -24,3 +24,8 @@ deploy_cpanel.zip
 *.njsproj
 *.sln
 *.sw?
+
+public/api/config.local.php
+release/api/config.local.php
+
+data/
