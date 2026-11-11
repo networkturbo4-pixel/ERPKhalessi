@@ -38,7 +38,14 @@ const server = http.createServer((req, res) => {
   }
 
   // 1. Estado y Monitoreo (Health Check)
-  if (pathname === '' || pathname === '/' || pathname === '/health' || pathname === '/api/health') {
+  if (
+    pathname === '' ||
+    pathname === '/' ||
+    pathname === '/realtime' ||
+    pathname === '/health' ||
+    pathname === '/realtime/health' ||
+    pathname === '/api/health'
+  ) {
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
