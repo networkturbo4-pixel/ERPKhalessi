@@ -100,8 +100,11 @@ switch ($action) {
         // Copiar los archivos de public/ y dist/ hacia la raíz de public_html
         $rootTarget = realpath(__DIR__ . '/..'); // Directorio public_html
 
-        $distFolder = $sourceDir . '/dist';
-        $publicFolder = $sourceDir . '/public';
+        // El build compilado versionado vive en /release (dist está en .gitignore)
+        $releaseFolder = $sourceDir . '/release';
+        if (!is_dir($releaseFolder)) {
+            sendResponse(['success' => false, 'error' => 'El repositorio no contiene la carpeta release/. Ejecuta "npm run release" en local y haz git push.'], 500);
+        }
 
         $copiedCount = 0;
 
@@ -127,12 +130,7 @@ switch ($action) {
             closedir($dir);
         }
 
-        if (is_dir($distFolder)) {
-            recursiveCopy($distFolder, $rootTarget, $copiedCount);
-        }
-        if (is_dir($publicFolder)) {
-            recursiveCopy($publicFolder, $rootTarget, $copiedCount);
-        }
+        recursiveCopy($releaseFolder, $rootTarget, $copiedCount);
 
         // Limpiar temporales
         function recursiveDelete($dir) {

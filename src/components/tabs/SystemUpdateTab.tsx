@@ -9,83 +9,72 @@ export const SystemUpdateTab: React.FC = () => {
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null);
   const [remoteCommitInfo, setRemoteCommitInfo] = useState<{ sha: string; message: string; date: string } | null>(null);
+  const [installedBuild, setInstalledBuild] = useState<string | null>(null);
 
   const [isUpdating, setIsUpdating] = useState(false);
   const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
   const [isBackingUp, setIsBackingUp] = useState(false);
 
   const GITHUB_REPO = 'networkturbo4-pixel/ERPKhalessi';
+  const log = (line: string) => setTerminalLogs(prev => [...prev, line]);
+
+  // Lee version.json (solo existe en builds de producción generados con `npm run release`)
+  const readInstalledVersion = async (): Promise<{ buildId: string } | null> => {
+    try {
+      const r = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
+      if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) return null;
+      return await r.json();
+    } catch {
+      return null;
+    }
+  };
 
   const handleCheckUpdate = async () => {
     setIsCheckingUpdate(true);
-    setTerminalLogs([
-      `🔍 [DEV-OPS] Consultando API de GitHub (https://api.github.com/repos/${GITHUB_REPO}/commits/main)...`
-    ]);
+    setUpdateAvailable(null);
+    setTerminalLogs([`🔍 [DEV-OPS] Consultando release publicado en github.com/${GITHUB_REPO}...`]);
 
     try {
-      const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/commits/main`, {
-        headers: { Accept: 'application/vnd.github.v3+json' },
-      });
+      const local = await readInstalledVersion();
+      setInstalledBuild(local?.buildId ?? null);
 
-      if (response.ok) {
-        const data = await response.json();
-        const shortSha = data.sha.substring(0, 7);
-        const msg = data.commit?.message?.split('\n')[0] || 'Actualización de producción';
-        const dateStr = data.commit?.author?.date || new Date().toISOString();
-
-        setRemoteCommitInfo({
-          sha: shortSha,
-          message: msg,
-          date: new Date(dateStr).toLocaleString(),
-        });
-
-        // Comparamos el commit remoto con el commit local instalado
-        const isNewer = shortSha.toLowerCase() !== systemMetrics.gitCommit.toLowerCase();
-        setUpdateAvailable(isNewer);
-
-        if (isNewer) {
-          dispatchToast(
-            'Actualización Encontrada',
-            `Nuevo commit disponible en GitHub: [${shortSha}] - ${msg.slice(0, 60)}...`,
-            'info'
-          );
-          setTerminalLogs(prev => [
-            ...prev,
-            `✨ ¡Nuevo commit detectado en origin/main!`,
-            `📌 Hash remoto: ${shortSha} (Local actual: ${systemMetrics.gitCommit})`,
-            `💬 Mensaje: "${msg}"`,
-            `📅 Fecha: ${dateStr}`,
-            `⚡ Listo para sincronizar y desplegar.`
-          ]);
-        } else {
-          dispatchToast(
-            'Sistema al Día',
-            `El ERP ya está sincronizado con el último commit de GitHub (${shortSha}).`,
-            'success'
-          );
-          setTerminalLogs(prev => [
-            ...prev,
-            `✅ Sistema 100% al día con origin/main (${shortSha}).`,
-            `✓ No hay cambios pendientes por desplegar.`
-          ]);
-        }
-      } else {
-        throw new Error(`HTTP ${response.status}: No se pudo verificar el repositorio`);
+      const rawUrl = `https://raw.githubusercontent.com/${GITHUB_REPO}/main/release/version.json?t=${Date.now()}`;
+      const response = await fetch(rawUrl, { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error(`GitHub no tiene release/version.json (HTTP ${response.status}). Ejecuta "npm run release" y haz git push.`);
       }
-    } catch (err: any) {
-      // Fallback elegante en caso de límite de tasa API de GitHub
-      setUpdateAvailable(true);
+      const remote = await response.json();
+
       setRemoteCommitInfo({
-        sha: '108ff01',
-        message: 'feat: inicializacion completa Khalessi Pizza ERP con PWA y sincronizacion favicon',
-        date: new Date().toLocaleString(),
+        sha: remote.buildId,
+        message: remote.message || 'Nueva versión publicada',
+        date: new Date(remote.builtAt).toLocaleString(),
       });
-      dispatchToast('Aviso de Actualización', 'Verificación completada con servidor de actualizaciones.', 'info');
-      setTerminalLogs(prev => [
-        ...prev,
-        `ℹ️ Servidor de despliegue respondiendo en origin/main.`,
-        `📦 Commit listo para aplicar: 108ff01.`
-      ]);
+
+      if (!local) {
+        setUpdateAvailable(false);
+        log('⚠️ Este entorno es de DESARROLLO LOCAL (no existe /version.json).');
+        log(`📌 Última versión publicada en GitHub: ${remote.buildId}`);
+        log('ℹ️ En local los cambios se aplican con: git pull  (Vite recarga solo).');
+        log('ℹ️ La actualización desde el sistema solo funciona en el servidor cPanel.');
+        dispatchToast('Entorno local', 'La actualización automática solo aplica en el servidor cPanel. En local usa git pull.', 'info');
+        return;
+      }
+
+      const isNewer = remote.buildId !== local.buildId;
+      setUpdateAvailable(isNewer);
+      if (isNewer) {
+        log(`✨ Nueva versión: ${remote.buildId} (instalada: ${local.buildId})`);
+        log(`💬 ${remote.message}`);
+        dispatchToast('Actualización Encontrada', `Versión ${remote.buildId} disponible.`, 'info');
+      } else {
+        log(`✅ Sistema al día (build ${local.buildId}).`);
+        dispatchToast('Sistema al Día', 'Ya tienes la última versión publicada.', 'success');
+      }
+    } catch (err) {
+      setUpdateAvailable(false);
+      log(`❌ No se pudo comprobar: ${err instanceof Error ? err.message : 'error de red'}`);
+      dispatchToast('Error al comprobar', 'No se pudo consultar GitHub. Revisa tu conexión.', 'error');
     } finally {
       setIsCheckingUpdate(false);
     }
@@ -93,58 +82,33 @@ export const SystemUpdateTab: React.FC = () => {
 
   const handleStartUpdate = async () => {
     setIsUpdating(true);
-    const targetSha = remoteCommitInfo?.sha || 'origin/main';
     setTerminalLogs([
-      '⚡ [DEV-OPS] Iniciando proceso de despliegue automatizado...',
-      `🔍 Conectando con endpoint de despliegue en cPanel (/api/system-update.php?action=deploy)...`,
-      `📦 Descargando paquete oficial desde https://github.com/${GITHUB_REPO}/archive/refs/heads/main.zip...`
+      '⚡ [DEV-OPS] Iniciando actualización real...',
+      '📦 Solicitando al servidor descargar release desde GitHub (/api/system-update.php)...',
     ]);
 
     try {
-      const response = await fetch('/api/system-update.php?action=deploy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      if (response.ok) {
-        const res = await response.json();
-        setTerminalLogs(prev => [
-          ...prev,
-          '📦 Paquete descargado correctamente en el servidor cPanel.',
-          '🗄️ Extrayendo y reemplazando archivos de producción...',
-          `✓ ${res.files_updated || 'Todos los'} archivos actualizados sin afectar config.php.`,
-          '⚡ Limpiando caché y sincronizando PWA...',
-          `✅ ¡Sistema Khalessi Pizza ERP actualizado con éxito a commit [${targetSha}]!`,
-          '🚀 Recargando en 3 segundos para aplicar cambios...'
-        ]);
-        dispatchToast('Sistema Actualizado', `ERP actualizado a commit [${targetSha}]. Recargando...`, 'success');
-        setTimeout(() => {
-          window.location.reload();
-        }, 3000);
-      } else {
-        throw new Error('Servidor cPanel devolvió error al desplegar');
+      const response = await fetch('/api/system-update.php?action=deploy', { method: 'POST' });
+      const type = response.headers.get('content-type') || '';
+      if (!type.includes('json')) {
+        throw new Error('El servidor no tiene /api/system-update.php (¿estás en local?). No se aplicó ningún cambio.');
       }
-    } catch {
-      // Modo simulación / fallback si corre localmente sin backend PHP
-      const steps = [
-        `📥 git fetch --all && git checkout main`,
-        `📦 git pull origin main (Fast-forward to ${targetSha})`,
-        '📦 Validando dependencias npm (npm ci --prefer-offline)...',
-        '🗄️ Verificando consistencia de persistencia y multisucursal...',
-        '⚡ Reconstruyendo bundle optimizado de producción con Vite: `npm run build`',
-        '🔄 Sincronizando Service Worker & Cache Storage PWA...',
-        `✅ ¡Sistema Khalessi Pizza ERP actualizado con éxito a commit [${targetSha}]!`,
-        '🚀 Todas las terminales (POS, KDS, Tienda, Kiosco) operando con normalidad.'
-      ];
-
-      for (const step of steps) {
-        await new Promise(r => setTimeout(r, 650));
-        setTerminalLogs(prev => [...prev, step]);
+      const res = await response.json();
+      if (!response.ok || !res.success) {
+        throw new Error(res.error || 'El servidor rechazó la actualización');
       }
-      dispatchToast('Sistema Actualizado', `El ERP se actualizó exitosamente (${targetSha}).`, 'success');
+
+      log(`✓ ${res.files_updated} archivos reemplazados (config.php conservado).`);
+      log('🔄 Recargando para aplicar la nueva versión...');
+      dispatchToast('Sistema Actualizado', 'Archivos actualizados. Recargando...', 'success');
+      setUpdateAvailable(false);
+      setTimeout(() => window.location.reload(), 2500);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'error desconocido';
+      log(`❌ ${msg}`);
+      dispatchToast('No se pudo actualizar', msg, 'error');
     } finally {
       setIsUpdating(false);
-      setUpdateAvailable(false);
     }
   };
 
@@ -219,7 +183,7 @@ export const SystemUpdateTab: React.FC = () => {
               </span>
               <span className="flex items-center gap-1">
                 <GitCommit className="h-3.5 w-3.5 text-brand-500 dark:text-brand-400" />
-                Commit Local: <strong className="text-zinc-900 dark:text-white">{systemMetrics.gitCommit}</strong>
+                Build instalado: <strong className="text-zinc-900 dark:text-white">{installedBuild ?? 'dev-local'}</strong>
               </span>
               <span className="text-zinc-400">Repositorio: <strong>github.com/{GITHUB_REPO}</strong></span>
             </div>
@@ -230,7 +194,7 @@ export const SystemUpdateTab: React.FC = () => {
               <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
               <div className="min-w-0">
                 <span className="text-xs font-bold text-amber-950 dark:text-amber-200 block truncate">
-                  Nuevo commit en GitHub: [{remoteCommitInfo?.sha || '108ff01'}]
+                  Nueva versión disponible: [{remoteCommitInfo?.sha}]
                 </span>
                 <span className="text-[10px] text-amber-800 dark:text-amber-300 block truncate max-w-sm">
                   {remoteCommitInfo?.message || 'Actualización de optimizaciones y mejoras.'}
