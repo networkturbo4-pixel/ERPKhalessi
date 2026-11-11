@@ -53,8 +53,13 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 2. Endpoint SSE Stream: /api/storage/stream o /stream
-  if (pathname === '/api/storage/stream' || pathname === '/stream') {
+  // 2. Endpoint SSE Stream: /realtime/stream, /stream, /api/storage/stream
+  if (
+    pathname === '/api/storage/stream' ||
+    pathname === '/stream' ||
+    pathname === '/realtime/stream' ||
+    pathname === '/realtime/api/storage/stream'
+  ) {
     const clientId = parsedUrl.query.clientId || `cli_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const branchId = parsedUrl.query.branchId || 'all';
 
@@ -80,8 +85,14 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 3. Endpoint de Broadcast de Eventos: POST /api/storage/broadcast o /broadcast
-  if ((pathname === '/api/storage/broadcast' || pathname === '/broadcast') && req.method === 'POST') {
+  // 3. Endpoint de Broadcast de Eventos: POST /realtime/broadcast, /broadcast, /api/storage/broadcast
+  if (
+    (pathname === '/api/storage/broadcast' ||
+      pathname === '/broadcast' ||
+      pathname === '/realtime/broadcast' ||
+      pathname === '/realtime/api/storage/broadcast') &&
+    req.method === 'POST'
+  ) {
     let body = '';
     req.on('data', chunk => {
       body += chunk;

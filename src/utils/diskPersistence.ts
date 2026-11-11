@@ -367,7 +367,8 @@ export async function initDiskPersistence(): Promise<void> {
   const connectRealtimeStream = () => {
     if (typeof EventSource === 'undefined') return;
     try {
-      const es = new EventSource(`/api/storage/stream?clientId=${encodeURIComponent(CLIENT_ID)}`);
+      const streamUrl = `/realtime/stream?clientId=${encodeURIComponent(CLIENT_ID)}`;
+      const es = new EventSource(streamUrl);
       eventSource = es;
 
       es.onerror = () => {

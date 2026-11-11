@@ -1,5 +1,5 @@
 {
-  "buildId": "20261111225617",
-  "builtAt": "2026-11-11T22:56:17.248Z",
-  "message": "feat(store): integrar Mapbox GL ultra detalle, modal de tiendas, carrito limpio y pagina de checkout dedicada"
+  "buildId": "20261111231201",
+  "builtAt": "2026-11-11T23:12:01.730Z",
+  "message": "feat(realtime): agregar microservicio Node.js para SSE y WebSockets multisucursal con guia cPanel"
 }
