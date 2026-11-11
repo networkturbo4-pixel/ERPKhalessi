@@ -207,8 +207,18 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
 
   const effectiveViewport: BuilderViewport = isBuilderOpen ? previewViewport : windowViewport;
   const isLightTheme = activeTemplate.themeMode === 'light';
-  const accentColor = activeTemplate.accentColor || '#f59e0b';
-  const buttonColor = activeTemplate.buttonColor || accentColor;
+
+  // Si la plantilla activa tiene el color ámbar predeterminado (#f59e0b) o está vacía,
+  // hereda dinámicamente el color primario de marca configurado en el ERP
+  const brandPrimary =
+    (isLightTheme ? customization.accentColorLight : customization.accentColorDark) ||
+    customization.primaryColor ||
+    '#f59e0b';
+  const isDefaultAmber = !activeTemplate.accentColor || activeTemplate.accentColor === '#f59e0b';
+  const accentColor = isDefaultAmber && brandPrimary ? brandPrimary : (activeTemplate.accentColor || brandPrimary);
+
+  const isDefaultBtnAmber = !activeTemplate.buttonColor || activeTemplate.buttonColor === '#f59e0b';
+  const buttonColor = isDefaultBtnAmber ? accentColor : (activeTemplate.buttonColor || accentColor);
   const buttonTextColor =
     activeTemplate.buttonTextColor || getOptimalContrastHex(buttonColor);
   const autoButtonContrast = Boolean(activeTemplate.autoButtonContrast);
@@ -1045,7 +1055,12 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     promo_strip: 'Cinta Promo',
   };
 
-  const headerLogoUrl = customization.storeHeaderLogo?.trim() || '';
+  const headerLogoUrl =
+    customization.storeHeaderLogo?.trim() ||
+    (isLightTheme ? customization.logoLight : customization.logoDark)?.trim() ||
+    customization.logoLight?.trim() ||
+    customization.logoDark?.trim() ||
+    '';
 
   const storeSurfaceContent =
     activeSlugProduct && !isBuilderOpen ? (
@@ -1108,17 +1123,22 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                 {headerLogoUrl ? (
                   <img
                     src={headerLogoUrl}
-                    alt={companyInfo.commercialName || 'Logo'}
+                    alt={companyInfo.commercialName || customization.appName || 'Logo'}
                     decoding="async"
-                    className="h-8 sm:h-9 lg:h-10 w-auto max-w-[102px] sm:max-w-[132px] lg:max-w-[156px] object-contain"
+                    className="h-8 sm:h-9 lg:h-10 w-auto max-w-[120px] sm:max-w-[160px] lg:max-w-[200px] object-contain"
                   />
                 ) : (
-                  <span
-                    data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                    className="store-btn-solid w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shadow-sm"
-                  >
-                    <Flame aria-hidden="true" className="w-4 h-4 sm:w-5 sm:h-5" />
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+                      className="store-btn-solid w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shadow-sm text-lg"
+                    >
+                      {customization.collapsedLogo || '🍕'}
+                    </span>
+                    <span className="font-black text-sm sm:text-base tracking-tight font-heading hidden xs:inline-block">
+                      {companyInfo.commercialName || customization.appName || 'Pizza Khalessi'}
+                    </span>
+                  </div>
                 )}
               </button>
 

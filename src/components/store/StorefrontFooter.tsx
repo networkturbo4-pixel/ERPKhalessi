@@ -191,9 +191,9 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme 
             <div className="lg:col-span-3 space-y-4">
               {/* Brand Emblem */}
               <div className="inline-flex items-center gap-2.5">
-                {customization.storeHeaderLogo ? (
+                {(customization.storeHeaderLogo || customization.logoDark || customization.logoLight) ? (
                   <img
-                    src={customization.storeHeaderLogo}
+                    src={customization.storeHeaderLogo || customization.logoDark || customization.logoLight}
                     alt={companyInfo.commercialName}
                     className="h-11 max-w-[180px] object-contain"
                   />

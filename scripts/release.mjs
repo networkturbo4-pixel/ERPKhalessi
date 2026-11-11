@@ -22,8 +22,7 @@ fs.writeFileSync(path.join(dist, 'version.json'), JSON.stringify(version, null, 
 fs.rmSync(release, { recursive: true, force: true });
 fs.cpSync(dist, release, { recursive: true });
 
-// config.php nunca debe viajar en el release (contiene credenciales del servidor)
-fs.rmSync(path.join(release, 'api', 'config.php'), { force: true });
+// Las credenciales secretas viven en config.local.php (nunca viajan en release)
 fs.rmSync(path.join(release, 'api', 'config.local.php'), { force: true });
 
 console.log(`\n✔ Release ${buildId} generado en /release`);

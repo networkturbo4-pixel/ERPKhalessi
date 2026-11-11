@@ -58,6 +58,36 @@ function diskStoragePlugin(): Plugin {
       })
 
       server.middlewares.use(async (req, res, next) => {
+        // Mock /api/auth.php para desarrollo local
+        if (req.url?.startsWith('/api/auth')) {
+          if (req.method === 'POST') {
+            const chunks: Buffer[] = []
+            req.on('data', c => chunks.push(Buffer.from(c)))
+            req.on('end', () => {
+              try {
+                const body = JSON.parse(Buffer.concat(chunks).toString('utf-8'))
+                const pin = String(body.pin || '')
+                if (pin === '230825' || pin.length >= 4) {
+                  res.setHeader('Content-Type', 'application/json')
+                  res.statusCode = 200
+                  res.end(
+                    JSON.stringify({
+                      success: true,
+                      token: 'local-dev-admin-token',
+                      expires: Math.floor(Date.now() / 1000) + 86400 * 7,
+                    })
+                  )
+                  return
+                }
+              } catch {}
+              res.setHeader('Content-Type', 'application/json')
+              res.statusCode = 401
+              res.end(JSON.stringify({ success: false, error: 'Credencial no autorizada' }))
+            })
+            return
+          }
+        }
+
         if (!req.url?.startsWith('/api/storage')) {
           return next()
         }

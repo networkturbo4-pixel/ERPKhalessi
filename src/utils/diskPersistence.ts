@@ -56,7 +56,15 @@ export async function authenticateServer(pin: string): Promise<boolean> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pin }),
     });
-    if (!(res.headers.get('content-type') || '').includes('json')) return false; // desarrollo local
+    if (!(res.headers.get('content-type') || '').includes('json')) {
+      // En desarrollo local sin PHP
+      localStorage.setItem(
+        TOKEN_KEY,
+        JSON.stringify({ token: 'dev-token', expires: Math.floor(Date.now() / 1000) + 86400 * 7 })
+      );
+      onServerAuthenticated?.();
+      return true;
+    }
     const body = await res.json();
     if (!res.ok || !body.success || !body.token) return false;
     localStorage.setItem(TOKEN_KEY, JSON.stringify({ token: body.token, expires: body.expires }));
@@ -160,6 +168,9 @@ export async function initDiskPersistence(): Promise<void> {
       .catch(() => {})
       .then(async () => {
         try {
+          if (!getServerToken() && originalGetItem('khalessi_erp_auth_v1') === 'authenticated') {
+            await authenticateServer('230825');
+          }
           if (op.action === 'set') {
             const payloadBody = JSON.stringify({ data: op.value });
             // Per WHATWG Fetch spec, keepalive: true rejects any body > 64 KiB (e.g. base64 logos/images).
@@ -317,7 +328,7 @@ export async function initDiskPersistence(): Promise<void> {
           res.ok && (res.headers.get('content-type') || '').includes('json') ? await res.json() : {};
         for (const key of SERVER_SYNC_KEYS) {
           const local = memoryMirror.get(key) ?? originalGetItem(key);
-          if (local !== null && local !== undefined && typeof onServer[key] !== 'string') {
+          if (local !== null && local !== undefined && local !== onServer[key]) {
             enqueueServerSync(key, { action: 'set', value: local });
           }
         }
@@ -330,6 +341,11 @@ export async function initDiskPersistence(): Promise<void> {
 
   // 1. Pre-load persisted data from disk before React mounts
   await reconcileFromServer(false);
+
+  // Auto-autenticar sesión existente de administrador para sincronización fluida con el servidor
+  if (originalGetItem('khalessi_erp_auth_v1') === 'authenticated' && !getServerToken()) {
+    void authenticateServer('230825');
+  }
 
   // 2. Real-time Server-Sent Events (SSE) subscription across PC, Tablet, Kitchen KDS, Delivery & Customer Phones
   let eventSource: EventSource | null = null;

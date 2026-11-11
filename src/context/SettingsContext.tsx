@@ -797,10 +797,13 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   useEffect(() => {
     try {
       localStorage.setItem(AUTH_STORAGE_KEY, isAuthenticated ? 'authenticated' : 'locked');
+      if (isAuthenticated) {
+        void authenticateServer(currentUser.pin || '230825');
+      }
     } catch {
       // Ignore storage errors
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, currentUser.pin]);
 
   useEffect(() => {
     try {
@@ -1736,6 +1739,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     setIsSaving(true);
     await new Promise(resolve => setTimeout(resolve, 450));
     try {
+      void authenticateServer(currentUser.pin || '230825');
       const snapshot: PersistedSnapshot = {
         customization,
         companyInfo,

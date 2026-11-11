@@ -1,5 +1,5 @@
 {
-  "buildId": "20261111215657",
-  "builtAt": "2026-11-11T21:56:57.466Z",
-  "message": "feat(release): carpeta release versionada + updater real basado en version.json"
+  "buildId": "20261111222012",
+  "builtAt": "2026-11-11T22:20:12.093Z",
+  "message": "feat(storage): API de almacenamiento compartido en PHP con auth por PIN; sacar secretos de Git"
 }

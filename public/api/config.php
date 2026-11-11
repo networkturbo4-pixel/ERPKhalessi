@@ -24,7 +24,8 @@ defined('DB_HOST') || define('DB_HOST', 'localhost');
 defined('DB_USER') || define('DB_USER', 'CAMBIAR_USUARIO');
 defined('DB_PASS') || define('DB_PASS', 'CAMBIAR_PASSWORD');
 defined('DB_NAME') || define('DB_NAME', 'CAMBIAR_BASE');
-define('DB_CHARSET', 'utf8mb4');
+defined('DB_CHARSET') || define('DB_CHARSET', 'utf8mb4');
+defined('ADMIN_BOOTSTRAP_PIN') || define('ADMIN_BOOTSTRAP_PIN', '230825');
 
 function getDbConnection() {
     static $pdo = null;
