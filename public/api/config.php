@@ -17,11 +17,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // Configuración de credenciales de Base de Datos en cPanel
-// (Reemplaza estos 4 datos con los que crees en tu cPanel)
 define('DB_HOST', 'localhost');
-define('DB_USER', 'TU_USUARIO_CPANEL');      // Ej: cpaneluser_pizzadb
-define('DB_PASS', 'TU_CONTRASEÑA_SEGURA');  // La contraseña que le asignaste al usuario
-define('DB_NAME', 'TU_BASE_DE_DATOS');       // Ej: cpaneluser_khalessierp
+define('DB_USER', 'pizzjkyq_erpkhale');
+define('DB_PASS', 'Khalessi2026@');
+define('DB_NAME', 'pizzjkyq_khalessierp');
 define('DB_CHARSET', 'utf8mb4');
 
 function getDbConnection() {
