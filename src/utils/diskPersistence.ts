@@ -344,7 +344,20 @@ export async function initDiskPersistence(): Promise<void> {
 
   // Auto-autenticar sesión existente de administrador para sincronización fluida con el servidor
   if (originalGetItem('khalessi_erp_auth_v1') === 'authenticated' && !getServerToken()) {
-    void authenticateServer('230825');
+    try {
+      const activeSettingsRaw = originalGetItem('khalessi_settings_v1');
+      if (activeSettingsRaw) {
+        const parsed = JSON.parse(activeSettingsRaw);
+        const adminUser = Array.isArray(parsed?.users)
+          ? parsed.users.find((u: any) => (u.roleId === 'role-admin' || u.roleName?.toLowerCase().includes('admin')) && u.pin)
+          : null;
+        if (adminUser?.pin) {
+          void authenticateServer(adminUser.pin);
+        }
+      }
+    } catch {
+      // Fallback silencioso sin provocar 401 erróneos
+    }
   }
 
   // 2. Real-time Server-Sent Events (SSE) subscription across PC, Tablet, Kitchen KDS, Delivery & Customer Phones

@@ -83,6 +83,17 @@ if ($method === 'POST' || $method === 'DELETE') {
     }
     $data = is_string($input['data']) ? $input['data'] : json_encode($input['data'], JSON_UNESCAPED_UNICODE);
     kvSet($pdo, $key, $data);
+
+    // Notificar al motor Node.js SSE si está encendido en cPanel
+    @file_get_contents('http://127.0.0.1:3000/broadcast', false, stream_context_create([
+        'http' => [
+            'method'  => 'POST',
+            'header'  => "Content-Type: application/json\r\n",
+            'content' => json_encode(['action' => 'set', 'key' => $key]),
+            'timeout' => 0.1
+        ]
+    ]));
+
     sendResponse(['success' => true]);
 }
 

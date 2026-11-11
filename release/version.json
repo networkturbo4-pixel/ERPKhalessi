@@ -1,5 +1,5 @@
 {
-  "buildId": "20261111222012",
-  "builtAt": "2026-11-11T22:20:12.093Z",
-  "message": "feat(storage): API de almacenamiento compartido en PHP con auth por PIN; sacar secretos de Git"
+  "buildId": "20261111225617",
+  "builtAt": "2026-11-11T22:56:17.248Z",
+  "message": "feat(store): integrar Mapbox GL ultra detalle, modal de tiendas, carrito limpio y pagina de checkout dedicada"
 }

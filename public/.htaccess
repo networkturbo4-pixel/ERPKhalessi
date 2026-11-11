@@ -6,7 +6,13 @@
   RewriteCond %{HTTPS} off
   RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-  # API de almacenamiento compartido (deben ir ANTES de la regla de directorios)
+  # API de almacenamiento compartido y streaming en tiempo real
+  <IfModule mod_proxy.c>
+    RewriteRule ^api/storage/stream/?$ http://127.0.0.1:3000/stream [P,QSA,L]
+    RewriteRule ^api/storage/broadcast/?$ http://127.0.0.1:3000/broadcast [P,QSA,L]
+  </IfModule>
+
+  # Fallback directo a PHP para almacenamiento y SSE en cPanel
   RewriteRule ^api/storage/stream/?$ api/storage/stream.php [L,QSA]
   RewriteRule ^api/storage/?$ api/storage.php [L,QSA]
   RewriteRule ^api/storage/([^/]+)$ api/storage.php?key=$1 [L,QSA]

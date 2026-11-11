@@ -1,0 +1,12 @@
+{
+  "name": "khalessi-realtime-server",
+  "version": "1.0.0",
+  "description": "Servidor WebSocket y SSE en tiempo real para Khalessi Pizza ERP",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "keywords": ["realtime", "sse", "websocket", "khalessi"],
+  "author": "Khalessi Pizza DevOps",
+  "license": "ISC"
+}
