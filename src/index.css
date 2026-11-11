@@ -1,0 +1,470 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+  --brand-50-rgb: 255 247 237;
+  --brand-100-rgb: 255 237 213;
+  --brand-200-rgb: 254 215 170;
+  --brand-300-rgb: 253 186 116;
+  --brand-400-rgb: 251 146 60;
+  --brand-500-rgb: 249 115 22;
+  --brand-600-rgb: 234 88 12;
+  --brand-700-rgb: 194 65 12;
+  --brand-800-rgb: 154 52 18;
+  --brand-900-rgb: 124 45 18;
+  --brand-950-rgb: 67 20 7;
+
+  /* Dynamic Light/Dark Surface Tokens */
+  --erp-shell-light: #f4f4f5;
+  --erp-canvas-light: #ffffff;
+  --erp-card-light: #ffffff;
+  --erp-subcard-light: #f8fafc;
+
+  --erp-shell-dark: #09090b;
+  --erp-canvas-dark: #111114;
+  --erp-card-dark: #18181c;
+  --erp-subcard-dark: #202026;
+
+  --erp-shell-bg: var(--erp-shell-light);
+  --erp-canvas-bg: var(--erp-canvas-light);
+  --erp-card-bg: var(--erp-card-light);
+  --erp-subcard-bg: var(--erp-subcard-light);
+  --erp-border-alpha: 1;
+
+  --scrollbar-thumb: rgba(113, 113, 122, 0.42);
+  --scrollbar-track: transparent;
+  --target-size: 24px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+@media (pointer: coarse) {
+  :root {
+    --target-size: 44px;
+  }
+}
+
+:root.dark {
+  color-scheme: dark;
+  --erp-shell-bg: var(--erp-shell-dark);
+  --erp-canvas-bg: var(--erp-canvas-dark);
+  --erp-card-bg: var(--erp-card-dark);
+  --erp-subcard-bg: var(--erp-subcard-dark);
+  --scrollbar-thumb: rgba(161, 161, 170, 0.35);
+}
+
+:root:not(.dark) {
+  color-scheme: light;
+}
+
+/* Contrast level modifiers */
+:root[data-contrast="high"] .saas-card {
+  border-color: rgba(113, 113, 122, 0.45);
+}
+:root.dark[data-contrast="high"] .saas-card {
+  border-color: rgba(161, 161, 170, 0.38);
+}
+:root[data-contrast="ultra"] .saas-card {
+  border-color: rgba(39, 39, 42, 0.75);
+}
+:root.dark[data-contrast="ultra"] .saas-card {
+  border-color: rgba(228, 228, 231, 0.55);
+}
+
+body {
+  margin: 0;
+  background-color: var(--erp-shell-bg);
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Native <dialog> scroll containment & backdrop styling (per modern-web-guidance) */
+dialog:modal {
+  overscroll-behavior: contain;
+  margin: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  max-width: min(94vw, 40rem);
+  width: 100%;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: rgba(5, 5, 8, 0.68);
+  backdrop-filter: blur(6px);
+}
+
+.saas-scroll {
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+}
+
+.erp-shell-surface {
+  background-color: var(--erp-shell-bg);
+}
+
+.erp-canvas-surface {
+  background-color: var(--erp-canvas-bg);
+}
+
+@layer components {
+  .saas-card {
+    background-color: var(--erp-card-bg);
+    @apply border border-zinc-200/90 dark:border-zinc-700/80 shadow-sm dark:shadow-none rounded-2xl;
+  }
+
+  .saas-subcard {
+    background-color: var(--erp-subcard-bg);
+    @apply border border-zinc-200 dark:border-zinc-700/80 rounded-xl;
+  }
+
+  .saas-input {
+    background-color: var(--erp-subcard-bg);
+    @apply border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-brand-500 dark:focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20 transition-colors;
+  }
+
+  .saas-option {
+    background-color: var(--erp-subcard-bg);
+    @apply border border-zinc-200 dark:border-zinc-700/90 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100/90 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-500 transition-all;
+  }
+
+  .saas-option-active {
+    @apply border border-brand-500 dark:border-brand-400 bg-brand-500/10 dark:bg-brand-500/15 text-zinc-950 dark:text-white ring-1 ring-brand-500/40 dark:ring-brand-400/50 transition-all;
+  }
+
+  .saas-btn-secondary {
+    background-color: var(--erp-subcard-bg);
+    @apply border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors whitespace-nowrap;
+  }
+}
+
+/* Accessible Tablist Indicator (per modern-web-guidance tabs: border-block-end survives forced-colors & avoids layout shift) */
+.erp-tablist {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: inline proximity;
+  scrollbar-width: none;
+}
+.erp-tablist::-webkit-scrollbar {
+  display: none;
+}
+.erp-tablist > [role="tab"] {
+  position: relative;
+  flex: none;
+  scroll-snap-align: start;
+}
+.erp-tablist > [role="tab"][aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  border-block-end: 3px solid var(--brand-500);
+}
+
+/* Responsive Data Table with Container Queries (per modern-web-guidance responsive-table) */
+.erp-table-wrapper {
+  overflow: auto;
+  max-inline-size: 100%;
+  container-type: inline-size;
+}
+.erp-table-wrapper table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+.erp-table-wrapper thead {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 2;
+}
+@container (width < 640px) {
+  .erp-table-wrapper table.erp-stack-table,
+  .erp-table-wrapper table.erp-stack-table thead,
+  .erp-table-wrapper table.erp-stack-table tbody,
+  .erp-table-wrapper table.erp-stack-table tr,
+  .erp-table-wrapper table.erp-stack-table th,
+  .erp-table-wrapper table.erp-stack-table td {
+    display: block;
+  }
+  .erp-table-wrapper table.erp-stack-table thead {
+    display: none;
+  }
+  .erp-table-wrapper table.erp-stack-table tbody tr {
+    margin-block-end: 0.85rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(113, 113, 122, 0.28);
+    background-color: var(--erp-card-bg);
+    overflow: hidden;
+  }
+  .erp-table-wrapper table.erp-stack-table tbody th {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 2;
+    background-color: var(--erp-subcard-bg);
+    border-block-end: 1px solid rgba(113, 113, 122, 0.2);
+  }
+  .erp-table-wrapper table.erp-stack-table tbody td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .erp-table-wrapper table.erp-stack-table tbody td[data-label]::before {
+    content: attr(data-label) ": ";
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.7;
+    flex-shrink: 0;
+  }
+}
+
+/* Equalizer animation for Dynamic Island Toast */
+@keyframes eq-bar {
+  0%, 100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.animate-eq-1 {
+  animation: eq-bar 0.9s ease-in-out infinite;
+}
+.animate-eq-2 {
+  animation: eq-bar 0.65s ease-in-out infinite 0.15s;
+}
+.animate-eq-3 {
+  animation: eq-bar 0.8s ease-in-out infinite 0.3s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-eq-1,
+  .animate-eq-2,
+  .animate-eq-3 {
+    animation: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .saas-option-active {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
+
+/* Accessible Storefront Carousel Track (per modern-web-guidance carousel) */
+.store-carousel-track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  touch-action: manipulation;
+  scrollbar-width: none;
+}
+.store-carousel-track::-webkit-scrollbar {
+  display: none;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .store-carousel-track {
+    scroll-behavior: smooth;
+  }
+}
+
+@supports not (scrollbar-color: auto) {
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 9999px;
+  }
+}
+
+/* Form-factor adaptation: touch targets >= 44x44px on coarse pointers & safe-area bars */
+:where(h1, h2, h3) {
+  text-wrap: balance;
+}
+
+.touch-surface :where(button, select, textarea, input:not([type="checkbox"], [type="radio"]), [role="button"], label:has(input[type="checkbox"], input[type="radio"])) {
+  min-block-size: var(--target-size);
+  min-inline-size: var(--target-size);
+}
+
+.safe-bottom-bar {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+  padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+}
+
+/* Solid Storefront Buttons + Dynamic Contrast Foreground (no gradients) */
+.store-btn-solid {
+  background-color: var(--store-btn-bg, #f59e0b);
+  color: var(--store-btn-fg, #09090b);
+  touch-action: manipulation;
+}
+
+.store-btn-solid[data-auto-contrast="true"] {
+  --wcag-y-threshold: 0.17913;
+  --y: max(0, sign(var(--wcag-y-threshold) - y));
+  color: color(from var(--store-btn-bg, #f59e0b) xyz-d65 calc(var(--y) * 0.9505) var(--y) calc(var(--y) * 1.089));
+  color: contrast-color(var(--store-btn-bg, #f59e0b));
+}
+
+/* Native <details> Product Option Accordions (per modern-web-guidance accordion) */
+.store-option-accordion details > summary {
+  list-style: none;
+}
+.store-option-accordion details > summary::-webkit-details-marker {
+  display: none;
+}
+.store-option-accordion details::details-content {
+  interpolate-size: allow-keywords;
+  overflow: clip;
+  contain: layout;
+}
+.store-option-accordion details:not([open])::details-content {
+  block-size: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .store-option-accordion details::details-content {
+    transition: block-size 0.24s ease-in-out, content-visibility 0.24s ease-in-out allow-discrete, display 0.24s ease-in-out allow-discrete;
+  }
+}
+
+/* Mobile-App Bottom-Sheet Native <dialog> (slides from bottom to top) */
+dialog.store-bottom-sheet {
+  margin-top: auto;
+  margin-bottom: 0;
+  margin-left: auto;
+  margin-right: auto;
+}
+@media (prefers-reduced-motion: no-preference) {
+  dialog.store-bottom-sheet[open] {
+    transform: translateY(0);
+    opacity: 1;
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease-out;
+  }
+  @starting-style {
+    dialog.store-bottom-sheet[open] {
+      transform: translateY(100%);
+      opacity: 0.6;
+    }
+  }
+}
+
+/* Spotlight-style live search palette: full-height sheet on phones, top-anchored card on tablet/PC */
+dialog.store-search-palette {
+  inset: 0 0 auto 0;
+  margin: 0 auto;
+  width: 100%;
+  max-width: min(100%, 42rem);
+  height: 100dvh;
+  max-height: 100dvh;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  overflow: visible;
+}
+@media (min-width: 768px) {
+  dialog.store-search-palette {
+    margin-top: 8vh;
+    height: auto;
+    max-height: 80dvh;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  dialog.store-search-palette[open] {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.18s ease-out, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  @starting-style {
+    dialog.store-search-palette[open] {
+      opacity: 0;
+      transform: translateY(-12px);
+    }
+  }
+}
+
+/* Responsive Storefront Drawer:
+   - Mobile (< 768px): Bottom-Sheet sliding up from bottom
+   - Desktop (>= 768px): Right-side Off-Canvas sliding in from right */
+dialog.store-responsive-drawer {
+  inset: auto 0 0 0;
+  margin: auto 0 0 0;
+  width: 100%;
+  max-width: 100%;
+  max-height: 92svh;
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+@media (min-width: 768px) {
+  dialog.store-responsive-drawer {
+    inset: 0 0 0 auto;
+    margin: 0 0 0 auto;
+    width: min(27.5rem, 92dvw);
+    max-width: none;
+    height: 100svh;
+    max-height: 100svh;
+  }
+  dialog.store-responsive-drawer.store-drawer-wide {
+    width: min(32rem, 94dvw);
+  }
+}
+
+@media (max-width: 767px) and (prefers-reduced-motion: no-preference) {
+  dialog.store-responsive-drawer[open] {
+    transform: translateY(0);
+    opacity: 1;
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease-out;
+  }
+  @starting-style {
+    dialog.store-responsive-drawer[open] {
+      transform: translateY(100%);
+      opacity: 0.65;
+    }
+  }
+}
+
+@media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
+  dialog.store-responsive-drawer[open] {
+    transform: translateX(0);
+    opacity: 1;
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease-out;
+  }
+  @starting-style {
+    dialog.store-responsive-drawer[open] {
+      transform: translateX(100%);
+      opacity: 0.75;
+    }
+  }
+}
+
+/* Same-Document View Transitions for Product Slug Pages */
+::view-transition-old(store-product-hero),
+::view-transition-new(store-product-hero) {
+  height: 100%;
+  object-fit: cover;
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
