@@ -997,8 +997,29 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
       linkedCustomerId = savedCustomer.id;
     }
 
+    // Sanitizar ítems para evitar que imágenes pesadas en Base64 se dupliquen por cada pedido y llenen los 5MB de localStorage
+    const sanitizedItems = (orderData.items || []).map(item => ({
+      ...item,
+      productImage:
+        item.productImage && item.productImage.startsWith('data:') && item.productImage.length > 300
+          ? ''
+          : item.productImage,
+      halfAndHalf: item.halfAndHalf
+        ? {
+            ...item.halfAndHalf,
+            secondHalfImage:
+              item.halfAndHalf.secondHalfImage &&
+              item.halfAndHalf.secondHalfImage.startsWith('data:') &&
+              item.halfAndHalf.secondHalfImage.length > 300
+                ? ''
+                : item.halfAndHalf.secondHalfImage,
+          }
+        : undefined,
+    }));
+
     const newOrder: Order = {
       ...orderData,
+      items: sanitizedItems,
       customerId: linkedCustomerId,
       id: `ord-${Date.now()}`,
       orderNumber: `#KH-${nextNumber}`,

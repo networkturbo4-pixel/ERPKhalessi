@@ -265,10 +265,31 @@ export async function initDiskPersistence(): Promise<void> {
     try {
       originalSetItem(key, value);
     } catch (err) {
-      console.warn(
-        `[Storage] localStorage quota exceeded for key "${key}". Persisting via memory mirror & disk storage...`,
-        err
-      );
+      if (key === 'kh_orders_list') {
+        try {
+          // Si el historial de pedidos excede la cuota de 5MB, podar imágenes base64 y retener las últimas 100 en caché local
+          const parsed = JSON.parse(value);
+          if (Array.isArray(parsed)) {
+            const pruned = parsed.slice(0, 100).map((o: any) => ({
+              ...o,
+              items: Array.isArray(o.items)
+                ? o.items.map((i: any) => ({
+                    ...i,
+                    productImage: typeof i?.productImage === 'string' && i.productImage.startsWith('data:') ? '' : i.productImage,
+                  }))
+                : o.items,
+            }));
+            originalSetItem(key, JSON.stringify(pruned));
+          }
+        } catch {
+          // El memoryMirror y MySQL conservan todos los pedidos intactos
+        }
+      } else {
+        console.warn(
+          `[Storage] localStorage quota exceeded for key "${key}". Persisting via memory mirror & disk storage...`,
+          err
+        );
+      }
     }
 
     if (isSharedKey(key)) {

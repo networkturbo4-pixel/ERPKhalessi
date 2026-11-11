@@ -37,7 +37,7 @@ try {
   if (fs.existsSync(zipFile)) {
     fs.unlinkSync(zipFile);
   }
-  execSync('powershell -Command "Compress-Archive -Path release\\* -DestinationPath deploy_cpanel.zip -Force"', { cwd: root, stdio: 'inherit' });
+  execSync('powershell -Command "Start-Sleep -Milliseconds 800; Compress-Archive -Path release\\* -DestinationPath deploy_cpanel.zip -Force"', { cwd: root, stdio: 'inherit' });
   console.log(`✔ Paquete ZIP generado: ${zipFile}`);
 } catch (err) {
   console.warn('Advertencia al comprimir ZIP:', err);
