@@ -15,24 +15,52 @@ header("Content-Type: application/json; charset=UTF-8");
 $action = isset($_GET['action']) ? $_GET['action'] : 'check';
 $repo = 'networkturbo4-pixel/ERPKhalessi';
 
+function fetchRemoteData($url, $timeout = 60) {
+    if (function_exists('curl_init')) {
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'PHP-cPanel-AutoUpdater');
+        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+        $result = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
+        curl_close($ch);
+        if ($httpCode >= 200 && $httpCode < 300 && $result !== false && strlen($result) > 0) {
+            return $result;
+        }
+    }
+    // Fallback stream context
+    $opts = [
+        'http' => [
+            'method' => 'GET',
+            'header' => [
+                "User-Agent: PHP-cPanel-AutoUpdater",
+                "Accept: application/vnd.github.v3+json"
+            ],
+            'follow_location' => 1,
+            'max_redirects' => 5,
+            'timeout' => $timeout
+        ],
+        'ssl' => [
+            'verify_peer' => false,
+            'verify_peer_name' => false
+        ]
+    ];
+    $context = stream_context_create($opts);
+    return @file_get_contents($url, false, $context);
+}
+
 switch ($action) {
     case 'check':
-        // Consultar el commit más reciente de GitHub
-        $opts = [
-            'http' => [
-                'method' => 'GET',
-                'header' => [
-                    "User-Agent: PHP-cPanel-AutoUpdater",
-                    "Accept: application/vnd.github.v3+json"
-                ],
-                'timeout' => 10
-            ]
-        ];
-        $context = stream_context_create($opts);
         $url = "https://api.github.com/repos/$repo/commits/main";
-        $json = @file_get_contents($url, false, $context);
+        $json = fetchRemoteData($url, 15);
 
-        if ($json === false) {
+        if ($json === false || empty($json)) {
             sendResponse([
                 'success' => false,
                 'error' => 'No se pudo conectar con GitHub API desde el servidor'
@@ -40,6 +68,13 @@ switch ($action) {
         }
 
         $data = json_decode($json, true);
+        if (!$data || !isset($data['sha'])) {
+            sendResponse([
+                'success' => false,
+                'error' => 'Respuesta inválida recibida de GitHub'
+            ], 500);
+        }
+
         $sha = substr($data['sha'], 0, 7);
         $message = explode("\n", $data['commit']['message'])[0];
         $date = $data['commit']['author']['date'];
@@ -69,27 +104,29 @@ switch ($action) {
         if (!$isAuth) {
             sendResponse(['success' => false, 'error' => 'Solo un administrador con sesión activa o PIN maestro puede actualizar'], 401);
         }
-        // Descargar el tarball o zipball del repositorio y actualizar archivos
+        // Descargar el zipball del repositorio y actualizar archivos
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             sendResponse(['success' => false, 'error' => 'Método POST requerido'], 405);
+        }
+
+        if (!class_exists('ZipArchive')) {
+            sendResponse([
+                'success' => false,
+                'error' => 'La extensión PHP ZipArchive no está habilitada en este servidor. Por favor descarga y extrae deploy_cpanel.zip manualmente por el Administrador de Archivos de cPanel.'
+            ], 500);
         }
 
         $zipUrl = "https://github.com/$repo/archive/refs/heads/main.zip";
         $tmpZip = sys_get_temp_dir() . '/khalessi_update_' . time() . '.zip';
 
-        // 1. Descargar ZIP de GitHub
-        $opts = [
-            'http' => [
-                'method' => 'GET',
-                'header' => ["User-Agent: PHP-cPanel-AutoUpdater"],
-                'timeout' => 60
-            ]
-        ];
-        $context = stream_context_create($opts);
-        $content = @file_get_contents($zipUrl, false, $context);
+        // 1. Descargar ZIP de GitHub con cURL
+        $content = fetchRemoteData($zipUrl, 90);
 
-        if (!$content) {
-            sendResponse(['success' => false, 'error' => 'No se pudo descargar el archivo zip de GitHub'], 500);
+        if (!$content || strlen($content) < 1000) {
+            sendResponse([
+                'success' => false,
+                'error' => 'No se pudo descargar el archivo zip de actualización desde GitHub. Verifica la conexión o sube deploy_cpanel.zip directamente.'
+            ], 500);
         }
 
         file_put_contents($tmpZip, $content);
@@ -98,7 +135,7 @@ switch ($action) {
         $zip = new ZipArchive();
         if ($zip->open($tmpZip) !== true) {
             @unlink($tmpZip);
-            sendResponse(['success' => false, 'error' => 'No se pudo abrir el archivo zip descargado'], 500);
+            sendResponse(['success' => false, 'error' => 'El archivo descargado no es un zip válido'], 500);
         }
 
         $extractPath = sys_get_temp_dir() . '/khalessi_extracted_' . time();
@@ -116,7 +153,7 @@ switch ($action) {
         // Copiar los archivos de public/ y dist/ hacia la raíz de public_html
         $rootTarget = realpath(__DIR__ . '/..'); // Directorio public_html
 
-        // El build compilado versionado vive en /release (dist está en .gitignore)
+        // El build compilado versionado vive en /release
         $releaseFolder = $sourceDir . '/release';
         if (!is_dir($releaseFolder)) {
             sendResponse(['success' => false, 'error' => 'El repositorio no contiene la carpeta release/. Ejecuta "npm run release" en local y haz git push.'], 500);
@@ -124,7 +161,6 @@ switch ($action) {
 
         $copiedCount = 0;
 
-        // Copiar archivos generados si existen en dist o public
         function recursiveCopy($src, $dst, &$count) {
             $dir = opendir($src);
             @mkdir($dst);
@@ -148,6 +184,12 @@ switch ($action) {
 
         recursiveCopy($releaseFolder, $rootTarget, $copiedCount);
 
+        // Copiar también archivos del realtime server (server/app.js y server/package.json)
+        $serverFolder = $sourceDir . '/server';
+        if (is_dir($serverFolder)) {
+            recursiveCopy($serverFolder, $rootTarget . '/server', $copiedCount);
+        }
+
         // Limpiar temporales
         function recursiveDelete($dir) {
             if (!file_exists($dir)) return;
@@ -168,5 +210,7 @@ switch ($action) {
 
     default:
         sendResponse(['success' => false, 'error' => 'Acción no válida'], 400);
+        break;
+}
         break;
 }

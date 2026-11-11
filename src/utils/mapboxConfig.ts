@@ -11,9 +11,17 @@ export interface MapboxSettings {
 
 const STORAGE_KEY = 'khalessi_mapbox_settings_v1';
 
-// Public token fallback (or Mapbox standard demo) to guarantee the map loads cleanly if user hasn't pasted their key yet
-export const FALLBACK_MAPBOX_TOKEN =
-  'pk.eyJ1Ijoia2hhbGVzc2ktZGVtbyIsImEiOiJjbTdia2ZqMHowMDFsMmxzN2RkNDRra2E1In0.kY7aLd1zZ3X_fallback';
+export function isMapboxTokenValid(token?: string | null): boolean {
+  if (!token) return false;
+  const t = token.trim();
+  return (
+    t.startsWith('pk.') &&
+    t.length > 45 &&
+    !t.includes('fallback') &&
+    !t.includes('example') &&
+    !t.includes('CAMBIAR')
+  );
+}
 
 export const DEFAULT_MAPBOX_SETTINGS: MapboxSettings = {
   enabled: true,

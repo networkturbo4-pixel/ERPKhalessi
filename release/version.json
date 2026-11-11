@@ -1,5 +1,5 @@
 {
-  "buildId": "20261111231201",
-  "builtAt": "2026-11-11T23:12:01.730Z",
-  "message": "feat(realtime): agregar microservicio Node.js para SSE y WebSockets multisucursal con guia cPanel"
+  "buildId": "20261111233844",
+  "builtAt": "2026-11-11T23:38:44.477Z",
+  "message": "fix(realtime): enrutar de forma universal cualquier ruta stream o health en cPanel"
 }

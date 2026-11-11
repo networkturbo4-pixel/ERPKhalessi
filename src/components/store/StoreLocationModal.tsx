@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Tenant } from '../../types/settings';
-import { getMapboxSettings, FALLBACK_MAPBOX_TOKEN } from '../../utils/mapboxConfig';
+import { getMapboxSettings, isMapboxTokenValid } from '../../utils/mapboxConfig';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import {
@@ -16,7 +16,10 @@ import {
   ExternalLink,
   MapPin,
   Compass,
-  AlertCircle
+  AlertCircle,
+  Plus,
+  Minus,
+  Sparkles
 } from 'lucide-react';
 
 interface StoreLocationModalProps {
@@ -59,6 +62,11 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
   const storeMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const [mapboxError, setMapboxError] = useState<string | null>(null);
+  const [mapboxConfigured, setMapboxConfigured] = useState<boolean>(() => {
+    const m = getMapboxSettings();
+    return isMapboxTokenValid(m.accessToken);
+  });
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
 
   // Sync initial tenant
   useEffect(() => {
@@ -86,6 +94,26 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
     );
   }, [tenants, searchQuery]);
 
+  // Dynamic bounding box for vector map projection
+  const mapBounds = useMemo(() => {
+    const allLngs = [customerCoords[0], ...tenants.map(t => t.operations?.longitude || -77.05432)];
+    const allLats = [customerCoords[1], ...tenants.map(t => t.operations?.latitude || -11.93605)];
+    const minLng = Math.min(...allLngs) - 0.015;
+    const maxLng = Math.max(...allLngs) + 0.015;
+    const minLat = Math.min(...allLats) - 0.012;
+    const maxLat = Math.max(...allLats) + 0.012;
+    return { minLng, maxLng, minLat, maxLat };
+  }, [tenants, customerCoords]);
+
+  const projectToPercent = (lng: number, lat: number) => {
+    const x = ((lng - mapBounds.minLng) / (mapBounds.maxLng - mapBounds.minLng)) * 100;
+    const y = ((mapBounds.maxLat - lat) / (mapBounds.maxLat - mapBounds.minLat)) * 100;
+    return {
+      x: Math.max(8, Math.min(92, x)),
+      y: Math.max(8, Math.min(92, y)),
+    };
+  };
+
   // Calculate driving distance & time (Haversine fallback + Mapbox Directions)
   const calculateRoute = async (storeLng: number, storeLat: number, userLng: number, userLat: number) => {
     // Haversine fallback approximation
@@ -104,9 +132,9 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
     const drivingMin = Math.round(drivingKm * 2.8 + 3);
 
     const mSettings = getMapboxSettings();
-    const token = mSettings.accessToken.trim() || FALLBACK_MAPBOX_TOKEN;
+    const token = mSettings.accessToken.trim();
 
-    if (token) {
+    if (isMapboxTokenValid(token)) {
       try {
         const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${storeLng},${storeLat};${userLng},${userLat}?geometries=geojson&access_token=${token}`;
         const res = await fetch(url);
@@ -155,18 +183,25 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
     }
   };
 
-  // Initialize Mapbox map
+  // Initialize Mapbox map ONLY if valid token exists
   useEffect(() => {
-    if (!isOpen || !mapContainerRef.current) return;
+    if (!isOpen) return;
 
     const mSettings = getMapboxSettings();
-    const token = mSettings.accessToken.trim() || FALLBACK_MAPBOX_TOKEN;
+    const hasValidKey = isMapboxTokenValid(mSettings.accessToken);
+    setMapboxConfigured(hasValidKey);
 
     const storeLat = activeTenant.operations?.latitude || mSettings.defaultLat;
     const storeLng = activeTenant.operations?.longitude || mSettings.defaultLng;
 
+    // If no valid token, calculate route with formula and skip Mapbox instantiation to avoid 401
+    if (!hasValidKey || !mapContainerRef.current) {
+      calculateRoute(storeLng, storeLat, customerCoords[0], customerCoords[1]);
+      return;
+    }
+
     try {
-      mapboxgl.accessToken = token;
+      mapboxgl.accessToken = mSettings.accessToken.trim();
 
       const map = new mapboxgl.Map({
         container: mapContainerRef.current,
@@ -297,15 +332,15 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
 
       mapRef.current = map;
       setMapboxError(null);
-
-      // Handle map errors gracefully
       map.on('error', e => {
         if (e.error?.message?.includes('Forbidden') || e.error?.message?.includes('Unauthorized')) {
-          setMapboxError('Clave de Mapbox en modo demostración. Configura tu token en Configuración > Conexiones.');
+          setMapboxError('Modo mapa interactivo activo.');
+          setMapboxConfigured(false);
         }
       });
     } catch {
-      setMapboxError('No se pudo inicializar Mapbox GL. Mostrando modo mapa interactivo.');
+      setMapboxError('Modo mapa interactivo activo.');
+      setMapboxConfigured(false);
     }
 
     return () => {
@@ -314,7 +349,7 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
         mapRef.current = null;
       }
     };
-  }, [isOpen, activeTenantId]);
+  }, [isOpen, activeTenantId, mapboxConfigured]);
 
   // When selected tenant changes, animate map
   useEffect(() => {
@@ -346,7 +381,7 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
   // Handle Geolocation Button ("Mi ubicación")
   const handleGetMyLocation = () => {
     if (!navigator.geolocation) {
-      alert('La geolocalización no es soportada por tu navegador.');
+      setCustomerAddress('Comas, Lima');
       return;
     }
 
@@ -377,7 +412,6 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
       },
       () => {
         setIsLocating(false);
-        // Fallback coordinates (close to Comas Belaunde)
         setCustomerAddress('Comas, Lima');
       },
       { timeout: 8000, enableHighAccuracy: true }
@@ -580,12 +614,186 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
             </div>
           </div>
 
-          {/* Right Column: Ultra-Detail Mapbox Map & Bottom Store Action Card */}
+          {/* Right Column: Ultra-Detail Mapbox Map or Interactive Vector Map */}
           <div className="flex-1 relative flex flex-col min-h-[340px] lg:min-h-[460px] bg-zinc-100 dark:bg-neutral-950 overflow-hidden">
-            {/* Map Canvas */}
-            <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
+            {/* Map Canvas / Interactive Vector Map Fallback */}
+            {mapboxConfigured ? (
+              <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
+            ) : (
+              <div className="absolute inset-0 w-full h-full bg-[#0b0f19] select-none overflow-hidden flex items-center justify-center">
+                {/* Styled Vector Grid mimicking Mapbox Dark/Streets */}
+                <svg
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="xMidYMid meet"
+                  className="w-full h-full transition-transform duration-300"
+                  style={{ transform: `scale(${zoomLevel})` }}
+                >
+                  <defs>
+                    <pattern id="street-grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                      <path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="0.3" />
+                    </pattern>
+                    <linearGradient id="routeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#f43f5e" />
+                      <stop offset="100%" stopColor="#e11d48" />
+                    </linearGradient>
+                    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                      <feGaussianBlur stdDeviation="0.8" result="blur" />
+                      <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                  </defs>
 
-            {/* Error or Demo Notification */}
+                  {/* Dark base background & grid */}
+                  <rect width="100" height="100" fill="#090d16" />
+                  <rect width="100" height="100" fill="url(#street-grid)" />
+
+                  {/* Arterial Avenues (Vector Roads of Lima Norte) */}
+                  <g stroke="rgba(255,255,255,0.12)" strokeWidth="1.2" strokeLinecap="round">
+                    <line x1="12" y1="92" x2="48" y2="8" />
+                    <line x1="88" y1="95" x2="35" y2="12" />
+                    <line x1="5" y1="45" x2="95" y2="40" />
+                    <line x1="10" y1="72" x2="92" y2="68" />
+                    <line x1="5" y1="22" x2="95" y2="28" />
+                  </g>
+                  {/* Road Labels */}
+                  <g fill="rgba(255,255,255,0.25)" fontSize="2" fontWeight="bold">
+                    <text x="50" y="43">AV. BELAUNDE</text>
+                    <text x="45" y="26">AV. TRAPICHE</text>
+                    <text x="52" y="70">AV. UNIVERSITARIA</text>
+                    <text x="22" y="78" transform="rotate(-65 22 78)">AV. TÚPAC AMARU</text>
+                  </g>
+
+                  {/* Dynamic Driving Route Line between customer and active store */}
+                  {(() => {
+                    const u = projectToPercent(customerCoords[0], customerCoords[1]);
+                    const s = projectToPercent(
+                      activeTenant.operations?.longitude || -77.05432,
+                      activeTenant.operations?.latitude || -11.93605
+                    );
+                    const midX = (u.x + s.x) / 2 + 2;
+                    const midY = (u.y + s.y) / 2 - 3;
+                    const pathD = `M ${u.x} ${u.y} Q ${midX} ${midY} ${s.x} ${s.y}`;
+                    return (
+                      <g filter="url(#glow)">
+                        <path
+                          d={pathD}
+                          fill="none"
+                          stroke="#ffffff"
+                          strokeWidth="2.2"
+                          strokeOpacity="0.25"
+                          strokeLinecap="round"
+                        />
+                        <path
+                          d={pathD}
+                          fill="none"
+                          stroke="url(#routeGrad)"
+                          strokeWidth="1.4"
+                          strokeDasharray="2, 1"
+                          strokeLinecap="round"
+                          className="animate-pulse"
+                        />
+                      </g>
+                    );
+                  })()}
+
+                  {/* Customer Marker (Tu ubicación) */}
+                  {(() => {
+                    const u = projectToPercent(customerCoords[0], customerCoords[1]);
+                    return (
+                      <g className="cursor-pointer">
+                        <circle cx={u.x} cy={u.y} r="3.5" fill="rgba(239, 68, 68, 0.25)" className="animate-ping" />
+                        <circle cx={u.x} cy={u.y} r="2" fill="#ef4444" stroke="#ffffff" strokeWidth="0.5" />
+                        <text x={u.x} y={u.y + 4.2} fill="#ffffff" fontSize="2.2" fontWeight="bold" textAnchor="middle">
+                          📍 Tu ubicación
+                        </text>
+                      </g>
+                    );
+                  })()}
+
+                  {/* Store Markers (Clickable pins) */}
+                  {tenants.map(t => {
+                    const isSelected = t.id === selectedTenantId;
+                    const pos = projectToPercent(
+                      t.operations?.longitude || -77.05432,
+                      t.operations?.latitude || -11.93605
+                    );
+                    const shortName = t.name.replace('Khalessi Pizza - ', '');
+                    return (
+                      <g
+                        key={t.id}
+                        className="cursor-pointer transition-transform hover:scale-110"
+                        onClick={() => setSelectedTenantId(t.id)}
+                      >
+                        {isSelected && (
+                          <circle cx={pos.x} cy={pos.y} r="4.5" fill="rgba(225, 29, 72, 0.3)" className="animate-pulse" />
+                        )}
+                        <circle
+                          cx={pos.x}
+                          cy={pos.y}
+                          r={isSelected ? 3 : 2.4}
+                          fill={isSelected ? '#e11d48' : '#334155'}
+                          stroke="#ffffff"
+                          strokeWidth="0.7"
+                        />
+                        {/* Pizza label */}
+                        <rect
+                          x={pos.x - (shortName.length * 0.85)}
+                          y={pos.y - 6.5}
+                          width={shortName.length * 1.7}
+                          height="3.2"
+                          rx="1.6"
+                          fill={isSelected ? '#e11d48' : '#1e293b'}
+                          stroke="#ffffff"
+                          strokeWidth="0.4"
+                        />
+                        <text
+                          x={pos.x}
+                          y={pos.y - 4.3}
+                          fill="#ffffff"
+                          fontSize="1.8"
+                          fontWeight="900"
+                          textAnchor="middle"
+                        >
+                          🍕 {shortName}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+
+                {/* Map Controls */}
+                <div className="absolute top-4 right-4 z-10 flex flex-col gap-1.5 bg-neutral-900/90 p-1 rounded-xl border border-neutral-700/80 shadow-xl backdrop-blur-md">
+                  <button
+                    type="button"
+                    aria-label="Acercar mapa"
+                    onClick={() => setZoomLevel(z => Math.min(1.6, z + 0.2))}
+                    className="p-1.5 rounded-lg text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Alejar mapa"
+                    onClick={() => setZoomLevel(z => Math.max(0.8, z - 0.2))}
+                    className="p-1.5 rounded-lg text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors"
+                  >
+                    <Minus className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Restablecer vista"
+                    onClick={() => setZoomLevel(1)}
+                    className="p-1.5 rounded-lg text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors"
+                  >
+                    <Compass className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Error or Notice Notification */}
             {mapboxError && (
               <div className="absolute top-3 left-3 right-16 z-10 p-2.5 rounded-xl bg-amber-500/90 text-white text-xs font-semibold shadow-lg backdrop-blur-sm flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />

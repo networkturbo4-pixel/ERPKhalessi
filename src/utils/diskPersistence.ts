@@ -50,6 +50,7 @@ let onServerAuthenticated: (() => void) | null = null;
 
 /** Se llama tras un inicio de sesión correcto para habilitar la escritura en el servidor. */
 export async function authenticateServer(pin: string): Promise<boolean> {
+  if (!pin || pin.length < 4) return false;
   try {
     const res = await fetch('/api/auth.php', {
       method: 'POST',
@@ -65,8 +66,11 @@ export async function authenticateServer(pin: string): Promise<boolean> {
       onServerAuthenticated?.();
       return true;
     }
+    if (!res.ok) {
+      return false;
+    }
     const body = await res.json();
-    if (!res.ok || !body.success || !body.token) return false;
+    if (!body.success || !body.token) return false;
     localStorage.setItem(TOKEN_KEY, JSON.stringify({ token: body.token, expires: body.expires }));
     onServerAuthenticated?.();
     return true;
@@ -169,7 +173,28 @@ export async function initDiskPersistence(): Promise<void> {
       .then(async () => {
         try {
           if (!getServerToken() && originalGetItem('khalessi_erp_auth_v1') === 'authenticated') {
-            await authenticateServer('230825');
+            let activePin = '';
+            try {
+              const uRaw = originalGetItem('khalessi_erp_current_user_v1');
+              if (uRaw) {
+                const u = JSON.parse(uRaw);
+                if (u?.pin) activePin = String(u.pin);
+              }
+              if (!activePin) {
+                const sRaw = originalGetItem('khalessi_settings_v1');
+                if (sRaw) {
+                  const s = JSON.parse(sRaw);
+                  const a = s?.users?.find(
+                    (u: any) =>
+                      (u?.roleId === 'role-admin' || u?.roleName?.toLowerCase()?.includes('admin')) && u?.pin
+                  );
+                  if (a?.pin) activePin = String(a.pin);
+                }
+              }
+            } catch {}
+            if (activePin) {
+              await authenticateServer(activePin);
+            }
           }
           if (op.action === 'set') {
             const payloadBody = JSON.stringify({ data: op.value });
