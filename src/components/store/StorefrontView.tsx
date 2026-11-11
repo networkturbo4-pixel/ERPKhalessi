@@ -28,6 +28,8 @@ import {
   StorePromoStripWidget,
 } from './StorefrontWidgets';
 import { StoreProductDetailPage } from './StoreProductDetailPage';
+import { StoreCheckoutPage } from './StoreCheckoutPage';
+import { StoreLocationModal } from './StoreLocationModal';
 import { StoreCustomerProfileDrawer } from './StoreCustomerProfileDrawer';
 import { StoreCustomerOrdersDrawer } from './StoreCustomerOrdersDrawer';
 import { StoreSearchDrawer } from './StoreSearchDrawer';
@@ -511,6 +513,8 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [isCheckoutPageOpen, setIsCheckoutPageOpen] = useState(false);
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isOrdersOpen, setIsOrdersOpen] = useState(false);
   const [focusedOrderId, setFocusedOrderId] = useState<string | null>(null);
@@ -1063,7 +1067,28 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     '';
 
   const storeSurfaceContent =
-    activeSlugProduct && !isBuilderOpen ? (
+    isCheckoutPageOpen && !isBuilderOpen ? (
+      <StoreCheckoutPage
+        onBackToStore={() => setIsCheckoutPageOpen(false)}
+        cartItems={cartItems}
+        cartSubtotal={cartSubtotal}
+        clearCart={clearCart}
+        activeTenant={activeTenant}
+        tenants={tenants}
+        deliveryType={deliveryType}
+        deliveryAddress={deliveryAddress}
+        resolvedDeliveryFee={resolvedDeliveryFee}
+        onOpenLocationModal={() => setIsLocationModalOpen(true)}
+        onOrderConfirmed={orderData => {
+          setIsCheckoutPageOpen(false);
+          setOrderConfirmed(orderData);
+        }}
+        onOpenCulqiSandbox={() => setIsCulqiSandboxOpen(true)}
+        customization={customization}
+        companyInfo={companyInfo}
+        isLightTheme={isLightTheme}
+      />
+    ) : activeSlugProduct && !isBuilderOpen ? (
       <StoreProductDetailPage
         product={activeSlugProduct}
         isLightTheme={isLightTheme}
@@ -1152,7 +1177,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
               {/* Spacious Interactive Location & ETA Pill (never wraps ETA onto 2 lines) */}
               <button
                 type="button"
-                onClick={() => setIsBranchSheetOpen(true)}
+                onClick={() => setIsLocationModalOpen(true)}
                 style={{ touchAction: 'manipulation' }}
                 className={`min-h-[44px] flex-1 sm:flex-initial min-w-0 sm:max-w-[270px] lg:max-w-[290px] xl:max-w-[340px] flex flex-col justify-center text-left px-3 py-1 rounded-2xl border transition-colors ${
                   isLightTheme
@@ -1661,277 +1686,29 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
       )}
 
       {/* =====================================================================
-          1. BOTTOM-SHEET DIALOG: SUCURSAL, TIPO DE PEDIDO Y GEOLOCALIZACIÓN
+          1. MAPBOX GL TIENDAS & COBERTURA ULTRA DETALLE MODAL
           ===================================================================== */}
-      <dialog
-        ref={branchDialogRef}
-        aria-labelledby={branchTitleId}
-        onClose={e => {
-          e.currentTarget.returnValue = '';
-          setIsBranchSheetOpen(false);
+      <StoreLocationModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        tenants={tenants}
+        activeTenantId={activeTenant.id}
+        onSelectTenant={(tenantId, selectedDeliveryType, address) => {
+          if (tenantId !== activeTenant.id) {
+            switchTenant(tenantId);
+          }
+          setDeliveryType(selectedDeliveryType);
+          if (address) setDeliveryAddress(address);
+          dispatchToast(
+            'Sede y Cobertura Actualizadas',
+            `Sede activa: ${tenants.find(t => t.id === tenantId)?.name.replace('Khalessi Pizza - ', '') || 'Actualizada'} (${selectedDeliveryType === 'delivery' ? 'Envío a Domicilio' : 'Retiro en Tienda'})`,
+            'success'
+          );
         }}
-        onClick={e => {
-          if (e.target === e.currentTarget) e.currentTarget.close('backdrop');
-        }}
-        className="store-bottom-sheet backdrop:bg-black/60 backdrop:backdrop-blur-xs bg-transparent p-0 w-full max-w-xl"
-      >
-        {isBranchSheetOpen && (
-          <div
-            className={`rounded-t-3xl sm:rounded-3xl border shadow-2xl overflow-hidden flex flex-col max-h-[88vh] transition-colors ${
-              isLightTheme
-                ? 'bg-zinc-50 border-zinc-200 text-zinc-900'
-                : 'bg-neutral-900 border-neutral-800 text-neutral-100'
-            }`}
-          >
-            {/* App Drag Pill Handle */}
-            <div className="pt-3 pb-1 flex justify-center">
-              <div
-                className={`w-11 h-1.5 rounded-full ${
-                  isLightTheme ? 'bg-zinc-300' : 'bg-neutral-700'
-                }`}
-              />
-            </div>
-
-            <div
-              className={`px-5 py-3 border-b flex items-center justify-between ${
-                isLightTheme ? 'bg-white border-zinc-200' : 'bg-neutral-900 border-neutral-800'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Store className="w-5 h-5" style={{ color: accentColor }} />
-                <h3
-                  id={branchTitleId}
-                  className={`font-black text-base ${isLightTheme ? 'text-zinc-900' : 'text-white'}`}
-                >
-                  Sucursal y Tipo de Pedido
-                </h3>
-              </div>
-              <button
-                type="button"
-                aria-label="Cerrar selector de sucursal"
-                onClick={() => setIsBranchSheetOpen(false)}
-                className={`p-2 rounded-full transition-colors ${
-                  isLightTheme
-                    ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600'
-                    : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300'
-                }`}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-5 space-y-5 overflow-y-auto custom-scrollbar">
-              {/* Order Mode Selector */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setDeliveryType('delivery')}
-                  data-auto-contrast={
-                    deliveryType === 'delivery' && autoButtonContrast ? 'true' : 'false'
-                  }
-                  className={`p-3.5 rounded-2xl border-2 text-xs sm:text-sm font-black flex items-center justify-center gap-2 active:scale-[0.98] transition-all whitespace-nowrap shrink-0 ${
-                    deliveryType === 'delivery'
-                      ? 'store-btn-solid border-transparent shadow-sm'
-                      : isLightTheme
-                      ? 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300'
-                      : 'border-neutral-800 bg-neutral-950 text-neutral-300 hover:border-neutral-700'
-                  }`}
-                >
-                  <Bike className="w-4 h-4" />
-                  <span>Delivery a Domicilio</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setDeliveryType('pickup')}
-                  data-auto-contrast={
-                    deliveryType === 'pickup' && autoButtonContrast ? 'true' : 'false'
-                  }
-                  className={`p-3.5 rounded-2xl border-2 text-xs sm:text-sm font-black flex items-center justify-center gap-2 active:scale-[0.98] transition-all whitespace-nowrap shrink-0 ${
-                    deliveryType === 'pickup'
-                      ? 'store-btn-solid border-transparent shadow-sm'
-                      : isLightTheme
-                      ? 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300'
-                      : 'border-neutral-800 bg-neutral-950 text-neutral-300 hover:border-neutral-700'
-                  }`}
-                >
-                  <PackageCheck className="w-4 h-4" />
-                  <span>Para Llevar / Recojo</span>
-                </button>
-              </div>
-
-              {/* Real-Time Geolocation Box */}
-              <div
-                className={`p-4 rounded-3xl border space-y-3 shadow-xs ${
-                  isLightTheme
-                    ? 'bg-white border-zinc-200/90 text-zinc-900'
-                    : 'bg-neutral-950 border-neutral-800 text-white'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <span
-                      className={`block text-xs font-black ${
-                        isLightTheme ? 'text-zinc-900' : 'text-white'
-                      }`}
-                    >
-                      Ubicación en Tiempo Real
-                    </span>
-                    <span
-                      className={`block text-[11px] ${
-                        isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
-                      }`}
-                    >
-                      Detecta tu dirección y selecciona automáticamente el local más cercano.
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => requestRealtimeLocation(true)}
-                    disabled={isLocating}
-                    data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                    className="store-btn-solid px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 active:scale-95 transition-transform whitespace-nowrap shrink-0 shadow-xs"
-                  >
-                    <LocateFixed className={`w-3.5 h-3.5 ${isLocating ? 'animate-spin' : ''}`} />
-                    <span>{isLocating ? 'Detectando...' : 'Usar mi GPS'}</span>
-                  </button>
-                </div>
-
-                {deliveryType === 'delivery' && (
-                  <div>
-                    <label
-                      htmlFor="sheet-delivery-addr"
-                      className={`block text-[11px] font-bold uppercase mb-1 ${
-                        isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
-                      }`}
-                    >
-                      Dirección de Entrega
-                    </label>
-                    <input
-                      id="sheet-delivery-addr"
-                      type="text"
-                      value={deliveryAddress}
-                      onChange={e => setDeliveryAddress(e.target.value)}
-                      placeholder="Ej: Av. Primavera 1024, Dpto 302, Surco"
-                      className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm focus:outline-none focus:border-amber-500 ${
-                        isLightTheme
-                          ? 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'
-                          : 'bg-neutral-900 border-neutral-800 text-white placeholder-neutral-500'
-                      }`}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Multisucursal List Sorted by Real-Time Proximity */}
-              <div className="space-y-2.5">
-                <span
-                  className={`block text-[11px] font-black uppercase tracking-wider ${
-                    isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
-                  }`}
-                >
-                  Elige tu Sucursal ({tenants.length} locales registrados)
-                </span>
-
-                <div className="space-y-2">
-                  {branchesWithDistance.map(({ tenant, distanceKm }) => {
-                    const isSelected = tenant.id === activeTenant.id;
-                    const isNearest = nearestBranchId === tenant.id;
-                    const isClosed = tenant.status === 'closed';
-
-                    return (
-                      <button
-                        key={tenant.id}
-                        type="button"
-                        disabled={isClosed}
-                        onClick={() => {
-                          switchTenant(tenant.id);
-                        }}
-                        style={isSelected ? { borderColor: buttonColor } : undefined}
-                        className={`w-full p-3.5 rounded-3xl border-2 text-left transition-all flex items-start justify-between gap-3 shadow-xs ${
-                          isSelected
-                            ? isLightTheme
-                              ? 'bg-amber-500/10 text-zinc-950'
-                              : 'bg-neutral-800/90 text-white'
-                            : isLightTheme
-                            ? 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300'
-                            : 'border-neutral-800 bg-neutral-950 text-neutral-300 hover:border-neutral-700'
-                        } ${isClosed ? 'opacity-45 cursor-not-allowed' : ''}`}
-                      >
-                        <div className="space-y-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span
-                              className={`text-xs sm:text-sm font-black ${
-                                isLightTheme ? 'text-zinc-900' : 'text-white'
-                              }`}
-                            >
-                              {tenant.name}
-                            </span>
-                            {isNearest && (
-                              <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-neutral-950 text-[10px] font-black uppercase">
-                                Más cercana
-                              </span>
-                            )}
-                          </div>
-                          <p
-                            className={`text-xs truncate ${
-                              isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
-                            }`}
-                          >
-                            {tenant.operations?.address || 'Lima, Perú'}
-                          </p>
-                          <p
-                            className={`text-[11px] ${
-                              isLightTheme ? 'text-zinc-400' : 'text-neutral-500'
-                            }`}
-                          >
-                            Horario: {tenant.operations?.schedule || '12:00 PM – 11:30 PM'}
-                          </p>
-                        </div>
-
-                        <div className="text-right shrink-0 space-y-1">
-                          {distanceKm !== null && (
-                            <span className="block text-xs font-black text-emerald-500">
-                              {distanceKm.toFixed(1)} km
-                            </span>
-                          )}
-                          <span
-                            className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              isClosed
-                                ? isLightTheme
-                                  ? 'bg-zinc-200 text-zinc-600'
-                                  : 'bg-zinc-800 text-zinc-400'
-                                : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                            }`}
-                          >
-                            {isClosed ? 'Cerrado' : 'Abierto'}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            <div
-              className={`p-4 border-t safe-bottom-bar flex justify-end gap-2.5 ${
-                isLightTheme ? 'bg-white border-zinc-200' : 'bg-neutral-950 border-neutral-800'
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => setIsBranchSheetOpen(false)}
-                data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                className="store-btn-solid w-full py-3.5 px-5 rounded-2xl text-sm font-black shadow-md active:scale-[0.98] transition-transform whitespace-nowrap shrink-0"
-              >
-                Confirmar {deliveryType === 'delivery' ? 'Delivery' : 'Para Llevar'} en{' '}
-                {activeTenant.name.replace('Khalessi Pizza - ', '')}
-              </button>
-            </div>
-          </div>
-        )}
-      </dialog>
+        currentDeliveryType={deliveryType}
+        accentColor={accentColor}
+        isLightTheme={isLightTheme}
+      />
 
       {/* =====================================================================
           2. RESPONSIVE CART DRAWER (Off-Canvas on PC, Bottom-Sheet on Mobile)
@@ -2005,51 +1782,32 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
               </button>
             </div>
 
-            {/* Delivery / Retiro switcher lives here (cart) — keeps the header clean */}
+            {/* Clean delivery/pickup summary banner (eliminates clutter from cart) */}
             <div
-              role="group"
-              aria-label="Modalidad de entrega"
-              className={`px-4 sm:px-5 py-3 border-b shrink-0 ${
-                isLightTheme ? 'bg-white border-zinc-200' : 'bg-neutral-900 border-neutral-800'
+              className={`px-4 sm:px-5 py-2.5 border-b shrink-0 flex items-center justify-between text-xs ${
+                isLightTheme ? 'bg-zinc-50 border-zinc-200 text-zinc-700' : 'bg-neutral-950/60 border-neutral-800 text-neutral-300'
               }`}
             >
-              <div
-                className={`p-1 rounded-2xl border grid grid-cols-2 gap-1 ${
-                  isLightTheme ? 'bg-zinc-100 border-zinc-200' : 'bg-neutral-950 border-neutral-800'
-                }`}
-              >
-                {(
-                  [
-                    { id: 'delivery', label: 'Delivery', sub: '25-35 min', Icon: Bike },
-                    { id: 'pickup', label: 'Retiro en tienda', sub: '15-20 min', Icon: Store },
-                  ] as const
-                ).map(opt => {
-                  const selected = deliveryType === opt.id;
-                  return (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      aria-pressed={selected}
-                      onClick={() => setDeliveryType(opt.id)}
-                      data-auto-contrast={selected && autoButtonContrast ? 'true' : 'false'}
-                      style={{ touchAction: 'manipulation' }}
-                      className={`min-h-[48px] px-3 py-1.5 rounded-xl flex items-center justify-center gap-2 text-left transition-all whitespace-nowrap ${
-                        selected
-                          ? 'store-btn-solid shadow-sm'
-                          : isLightTheme
-                          ? 'text-zinc-600 hover:bg-white'
-                          : 'text-neutral-400 hover:bg-neutral-900'
-                      }`}
-                    >
-                      <opt.Icon aria-hidden="true" className="w-4 h-4 shrink-0" />
-                      <span className="flex flex-col leading-tight">
-                        <span className="text-xs font-black">{opt.label}</span>
-                        <span className="text-[10px] font-semibold opacity-80">{opt.sub}</span>
-                      </span>
-                    </button>
-                  );
-                })}
+              <div className="flex items-center gap-2 truncate">
+                {deliveryType === 'delivery' ? (
+                  <Bike className="w-4 h-4 text-rose-500 shrink-0" />
+                ) : (
+                  <Store className="w-4 h-4 text-rose-500 shrink-0" />
+                )}
+                <span className="truncate font-semibold">
+                  {deliveryType === 'delivery' ? 'Envío a domicilio' : 'Retiro en local'} · <strong className="font-bold">{activeTenant.name.replace('Khalessi Pizza - ', '')}</strong>
+                </span>
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCartOpen(false);
+                  setIsLocationModalOpen(true);
+                }}
+                className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline shrink-0 whitespace-nowrap ml-2"
+              >
+                Cambiar
+              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3 custom-scrollbar">
@@ -2465,7 +2223,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                       type="button"
                       onClick={() => {
                         setIsCartOpen(false);
-                        setIsBranchSheetOpen(true);
+                        setIsLocationModalOpen(true);
                       }}
                       className="underline font-black text-amber-600 dark:text-amber-300 whitespace-nowrap shrink-0"
                     >
@@ -2521,12 +2279,13 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                   type="button"
                   onClick={() => {
                     setIsCartOpen(false);
-                    setIsCheckoutModalOpen(true);
+                    setIsCheckoutPageOpen(true);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
                   className="store-btn-solid w-full whitespace-nowrap shrink-0 py-3.5 px-5 rounded-2xl font-black text-sm sm:text-base shadow-md active:scale-[0.98] transition-transform flex items-center justify-between"
                 >
-                  <span>Ir a Finalizar Pedido</span>
+                  <span>Continuar al Checkout</span>
                   <span className="inline-flex items-center gap-1.5">
                     <span>S/ {resolvedPayableTotal.toFixed(2)}</span>
                     <ArrowRight className="w-4 h-4" />
