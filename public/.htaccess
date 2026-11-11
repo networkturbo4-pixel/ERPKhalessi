@@ -11,6 +11,9 @@
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
+  # Soporte para endpoint SSE stream de persistencia en cPanel
+  RewriteRule ^api/storage/stream$ api/storage/stream.php [L]
+
   # Redirigir todas las demás rutas a index.html (SPA Fallback)
   RewriteRule ^ index.html [L]
 </IfModule>

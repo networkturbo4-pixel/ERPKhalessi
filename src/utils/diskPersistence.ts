@@ -235,6 +235,15 @@ export async function initDiskPersistence(): Promise<void> {
       const es = new EventSource(`/api/storage/stream?clientId=${encodeURIComponent(CLIENT_ID)}`);
       eventSource = es;
 
+      es.onerror = () => {
+        // En cPanel/Apache estándar donde no hay daemon Node.js para SSE (/api/storage/stream),
+        // cerrar limpiamente el socket para evitar que el navegador reintente en bucle con error 404
+        if (es.readyState === EventSource.CLOSED || !hasOpenedOnce) {
+          es.close();
+          eventSource = null;
+        }
+      };
+
       es.onopen = () => {
         if (hasOpenedOnce) {
           // Catch up any missed updates after brief mobile sleep or Wi-Fi handoff
