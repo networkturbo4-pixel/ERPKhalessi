@@ -1,5 +1,5 @@
 {
-  "buildId": "20261112000501",
-  "builtAt": "2026-11-12T00:05:01.416Z",
-  "message": "perf(storage): sanitizar base64 en pedidos y regenerar release con deploy_cpanel.zip"
+  "buildId": "20261112002229",
+  "builtAt": "2026-11-12T00:22:29.244Z",
+  "message": "fix(sync): habilitar sincronizacion de pedidos en backend MySQL y SSE Node.js"
 }

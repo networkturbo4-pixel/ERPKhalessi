@@ -241,4 +241,22 @@ export default defineConfig({
       ignored: ['**/data/**', '**/data/storage/**', '**/*.json'],
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/mapbox-gl')) {
+            return 'vendor-mapbox';
+          }
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+            return 'vendor-react';
+          }
+          if (id.includes('node_modules/lucide-react')) {
+            return 'vendor-icons';
+          }
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1200,
+  },
 })

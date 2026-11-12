@@ -4,13 +4,15 @@ import './index.css'
 import App from './App.tsx'
 import { initDiskPersistence } from './utils/diskPersistence'
 
-async function bootstrap() {
-  await initDiskPersistence()
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
-  )
-}
+// Renderizado inmediato de React: no bloqueamos el primer render esperando red
+const rootEl = document.getElementById('root')!
+const root = createRoot(rootEl)
 
-bootstrap()
+root.render(
+  <StrictMode>
+    <App />
+  </StrictMode>
+)
+
+// Inicializar la sincronización de disco y tiempo real en segundo plano
+void initDiskPersistence()
