@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { RBACProvider } from './context/RBACContext';
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import { HRProvider } from './context/HRContext';
@@ -6,10 +6,12 @@ import { OrderCatalogProvider } from './context/OrderCatalogContext';
 import { StoreBuilderProvider } from './context/StoreBuilderContext';
 import { StoreCustomerProvider } from './context/StoreCustomerContext';
 import { BenefitsProvider } from './context/BenefitsContext';
-import { MainLayout } from './components/MainLayout';
-import { LoginScreen } from './components/auth/LoginScreen';
+const MainLayout = lazy(() => import('./components/MainLayout').then(m => ({ default: m.MainLayout })));
+const LoginScreen = lazy(() => import('./components/auth/LoginScreen').then(m => ({ default: m.LoginScreen })));
 import { StorefrontView } from './components/store/StorefrontView';
-import { KioskSelfServiceView } from './components/kiosk/KioskSelfServiceView';
+const KioskSelfServiceView = lazy(() =>
+  import('./components/kiosk/KioskSelfServiceView').then(m => ({ default: m.KioskSelfServiceView }))
+);
 
 interface AppGateProps {
   onNavigateToStore: () => void;
@@ -69,6 +71,7 @@ export function App() {
             <StoreCustomerProvider>
               <BenefitsProvider>
                 <StoreBuilderProvider>
+                  <Suspense fallback={<div className="min-h-screen bg-neutral-950" />}>
                   {isKioskRoute ? (
                     <KioskSelfServiceView
                       embeddedInAdmin={false}
@@ -82,6 +85,7 @@ export function App() {
                   ) : (
                     <StorefrontView onNavigateToAdmin={() => navigate('/admin')} />
                   )}
+                  </Suspense>
                 </StoreBuilderProvider>
               </BenefitsProvider>
             </StoreCustomerProvider>

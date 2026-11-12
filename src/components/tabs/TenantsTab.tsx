@@ -88,6 +88,7 @@ export const TenantsTab: React.FC = () => {
     yapeNumber: '',
     activeOvens: '1 Horno de Piedra Activo',
     salesTodaySoles: 3450,
+    imageUrl: '',
   });
 
   useEffect(() => {
@@ -132,6 +133,7 @@ export const TenantsTab: React.FC = () => {
       yapeNumber: '988 777 666',
       activeOvens: '1 Horno Napolitano Activo',
       salesTodaySoles: 0,
+      imageUrl: '',
     });
     setIsModalOpen(true);
   };
@@ -160,6 +162,7 @@ export const TenantsTab: React.FC = () => {
       yapeNumber: t.operations?.yapeNumber || '',
       activeOvens: t.operations?.activeOvens || '1 Horno Activo',
       salesTodaySoles: t.operations?.salesTodaySoles ?? 0,
+      imageUrl: t.operations?.imageUrl || '',
     });
     setIsModalOpen(true);
   };
@@ -207,6 +210,7 @@ export const TenantsTab: React.FC = () => {
       stockAlertsCount: baseOps?.stockAlertsCount ?? 0,
       stockAlertSummary: baseOps?.stockAlertSummary || 'Cámara de frío y harinas operativas al 100%',
       yapeNumber: form.yapeNumber.trim() || '987 654 321',
+      imageUrl: form.imageUrl?.trim() || undefined,
       liveOrders: baseOps?.liveOrders
         ? baseOps.liveOrders.map(ord => ({ ...ord, branchName: branchShort }))
         : [
@@ -353,10 +357,21 @@ export const TenantsTab: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="text-base font-bold text-zinc-950 dark:text-white leading-snug">
-                      {t.name}
-                    </h3>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <div className="w-10 h-10 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
+                        {t.operations?.imageUrl ? (
+                          <img src={t.operations.imageUrl} alt={t.name} className="w-full h-full object-cover" />
+                        ) : customization?.favicon ? (
+                          <img src={customization.favicon} alt="Favicon" className="w-full h-full object-cover p-1" />
+                        ) : (
+                          <Store className="w-5 h-5 text-zinc-400" />
+                        )}
+                      </div>
+                      <h3 className="text-base font-bold text-zinc-950 dark:text-white leading-snug truncate">
+                        {t.name}
+                      </h3>
+                    </div>
                     <span
                       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border shrink-0 ${statusMeta.badge}`}
                     >
@@ -754,6 +769,62 @@ export const TenantsTab: React.FC = () => {
                       placeholder="F004 / B004"
                       className="w-full px-3 py-2 text-xs rounded-lg saas-input font-mono"
                     />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase mb-1">
+                      Foto / Logo de la Sucursal (URL o Imagen)
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0">
+                        {form.imageUrl ? (
+                          <img src={form.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                        ) : customization?.favicon ? (
+                          <img src={customization.favicon} alt="Favicon" className="w-full h-full object-cover p-1" />
+                        ) : (
+                          <Store className="w-6 h-6 text-zinc-400" />
+                        )}
+                      </div>
+                      <div className="flex-1 space-y-1.5">
+                        <input
+                          type="text"
+                          value={form.imageUrl || ''}
+                          onChange={e => setForm({ ...form, imageUrl: e.target.value })}
+                          placeholder="https://... o pega URL de imagen de fachada/local"
+                          className="w-full px-3 py-2 text-xs rounded-lg saas-input font-mono"
+                        />
+                        <div className="flex items-center gap-2">
+                          <label className="cursor-pointer inline-flex items-center gap-1.5 text-[11px] font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400">
+                            <span>Subir archivo de imagen</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={e => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const reader = new FileReader();
+                                reader.onload = ev => {
+                                  if (ev.target?.result) {
+                                    setForm(prev => ({ ...prev, imageUrl: String(ev.target?.result) }));
+                                  }
+                                };
+                                reader.readAsDataURL(file);
+                              }}
+                            />
+                          </label>
+                          {form.imageUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setForm(prev => ({ ...prev, imageUrl: '' }))}
+                              className="text-[11px] text-zinc-400 hover:text-rose-500"
+                            >
+                              Limpiar (usar favicon)
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="sm:col-span-2">

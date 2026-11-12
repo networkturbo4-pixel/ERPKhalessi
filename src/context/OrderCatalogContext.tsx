@@ -1022,6 +1022,12 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
       halfAndHalf: item.halfAndHalf
         ? {
             ...item.halfAndHalf,
+            firstHalfImage:
+              item.halfAndHalf.firstHalfImage &&
+              item.halfAndHalf.firstHalfImage.startsWith('data:') &&
+              item.halfAndHalf.firstHalfImage.length > 300
+                ? ''
+                : item.halfAndHalf.firstHalfImage,
             secondHalfImage:
               item.halfAndHalf.secondHalfImage &&
               item.halfAndHalf.secondHalfImage.startsWith('data:') &&

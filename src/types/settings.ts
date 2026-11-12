@@ -245,6 +245,7 @@ export interface BranchOperationalProfile {
   stockAlertsCount: number;
   stockAlertSummary: string;
   yapeNumber: string;
+  imageUrl?: string;
   liveOrders: BranchLiveOrder[];
 }
 

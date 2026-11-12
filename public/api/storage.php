@@ -36,9 +36,10 @@ function valueFor(string $k, string $v, bool $isAuth): string {
  * existentes desde las tablas relacionales `orders` + `order_items` para no perder ningún pedido previo.
  */
 function ensureOrdersHydrated(PDO $pdo): ?string {
-    $existing = kvGet($pdo, 'kh_orders_list');
-    if ($existing !== null) {
-        return $existing;
+    $st = $pdo->prepare("SELECT 1 FROM kv_storage WHERE k = 'kh_orders_list'");
+    $st->execute();
+    if ($st->fetchColumn() !== false) {
+        return '__exists__';
     }
 
     try {
@@ -180,15 +181,26 @@ if ($method === 'GET') {
     ensureOrdersHydrated($pdo);
 
     if ($key === null) {
-        $out = [];
+        $readable = [];
         foreach (KH_SYNC_KEYS as $k) {
-            if (!readableFor($k, $admin !== null)) continue;
-            $v = kvGet($pdo, $k);
-            if ($v !== null) $out[$k] = valueFor($k, $v, $admin !== null);
+            if (readableFor($k, $admin !== null)) $readable[] = $k;
+        }
+
+        // Huella barata (solo metadatos): el latido de 4s no lee ni transmite MB de datos si nada cambió
+        $hash = kvFingerprint($pdo, $readable, $admin !== null);
+        header('X-Content-Hash: ' . $hash);
+        if (isset($_GET['h']) && hash_equals($hash, (string)$_GET['h'])) {
+            echo json_encode(['unchanged' => true]);
+            exit();
+        }
+
+        $out = [];
+        foreach ($readable as $k) {
+            $v = kvGetClean($pdo, $k);
+            if ($v === null) continue;
+            $out[$k] = valueFor($k, $v, $admin !== null);
         }
         $body = json_encode($out === [] ? new stdClass() : $out, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $hash = md5(($admin ? 'a' : 'p') . $body);
-        header('X-Content-Hash: ' . $hash);
         if (isset($_GET['h']) && hash_equals($hash, (string)$_GET['h'])) {
             echo json_encode(['unchanged' => true]);
             exit();
@@ -200,7 +212,7 @@ if ($method === 'GET') {
     if (!validKey($key) || !readableFor($key, $admin !== null)) {
         sendResponse(['error' => 'Not found'], 404);
     }
-    $v = kvGet($pdo, $key);
+    $v = kvGetClean($pdo, $key);
     if ($v === null) sendResponse(['error' => 'Not found'], 404);
     sendResponse(['data' => valueFor($key, $v, $admin !== null)]);
 }
@@ -243,6 +255,7 @@ if ($method === 'POST' || $method === 'DELETE') {
     // Fusión inteligente por ID y marca de tiempo (`updatedAt`) para `kh_orders_list`
     if ($key === 'kh_orders_list') {
         $existingRaw = ensureOrdersHydrated($pdo);
+        if ($existingRaw === '__exists__') $existingRaw = kvGet($pdo, 'kh_orders_list');
         $existing = $existingRaw ? json_decode($existingRaw, true) : [];
         if (!is_array($existing)) $existing = [];
 
@@ -297,7 +310,7 @@ if ($method === 'POST' || $method === 'DELETE') {
             if (count($mergedOrders) > 300) {
                 $mergedOrders = array_slice($mergedOrders, 0, 300);
             }
-            $data = json_encode($mergedOrders, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $data = json_encode(stripHeavyDataUris($mergedOrders), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         }
     }
 
@@ -328,6 +341,7 @@ if ($method === 'POST' || $method === 'DELETE') {
         }
     }
 
+    $data = ($key === 'kh_orders_list') ? sanitizeOrdersJson($data) : externalizeJson($data);
     kvSet($pdo, $key, $data);
 
     broadcastRealtimeEvent($key, $key === 'kh_orders_list' ? 'new_order' : 'generic');

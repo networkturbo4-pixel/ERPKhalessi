@@ -1,5 +1,5 @@
 {
-  "buildId": "20261112023148",
-  "builtAt": "2026-11-12T02:31:48.713Z",
-  "message": "fix(system-update): corregir sintaxis PHP en public/api/system-update.php"
+  "buildId": "20261112034901",
+  "builtAt": "2026-11-12T03:49:01.469Z",
+  "message": "fix(db-config): configurar credenciales cPanel directas en config.php"
 }

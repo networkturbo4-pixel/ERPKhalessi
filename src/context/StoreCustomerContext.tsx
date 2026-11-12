@@ -60,6 +60,19 @@ function loadGuestOrderIds(): string[] {
   }
 }
 
+const OWN_ORDERS_SNAPSHOT_KEY = 'kh_store_device_orders_v1';
+
+function loadOwnSnapshots(): Order[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(OWN_ORDERS_SNAPSHOT_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as Order[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 interface RegisterPayload {
   fullName: string;
   email: string;
@@ -569,7 +582,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   // Live Real-Time Customer Orders matched from OrderCatalogContext.orders
-  const customerOrders = useMemo(() => {
+  const liveCustomerOrders = useMemo(() => {
     if (currentCustomer) {
       const custPhoneDigits = normalizeDigits(currentCustomer.phone);
       const custEmail = currentCustomer.email.toLowerCase();
@@ -595,6 +608,45 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
     const guestSet = new Set(guestOrderIds);
     return orders.filter(o => guestSet.has(o.id));
   }, [currentCustomer, guestOrderIds, orders]);
+
+  // Respaldo local por dispositivo: si el servidor tarda o la lista compartida se reemplaza,
+  // el pedido del cliente (con o sin cuenta) NUNCA desaparece de "Mis pedidos".
+  const [ownSnapshots, setOwnSnapshots] = useState<Order[]>(loadOwnSnapshots);
+
+  useEffect(() => {
+    if (liveCustomerOrders.length === 0) return;
+    setOwnSnapshots(prev => {
+      const byId = new Map(prev.map(o => [o.id, o]));
+      let changed = false;
+      for (const o of liveCustomerOrders) {
+        const old = byId.get(o.id);
+        if (!old || old.status !== o.status || old.updatedAt !== o.updatedAt) {
+          byId.set(o.id, o);
+          changed = true;
+        }
+      }
+      if (!changed) return prev;
+      const next = Array.from(byId.values())
+        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+        .slice(0, 30);
+      try {
+        localStorage.setItem(OWN_ORDERS_SNAPSHOT_KEY, JSON.stringify(next));
+      } catch {
+        // ignore quota
+      }
+      return next;
+    });
+  }, [liveCustomerOrders]);
+
+  const customerOrders = useMemo(() => {
+    const liveIds = new Set(liveCustomerOrders.map(o => o.id));
+    const ownIds = new Set<string>([...guestOrderIds, ...(currentCustomer?.orderIds || [])]);
+    const missing = ownSnapshots.filter(o => ownIds.has(o.id) && !liveIds.has(o.id));
+    if (missing.length === 0) return liveCustomerOrders;
+    return [...liveCustomerOrders, ...missing].sort((a, b) =>
+      String(b.createdAt).localeCompare(String(a.createdAt))
+    );
+  }, [liveCustomerOrders, ownSnapshots, guestOrderIds, currentCustomer]);
 
   const activeCustomerOrdersCount = useMemo(
     () =>

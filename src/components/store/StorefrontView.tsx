@@ -1708,6 +1708,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
         currentDeliveryType={deliveryType}
         accentColor={accentColor}
         isLightTheme={isLightTheme}
+        storeFavicon={customization.favicon || customization.storeHeaderLogo}
       />
 
       {/* =====================================================================

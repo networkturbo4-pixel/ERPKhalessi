@@ -134,3 +134,93 @@ function verifyToken(string $token): ?array {
     if (!is_array($data) || !isset($data['exp']) || $data['exp'] < time()) return null;
     return $data;
 }
+
+// ----------------------------- Saneamiento de pedidos -----------------------------
+
+/** Elimina recursivamente imagenes base64 pesadas (data:...) de un valor decodificado. */
+function stripHeavyDataUris($value) {
+    if (is_string($value)) {
+        return (strncmp($value, 'data:', 5) === 0 && strlen($value) > 300) ? '' : $value;
+    }
+    if (is_array($value)) {
+        foreach ($value as $k => $v) {
+            $value[$k] = stripHeavyDataUris($v);
+        }
+    }
+    return $value;
+}
+
+/** Devuelve el JSON de pedidos sin base64 pesado (o el original si ya esta limpio / no es JSON). */
+function sanitizeOrdersJson(string $json): string {
+    if (strpos($json, 'data:') === false) return $json;
+    $arr = json_decode($json, true);
+    if (!is_array($arr)) return $json;
+    return json_encode(stripHeavyDataUris($arr), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+}
+
+/** Huella barata (sin leer los valores) de las claves compartidas, para el latido de sincronizacion. */
+function kvFingerprint(PDO $pdo, array $keys, bool $isAuth): string {
+    if (!$keys) return md5('empty');
+    $in = implode(',', array_fill(0, count($keys), '?'));
+    $st = $pdo->prepare("SELECT k, updated_at, LENGTH(v) AS n FROM kv_storage WHERE k IN ($in) ORDER BY k");
+    $st->execute(array_values($keys));
+    $acc = $isAuth ? 'a' : 'p';
+    foreach ($st->fetchAll() as $r) {
+        $acc .= '|' . $r['k'] . ':' . $r['updated_at'] . ':' . $r['n'];
+    }
+    return md5($acc);
+}
+
+/** Lee pedidos; si el valor guardado aun trae base64 pesado lo limpia y lo persiste (autocuracion unica). */
+function kvGetOrdersClean(PDO $pdo): ?string {
+    $v = kvGet($pdo, 'kh_orders_list');
+    if ($v === null) return null;
+    $clean = sanitizeOrdersJson($v);
+    if (strlen($clean) < strlen($v)) {
+        kvSet($pdo, 'kh_orders_list', $clean);
+    }
+    return $clean;
+}
+// ----------------------------- Imagenes base64 -> archivos -----------------------------
+
+/** Convierte una imagen data:image/...;base64 en archivo /uploads/ y devuelve su URL (o el original si falla). */
+function externalizeDataUri(string $value): string {
+    if (strlen($value) < 2000 || strncmp($value, 'data:image/', 11) !== 0) return $value;
+    if (!preg_match('#^data:image/(png|jpe?g|webp|gif);base64,(.+)$#s', $value, $m)) return $value;
+    $ext = $m[1] === 'jpeg' ? 'jpg' : $m[1];
+    $bin = base64_decode($m[2], true);
+    if ($bin === false || $bin === '') return $value;
+    $dir = dirname(__DIR__) . '/uploads';
+    if (!is_dir($dir) && !@mkdir($dir, 0755, true)) return $value;
+    $name = 'kh-' . sha1($bin) . '.' . $ext;
+    $path = $dir . '/' . $name;
+    if (!file_exists($path) && @file_put_contents($path, $bin) === false) return $value;
+    return '/uploads/' . $name;
+}
+
+function externalizeDataUris($value) {
+    if (is_string($value)) return externalizeDataUri($value);
+    if (is_array($value)) {
+        foreach ($value as $k => $v) $value[$k] = externalizeDataUris($v);
+    }
+    return $value;
+}
+
+function externalizeJson(string $json): string {
+    if (strpos($json, 'data:image/') === false) return $json;
+    $arr = json_decode($json, true);
+    if (!is_array($arr)) return $json;
+    return json_encode(externalizeDataUris($arr), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+}
+
+/** Lee una clave compartida; si trae imagenes base64 las externaliza y persiste (autocuracion unica). */
+function kvGetClean(PDO $pdo, string $key): ?string {
+    if ($key === 'kh_orders_list') return kvGetOrdersClean($pdo);
+    $v = kvGet($pdo, $key);
+    if ($v === null) return null;
+    $clean = externalizeJson($v);
+    if (strlen($clean) < strlen($v)) {
+        kvSet($pdo, $key, $clean);
+    }
+    return $clean;
+}

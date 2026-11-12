@@ -4,6 +4,7 @@ const CLIENT_ID = `cli-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 const DEVICE_LOCAL_KEYS = new Set<string>([
   'kh_store_cart',
   'kh_store_device_order_ids_v1',
+  'kh_store_device_orders_v1',
   'kh_store_active_customer_id_v1',
   'kh_store_order_prefs_v1',
   'kh_active_main_module',
@@ -191,8 +192,34 @@ function cacheBrandSplashAssets(settingsJson: string): void {
   }
 }
 
+const ORDERS_KEY = 'kh_orders_list';
+
+/**
+ * Elimina imágenes base64 pesadas (data:...) de cualquier campo del JSON de pedidos
+ * (productImage, halfAndHalf.firstHalfImage/secondHalfImage, etc.) para que el bus compartido sea liviano.
+ */
+function stripHeavyDataUris(json: string): string {
+  if (!json.includes('data:')) return json;
+  try {
+    const walk = (v: unknown): unknown => {
+      if (typeof v === 'string') return v.startsWith('data:') && v.length > 300 ? '' : v;
+      if (Array.isArray(v)) return v.map(walk);
+      if (v && typeof v === 'object') {
+        const out: Record<string, unknown> = {};
+        for (const [k, val] of Object.entries(v as Record<string, unknown>)) out[k] = walk(val);
+        return out;
+      }
+      return v;
+    };
+    return JSON.stringify(walk(JSON.parse(json)));
+  } catch {
+    return json;
+  }
+}
+
 function applyRemoteUpdate(key: string, nextValue: string | null, emitEvent: boolean): void {
   if (!isSharedKey(key) || !originalGetItemFn || !originalSetItemFn || !originalRemoveItemFn) return;
+  if (key === ORDERS_KEY && nextValue !== null) nextValue = stripHeavyDataUris(nextValue);
 
   if (nextValue === null) {
     if (!memoryMirror.has(key) && originalGetItemFn(key) === null) return;
@@ -445,6 +472,7 @@ export function installStorageInterceptor(): void {
   };
 
   localStorage.setItem = (key: string, value: string) => {
+    if (key === ORDERS_KEY) value = stripHeavyDataUris(value);
     const prev = memoryMirror.get(key);
     if (prev === value) return;
 
