@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Gift,
   Ticket,
@@ -20,9 +20,11 @@ import {
   Flame,
   Crown,
   Upload,
+  Search,
 } from 'lucide-react';
 import { useBenefits } from '../../context/BenefitsContext';
 import { useStoreCustomer } from '../../context/StoreCustomerContext';
+import { useOrderCatalog } from '../../context/OrderCatalogContext';
 import { useSettings } from '../../context/SettingsContext';
 import { PromoCoupon, PointReward, CouponDiscountType, RewardBenefitType } from '../../types/benefits';
 import { GamesSettingsTab } from './GamesSettingsTab';
@@ -44,9 +46,146 @@ export const BenefitsModuleView: React.FC = () => {
     deleteReward,
   } = useBenefits();
   const { allCustomerAccounts, adjustAccountPointsById } = useStoreCustomer();
+  const { customers, orders, upsertCustomer } = useOrderCatalog();
   const { companyInfo, updateCompanyInfo, dispatchToast, openNoticeModal } = useSettings();
 
   const [activeTab, setActiveTab] = useState<BenefitsTab>('coupons');
+  const [customerSearch, setCustomerSearch] = useState('');
+
+  const unifiedPointCustomers = useMemo(() => {
+    type UnifiedPointCard = {
+      key: string;
+      storeAccountId?: string;
+      crmCustomer?: (typeof customers)[number];
+      fullName: string;
+      phone: string;
+      email: string;
+      dni?: string;
+      points: number;
+      ordersCount: number;
+      source: 'store' | 'crm';
+    };
+
+    const list: UnifiedPointCard[] = [];
+    const matchedCrmIds = new Set<string>();
+    const matchedEmails = new Set<string>();
+    const matchedPhones = new Set<string>();
+    const matchedDnis = new Set<string>();
+
+    const normPhone = (p?: string) => (p || '').replace(/\D/g, '').slice(-9);
+
+    for (const acc of allCustomerAccounts) {
+      const emailClean = (acc.email || '').trim().toLowerCase();
+      const phoneDigits = normPhone(acc.phone);
+      const dniClean = (acc.dni || '').replace(/\D/g, '');
+
+      const crmMatch = customers.find(
+        c =>
+          (acc.crmCustomerId && c.id === acc.crmCustomerId) ||
+          (emailClean && c.email?.trim().toLowerCase() === emailClean) ||
+          (phoneDigits.length >= 7 && normPhone(c.whatsapp) === phoneDigits) ||
+          (dniClean.length >= 8 && c.dni === dniClean)
+      );
+
+      if (crmMatch) matchedCrmIds.add(crmMatch.id);
+      if (emailClean) matchedEmails.add(emailClean);
+      if (phoneDigits.length >= 7) matchedPhones.add(phoneDigits);
+      if (dniClean.length >= 8) matchedDnis.add(dniClean);
+
+      const ordersCount = orders.filter(
+        o =>
+          acc.orderIds.includes(o.id) ||
+          (crmMatch && o.customerId === crmMatch.id) ||
+          (emailClean && o.customerEmail?.trim().toLowerCase() === emailClean) ||
+          (phoneDigits.length >= 7 && normPhone(o.customerPhone) === phoneDigits)
+      ).length;
+
+      list.push({
+        key: `acc-${acc.id}`,
+        storeAccountId: acc.id,
+        crmCustomer: crmMatch,
+        fullName: acc.fullName,
+        phone: acc.phone || crmMatch?.whatsapp || 'Sin teléfono',
+        email: acc.email || crmMatch?.email || 'Sin correo',
+        dni: acc.dni || crmMatch?.dni,
+        points: acc.points ?? crmMatch?.loyaltyPoints ?? 0,
+        ordersCount,
+        source: 'store',
+      });
+    }
+
+    for (const c of customers) {
+      if (matchedCrmIds.has(c.id)) continue;
+      const emailClean = (c.email || '').trim().toLowerCase();
+      const phoneDigits = normPhone(c.whatsapp);
+      const dniClean = (c.dni || '').replace(/\D/g, '');
+
+      if (emailClean && matchedEmails.has(emailClean)) continue;
+      if (phoneDigits.length >= 7 && matchedPhones.has(phoneDigits)) continue;
+      if (dniClean.length >= 8 && matchedDnis.has(dniClean)) continue;
+
+      const ordersCount = orders.filter(
+        o =>
+          o.customerId === c.id ||
+          (emailClean && o.customerEmail?.trim().toLowerCase() === emailClean) ||
+          (phoneDigits.length >= 7 && normPhone(o.customerPhone) === phoneDigits) ||
+          (dniClean.length >= 8 && o.customerDni === dniClean)
+      ).length;
+
+      list.push({
+        key: `crm-${c.id}`,
+        crmCustomer: c,
+        fullName: c.fullName || 'Cliente sin nombre',
+        phone: c.whatsapp || 'Sin teléfono',
+        email: c.email || 'Sin correo',
+        dni: c.dni,
+        points: c.loyaltyPoints || 0,
+        ordersCount,
+        source: 'crm',
+      });
+    }
+
+    return list;
+  }, [allCustomerAccounts, customers, orders]);
+
+  const filteredPointCustomers = useMemo(() => {
+    const q = customerSearch.trim().toLowerCase();
+    if (!q) return unifiedPointCustomers;
+    return unifiedPointCustomers.filter(
+      item =>
+        item.fullName.toLowerCase().includes(q) ||
+        item.phone.toLowerCase().includes(q) ||
+        item.email.toLowerCase().includes(q) ||
+        (item.dni && item.dni.toLowerCase().includes(q))
+    );
+  }, [unifiedPointCustomers, customerSearch]);
+
+  const handleAdjustCustomerPoints = (
+    item: (typeof unifiedPointCustomers)[number],
+    delta: number,
+    reason: string
+  ) => {
+    if (delta < 0 && item.points <= 0) return;
+
+    if (item.storeAccountId) {
+      adjustAccountPointsById(item.storeAccountId, delta, reason);
+    } else if (item.crmCustomer) {
+      const nextPoints = Math.max(0, (item.crmCustomer.loyaltyPoints || 0) + delta);
+      upsertCustomer(
+        {
+          ...item.crmCustomer,
+          loyaltyPoints: nextPoints,
+        },
+        true
+      );
+    }
+
+    dispatchToast(
+      delta > 0 ? 'Punto Agregado' : 'Punto Descontado',
+      `${delta > 0 ? `+${delta} punto acreditado` : `${delta} punto ajustado`} a ${item.fullName}.`,
+      delta > 0 ? 'success' : 'info'
+    );
+  };
 
   // Coupon Modal State
   const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
@@ -217,7 +356,7 @@ export const BenefitsModuleView: React.FC = () => {
           {[
             { id: 'coupons' as const, label: 'Cupones', icon: Ticket, count: coupons.length },
             { id: 'points_card' as const, label: 'Tarjetas de Puntos & Premios', icon: Award, count: rewards.length },
-            { id: 'customers_points' as const, label: 'Puntos de Clientes', icon: Users, count: allCustomerAccounts.length },
+            { id: 'customers_points' as const, label: 'Puntos de Clientes', icon: Users, count: unifiedPointCustomers.length },
             { id: 'games' as const, label: 'Juegos (Ruleta & Retos)', icon: Gamepad2 },
           ].map(t => {
             const Icon = t.icon;
@@ -825,54 +964,78 @@ export const BenefitsModuleView: React.FC = () => {
       {activeTab === 'customers_points' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
           <div className="lg:col-span-7 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4">
-            <div>
-              <h2 className="text-base font-black text-zinc-950 dark:text-white">
-                Tarjetas Digitales de Clientes Registrados ({allCustomerAccounts.length})
-              </h2>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Otorga bonos manuales o revisa cuántos puntos acumula cada usuario de la Tienda Virtual.
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-black text-zinc-950 dark:text-white">
+                  Tarjetas Digitales de Clientes Registrados ({unifiedPointCustomers.length})
+                </h2>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  Otorga bonos manuales o revisa cuántos puntos acumula cada cliente registrado en Tienda Virtual o CRM.
+                </p>
+              </div>
+              <div className="relative w-full sm:w-64 shrink-0">
+                <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={customerSearch}
+                  onChange={e => setCustomerSearch(e.target.value)}
+                  placeholder="Buscar cliente, DNI o teléfono..."
+                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                />
+              </div>
             </div>
 
-            {allCustomerAccounts.length === 0 ? (
+            {filteredPointCustomers.length === 0 ? (
               <div className="p-8 text-center rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500">
-                Aún no hay cuentas registradas desde el Perfil de la Tienda Virtual. Cuando un cliente se registre, aparecerá aquí con su tarjeta de puntos.
+                {unifiedPointCustomers.length === 0
+                  ? 'Aún no hay clientes registrados. Cuando un cliente se registre en la Tienda Virtual o en Clientes CRM, aparecerá aquí con su tarjeta de puntos.'
+                  : 'No se encontraron clientes que coincidan con la búsqueda.'}
               </div>
             ) : (
-              <div className="space-y-2.5">
-                {allCustomerAccounts.map(acc => (
+              <div className="space-y-2.5 max-h-[540px] overflow-y-auto pr-1">
+                {filteredPointCustomers.map(item => (
                   <div
-                    key={acc.id}
+                    key={item.key}
                     className="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                   >
-                    <div>
-                      <div className="text-sm font-black text-zinc-900 dark:text-white">{acc.fullName}</div>
-                      <div className="text-xs text-zinc-500">
-                        {acc.phone} • {acc.email} • {acc.orderIds.length} pedidos
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-black text-zinc-900 dark:text-white truncate">
+                          {item.fullName}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
+                            item.source === 'store'
+                              ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                              : 'bg-blue-500/15 text-blue-700 dark:text-blue-300'
+                          }`}
+                        >
+                          {item.source === 'store' ? 'Tienda Virtual' : 'CRM / Local'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-zinc-500 truncate mt-0.5">
+                        {item.phone}
+                        {item.dni ? ` • DNI ${item.dni}` : ''}
+                        {item.email && item.email !== 'Sin correo' ? ` • ${item.email}` : ''} • {item.ordersCount}{' '}
+                        {item.ordersCount === 1 ? 'pedido' : 'pedidos'}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="px-3 py-1.5 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 font-black text-xs">
-                        {acc.points || 0} pts
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="px-3 py-1.5 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 font-black text-xs whitespace-nowrap">
+                        {item.points} pts
                       </span>
                       <button
                         type="button"
-                        onClick={() => {
-                          adjustAccountPointsById(acc.id, 1, 'Bono otorgado por Administración');
-                          dispatchToast('Punto Agregado', `+1 punto acreditado a ${acc.fullName}.`, 'success');
-                        }}
-                        className="px-2.5 py-1.5 rounded-lg bg-emerald-500 text-white text-xs font-black whitespace-nowrap shrink-0"
+                        onClick={() => handleAdjustCustomerPoints(item, 1, 'Bono otorgado por Administración')}
+                        className="px-2.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-black whitespace-nowrap shrink-0 transition-colors"
                       >
                         +1 Pto
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          if ((acc.points || 0) <= 0) return;
-                          adjustAccountPointsById(acc.id, -1, 'Ajuste manual de puntos');
-                          dispatchToast('Punto Descontado', `-1 punto ajustado a ${acc.fullName}.`, 'info');
-                        }}
-                        className="px-2.5 py-1.5 rounded-lg bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-bold whitespace-nowrap shrink-0"
+                        onClick={() => handleAdjustCustomerPoints(item, -1, 'Ajuste manual de puntos')}
+                        disabled={item.points <= 0}
+                        className="px-2.5 py-1.5 rounded-lg bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-bold whitespace-nowrap shrink-0 disabled:opacity-40 transition-colors"
                       >
                         -1
                       </button>
