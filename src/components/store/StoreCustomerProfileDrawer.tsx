@@ -26,6 +26,7 @@ import {
   IdCard,
   Star,
 } from 'lucide-react';
+import { LoyaltyCardView } from '../benefits/LoyaltyCardView';
 
 interface StoreCustomerProfileDrawerProps {
   isOpen: boolean;
@@ -770,106 +771,11 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                 {/* SECTION 0: TARJETA DE PUNTOS Y PREMIOS */}
                 {isCardActive && profileSection === 'puntos' && (
                   <div className="space-y-4">
-                    <div
-                      className={`relative overflow-hidden p-5 rounded-3xl border shadow-sm space-y-4 ${
-                        isLightTheme
-                          ? 'bg-white border-zinc-200/90'
-                          : 'bg-neutral-950 border-neutral-800'
-                      }`}
-                    >
-                      {pointsConfig.cardBgImage && (
-                        <div
-                          className="absolute inset-0 bg-cover bg-center opacity-20 pointer-events-none"
-                          style={{ backgroundImage: `url(${pointsConfig.cardBgImage})` }}
-                        />
-                      )}
-                      <div className="relative z-10 flex items-start justify-between gap-2">
-                        <div>
-                          <span
-                            data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                            className="store-btn-solid inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-xs"
-                          >
-                            {pointsConfig.customIconUrl ? (
-                              <img src={pointsConfig.customIconUrl} alt="Ícono" className="w-3.5 h-3.5 object-contain" />
-                            ) : (
-                              <Star className="w-3 h-3 fill-current" />
-                            )}
-                            <span>Club Fidelidad</span>
-                          </span>
-                          <h3
-                            className={`text-sm sm:text-base font-black mt-1.5 ${
-                              isLightTheme ? 'text-zinc-900' : 'text-white'
-                            }`}
-                          >
-                            {pointsConfig.cardTitle}
-                          </h3>
-                          <p
-                            className={`text-[11px] mt-0.5 ${
-                              isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
-                            }`}
-                          >
-                            {pointsConfig.cardSubtitle}
-                          </p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <span className="text-2xl font-black block" style={{ color: accentColor }}>
-                            {currentCustomer.points || 0}
-                          </span>
-                          <span className="text-[10px] uppercase font-bold text-neutral-400">
-                            Puntos
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Stamp Grid */}
-                      <div className="relative z-10 grid grid-cols-4 gap-2">
-                        {Array.from({ length: pointsConfig.stampsPerCardGoal }).map((_, idx) => {
-                          const userPts = currentCustomer.points || 0;
-                          const filledCount =
-                            userPts > 0
-                              ? userPts % pointsConfig.stampsPerCardGoal || pointsConfig.stampsPerCardGoal
-                              : 0;
-                          const stamped = idx < Math.min(userPts, filledCount);
-                          return (
-                            <div
-                              key={idx}
-                              data-auto-contrast={stamped && autoButtonContrast ? 'true' : 'false'}
-                              className={`h-11 rounded-xl border flex items-center justify-center text-xs font-black transition-all ${
-                                stamped
-                                  ? 'store-btn-solid border-transparent shadow-xs'
-                                  : isLightTheme
-                                  ? 'bg-zinc-100 border-zinc-200 text-zinc-400'
-                                  : 'bg-neutral-900 border-neutral-800 text-neutral-500'
-                              }`}
-                            >
-                              {stamped ? (
-                                pointsConfig.customIconUrl ? (
-                                  <img src={pointsConfig.customIconUrl} alt="Sello" className="w-4 h-4 object-contain" />
-                                ) : (
-                                  <Star className="w-4 h-4 fill-current" />
-                                )
-                              ) : (
-                                `#${idx + 1}`
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      <div
-                        className={`relative z-10 text-[11px] pt-2 border-t flex items-center justify-between ${
-                          isLightTheme ? 'border-zinc-200 text-zinc-500' : 'border-neutral-800 text-neutral-400'
-                        }`}
-                      >
-                        <span>
-                          Ganas +{pointsConfig.pointsPerPurchase} punto por compra ≥ S/{' '}
-                          {pointsConfig.minPurchaseAmountForPoint}
-                        </span>
-                        <span className={`font-bold ${isLightTheme ? 'text-zinc-900' : 'text-white'}`}>
-                          Canjéalos en el Carrito
-                        </span>
-                      </div>
-                    </div>
+                    <LoyaltyCardView
+                      config={pointsConfig}
+                      points={currentCustomer.points || 0}
+                      rewardsCount={rewards.filter(r => r.isActive).length}
+                    />
 
                     {/* Premios Disponibles */}
                     <div className="space-y-2">

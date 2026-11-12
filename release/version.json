@@ -1,8 +1,8 @@
 {
-  "buildId": "20261112234414",
-  "builtAt": "2026-11-12T23:44:14.160Z",
-  "commitSha": "0ef6ea5",
-  "message": "fix(devops): card responsive overflow on system update and fix 500 error in deploy action",
-  "totalFiles": 73,
-  "manifestSha256": "b7385f9ac3f6e5ff9085d668cba0e10d24e5c12e980b78c88a16dc7d5b326cab"
+  "buildId": "20261112235054",
+  "builtAt": "2026-11-12T23:50:54.342Z",
+  "commitSha": "4418de9",
+  "message": "fix(benefits): unify registered CRM and storefront customers in points view with search",
+  "totalFiles": 74,
+  "manifestSha256": "8ea8746239ade76227927e094c3d6770a5432a3ef03c85f9d669eab2241eeafc"
 }

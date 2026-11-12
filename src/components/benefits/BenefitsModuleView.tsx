@@ -21,13 +21,23 @@ import {
   Crown,
   Upload,
   Search,
+  Pizza,
+  Palette,
 } from 'lucide-react';
 import { useBenefits } from '../../context/BenefitsContext';
 import { useStoreCustomer } from '../../context/StoreCustomerContext';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
 import { useSettings } from '../../context/SettingsContext';
-import { PromoCoupon, PointReward, CouponDiscountType, RewardBenefitType } from '../../types/benefits';
+import {
+  PromoCoupon,
+  PointReward,
+  CouponDiscountType,
+  RewardBenefitType,
+  LoyaltyCardStyle,
+  LoyaltyStampStyle,
+} from '../../types/benefits';
 import { GamesSettingsTab } from './GamesSettingsTab';
+import { CARD_STYLE_PRESETS, LoyaltyCardView } from './LoyaltyCardView';
 
 type BenefitsTab = 'coupons' | 'points_card' | 'customers_points' | 'games';
 
@@ -51,6 +61,7 @@ export const BenefitsModuleView: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<BenefitsTab>('coupons');
   const [customerSearch, setCustomerSearch] = useState('');
+  const [previewPoints, setPreviewPoints] = useState(5);
 
   const unifiedPointCustomers = useMemo(() => {
     type UnifiedPointCard = {
@@ -628,7 +639,7 @@ export const BenefitsModuleView: React.FC = () => {
                 <div className="grid grid-cols-7 gap-2">
                   {[
                     { id: 'crown', label: 'Corona', Icon: Crown },
-                    { id: 'pizza', label: 'Pizza', Icon: Gift },
+                    { id: 'pizza', label: 'Pizza', Icon: Pizza },
                     { id: 'flame', label: 'Fuego', Icon: Flame },
                     { id: 'award', label: 'Medalla', Icon: Award },
                     { id: 'star', label: 'Estrella', Icon: Star },
@@ -689,6 +700,27 @@ export const BenefitsModuleView: React.FC = () => {
                   </label>
                 </div>
 
+                {/* Deslizable de Tamaño del Ícono */}
+                <div className="pt-1 space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-zinc-700 dark:text-zinc-300">
+                      Tamaño del Ícono en Sellos y Tarjeta
+                    </span>
+                    <span className="font-mono font-black text-amber-600 dark:text-amber-400">
+                      {pointsConfig.iconSize || 20} px
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={14}
+                    max={40}
+                    step={1}
+                    value={pointsConfig.iconSize || 20}
+                    onChange={e => updatePointsConfig({ iconSize: Number(e.target.value) })}
+                    className="w-full accent-amber-500 cursor-pointer"
+                  />
+                </div>
+
                 {/* Etiqueta de Tamaño Recomendado para el Ícono */}
                 <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2">
                   <span className="font-bold shrink-0">📐 Tamaño del Ícono:</span>
@@ -698,8 +730,143 @@ export const BenefitsModuleView: React.FC = () => {
                 </div>
               </div>
 
+              {/* Estilo de Tarjeta, Colores y Estilo de Sellos */}
+              <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-3.5">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                  <Palette className="w-4 h-4 text-amber-500" />
+                  <span>Estilo de Tarjeta, Colores y Sellos</span>
+                </div>
+
+                {/* Estilos de Tarjeta Predefinidos */}
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
+                    Estilo Base de la Tarjeta
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    {(Object.keys(CARD_STYLE_PRESETS) as LoyaltyCardStyle[]).map(styleKey => {
+                      const preset = CARD_STYLE_PRESETS[styleKey];
+                      const active = (pointsConfig.cardStyle || 'modern_dark') === styleKey;
+                      return (
+                        <button
+                          key={styleKey}
+                          type="button"
+                          onClick={() =>
+                            updatePointsConfig({
+                              cardStyle: styleKey,
+                              cardBgColor: preset.bgColor,
+                              cardAccentColor: preset.accentColor,
+                              cardTextColor: preset.textColor,
+                              cardBgOverlayOpacity: preset.overlayOpacity,
+                            })
+                          }
+                          className={`p-2 rounded-xl border text-left transition-colors ${
+                            active
+                              ? 'border-amber-500 bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold'
+                              : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span
+                              className="w-3.5 h-3.5 rounded-full border border-black/15 shrink-0"
+                              style={{ backgroundColor: preset.bgColor }}
+                            />
+                            <span
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: preset.accentColor }}
+                            />
+                          </div>
+                          <span className="text-[11px] leading-tight block">{preset.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Colores Personalizados */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <label className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 cursor-pointer">
+                    <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Fondo Tarjeta</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-mono text-zinc-400 uppercase">
+                        {pointsConfig.cardBgColor || '#18181b'}
+                      </span>
+                      <input
+                        type="color"
+                        value={pointsConfig.cardBgColor || '#18181b'}
+                        onChange={e => updatePointsConfig({ cardBgColor: e.target.value })}
+                        className="w-7 h-7 rounded-lg border-0 p-0 bg-transparent cursor-pointer"
+                      />
+                    </div>
+                  </label>
+
+                  <label className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 cursor-pointer">
+                    <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Color Sellos</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-mono text-zinc-400 uppercase">
+                        {pointsConfig.cardAccentColor || '#f59e0b'}
+                      </span>
+                      <input
+                        type="color"
+                        value={pointsConfig.cardAccentColor || '#f59e0b'}
+                        onChange={e => updatePointsConfig({ cardAccentColor: e.target.value })}
+                        className="w-7 h-7 rounded-lg border-0 p-0 bg-transparent cursor-pointer"
+                      />
+                    </div>
+                  </label>
+
+                  <label className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 cursor-pointer">
+                    <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Color Texto</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-mono text-zinc-400 uppercase">
+                        {pointsConfig.cardTextColor || '#ffffff'}
+                      </span>
+                      <input
+                        type="color"
+                        value={pointsConfig.cardTextColor || '#ffffff'}
+                        onChange={e => updatePointsConfig({ cardTextColor: e.target.value })}
+                        className="w-7 h-7 rounded-lg border-0 p-0 bg-transparent cursor-pointer"
+                      />
+                    </div>
+                  </label>
+                </div>
+
+                {/* Estilo de Sellos y Puntos */}
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
+                    Estilo de los Sellos y Puntos
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    {(
+                      [
+                        { id: 'pills', label: 'Cápsulas' },
+                        { id: 'circles', label: 'Círculos' },
+                        { id: 'squares', label: 'Cuadrados' },
+                        { id: 'tickets', label: 'Tickets' },
+                        { id: 'minimal_dots', label: 'Barra + Puntos' },
+                      ] as { id: LoyaltyStampStyle; label: string }[]
+                    ).map(st => {
+                      const active = (pointsConfig.stampStyle || 'pills') === st.id;
+                      return (
+                        <button
+                          key={st.id}
+                          type="button"
+                          onClick={() => updatePointsConfig({ stampStyle: st.id })}
+                          className={`px-2.5 py-2 rounded-xl border text-xs font-bold transition-colors ${
+                            active
+                              ? 'border-amber-500 bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                              : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300'
+                          }`}
+                        >
+                          {st.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
               {/* Subir Imagen de Fondo de la Tarjeta */}
-              <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-2">
+              <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
                     <ImageIcon className="w-4 h-4 text-amber-500" />
@@ -746,6 +913,28 @@ export const BenefitsModuleView: React.FC = () => {
                   </label>
                 </div>
 
+                {pointsConfig.cardBgImage && (
+                  <div className="pt-1 space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-zinc-700 dark:text-zinc-300">
+                        Velo / Opacidad sobre la Imagen de Fondo
+                      </span>
+                      <span className="font-mono font-black text-amber-600 dark:text-amber-400">
+                        {pointsConfig.cardBgOverlayOpacity ?? 45}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={90}
+                      step={5}
+                      value={pointsConfig.cardBgOverlayOpacity ?? 45}
+                      onChange={e => updatePointsConfig({ cardBgOverlayOpacity: Number(e.target.value) })}
+                      className="w-full accent-amber-500 cursor-pointer"
+                    />
+                  </div>
+                )}
+
                 {/* Indicación de Tamaño Recomendado */}
                 <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2">
                   <span className="font-bold shrink-0">ℹ️ Dimensiones Recomendadas:</span>
@@ -785,92 +974,56 @@ export const BenefitsModuleView: React.FC = () => {
                   />
                 </div>
               </div>
+
+              <div>
+                <label className="block text-xs font-bold text-zinc-600 dark:text-zinc-400 mb-1">
+                  Descripción / Subtítulo de la Tarjeta
+                </label>
+                <input
+                  type="text"
+                  value={pointsConfig.cardSubtitle}
+                  onChange={e => updatePointsConfig({ cardSubtitle: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-sm text-zinc-900 dark:text-white"
+                />
+              </div>
             </div>
 
-            {/* Vista Previa en Vivo de la Tarjeta de Puntos Personalizada */}
-            <div className="lg:col-span-5 relative overflow-hidden rounded-3xl border border-zinc-800 shadow-2xl p-6 flex flex-col justify-between gap-5 bg-zinc-950 text-white min-h-[280px]">
-              {/* Fondo personalizado con imagen o gradiente */}
-              {pointsConfig.cardBgImage && (
-                <div
-                  className="absolute inset-0 bg-cover bg-center opacity-30 pointer-events-none"
-                  style={{ backgroundImage: `url(${pointsConfig.cardBgImage})` }}
-                />
-              )}
-
-              <div className="relative z-10 flex items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500 text-zinc-950 text-[10px] font-black uppercase tracking-wider shadow-xs">
-                      {pointsConfig.customIconUrl ? (
-                        <img src={pointsConfig.customIconUrl} alt="Ícono" className="w-3.5 h-3.5 object-contain" />
-                      ) : (
-                        <span>
-                          {pointsConfig.cardIcon === 'pizza'
-                            ? '🍕'
-                            : pointsConfig.cardIcon === 'flame'
-                            ? '🔥'
-                            : pointsConfig.cardIcon === 'award'
-                            ? '🏅'
-                            : pointsConfig.cardIcon === 'star'
-                            ? '⭐'
-                            : pointsConfig.cardIcon === 'sparkles'
-                            ? '✨'
-                            : '👑'}
-                        </span>
-                      )}
-                      <span>Tarjeta Digital</span>
-                    </span>
-                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
-                      (pointsConfig.status || (pointsConfig.enabled ? 'active' : 'paused')) === 'active'
-                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                        : 'bg-zinc-800 text-zinc-400'
-                    }`}>
-                      {(pointsConfig.status || (pointsConfig.enabled ? 'active' : 'paused')) === 'active' ? 'Activa' : 'Pausada'}
-                    </span>
-                  </div>
-                  <h3 className="text-xl font-black mt-2 tracking-tight">{pointsConfig.cardTitle}</h3>
-                  <p className="text-xs text-zinc-300 line-clamp-2">{pointsConfig.cardSubtitle}</p>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <div className="text-2xl font-black text-amber-400">5 / {pointsConfig.stampsPerCardGoal}</div>
-                  <div className="text-[10px] uppercase font-bold text-zinc-400">Puntos Sellados</div>
-                </div>
-              </div>
-
-              {/* Sellos Visuales en la Tarjeta */}
-              <div className="relative z-10 grid grid-cols-4 gap-2 py-1">
-                {Array.from({ length: pointsConfig.stampsPerCardGoal }).map((_, idx) => {
-                  const stamped = idx < 5;
-                  return (
-                    <div
-                      key={idx}
-                      className={`h-11 rounded-xl border flex flex-col items-center justify-center text-xs font-black shadow-inner transition-all ${
-                        stamped
-                          ? 'bg-amber-500 border-amber-400 text-zinc-950 shadow-amber-500/20'
-                          : 'bg-zinc-900/80 border-zinc-800 text-zinc-500'
-                      }`}
-                    >
-                      {stamped ? (
-                        pointsConfig.customIconUrl ? (
-                          <img src={pointsConfig.customIconUrl} alt="Sello" className="w-5 h-5 object-contain" />
-                        ) : (
-                          <Star className="w-4 h-4 fill-current" />
-                        )
-                      ) : (
-                        <span>#{idx + 1}</span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="relative z-10 text-[11px] text-zinc-300 flex items-center justify-between pt-3 border-t border-zinc-800/80">
-                <span>
-                  {pointsConfig.awardPointPerOrder !== false ? '✓ +1 pto por pedido' : 'Sin puntos por pedido'} ·{' '}
-                  {pointsConfig.awardPointOnRegister ? '+1 bienvenida' : '0 al registrarse'}
+            {/* Vista Previa en Vivo (Componente idéntico al que ve el cliente en Tienda Virtual) */}
+            <div className="lg:col-span-5 lg:sticky lg:top-6 space-y-3">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-xs font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                  Vista Previa Real del Cliente
                 </span>
-                <span className="font-bold text-amber-400">{rewards.filter(r => r.isActive).length} premios disponibles</span>
+                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                  Idéntica en Tienda Virtual
+                </span>
+              </div>
+
+              <LoyaltyCardView
+                config={pointsConfig}
+                points={previewPoints}
+                rewardsCount={rewards.filter(r => r.isActive).length}
+                isPreview
+              />
+
+              <div className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-zinc-600 dark:text-zinc-400">
+                    Simular puntos acumulados del cliente
+                  </span>
+                  <span className="font-mono font-black text-amber-600 dark:text-amber-400">
+                    {previewPoints} / {pointsConfig.stampsPerCardGoal} pts
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={pointsConfig.stampsPerCardGoal}
+                  step={1}
+                  value={previewPoints}
+                  onChange={e => setPreviewPoints(Number(e.target.value))}
+                  className="w-full accent-amber-500 cursor-pointer"
+                />
               </div>
             </div>
           </div>

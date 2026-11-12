@@ -16,6 +16,9 @@ export interface PromoCoupon {
   createdAt: string;
 }
 
+export type LoyaltyCardStyle = 'modern_dark' | 'glass_light' | 'gold_vip' | 'gradient_brand' | 'classic_paper';
+export type LoyaltyStampStyle = 'pills' | 'circles' | 'squares' | 'minimal_dots' | 'tickets';
+
 export interface PointsProgramConfig {
   enabled: boolean;
   status: 'active' | 'paused';
@@ -23,8 +26,14 @@ export interface PointsProgramConfig {
   cardSubtitle: string;
   cardIcon: string; // 'crown', 'pizza', 'flame', 'gift', 'award', 'star'
   customIconUrl?: string; // URL o DataURL para ícono personalizado subido por el usuario
+  iconSize?: number; // Tamaño del ícono en px (14 - 40)
+  cardStyle?: LoyaltyCardStyle; // Estilo visual de la tarjeta
+  stampStyle?: LoyaltyStampStyle; // Estilo visual de los sellos / puntos
   cardBgImage?: string;
   cardBgColor?: string;
+  cardAccentColor?: string;
+  cardTextColor?: string;
+  cardBgOverlayOpacity?: number; // Opacidad del velo sobre la imagen (0 - 90)
   recommendedDimensionsNote?: string; // "1000 x 600 px (proporción 5:3 / tarjeta estándar)"
   awardPointPerOrder: boolean; // +1 punto al realizar una nueva orden
   awardPointOnRegister: boolean; // +1 punto al registrarse por primera vez

@@ -12,6 +12,7 @@ import { useBenefits } from '../../context/BenefitsContext';
 import { useStoreCustomer } from '../../context/StoreCustomerContext';
 import { useSettings } from '../../context/SettingsContext';
 import { StoreInteractiveGames } from './StoreInteractiveGames';
+import { LoyaltyCardView } from '../benefits/LoyaltyCardView';
 
 interface StoreBenefitsDrawerProps {
   isOpen: boolean;
@@ -183,76 +184,16 @@ export const StoreBenefitsDrawer: React.FC<StoreBenefitsDrawerProps> = ({
               <div className="space-y-4">
                 {/* Visual Loyalty Card (Only if active and not paused) */}
                 {isCardActive && (
-                  <div
-                    className={`relative overflow-hidden p-5 rounded-3xl border shadow-sm space-y-3.5 ${
-                      isLightTheme
-                        ? 'bg-white border-zinc-200/90'
-                        : 'bg-neutral-950 border-neutral-800'
-                    }`}
-                  >
-                    {pointsConfig.cardBgImage && (
-                      <div
-                        className="absolute inset-0 bg-cover bg-center opacity-20 pointer-events-none"
-                        style={{ backgroundImage: `url(${pointsConfig.cardBgImage})` }}
-                      />
-                    )}
-                    <div className="relative z-10 flex items-center justify-between gap-3">
-                      <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/30">
-                        {pointsConfig.customIconUrl ? (
-                          <img src={pointsConfig.customIconUrl} alt="Ícono" className="w-3.5 h-3.5 object-contain" />
-                        ) : (
-                          <Star className="w-3 h-3 fill-current" />
-                        )}
-                        <span>{pointsConfig.cardTitle}</span>
-                      </span>
-                      <span className="text-sm font-black text-amber-500">
-                        {currentCustomer ? `${currentCustomer.points || 0} Puntos` : '0 Puntos'}
-                      </span>
-                    </div>
-
-                    <p
-                      className={`relative z-10 text-xs ${
-                        isLightTheme ? 'text-zinc-600' : 'text-neutral-400'
-                      }`}
-                    >
-                      {pointsConfig.cardSubtitle} Cada compra en la tienda virtual suma{' '}
-                      <strong>+{pointsConfig.pointsPerPurchase} punto</strong>.
-                    </p>
-
-                    {/* Stamp Grid */}
-                    <div className="relative z-10 grid grid-cols-4 sm:grid-cols-8 gap-2 pt-1">
-                      {Array.from({ length: pointsConfig.stampsPerCardGoal }).map((_, idx) => {
-                        const isStamped = (currentCustomer?.points || 0) > idx;
-                        return (
-                          <div
-                            key={idx}
-                            data-auto-contrast={isStamped && autoButtonContrast ? 'true' : 'false'}
-                            className={`h-11 rounded-2xl flex flex-col items-center justify-center font-black text-xs transition-all border ${
-                              isStamped
-                                ? 'store-btn-solid border-transparent shadow-xs'
-                                : isLightTheme
-                                ? 'bg-zinc-100 border-zinc-200 text-zinc-400'
-                                : 'bg-neutral-900 border-neutral-800 text-neutral-600'
-                            }`}
-                          >
-                            {isStamped && pointsConfig.customIconUrl ? (
-                              <img src={pointsConfig.customIconUrl} alt="Sello" className="w-4 h-4 object-contain" />
-                            ) : (
-                              <Star
-                                className={`w-3.5 h-3.5 ${
-                                  isStamped ? 'fill-current' : 'opacity-40'
-                                }`}
-                              />
-                            )}
-                            <span className="text-[9px] mt-0.5 font-mono">#{idx + 1}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
+                  <div className="space-y-3">
+                    <LoyaltyCardView
+                      config={pointsConfig}
+                      points={currentCustomer?.points || 0}
+                      rewardsCount={rewards.filter(r => r.isActive).length}
+                    />
 
                     {!currentCustomer && (
                       <div
-                        className={`relative z-10 p-3 rounded-2xl border text-xs flex items-center justify-between gap-3 ${
+                        className={`p-3 rounded-2xl border text-xs flex items-center justify-between gap-3 ${
                           isLightTheme
                             ? 'bg-zinc-50 border-zinc-200'
                             : 'bg-neutral-900/80 border-neutral-800'
