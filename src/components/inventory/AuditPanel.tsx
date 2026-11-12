@@ -2,22 +2,51 @@ import React, { useState } from 'react';
 import { useInventory } from '../../context/InventoryContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useRBAC } from '../../context/RBACContext';
-import { ClipboardCheck, CheckCircle2, Lock, Plus, AlertCircle } from 'lucide-react';
+import { ClipboardCheck, Lock, Plus, X } from 'lucide-react';
 
 export const AuditPanel: React.FC = () => {
   const { audits, openStockAudit, recordAuditCount, closeStockAudit, items } = useInventory();
-  const { activeTenant, dispatchToast } = useSettings();
+  const { openNoticeModal, dispatchToast } = useSettings();
   const { hasPermission } = useRBAC();
 
   const [selectedAuditId, setSelectedAuditId] = useState<string>(audits[0]?.id || '');
+  const [isNewAuditModalOpen, setIsNewAuditModalOpen] = useState<boolean>(false);
+  const [newAuditPeriod, setNewAuditPeriod] = useState<string>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [newAuditNotes, setNewAuditNotes] = useState<string>('Conteo físico mensual');
+
   const activeAudit = audits.find(a => a.id === selectedAuditId);
 
   const canAudit = hasPermission('inventory:audit');
 
   const handleOpenNewAudit = () => {
-    const period = prompt('Ingresa el período de auditoría (ej. 2026-11):') || '2026-11';
-    const a = openStockAudit(period, 'Conteo físico mensual');
-    setSelectedAuditId(a.id);
+    setIsNewAuditModalOpen(true);
+  };
+
+  const handleConfirmCreateAudit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanPeriod = newAuditPeriod.trim() || '2026-11';
+    const cleanNotes = newAuditNotes.trim() || 'Conteo físico mensual';
+    const created = openStockAudit(cleanPeriod, cleanNotes);
+    setSelectedAuditId(created.id);
+    setIsNewAuditModalOpen(false);
+    dispatchToast('Auditoría Abierta', `Se inició el período de conteo ${cleanPeriod}.`);
+  };
+
+  const handleCloseAuditConfirm = (auditId: string, period: string) => {
+    openNoticeModal({
+      title: 'Cerrar Auditoría y Ajustar Kardex',
+      message: `¿Confirmas el cierre definitivo de la auditoría ${period}? Las diferencias registradas ajustarán el stock del almacén.`,
+      tone: 'warning',
+      confirmLabel: 'Cerrar y Ajustar',
+      cancelLabel: 'Cancelar',
+      onConfirm: () => {
+        closeStockAudit(auditId);
+        dispatchToast('Auditoría Cerrada', `El período ${period} fue cerrado y el Kardex actualizado.`);
+      },
+    });
   };
 
   return (
@@ -68,7 +97,7 @@ export const AuditPanel: React.FC = () => {
             {activeAudit?.status === 'abierta' && canAudit && (
               <button
                 type="button"
-                onClick={() => closeStockAudit(activeAudit.id)}
+                onClick={() => handleCloseAuditConfirm(activeAudit.id, activeAudit.period)}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm flex items-center gap-2 whitespace-nowrap shrink-0 transition-colors"
               >
                 <Lock className="w-4 h-4" />
@@ -135,6 +164,88 @@ export const AuditPanel: React.FC = () => {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {isNewAuditModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="new-audit-modal-title"
+        >
+          <form
+            onSubmit={handleConfirmCreateAudit}
+            className="w-full max-w-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden"
+          >
+            <div className="p-6 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                  <Plus className="w-5 h-5 text-amber-500" />
+                </div>
+                <div>
+                  <h4 id="new-audit-modal-title" className="text-sm font-black text-zinc-900 dark:text-white">
+                    Abrir Nueva Auditoría de Stock
+                  </h4>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Inicia un corte de inventario físico para valorizar diferencias.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsNewAuditModalOpen(false)}
+                className="p-2 rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                aria-label="Cerrar modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                  Período de Auditoría (AAAA-MM)
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newAuditPeriod}
+                  onChange={e => setNewAuditPeriod(e.target.value)}
+                  placeholder="Ej. 2026-11"
+                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-mono font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
+                  Observaciones / Motivo
+                </label>
+                <input
+                  type="text"
+                  value={newAuditNotes}
+                  onChange={e => setNewAuditNotes(e.target.value)}
+                  placeholder="Conteo físico mensual"
+                  className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-zinc-50 dark:bg-zinc-900/60 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsNewAuditModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-bold whitespace-nowrap shrink-0 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-sm whitespace-nowrap shrink-0 transition-colors"
+              >
+                Iniciar Auditoría
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

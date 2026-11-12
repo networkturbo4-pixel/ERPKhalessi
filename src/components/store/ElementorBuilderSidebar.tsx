@@ -395,6 +395,10 @@ export const ElementorBuilderSidebar: React.FC = () => {
                     <option value="circles">Círculos / Historias</option>
                     <option value="tabs">Pestañas Minimalistas (Tabs)</option>
                     <option value="banners">Banners Fotográficos</option>
+                    <option value="glass">Cristal Esmerilado (Glass)</option>
+                    <option value="mosaic">Mosaico Visual</option>
+                    <option value="minimal_chip">Chip Minimalista</option>
+                    <option value="split_badge">Insignia Dividida (Split Badge)</option>
                   </select>
                 </div>
 
@@ -534,12 +538,13 @@ export const ElementorBuilderSidebar: React.FC = () => {
                             columnsTablet:
                               e.target.value === 'auto'
                                 ? 'auto'
-                                : (Number(e.target.value) as 2 | 3 | 4 | 5 | 6),
+                                : (Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6),
                           })
                         }
                         className="w-full px-2.5 py-2 rounded-xl bg-[#161821] border border-[#262938] text-xs font-semibold text-white focus:outline-none focus:border-emerald-500"
                       >
                         <option value="auto">Auto</option>
+                        <option value="1">1</option>
                         <option value="2">2</option>
                         <option value="3">3</option>
                         <option value="4">4</option>
@@ -559,16 +564,19 @@ export const ElementorBuilderSidebar: React.FC = () => {
                             columnsDesktop:
                               e.target.value === 'auto'
                                 ? 'auto'
-                                : (Number(e.target.value) as 3 | 4 | 5 | 6 | 8),
+                                : (Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8),
                           })
                         }
                         className="w-full px-2.5 py-2 rounded-xl bg-[#161821] border border-[#262938] text-xs font-semibold text-white focus:outline-none focus:border-emerald-500"
                       >
                         <option value="auto">Auto</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
                         <option value="3">3</option>
                         <option value="4">4</option>
                         <option value="5">5</option>
                         <option value="6">6</option>
+                        <option value="7">7</option>
                         <option value="8">8</option>
                       </select>
                     </div>
@@ -643,6 +651,11 @@ export const ElementorBuilderSidebar: React.FC = () => {
                     <option value="compacta">Compacta Horizontal</option>
                     <option value="minimalista">Minimalista</option>
                     <option value="inmersiva">Póster Inmersivo</option>
+                    <option value="vitrina">Vitrina Flotante</option>
+                    <option value="bento">Bento Grid Moderno</option>
+                    <option value="galeria">Galería Editorial Centrada</option>
+                    <option value="lista_menu">Carta Trattoria (Menú Pizzería)</option>
+                    <option value="neon_promo">Neón Promo Destacado</option>
                   </select>
                 </div>
 
@@ -663,13 +676,14 @@ export const ElementorBuilderSidebar: React.FC = () => {
                       <select
                         value={blk.columnsMobile}
                         onChange={e =>
-                          patch({ columnsMobile: Number(e.target.value) as 1 | 2 | 3 })
+                          patch({ columnsMobile: Number(e.target.value) as 1 | 2 | 3 | 4 })
                         }
                         className="w-full px-2.5 py-2 rounded-xl bg-[#161821] border border-[#262938] text-xs font-semibold text-white focus:outline-none focus:border-rose-500"
                       >
                         <option value={1}>1</option>
                         <option value={2}>2</option>
                         <option value={3}>3</option>
+                        <option value={4}>4</option>
                       </select>
                     </div>
 
@@ -680,13 +694,18 @@ export const ElementorBuilderSidebar: React.FC = () => {
                       <select
                         value={blk.columnsTablet}
                         onChange={e =>
-                          patch({ columnsTablet: Number(e.target.value) as 2 | 3 | 4 })
+                          patch({
+                            columnsTablet: Number(e.target.value) as 1 | 2 | 3 | 4 | 5 | 6,
+                          })
                         }
                         className="w-full px-2.5 py-2 rounded-xl bg-[#161821] border border-[#262938] text-xs font-semibold text-white focus:outline-none focus:border-rose-500"
                       >
+                        <option value={1}>1</option>
                         <option value={2}>2</option>
                         <option value={3}>3</option>
                         <option value={4}>4</option>
+                        <option value={5}>5</option>
+                        <option value={6}>6</option>
                       </select>
                     </div>
 
@@ -698,16 +717,27 @@ export const ElementorBuilderSidebar: React.FC = () => {
                         value={blk.columnsDesktop}
                         onChange={e =>
                           patch({
-                            columnsDesktop: Number(e.target.value) as 2 | 3 | 4 | 5 | 6,
+                            columnsDesktop: Number(e.target.value) as
+                              | 1
+                              | 2
+                              | 3
+                              | 4
+                              | 5
+                              | 6
+                              | 7
+                              | 8,
                           })
                         }
                         className="w-full px-2.5 py-2 rounded-xl bg-[#161821] border border-[#262938] text-xs font-semibold text-white focus:outline-none focus:border-rose-500"
                       >
+                        <option value={1}>1</option>
                         <option value={2}>2</option>
                         <option value={3}>3</option>
                         <option value={4}>4</option>
                         <option value={5}>5</option>
                         <option value={6}>6</option>
+                        <option value={7}>7</option>
+                        <option value={8}>8</option>
                       </select>
                     </div>
                   </div>
@@ -1002,6 +1032,87 @@ export const ElementorBuilderSidebar: React.FC = () => {
                   onlyDesktop={blk.onlyDesktop}
                   onChange={patch}
                 />
+
+                <hr className="border-[#232634]" />
+
+                {/* ESTILO VISUAL Y COLUMNAS DEL SLIDER */}
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+                      ESTILO VISUAL DEL SLIDER
+                    </label>
+                    <select
+                      value={blk.visualStyle || 'classic'}
+                      onChange={e =>
+                        patch({ visualStyle: e.target.value as SliderBlockConfig['visualStyle'] })
+                      }
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#161821] border border-[#262938] text-xs sm:text-sm font-semibold text-white focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="classic">Clásico Degradado Lateral</option>
+                      <option value="cinema">Cinema Panorámico Centrado</option>
+                      <option value="floating_glass">Cristal Flotante (Floating Glass)</option>
+                      <option value="split_card">Tarjeta Dividida (Texto + Foto)</option>
+                      <option value="magazine">Editorial / Revista</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+                      <Columns3 className="w-3.5 h-3.5 text-amber-400" />
+                      <span>SLIDES VISIBLES POR DISPOSITIVO</span>
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <span className="flex items-center justify-center gap-1 text-[10px] font-bold uppercase text-zinc-400 mb-1">
+                          <Smartphone className="w-3 h-3" /> MÓVIL
+                        </span>
+                        <select
+                          value={blk.columnsMobile ?? 1}
+                          onChange={e =>
+                            patch({ columnsMobile: Number(e.target.value) as 1 | 2 })
+                          }
+                          className="w-full px-2.5 py-2 rounded-xl bg-[#161821] border border-[#262938] text-xs font-semibold text-white focus:outline-none focus:border-amber-500"
+                        >
+                          <option value={1}>1</option>
+                          <option value={2}>2</option>
+                        </select>
+                      </div>
+                      <div>
+                        <span className="flex items-center justify-center gap-1 text-[10px] font-bold uppercase text-zinc-400 mb-1">
+                          <Tablet className="w-3 h-3" /> TABLET
+                        </span>
+                        <select
+                          value={blk.columnsTablet ?? 1}
+                          onChange={e =>
+                            patch({ columnsTablet: Number(e.target.value) as 1 | 2 | 3 })
+                          }
+                          className="w-full px-2.5 py-2 rounded-xl bg-[#161821] border border-[#262938] text-xs font-semibold text-white focus:outline-none focus:border-amber-500"
+                        >
+                          <option value={1}>1</option>
+                          <option value={2}>2</option>
+                          <option value={3}>3</option>
+                        </select>
+                      </div>
+                      <div>
+                        <span className="flex items-center justify-center gap-1 text-[10px] font-bold uppercase text-zinc-400 mb-1">
+                          <Monitor className="w-3 h-3" /> PC
+                        </span>
+                        <select
+                          value={blk.columnsDesktop ?? 1}
+                          onChange={e =>
+                            patch({ columnsDesktop: Number(e.target.value) as 1 | 2 | 3 | 4 })
+                          }
+                          className="w-full px-2.5 py-2 rounded-xl bg-[#161821] border border-[#262938] text-xs font-semibold text-white focus:outline-none focus:border-amber-500"
+                        >
+                          <option value={1}>1</option>
+                          <option value={2}>2</option>
+                          <option value={3}>3</option>
+                          <option value={4}>4</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
                 <hr className="border-[#232634]" />
 
@@ -1511,7 +1622,62 @@ export const ElementorBuilderSidebar: React.FC = () => {
                     <option value="modern">Caja Moderna (Redondeada)</option>
                     <option value="pill">Cápsula Completa (Pill)</option>
                     <option value="minimal">Línea Inferior Minimalista</option>
+                    <option value="glass">Cristal Esmerilado (Glass)</option>
+                    <option value="hero_banner">Banner Buscador Destacado</option>
+                    <option value="elevated_card">Tarjeta Flotante Elevada</option>
+                    <option value="neon_outline">Borde Luminoso (Neón)</option>
                   </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+                    <Columns3 className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>COLUMNAS POR DISPOSITIVO</span>
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <span className="flex items-center justify-center gap-1 text-[10px] font-bold uppercase text-zinc-400 mb-1">
+                        <Smartphone className="w-3 h-3" /> MÓVIL
+                      </span>
+                      <select
+                        value={blk.columnsMobile ?? 1}
+                        onChange={e => patch({ columnsMobile: Number(e.target.value) as 1 | 2 })}
+                        className="w-full px-2.5 py-2 rounded-xl bg-[#161821] border border-[#262938] text-xs font-semibold text-white"
+                      >
+                        <option value={1}>1</option>
+                        <option value={2}>2</option>
+                      </select>
+                    </div>
+                    <div>
+                      <span className="flex items-center justify-center gap-1 text-[10px] font-bold uppercase text-zinc-400 mb-1">
+                        <Tablet className="w-3 h-3" /> TABLET
+                      </span>
+                      <select
+                        value={blk.columnsTablet ?? 1}
+                        onChange={e => patch({ columnsTablet: Number(e.target.value) as 1 | 2 })}
+                        className="w-full px-2.5 py-2 rounded-xl bg-[#161821] border border-[#262938] text-xs font-semibold text-white"
+                      >
+                        <option value={1}>1</option>
+                        <option value={2}>2</option>
+                      </select>
+                    </div>
+                    <div>
+                      <span className="flex items-center justify-center gap-1 text-[10px] font-bold uppercase text-zinc-400 mb-1">
+                        <Monitor className="w-3 h-3" /> PC
+                      </span>
+                      <select
+                        value={blk.columnsDesktop ?? 1}
+                        onChange={e =>
+                          patch({ columnsDesktop: Number(e.target.value) as 1 | 2 | 3 })
+                        }
+                        className="w-full px-2.5 py-2 rounded-xl bg-[#161821] border border-[#262938] text-xs font-semibold text-white"
+                      >
+                        <option value={1}>1</option>
+                        <option value={2}>2</option>
+                        <option value={3}>3</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
 
                 <AdvancedOptionsAccordion
@@ -1575,6 +1741,25 @@ export const ElementorBuilderSidebar: React.FC = () => {
 
                 <div className="space-y-1.5">
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+                    ESTILO VISUAL
+                  </label>
+                  <select
+                    value={blk.visualStyle || 'banner'}
+                    onChange={e =>
+                      patch({ visualStyle: e.target.value as PromoStripBlockConfig['visualStyle'] })
+                    }
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#161821] border border-[#262938] text-xs font-semibold text-white"
+                  >
+                    <option value="banner">Banner Clásico</option>
+                    <option value="ticket_coupon">Cupón Recortable (Ticket)</option>
+                    <option value="glass_glow">Resplandor Luminoso (Glow)</option>
+                    <option value="split_hero">Franja Destacada Amplia</option>
+                    <option value="compact_bar">Barra Compacta</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400">
                     TONO DE COLOR
                   </label>
                   <select
@@ -1588,7 +1773,65 @@ export const ElementorBuilderSidebar: React.FC = () => {
                     <option value="crimson">Rojo Napolitano</option>
                     <option value="emerald">Esmeralda Fresco</option>
                     <option value="dark">Carbón Dorado</option>
+                    <option value="royal">Azul Real Intenso</option>
+                    <option value="sunset">Degradado Sunset</option>
+                    <option value="gold">Oro Premium</option>
                   </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+                    <Columns3 className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>COLUMNAS POR DISPOSITIVO</span>
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <span className="flex items-center justify-center gap-1 text-[10px] font-bold uppercase text-zinc-400 mb-1">
+                        <Smartphone className="w-3 h-3" /> MÓVIL
+                      </span>
+                      <select
+                        value={blk.columnsMobile ?? 1}
+                        onChange={e => patch({ columnsMobile: Number(e.target.value) as 1 | 2 })}
+                        className="w-full px-2.5 py-2 rounded-xl bg-[#161821] border border-[#262938] text-xs font-semibold text-white"
+                      >
+                        <option value={1}>1</option>
+                        <option value={2}>2</option>
+                      </select>
+                    </div>
+                    <div>
+                      <span className="flex items-center justify-center gap-1 text-[10px] font-bold uppercase text-zinc-400 mb-1">
+                        <Tablet className="w-3 h-3" /> TABLET
+                      </span>
+                      <select
+                        value={blk.columnsTablet ?? 1}
+                        onChange={e =>
+                          patch({ columnsTablet: Number(e.target.value) as 1 | 2 | 3 })
+                        }
+                        className="w-full px-2.5 py-2 rounded-xl bg-[#161821] border border-[#262938] text-xs font-semibold text-white"
+                      >
+                        <option value={1}>1</option>
+                        <option value={2}>2</option>
+                        <option value={3}>3</option>
+                      </select>
+                    </div>
+                    <div>
+                      <span className="flex items-center justify-center gap-1 text-[10px] font-bold uppercase text-zinc-400 mb-1">
+                        <Monitor className="w-3 h-3" /> PC
+                      </span>
+                      <select
+                        value={blk.columnsDesktop ?? 1}
+                        onChange={e =>
+                          patch({ columnsDesktop: Number(e.target.value) as 1 | 2 | 3 | 4 })
+                        }
+                        className="w-full px-2.5 py-2 rounded-xl bg-[#161821] border border-[#262938] text-xs font-semibold text-white"
+                      >
+                        <option value={1}>1</option>
+                        <option value={2}>2</option>
+                        <option value={3}>3</option>
+                        <option value={4}>4</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-2">

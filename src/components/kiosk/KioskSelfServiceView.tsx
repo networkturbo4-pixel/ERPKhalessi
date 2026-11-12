@@ -150,6 +150,15 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
     return availableProducts.filter((p) => p.category === selectedCategory);
   }, [availableProducts, selectedCategory]);
 
+  // Attract Loop media background playlist (videos gastronómicos de pizza en horno de leña, masa y queso derretido en bucle silencioso)
+  const attractVideos = useMemo(() => [
+    'https://assets.mixkit.co/videos/preview/mixkit-chef-putting-pizza-in-the-oven-43250-large.mp4',
+    'https://assets.mixkit.co/videos/preview/mixkit-putting-cheese-on-a-pizza-dough-43254-large.mp4',
+    'https://assets.mixkit.co/videos/preview/mixkit-fresh-pizza-out-of-the-oven-43251-large.mp4',
+  ], []);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+
   // Attract Loop slides
   const attractSlides = useMemo(() => {
     const featured = availableProducts.slice(0, 4);
@@ -157,36 +166,25 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
       return [
         {
           id: 'default-1',
-          badge: '🔥 HORNO DE PIEDRA 400°C',
-          title: 'Armamos tu Pizza Artesanal al Instante',
-          subtitle: 'Pide y paga sin colas con Culqi Tarjeta o Yape QR',
-          price: 34.9,
           imageUrl:
             'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=1000&q=80',
+          videoUrl: attractVideos[0],
         },
       ];
     }
-    return featured.map((p) => {
-      const minPrice = p.hasSizes
-        ? Math.min(...p.sizes.filter((s) => s.enabled).map((s) => s.price))
-        : p.basePrice;
-      return {
-        id: p.id,
-        badge: p.badge || '✨ RECIÉN SALIDA DEL HORNO',
-        title: p.name,
-        subtitle: p.description,
-        price: Number.isFinite(minPrice) ? minPrice : p.basePrice,
-        imageUrl: p.imageUrl,
-      };
-    });
-  }, [availableProducts]);
+    return featured.map((p, idx) => ({
+      id: p.id,
+      imageUrl: p.imageUrl,
+      videoUrl: attractVideos[idx % attractVideos.length],
+    }));
+  }, [availableProducts, attractVideos]);
 
   // Auto-advance Attract Loop
   useEffect(() => {
     if (step !== 'attract') return;
     const timer = window.setInterval(() => {
       setAttractSlideIdx((prev) => (prev + 1) % attractSlides.length);
-    }, 4500);
+    }, 6000);
     return () => window.clearInterval(timer);
   }, [step, attractSlides.length]);
 
@@ -772,14 +770,26 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
            ========================================================= */}
         {step === 'attract' && (
           <div className="relative w-full h-full flex flex-col justify-between overflow-hidden bg-zinc-950">
-            {/* Background Hero Image with smooth transition */}
-            <div className="absolute inset-0">
-              <img
-                src={attractSlides[attractSlideIdx]?.imageUrl}
-                alt={attractSlides[attractSlideIdx]?.title}
-                className="block w-full h-full object-cover scale-105 transition-all duration-700"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/65 to-zinc-950/30" />
+            {/* Background Hero Video + Image Fallback with smooth overlay */}
+            <div className="absolute inset-0 overflow-hidden">
+              <video
+                key={attractSlides[attractSlideIdx]?.videoUrl}
+                ref={videoRef}
+                autoPlay
+                loop
+                muted
+                playsInline
+                poster={attractSlides[attractSlideIdx]?.imageUrl}
+                className="w-full h-full object-cover scale-105 transition-opacity duration-700 pointer-events-none"
+              >
+                {attractSlides[attractSlideIdx]?.videoUrl && (
+                  <source
+                    src={attractSlides[attractSlideIdx]?.videoUrl}
+                    type="video/mp4"
+                  />
+                )}
+              </video>
+              <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-zinc-950/30" />
             </div>
 
             {/* Top Brand Header + Branch Badge */}
@@ -829,48 +839,8 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
 
             {/* Center / Bottom Call-To-Action & Dining Mode Selection */}
             <div className="relative z-10 p-6 sm:p-8 space-y-6 mt-auto">
-              {/* Slide Promo Highlight */}
-              <div className="space-y-3">
-                <span
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider text-white shadow-lg"
-                  style={{ backgroundColor: customization.primaryColor }}
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  {attractSlides[attractSlideIdx]?.badge}
-                </span>
-                <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight tracking-tight drop-shadow-md">
-                  {attractSlides[attractSlideIdx]?.title}
-                </h2>
-                <p className="text-sm sm:text-base text-zinc-200 line-clamp-2 max-w-md">
-                  {attractSlides[attractSlideIdx]?.subtitle}
-                </p>
-                <div className="inline-flex items-baseline gap-2 pt-1">
-                  <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                    Desde
-                  </span>
-                  <span className="text-3xl font-black text-amber-400">
-                    S/ {attractSlides[attractSlideIdx]?.price.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-
-              {/* Slide Dots */}
-              <div className="flex items-center gap-2">
-                {attractSlides.map((s, idx) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    aria-label={`Ver promoción ${idx + 1}`}
-                    onClick={() => setAttractSlideIdx(idx)}
-                    className={`h-2 rounded-full transition-all ${
-                      idx === attractSlideIdx ? 'w-8 bg-amber-400' : 'w-2 bg-white/35'
-                    }`}
-                  />
-                ))}
-              </div>
-
               {/* Giant Mall-Style Mode Selector Cards */}
-              <div className="pt-2 space-y-3">
+              <div className="space-y-3">
                 <p className="text-xs font-black uppercase tracking-widest text-center text-amber-300">
                   👇 TOCA LA PANTALLA PARA EMPEZAR TU PEDIDO 👇
                 </p>
@@ -914,16 +884,6 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
                     </div>
                   </button>
                 </div>
-              </div>
-
-              {/* Culqi Trust Footer */}
-              <div className="pt-2 flex items-center justify-center gap-2 text-[11px] font-bold text-zinc-300">
-                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Pago rápido y seguro con</span>
-                <span className="px-2 py-0.5 rounded-md bg-white/15 text-white font-black">
-                  Culqi
-                </span>
-                <span>Visa • Mastercard • Yape QR</span>
               </div>
             </div>
           </div>

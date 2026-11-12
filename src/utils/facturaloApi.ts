@@ -1,5 +1,6 @@
 import { FacturaloConfig, CompanyInfo, Tenant } from '../types/settings';
 import { Order } from '../types/catalog';
+import { getAuthHeaders } from './diskPersistence';
 
 export const FACTURALO_STORAGE_KEY = 'kh_facturalo_api_config_v1';
 
@@ -188,6 +189,7 @@ export async function callFacturaloApi(options: {
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
+          ...getAuthHeaders(),
         },
         body: JSON.stringify({
           targetUrl: options.url,

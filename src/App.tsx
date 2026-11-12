@@ -7,6 +7,7 @@ import { StoreCustomerProvider } from './context/StoreCustomerContext';
 import { BenefitsProvider } from './context/BenefitsContext';
 import { InventoryProvider } from './context/InventoryContext';
 import { BrandBootSplash } from './components/common/AppSurfaceSkeleton';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 const loadMainLayout = () =>
   import('./components/MainLayout').then(m => ({ default: m.MainLayout }));
@@ -108,35 +109,37 @@ export function App() {
     (typeof window !== 'undefined' && window.location.hash.startsWith('#kiosco'));
 
   return (
-    <RBACProvider>
-      <SettingsProvider>
-        <OrderCatalogProvider>
-          <InventoryProvider>
-            <StoreCustomerProvider>
-              <BenefitsProvider>
-                <StoreBuilderProvider>
-                  <Suspense fallback={<BrandBootSplash pathname={currentPath} />}>
-                    {isKioskRoute ? (
-                      <KioskSelfServiceView
-                        embeddedInAdmin={false}
-                        onExitToAdmin={() => navigate('/admin')}
-                      />
-                    ) : isAdminRoute ? (
-                      <AppGate
-                        onNavigateToStore={() => navigate('/')}
-                        onNavigateToKiosk={() => navigate('/kiosco')}
-                      />
-                    ) : (
-                      <StorefrontView onNavigateToAdmin={() => navigate('/admin')} />
-                    )}
-                  </Suspense>
-                </StoreBuilderProvider>
-              </BenefitsProvider>
-            </StoreCustomerProvider>
-          </InventoryProvider>
-        </OrderCatalogProvider>
-      </SettingsProvider>
-    </RBACProvider>
+    <ErrorBoundary>
+      <RBACProvider>
+        <SettingsProvider>
+          <OrderCatalogProvider>
+            <InventoryProvider>
+              <StoreCustomerProvider>
+                <BenefitsProvider>
+                  <StoreBuilderProvider>
+                    <Suspense fallback={<BrandBootSplash pathname={currentPath} />}>
+                      {isKioskRoute ? (
+                        <KioskSelfServiceView
+                          embeddedInAdmin={false}
+                          onExitToAdmin={() => navigate('/admin')}
+                        />
+                      ) : isAdminRoute ? (
+                        <AppGate
+                          onNavigateToStore={() => navigate('/')}
+                          onNavigateToKiosk={() => navigate('/kiosco')}
+                        />
+                      ) : (
+                        <StorefrontView onNavigateToAdmin={() => navigate('/admin')} />
+                      )}
+                    </Suspense>
+                  </StoreBuilderProvider>
+                </BenefitsProvider>
+              </StoreCustomerProvider>
+            </InventoryProvider>
+          </OrderCatalogProvider>
+        </SettingsProvider>
+      </RBACProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -1,4 +1,4 @@
-import {
+import type {
   InventoryItem,
   Recipe,
   RecipeLine,
@@ -7,7 +7,7 @@ import {
   StockLevel,
   StockMovement,
 } from '../types/inventory';
-import { OrderItem, Product } from '../types/catalog';
+import type { OrderItem, Product } from '../types/catalog';
 
 /**
  * Standardize units if needed (e.g. g <-> kg, ml <-> l)

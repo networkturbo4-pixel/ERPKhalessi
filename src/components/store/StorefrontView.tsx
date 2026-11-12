@@ -1101,6 +1101,8 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
         return (
           <StoreSearchBarWidget
             block={block}
+            viewport={effectiveViewport}
+            accentColor={accentColor}
             isLightTheme={isLightTheme}
             searchQuery={searchQuery}
             onChangeSearch={q => setSearchQuery(q)}
@@ -1110,6 +1112,8 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
         return (
           <StorePromoStripWidget
             block={block}
+            viewport={effectiveViewport}
+            accentColor={accentColor}
             products={products}
             autoButtonContrast={autoButtonContrast}
             onSelectProduct={prod => navigateToProductSlug(prod)}

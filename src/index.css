@@ -484,4 +484,169 @@ dialog.store-responsive-drawer {
 .store-below-fold-footer {
   content-visibility: auto;
   contain-intrinsic-size: auto none auto 480px;
+  container-type: inline-size;
+}
+
+/* ============================================================================
+   Size-Aware & Fluid-Scaling Storefront Widgets (per modern-web-guidance)
+   ============================================================================ */
+.kh-cq-card {
+  container-type: inline-size;
+  min-inline-size: 0;
+}
+
+/* Fluid title & price constrained with clamp() (max <= 2.5x min for WCAG 1.4.4) */
+.kh-cq-title {
+  font-size: clamp(0.78rem, 2.2vw, 1.05rem);
+  line-height: 1.28;
+}
+.kh-cq-price {
+  font-size: clamp(0.88rem, 2.5vw, 1.2rem);
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+@supports (font-size: 1cqi) {
+  .kh-cq-title {
+    font-size: clamp(0.78rem, 5.2cqi, 1.05rem);
+  }
+  .kh-cq-price {
+    font-size: clamp(0.88rem, 6cqi, 1.2rem);
+  }
+}
+
+/* Card footer actions: stacked by default in narrow columns, side-by-side when container >= 195px */
+.kh-cq-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+}
+.kh-cq-actions .kh-cq-cta {
+  width: 100%;
+  justify-content: center;
+}
+
+@media (min-width: 600px) {
+  .kh-cq-actions {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .kh-cq-actions .kh-cq-cta {
+    width: auto;
+  }
+}
+
+@supports (container-type: inline-size) {
+  @media (min-width: 600px) {
+    .kh-cq-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .kh-cq-actions .kh-cq-cta {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  @container (min-width: 195px) {
+    .kh-cq-actions {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .kh-cq-actions .kh-cq-cta {
+      width: auto;
+    }
+  }
+}
+
+/* Horizontal card layout (compacta / lista_menu): stacks when narrow, side-by-side when >= 230px */
+.kh-cq-horizontal {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: stretch;
+  gap: 0.65rem;
+}
+.kh-cq-horizontal .kh-cq-thumb {
+  width: 100%;
+  height: 7.5rem;
+}
+
+@media (min-width: 600px) {
+  .kh-cq-horizontal {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .kh-cq-horizontal .kh-cq-thumb {
+    width: 6.5rem;
+    height: 6.5rem;
+  }
+}
+
+@supports (container-type: inline-size) {
+  @media (min-width: 600px) {
+    .kh-cq-horizontal {
+      flex-direction: column-reverse;
+      align-items: stretch;
+    }
+    .kh-cq-horizontal .kh-cq-thumb {
+      width: 100%;
+      height: 7.5rem;
+    }
+  }
+
+  @container (min-width: 235px) {
+    .kh-cq-horizontal {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .kh-cq-horizontal .kh-cq-thumb {
+      width: clamp(4.75rem, 28cqi, 7.5rem);
+      height: clamp(4.75rem, 28cqi, 7.5rem);
+    }
+  }
+}
+
+/* Storefront Footer container-aware grid so Builder Mobile/Tablet/PC previews render accurately */
+.kh-footer-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 2rem;
+}
+@media (min-width: 640px) {
+  .kh-footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 1024px) {
+  .kh-footer-grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 1.75rem;
+  }
+}
+@supports (container-type: inline-size) {
+  @media (min-width: 640px) {
+    .kh-footer-grid {
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+  }
+  @container (min-width: 560px) {
+    .kh-footer-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.75rem;
+    }
+  }
+  @container (min-width: 920px) {
+    .kh-footer-grid {
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 2rem;
+    }
+    .kh-footer-col-3 {
+      grid-column: span 3 / span 3;
+    }
+  }
 }

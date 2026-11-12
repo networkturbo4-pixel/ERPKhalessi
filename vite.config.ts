@@ -86,6 +86,28 @@ function diskStoragePlugin(): Plugin {
                   return
                 }
 
+                let parsedTarget: URL
+                try {
+                  parsedTarget = new URL(targetUrl)
+                } catch {
+                  res.setHeader('Content-Type', 'application/json')
+                  res.statusCode = 400
+                  res.end(JSON.stringify({ ok: false, error: 'targetUrl inválido' }))
+                  return
+                }
+
+                const allowedSuffixes = ['facturalo.pe', 'apisperu.com', 'apis.net.pe', 'sunat.gob.pe']
+                const host = parsedTarget.hostname.toLowerCase()
+                const isAllowedHost = allowedSuffixes.some(
+                  suffix => host === suffix || host.endsWith(`.${suffix}`)
+                )
+                if (parsedTarget.protocol !== 'https:' || !isAllowedHost) {
+                  res.setHeader('Content-Type', 'application/json')
+                  res.statusCode = 403
+                  res.end(JSON.stringify({ ok: false, error: 'URL de destino no permitida (solo HTTPS Factúralo/SUNAT)' }))
+                  return
+                }
+
                 const fetchHeaders: Record<string, string> = { ...headers }
                 if (body && !fetchHeaders['Content-Type']) {
                   fetchHeaders['Content-Type'] = 'application/json'
@@ -120,6 +142,69 @@ function diskStoragePlugin(): Plugin {
                 res.end(JSON.stringify({ ok: false, error: err?.message || 'Error en proxy Factúralo' }))
               }
             })
+            return
+          }
+        }
+
+        // Servir /version.json desde release/version.json en entorno local
+        if (req.url?.startsWith('/version.json') && req.method === 'GET') {
+          const releaseVersionPath = path.resolve(process.cwd(), 'release', 'version.json')
+          if (fs.existsSync(releaseVersionPath)) {
+            res.setHeader('Content-Type', 'application/json; charset=utf-8')
+            res.setHeader('Cache-Control', 'no-store')
+            res.statusCode = 200
+            res.end(fs.readFileSync(releaseVersionPath, 'utf-8'))
+            return
+          }
+        }
+
+        // Mock /api/system-update.php para desarrollo local con Vite
+        if (req.url?.startsWith('/api/system-update')) {
+          const urlObj = new URL(req.url, 'http://localhost')
+          const action = urlObj.searchParams.get('action') || 'check'
+          const releaseVersionPath = path.resolve(process.cwd(), 'release', 'version.json')
+          const localVersion = fs.existsSync(releaseVersionPath)
+            ? JSON.parse(fs.readFileSync(releaseVersionPath, 'utf-8'))
+            : { buildId: 'dev-local', builtAt: new Date().toISOString(), message: 'Entorno de desarrollo Vite' }
+
+          if (action === 'check') {
+            res.setHeader('Content-Type', 'application/json; charset=utf-8')
+            res.statusCode = 200
+            res.end(
+              JSON.stringify({
+                success: true,
+                installed_build: localVersion.buildId,
+                installed: localVersion,
+                remote: localVersion,
+                latest_commit: localVersion.buildId,
+                message: localVersion.message || 'Release sincronizado',
+                date: localVersion.builtAt || new Date().toISOString(),
+                update_available: false,
+                capabilities: { curl: true, writable: true, mode: 'manifest-sha256-direct' },
+              })
+            )
+            return
+          }
+
+          if (action === 'deploy' && req.method === 'POST') {
+            res.setHeader('Content-Type', 'application/json; charset=utf-8')
+            res.statusCode = 200
+            res.end(
+              JSON.stringify({
+                success: true,
+                message: '¡Sincronización verificada en entorno local!',
+                build_id: localVersion.buildId,
+                files_updated: 0,
+                files_unchanged: localVersion.totalFiles || 65,
+                files_cleaned: 0,
+                db_migration: { connected: true, tables_verified: 10, columns_added: 0, details: [] },
+                steps: [
+                  `Manifiesto verificado: build ${localVersion.buildId} (${localVersion.totalFiles || 65} archivos indexados).`,
+                  'Comparación SHA-256 completada: todos los archivos locales coinciden con el build activo.',
+                  'Base de datos verificada: 10 tablas comprobadas, 0 columnas nuevas pendientes (datos 100% intactos).',
+                ],
+              })
+            )
             return
           }
         }

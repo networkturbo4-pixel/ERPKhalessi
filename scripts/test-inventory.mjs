@@ -6,7 +6,7 @@ import {
   calculateRecipeCostAndMargin,
   calculateReplenishmentSuggestion,
   categorizeExpiringLots,
-} from '../src/utils/inventoryEngine.js';
+} from '../src/utils/inventoryEngine.ts';
 
 console.log('🧪 Iniciando verificación del motor de Inventario y Recetas...');
 

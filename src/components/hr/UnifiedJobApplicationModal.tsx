@@ -182,22 +182,22 @@ export const UnifiedJobApplicationModal: React.FC<UnifiedJobApplicationModalProp
         if (dialogRef.current) dialogRef.current.returnValue = '';
         onClose();
       }}
-      className="max-w-2xl"
+      className="w-full max-w-2xl bg-transparent p-2 sm:p-4 outline-none backdrop:bg-black/60 backdrop:backdrop-blur-xs"
     >
       {isOpen && (
-        <div className="w-full rounded-3xl bg-white dark:bg-[#141418] text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-800 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="w-full rounded-3xl bg-white dark:bg-[#14151b] text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-800 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
           {/* Header */}
-          <div className="px-6 py-4 bg-gradient-to-r from-emerald-950 via-zinc-900 to-zinc-950 text-white flex items-center justify-between gap-3 shrink-0 border-b border-emerald-500/20">
+          <div className="px-5 py-4 bg-gradient-to-r from-emerald-950 via-zinc-900 to-zinc-950 text-white flex items-center justify-between gap-3 shrink-0 border-b border-emerald-500/20">
             <div className="flex items-center gap-3 min-w-0">
               <div className="h-10 w-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 shrink-0">
                 <Briefcase className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 block">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 block truncate">
                   BOLSA DE TRABAJO OFICIAL • {companyInfo.commercialName}
                 </span>
-                <h2 id={titleId} className="text-base sm:text-lg font-black truncate">
-                  ¡Trabaja con Nosotros! — Formulario Único de Postulación
+                <h2 id={titleId} className="text-sm sm:text-base font-black truncate">
+                  ¡Trabaja con Nosotros! — Formulario de Postulación
                 </h2>
               </div>
             </div>
@@ -213,7 +213,8 @@ export const UnifiedJobApplicationModal: React.FC<UnifiedJobApplicationModalProp
                 }`}
               >
                 <QrCode className="h-3.5 w-3.5" />
-                <span>{showQrPanel ? 'Ver Formulario' : 'Código QR'}</span>
+                <span className="hidden sm:inline">{showQrPanel ? 'Ver Formulario' : 'Código QR'}</span>
+                <span className="sm:hidden">{showQrPanel ? 'Form' : 'QR'}</span>
               </button>
               <button
                 type="button"
@@ -227,7 +228,7 @@ export const UnifiedJobApplicationModal: React.FC<UnifiedJobApplicationModalProp
           </div>
 
           {/* Body */}
-          <div className="p-6 overflow-y-auto space-y-5 flex-1">
+          <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1">
             {submittedCode ? (
               <div className="py-8 text-center space-y-4">
                 <div className="h-16 w-16 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 mx-auto flex items-center justify-center">
@@ -610,22 +611,22 @@ export const UnifiedJobApplicationModal: React.FC<UnifiedJobApplicationModalProp
 
           {/* Footer Actions (SINGLE_LINE_MODAL_ACTIONS compliant) */}
           {!submittedCode && !showQrPanel && activePostings.length > 0 && (
-            <div className="px-6 py-4 bg-zinc-50 dark:bg-zinc-900/90 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3 shrink-0">
-              <span className="text-[11px] text-zinc-500 hidden sm:inline">
-                Tus datos son tratados confidencialmente por RR.HH. de {companyInfo.commercialName}.
+            <div className="px-5 py-3.5 bg-zinc-50 dark:bg-[#16171e] border-t border-zinc-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
+              <span className="text-[11px] text-zinc-500 hidden md:inline truncate max-w-xs">
+                Tus datos son tratados confidencialmente por RR.HH.
               </span>
-              <div className="flex items-center gap-2.5 ml-auto">
+              <div className="flex items-center gap-2.5 ml-auto w-full sm:w-auto justify-end">
                 <button
                   type="button"
                   onClick={resetAndClose}
-                  className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold saas-btn-secondary whitespace-nowrap shrink-0"
+                  className="px-4 py-2 rounded-xl text-xs font-bold border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 whitespace-nowrap shrink-0 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   form="unified-job-form"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 transition-all whitespace-nowrap shrink-0"
+                  className="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20 whitespace-nowrap shrink-0 transition-all"
                 >
                   <Send className="h-3.5 w-3.5" />
                   <span>Enviar Postulación</span>

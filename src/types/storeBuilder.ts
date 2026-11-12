@@ -32,10 +32,21 @@ export interface SliderSlideItem {
   productId?: string;
 }
 
+export type SliderVisualStyle =
+  | 'classic'
+  | 'cinema'
+  | 'floating_glass'
+  | 'split_card'
+  | 'magazine';
+
 export interface SliderBlockConfig extends BlockDeviceVisibility {
   type: 'slider';
   id: string;
   title?: string;
+  visualStyle?: SliderVisualStyle;
+  columnsMobile?: 1 | 2;
+  columnsTablet?: 1 | 2 | 3;
+  columnsDesktop?: 1 | 2 | 3 | 4;
   heightMobile: number;
   heightTablet: number;
   heightDesktop: number;
@@ -51,7 +62,16 @@ export interface SliderBlockConfig extends BlockDeviceVisibility {
   advanced: BlockAdvancedOptions;
 }
 
-export type CategoryWidgetStyle = 'pills' | 'cards' | 'circles' | 'tabs' | 'banners';
+export type CategoryWidgetStyle =
+  | 'pills'
+  | 'cards'
+  | 'circles'
+  | 'tabs'
+  | 'banners'
+  | 'glass'
+  | 'mosaic'
+  | 'minimal_chip'
+  | 'split_badge';
 
 export interface CategoriesBlockConfig extends BlockDeviceVisibility {
   type: 'categories';
@@ -62,8 +82,8 @@ export interface CategoriesBlockConfig extends BlockDeviceVisibility {
   showCount: boolean;
   gapPx: number;
   columnsMobile: 'auto' | 1 | 2 | 3 | 4;
-  columnsTablet: 'auto' | 2 | 3 | 4 | 5 | 6;
-  columnsDesktop: 'auto' | 3 | 4 | 5 | 6 | 8;
+  columnsTablet: 'auto' | 1 | 2 | 3 | 4 | 5 | 6;
+  columnsDesktop: 'auto' | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   advanced: BlockAdvancedOptions;
 }
 
@@ -72,16 +92,21 @@ export type ProductCardStyle =
   | 'clasica'
   | 'compacta'
   | 'minimalista'
-  | 'inmersiva';
+  | 'inmersiva'
+  | 'vitrina'
+  | 'bento'
+  | 'galeria'
+  | 'lista_menu'
+  | 'neon_promo';
 
 export interface ProductGridBlockConfig extends BlockDeviceVisibility {
   type: 'product_grid';
   id: string;
   title?: string;
   cardStyle: ProductCardStyle;
-  columnsMobile: 1 | 2 | 3;
-  columnsTablet: 2 | 3 | 4;
-  columnsDesktop: 2 | 3 | 4 | 5 | 6;
+  columnsMobile: 1 | 2 | 3 | 4;
+  columnsTablet: 1 | 2 | 3 | 4 | 5 | 6;
+  columnsDesktop: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   categoryFilter: 'active_sync' | 'all' | ProductCategory;
   manualIds: string;
   maxInitialProducts: number;
@@ -99,14 +124,42 @@ export interface ProductGridBlockConfig extends BlockDeviceVisibility {
   advanced: BlockAdvancedOptions;
 }
 
+export type SearchBarVisualStyle =
+  | 'modern'
+  | 'pill'
+  | 'minimal'
+  | 'glass'
+  | 'hero_banner'
+  | 'elevated_card'
+  | 'neon_outline';
+
 export interface SearchBarBlockConfig extends BlockDeviceVisibility {
   type: 'search_bar';
   id: string;
   title?: string;
   placeholder: string;
-  visualStyle: 'modern' | 'pill' | 'minimal';
+  visualStyle: SearchBarVisualStyle;
+  columnsMobile?: 1 | 2;
+  columnsTablet?: 1 | 2;
+  columnsDesktop?: 1 | 2 | 3;
   advanced: BlockAdvancedOptions;
 }
+
+export type PromoStripVisualStyle =
+  | 'banner'
+  | 'ticket_coupon'
+  | 'glass_glow'
+  | 'split_hero'
+  | 'compact_bar';
+
+export type PromoStripTone =
+  | 'amber'
+  | 'crimson'
+  | 'emerald'
+  | 'dark'
+  | 'royal'
+  | 'sunset'
+  | 'gold';
 
 export interface PromoStripBlockConfig extends BlockDeviceVisibility {
   type: 'promo_strip';
@@ -118,7 +171,11 @@ export interface PromoStripBlockConfig extends BlockDeviceVisibility {
   actionType: 'none' | 'url' | 'product';
   linkUrl?: string;
   productId?: string;
-  bgTone: 'amber' | 'crimson' | 'emerald' | 'dark';
+  bgTone: PromoStripTone;
+  visualStyle?: PromoStripVisualStyle;
+  columnsMobile?: 1 | 2;
+  columnsTablet?: 1 | 2 | 3;
+  columnsDesktop?: 1 | 2 | 3 | 4;
   advanced: BlockAdvancedOptions;
 }
 

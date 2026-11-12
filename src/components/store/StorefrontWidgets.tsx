@@ -223,6 +223,17 @@ export const StoreSliderWidget: React.FC<StoreSliderWidgetProps> = ({
       ? block.widthTablet
       : block.widthDesktop;
 
+  const resolvedSliderCols = Math.max(
+    1,
+    viewport === 'mobile'
+      ? block.columnsMobile || 1
+      : viewport === 'tablet'
+      ? block.columnsTablet || 1
+      : block.columnsDesktop || 1
+  );
+
+  const sliderStyle = block.visualStyle || 'classic';
+
   const scrollToSlide = (targetIndex: number) => {
     const track = trackRef.current;
     if (!track || slides.length === 0) return;
@@ -397,6 +408,7 @@ export const StoreSliderWidget: React.FC<StoreSliderWidgetProps> = ({
           tabIndex={0}
           role="group"
           aria-label="Diapositivas"
+          style={{ gap: resolvedSliderCols > 1 ? '14px' : '0px' }}
           className="store-carousel-track w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400"
         >
           {slides.map((slide, idx) => {
@@ -416,6 +428,11 @@ export const StoreSliderWidget: React.FC<StoreSliderWidgetProps> = ({
                 ? products.find(p => p.id === slide.productId)
                 : undefined;
 
+            const slideBasis =
+              resolvedSliderCols > 1
+                ? `calc((100% - ${(resolvedSliderCols - 1) * 14}px) / ${resolvedSliderCols})`
+                : '100%';
+
             return (
               <div
                 key={slide.id}
@@ -427,69 +444,41 @@ export const StoreSliderWidget: React.FC<StoreSliderWidgetProps> = ({
                     handleSlideTrigger(slide);
                   }
                 }}
-                style={{ height: `${resolvedHeight}px` }}
-                className={`relative flex-[0_0_100%] snap-center overflow-hidden select-none ${
+                style={{
+                  height: `${resolvedHeight}px`,
+                  flex: `0 0 ${slideBasis}`,
+                  borderRadius: resolvedSliderCols > 1 ? `${Math.max(12, (block.borderRadiusPx ?? 20) - 4)}px` : undefined,
+                }}
+                className={`kh-cq-card relative snap-center overflow-hidden select-none ${
                   isClickable && !slide.ctaLabel ? 'cursor-pointer' : ''
+                } ${
+                  sliderStyle === 'magazine'
+                    ? 'ring-2 ring-inset ring-white/25'
+                    : ''
                 }`}
               >
-                {idx === 0 && isHero ? (
-                  <img
-                    src={imgSrc}
-                    alt={slide.headline || `Slide ${idx + 1}`}
-                    width={1200}
-                    height={resolvedHeight}
-                    fetchPriority="high"
-                    decoding="async"
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
-                ) : idx > 0 ? (
-                  <img
-                    src={imgSrc}
-                    alt={slide.headline || `Slide ${idx + 1}`}
-                    width={1200}
-                    height={resolvedHeight}
-                    fetchPriority="low"
-                    loading="lazy"
-                    decoding="async"
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
-                ) : (
-                  <img
-                    src={imgSrc}
-                    alt={slide.headline || `Slide ${idx + 1}`}
-                    width={1200}
-                    height={resolvedHeight}
-                    loading="lazy"
-                    decoding="async"
-                    className="absolute inset-0 w-full h-full object-cover"
-                  />
-                )}
-
-                {/* Content (Sin capa oscura / sin hover negro) */}
-                {(slide.badge || slide.headline || slide.subheadline || ((slide.ctaLabel || linkedProduct) && isClickable)) && (
-                  <div className="relative z-10 h-full px-6 sm:px-12 py-6 flex flex-col justify-center items-start max-w-2xl space-y-2.5 text-white">
-                    {slide.badge && (
-                      <span
-                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border border-white/30 bg-zinc-900/75 text-white shadow-sm"
-                      >
-                        {slide.badge}
-                      </span>
-                    )}
-
-                    {slide.headline && (
-                      <h2 className="text-xl sm:text-3xl md:text-4xl font-black tracking-tight leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)]">
-                        {slide.headline}
-                      </h2>
-                    )}
-
-                    {slide.subheadline && (
-                      <p className="text-xs sm:text-sm text-white max-w-lg line-clamp-2 sm:line-clamp-3 leading-relaxed font-medium drop-shadow-[0_1px_6px_rgba(0,0,0,0.75)]">
-                        {slide.subheadline}
-                      </p>
-                    )}
-
-                    {(slide.ctaLabel || linkedProduct) && isClickable && (
-                      <div className="pt-1.5">
+                {sliderStyle === 'split_card' ? (
+                  <div className="w-full h-full grid grid-cols-1 sm:grid-cols-2 bg-neutral-950">
+                    <div className="p-5 sm:p-8 flex flex-col justify-center items-start space-y-2.5 text-white order-2 sm:order-1">
+                      {slide.badge && (
+                        <span
+                          style={{ backgroundColor: accentColor }}
+                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase text-neutral-950"
+                        >
+                          {slide.badge}
+                        </span>
+                      )}
+                      {slide.headline && (
+                        <h2 className="kh-cq-title text-lg sm:text-2xl font-black tracking-tight leading-tight">
+                          {slide.headline}
+                        </h2>
+                      )}
+                      {slide.subheadline && (
+                        <p className="text-xs text-zinc-300 line-clamp-2 leading-relaxed">
+                          {slide.subheadline}
+                        </p>
+                      )}
+                      {(slide.ctaLabel || linkedProduct) && isClickable && (
                         <button
                           type="button"
                           onClick={e => {
@@ -497,17 +486,113 @@ export const StoreSliderWidget: React.FC<StoreSliderWidgetProps> = ({
                             handleSlideTrigger(slide);
                           }}
                           data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                          className="store-btn-solid inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black shadow-md active:scale-[0.97] transition-transform whitespace-nowrap shrink-0"
+                          className="store-btn-solid inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black shadow-md whitespace-nowrap shrink-0"
                         >
                           <span>
-                            {slide.ctaLabel ||
-                              (linkedProduct ? `Pedir ${linkedProduct.name}` : 'Ver Más')}
+                            {slide.ctaLabel || (linkedProduct ? `Pedir ${linkedProduct.name}` : 'Ver Más')}
                           </span>
-                          <ArrowRight className="h-4 w-4" />
+                          <ArrowRight className="h-3.5 w-3.5" />
                         </button>
+                      )}
+                    </div>
+                    <div className="relative h-full w-full min-h-[120px] order-1 sm:order-2 overflow-hidden">
+                      <img
+                        src={imgSrc}
+                        alt={slide.headline || `Slide ${idx + 1}`}
+                        width={800}
+                        height={resolvedHeight}
+                        loading={idx === 0 && isHero ? 'eager' : 'lazy'}
+                        decoding="async"
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {idx === 0 && isHero ? (
+                      <img
+                        src={imgSrc}
+                        alt={slide.headline || `Slide ${idx + 1}`}
+                        width={1200}
+                        height={resolvedHeight}
+                        fetchPriority="high"
+                        decoding="async"
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    ) : (
+                      <img
+                        src={imgSrc}
+                        alt={slide.headline || `Slide ${idx + 1}`}
+                        width={1200}
+                        height={resolvedHeight}
+                        loading="lazy"
+                        decoding="async"
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    )}
+
+                    {sliderStyle === 'cinema' && (
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent pointer-events-none" />
+                    )}
+
+                    {(slide.badge || slide.headline || slide.subheadline || ((slide.ctaLabel || linkedProduct) && isClickable)) && (
+                      <div
+                        className={`relative z-10 h-full px-5 sm:px-10 py-5 flex flex-col text-white ${
+                          sliderStyle === 'cinema'
+                            ? 'justify-end items-center text-center mx-auto max-w-2xl pb-8'
+                            : sliderStyle === 'magazine'
+                            ? 'justify-between items-start'
+                            : 'justify-center items-start max-w-2xl'
+                        }`}
+                      >
+                        <div
+                          className={
+                            sliderStyle === 'floating_glass'
+                              ? 'p-4 sm:p-6 rounded-2xl bg-black/55 backdrop-blur-md border border-white/15 space-y-2 max-w-lg shadow-xl'
+                              : 'space-y-2'
+                          }
+                        >
+                          {slide.badge && (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] sm:text-[11px] font-bold border border-white/30 bg-zinc-900/75 text-white shadow-sm">
+                              {slide.badge}
+                            </span>
+                          )}
+
+                          {slide.headline && (
+                            <h2 className="text-lg sm:text-3xl md:text-4xl font-black tracking-tight leading-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)]">
+                              {slide.headline}
+                            </h2>
+                          )}
+
+                          {slide.subheadline && (
+                            <p className="text-xs sm:text-sm text-white max-w-lg line-clamp-2 leading-relaxed font-medium drop-shadow-[0_1px_6px_rgba(0,0,0,0.75)]">
+                              {slide.subheadline}
+                            </p>
+                          )}
+
+                          {(slide.ctaLabel || linkedProduct) && isClickable && (
+                            <div className="pt-1.5">
+                              <button
+                                type="button"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  handleSlideTrigger(slide);
+                                }}
+                                data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+                                className="store-btn-solid inline-flex items-center gap-2 px-4 py-2 rounded-2xl text-xs sm:text-sm font-black shadow-md active:scale-[0.97] transition-transform whitespace-nowrap shrink-0"
+                              >
+                                <span>
+                                  {slide.ctaLabel ||
+                                    (linkedProduct ? `Pedir ${linkedProduct.name}` : 'Ver Más')}
+                                </span>
+                                <ArrowRight className="h-4 w-4" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
-                  </div>
+                  </>
                 )}
               </div>
             );
@@ -552,7 +637,7 @@ export const StoreSliderWidget: React.FC<StoreSliderWidgetProps> = ({
 };
 
 /* ============================================================================
-   2. CATEGORIES WIDGET (5 Visual Styles + Counter + Gap + Columns per Device)
+   2. CATEGORIES WIDGET (9 Visual Styles + Counter + Gap + Columns per Device)
    ============================================================================ */
 interface StoreCategoriesWidgetProps {
   block: CategoriesBlockConfig;
@@ -604,14 +689,17 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
       ? block.columnsTablet
       : block.columnsDesktop;
 
-  const containerStyle: React.CSSProperties =
-    resolvedCols === 'auto'
-      ? { display: 'flex', gap: `${block.gapPx}px` }
-      : {
-          display: 'grid',
-          gridTemplateColumns: `repeat(${resolvedCols}, minmax(0, 1fr))`,
-          gap: `${block.gapPx}px`,
-        };
+  const isAutoCols = resolvedCols === 'auto';
+  const numericCols = isAutoCols ? 0 : Math.max(1, Number(resolvedCols) || 1);
+  const isDenseGrid = !isAutoCols && numericCols >= 3;
+
+  const containerStyle: React.CSSProperties = isAutoCols
+    ? { display: 'flex', gap: `${block.gapPx}px` }
+    : {
+        display: 'grid',
+        gridTemplateColumns: `repeat(${numericCols}, minmax(0, 1fr))`,
+        gap: `${block.gapPx}px`,
+      };
 
   return (
     <div
@@ -634,7 +722,7 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
 
       <div
         style={containerStyle}
-        className={resolvedCols === 'auto' ? 'overflow-x-auto pb-1 items-center' : ''}
+        className={isAutoCols ? 'overflow-x-auto pb-1 items-center' : 'w-full'}
       >
         {visibleCategories.map(cat => {
           const isActive = activeCategory === cat.id;
@@ -651,7 +739,11 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
                     ? { borderColor: accentColor, backgroundColor: `${accentColor}18` }
                     : undefined
                 }
-                className={`p-3.5 rounded-2xl border text-left transition-all flex items-center justify-between gap-3 shrink-0 ${
+                className={`kh-cq-card ${
+                  isDenseGrid ? 'p-2.5' : 'p-3.5'
+                } rounded-2xl border text-left transition-all flex items-center justify-between gap-2 ${
+                  isAutoCols ? 'shrink-0' : 'w-full min-w-0'
+                } ${
                   isActive
                     ? isLightTheme
                       ? 'text-zinc-950 shadow-sm'
@@ -661,19 +753,19 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
                     : 'bg-neutral-900/90 border-neutral-800 text-neutral-300 hover:bg-neutral-800'
                 }`}
               >
-                <div className="flex items-center gap-2.5 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
                   {cat.bannerImg ? (
-                    <div className="w-8 h-8 rounded-xl overflow-hidden shrink-0 border border-zinc-200/60 dark:border-zinc-700/60 shadow-xs">
+                    <div className={`${isDenseGrid ? 'w-6 h-6' : 'w-8 h-8'} rounded-xl overflow-hidden shrink-0 border border-zinc-200/60 dark:border-zinc-700/60 shadow-xs`}>
                       <img src={cat.bannerImg} alt={cat.label} width={32} height={32} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                     </div>
                   ) : (
-                    <span className="text-xl shrink-0">{cat.icon}</span>
+                    <span className={`${isDenseGrid ? 'text-base' : 'text-xl'} shrink-0`}>{cat.icon}</span>
                   )}
                   <span className="text-xs sm:text-sm font-bold truncate">{cat.label}</span>
                 </div>
                 {block.showCount && (
                   <span
-                    className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                    className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
                       isActive
                         ? 'bg-black/15 dark:bg-white/15'
                         : isLightTheme
@@ -694,11 +786,15 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
                 key={cat.id}
                 type="button"
                 onClick={() => onSelectCategory(cat.id)}
-                className="flex flex-col items-center gap-1.5 group shrink-0 min-w-[76px]"
+                className={`kh-cq-card flex flex-col items-center gap-1.5 group ${
+                  isAutoCols ? 'shrink-0 min-w-[76px]' : 'w-full min-w-0'
+                }`}
               >
                 <div
                   data-auto-contrast={isActive && autoButtonContrast ? 'true' : 'false'}
-                  className={`h-14 w-14 rounded-full border-2 flex items-center justify-center text-2xl transition-transform group-hover:scale-105 overflow-hidden ${
+                  className={`${
+                    isDenseGrid ? 'h-12 w-12 text-xl' : 'h-14 w-14 text-2xl'
+                  } rounded-full border-2 flex items-center justify-center transition-transform group-hover:scale-105 overflow-hidden ${
                     isActive
                       ? 'store-btn-solid border-transparent shadow-md'
                       : isLightTheme
@@ -713,7 +809,7 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
                   )}
                 </div>
                 <span
-                  className={`text-[11px] font-bold text-center whitespace-nowrap ${
+                  className={`text-[11px] font-bold text-center truncate max-w-full ${
                     isActive
                       ? isLightTheme
                         ? 'text-zinc-950'
@@ -736,7 +832,9 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
                 type="button"
                 onClick={() => onSelectCategory(cat.id)}
                 style={isActive ? { borderBottomColor: accentColor, color: accentColor } : undefined}
-                className={`pb-2.5 px-2 border-b-2 text-xs sm:text-sm font-bold whitespace-nowrap transition-colors flex items-center gap-1.5 shrink-0 ${
+                className={`kh-cq-card pb-2.5 px-2 border-b-2 text-xs sm:text-sm font-bold transition-colors flex items-center justify-center gap-1.5 ${
+                  isAutoCols ? 'shrink-0 whitespace-nowrap' : 'w-full min-w-0'
+                } ${
                   isActive
                     ? ''
                     : isLightTheme
@@ -747,11 +845,11 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
                 {cat.bannerImg ? (
                   <img src={cat.bannerImg} alt={cat.label} width={16} height={16} loading="lazy" decoding="async" className="w-4 h-4 rounded-md object-cover shrink-0" />
                 ) : (
-                  <span>{cat.icon}</span>
+                  <span className="shrink-0">{cat.icon}</span>
                 )}
-                <span>{cat.label}</span>
+                <span className="truncate">{cat.label}</span>
                 {block.showCount && (
-                  <span className="text-[11px] opacity-75 font-mono">({count})</span>
+                  <span className="text-[11px] opacity-75 font-mono shrink-0">({count})</span>
                 )}
               </button>
             );
@@ -764,7 +862,9 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
                 type="button"
                 onClick={() => onSelectCategory(cat.id)}
                 style={isActive ? { outline: `2px solid ${accentColor}`, outlineOffset: '2px' } : undefined}
-                className="relative h-20 min-w-[150px] rounded-2xl overflow-hidden group text-left shrink-0"
+                className={`kh-cq-card relative h-20 rounded-2xl overflow-hidden group text-left ${
+                  isAutoCols ? 'min-w-[150px] shrink-0' : 'w-full min-w-0'
+                }`}
               >
                 <img
                   src={cat.bannerImg}
@@ -776,13 +876,176 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
                 <div className="absolute inset-0 bg-black/60" />
-                <div className="relative z-10 h-full p-3 flex flex-col justify-end text-white">
-                  <span className="text-xs font-black leading-tight flex items-center gap-1">
-                    <span>{cat.icon}</span>
+                <div className="relative z-10 h-full p-2.5 flex flex-col justify-end text-white">
+                  <span className="text-xs font-black leading-tight flex items-center gap-1 min-w-0">
+                    <span className="shrink-0">{cat.icon}</span>
                     <span className="truncate">{cat.label}</span>
                   </span>
                   {block.showCount && (
-                    <span className="text-[10px] text-zinc-300 font-medium">{count} opciones</span>
+                    <span className="text-[10px] text-zinc-300 font-medium truncate">{count} opciones</span>
+                  )}
+                </div>
+              </button>
+            );
+          }
+
+          if (block.style === 'glass') {
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => onSelectCategory(cat.id)}
+                style={
+                  isActive
+                    ? {
+                        borderColor: accentColor,
+                        boxShadow: `0 6px 20px -6px ${accentColor}66`,
+                      }
+                    : undefined
+                }
+                className={`kh-cq-card px-3.5 py-2.5 rounded-2xl backdrop-blur-md border transition-all flex items-center justify-between gap-2 ${
+                  isAutoCols ? 'shrink-0 whitespace-nowrap' : 'w-full min-w-0'
+                } ${
+                  isActive
+                    ? isLightTheme
+                      ? 'bg-white/95 text-zinc-950 font-black'
+                      : 'bg-white/15 text-white font-black'
+                    : isLightTheme
+                    ? 'bg-white/60 border-zinc-200/80 text-zinc-700 hover:bg-white'
+                    : 'bg-neutral-900/55 border-white/10 text-neutral-300 hover:bg-neutral-900/80'
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-base shrink-0">{cat.icon}</span>
+                  <span className="text-xs font-bold truncate">{cat.label}</span>
+                </div>
+                {block.showCount && (
+                  <span
+                    style={isActive ? { backgroundColor: accentColor, color: '#09090b' } : undefined}
+                    className={`text-[10px] font-mono font-black px-1.5 py-0.5 rounded-lg shrink-0 ${
+                      isActive
+                        ? ''
+                        : isLightTheme
+                        ? 'bg-zinc-200/70 text-zinc-700'
+                        : 'bg-white/10 text-neutral-300'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          }
+
+          if (block.style === 'mosaic') {
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => onSelectCategory(cat.id)}
+                style={isActive ? { borderColor: accentColor } : undefined}
+                className={`kh-cq-card group relative rounded-2xl border-2 overflow-hidden p-3 flex flex-col items-center justify-center text-center gap-1.5 transition-all ${
+                  isAutoCols ? 'min-w-[110px] shrink-0' : 'w-full min-w-0'
+                } ${
+                  isActive
+                    ? isLightTheme
+                      ? 'bg-amber-50/70 text-zinc-950 shadow-md'
+                      : 'bg-neutral-900 text-white shadow-md'
+                    : isLightTheme
+                    ? 'bg-white border-zinc-200 text-zinc-700 hover:border-zinc-300'
+                    : 'bg-neutral-900/80 border-neutral-800 text-neutral-300 hover:border-neutral-700'
+                }`}
+              >
+                {cat.bannerImg ? (
+                  <div className="w-10 h-10 rounded-xl overflow-hidden shadow-sm">
+                    <img
+                      src={cat.bannerImg}
+                      alt={cat.label}
+                      width={40}
+                      height={40}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                    />
+                  </div>
+                ) : (
+                  <span className="text-2xl">{cat.icon}</span>
+                )}
+                <span className="text-xs font-black truncate max-w-full">{cat.label}</span>
+                {block.showCount && (
+                  <span className="text-[10px] opacity-65 font-mono">{count} items</span>
+                )}
+              </button>
+            );
+          }
+
+          if (block.style === 'minimal_chip') {
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => onSelectCategory(cat.id)}
+                className={`kh-cq-card px-3 py-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                  isAutoCols ? 'shrink-0 whitespace-nowrap' : 'w-full min-w-0'
+                } ${
+                  isActive
+                    ? isLightTheme
+                      ? 'bg-zinc-900 text-white border-zinc-900 shadow-xs'
+                      : 'bg-white text-zinc-950 border-white shadow-xs'
+                    : isLightTheme
+                    ? 'bg-transparent border-zinc-200 text-zinc-600 hover:border-zinc-400'
+                    : 'bg-transparent border-neutral-800 text-neutral-400 hover:border-neutral-600'
+                }`}
+              >
+                <span
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{
+                    backgroundColor: isActive ? accentColor : isLightTheme ? '#d4d4d8' : '#52525b',
+                  }}
+                />
+                <span className="truncate">{cat.label}</span>
+                {block.showCount && (
+                  <span className="text-[10px] opacity-70 font-mono shrink-0">{count}</span>
+                )}
+              </button>
+            );
+          }
+
+          if (block.style === 'split_badge') {
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => onSelectCategory(cat.id)}
+                style={isActive ? { borderColor: accentColor } : undefined}
+                className={`kh-cq-card rounded-2xl border overflow-hidden flex items-stretch transition-all ${
+                  isAutoCols ? 'shrink-0 min-w-[140px]' : 'w-full min-w-0'
+                } ${
+                  isActive
+                    ? isLightTheme
+                      ? 'bg-white text-zinc-950 shadow-sm'
+                      : 'bg-neutral-900 text-white shadow-md'
+                    : isLightTheme
+                    ? 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
+                    : 'bg-neutral-900/90 border-neutral-800 text-neutral-300 hover:bg-neutral-800'
+                }`}
+              >
+                <div
+                  style={isActive ? { backgroundColor: accentColor, color: '#09090b' } : undefined}
+                  className={`px-2.5 py-2 flex items-center justify-center text-base shrink-0 ${
+                    isActive
+                      ? ''
+                      : isLightTheme
+                      ? 'bg-zinc-100 text-zinc-700'
+                      : 'bg-neutral-800 text-neutral-300'
+                  }`}
+                >
+                  {cat.icon}
+                </div>
+                <div className="px-2.5 py-2 flex items-center justify-between gap-1.5 flex-1 min-w-0">
+                  <span className="text-xs font-bold truncate">{cat.label}</span>
+                  {block.showCount && (
+                    <span className="text-[10px] font-mono opacity-65 shrink-0">({count})</span>
                   )}
                 </div>
               </button>
@@ -797,7 +1060,9 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
               onClick={() => onSelectCategory(cat.id)}
               data-auto-contrast={isActive && autoButtonContrast ? 'true' : 'false'}
               style={{ touchAction: 'manipulation' }}
-              className={`flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-bold whitespace-nowrap active:scale-[0.97] transition-all shrink-0 ${
+              className={`kh-cq-card flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-2xl text-xs sm:text-sm font-bold active:scale-[0.97] transition-all ${
+                isAutoCols ? 'shrink-0 whitespace-nowrap' : 'w-full min-w-0'
+              } ${
                 isActive
                   ? 'store-btn-solid shadow-sm'
                   : isLightTheme
@@ -808,12 +1073,12 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
               {cat.bannerImg ? (
                 <img src={cat.bannerImg} alt={cat.label} width={16} height={16} loading="lazy" decoding="async" className="w-4 h-4 rounded-full object-cover shrink-0" />
               ) : (
-                <span>{cat.icon}</span>
+                <span className="shrink-0">{cat.icon}</span>
               )}
-              <span>{cat.label}</span>
+              <span className="truncate">{cat.label}</span>
               {block.showCount && (
                 <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono shrink-0 ${
                     isActive
                       ? 'bg-black/15'
                       : isLightTheme
@@ -833,7 +1098,7 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
 };
 
 /* ============================================================================
-   3. PRODUCT GRID WIDGET (5 Card Styles + Filters + Carousel + Bleed + QuickView)
+   3. PRODUCT GRID WIDGET (10 Card Styles + Container Queries + Exact Columns)
    ============================================================================ */
 interface StoreProductGridWidgetProps {
   block: ProductGridBlockConfig;
@@ -916,12 +1181,21 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
     [matchingProducts, visibleLimit]
   );
 
-  const resolvedCols =
-    viewport === 'mobile'
-      ? block.columnsMobile
-      : viewport === 'tablet'
-      ? block.columnsTablet
-      : block.columnsDesktop;
+  const resolvedCols = Math.max(
+    1,
+    Number(
+      viewport === 'mobile'
+        ? block.columnsMobile
+        : viewport === 'tablet'
+        ? block.columnsTablet
+        : block.columnsDesktop
+    ) || 1
+  );
+
+  const isDense =
+    (viewport === 'mobile' && resolvedCols >= 2) ||
+    (viewport === 'tablet' && resolvedCols >= 3) ||
+    (viewport === 'desktop' && resolvedCols >= 5);
 
   const headingLabel =
     block.title && block.title.trim()
@@ -941,113 +1215,117 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
       ? product.sizes.filter(s => s.enabled).map(s => s.name)
       : [];
 
-    // CARD STYLE 3: COMPACTA HORIZONTAL (Rappi / UberEats 2-col row)
+    // CARD STYLE 3: COMPACTA HORIZONTAL (Rappi / UberEats adaptable con @container)
     if (block.cardStyle === 'compacta') {
       return (
         <div
           key={product.id}
           onClick={() => onSelectProduct(product)}
-          className={`group rounded-2xl border p-3.5 flex items-center justify-between gap-3.5 cursor-pointer transition-all hover:shadow-lg ${
+          className={`kh-cq-card group rounded-2xl border ${
+            isDense ? 'p-2.5' : 'p-3.5'
+          } cursor-pointer transition-all hover:shadow-lg ${
             isLightTheme
               ? 'bg-white border-zinc-200 hover:border-zinc-300 text-zinc-900'
               : 'bg-neutral-900/80 border-neutral-800 hover:border-neutral-700 text-white'
           }`}
         >
-          <div className="flex-1 min-w-0 space-y-1.5">
-            <div className="flex items-center gap-2 flex-wrap">
-              {product.badge && (
-                <span
-                  className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase text-neutral-950"
-                  style={{ backgroundColor: accentColor }}
+          <div className="kh-cq-horizontal">
+            <div className="flex-1 min-w-0 space-y-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {product.badge && (
+                  <span
+                    className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase text-neutral-950 truncate max-w-full"
+                    style={{ backgroundColor: accentColor }}
+                  >
+                    {product.badge}
+                  </span>
+                )}
+                {block.showStock && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-500">
+                    <CheckCircle2 className="h-3 w-3 shrink-0" /> En stock
+                  </span>
+                )}
+              </div>
+
+              <h4 className="kh-cq-title font-bold line-clamp-2">{product.name}</h4>
+
+              {block.showDescription && (
+                <p
+                  className={`text-xs line-clamp-2 ${
+                    isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
+                  }`}
                 >
-                  {product.badge}
-                </span>
+                  {product.description}
+                </p>
               )}
-              {block.showStock && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-500">
-                  <CheckCircle2 className="h-3 w-3" /> En stock
-                </span>
+
+              {block.showVariants && enabledSizes.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-0.5">
+                  {enabledSizes.map(sz => (
+                    <span
+                      key={sz}
+                      className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                        isLightTheme
+                          ? 'bg-zinc-100 text-zinc-600'
+                          : 'bg-neutral-800 text-neutral-300'
+                      }`}
+                    >
+                      {sz}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {block.showPrice && (
+                <div className="pt-1 flex items-baseline gap-1.5 flex-wrap">
+                  <span className="kh-cq-price font-black" style={{ color: accentColor }}>
+                    S/ {lowestPrice.toFixed(2)}
+                  </span>
+                  {product.hasSizes && (
+                    <span className="text-[9px] uppercase font-bold opacity-60">Desde</span>
+                  )}
+                </div>
               )}
             </div>
 
-            <h4 className="font-bold text-sm sm:text-base truncate">{product.name}</h4>
-
-            {block.showDescription && (
-              <p
-                className={`text-xs line-clamp-2 ${
-                  isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
-                }`}
-              >
-                {product.description}
-              </p>
-            )}
-
-            {block.showVariants && enabledSizes.length > 0 && (
-              <div className="flex flex-wrap gap-1 pt-0.5">
-                {enabledSizes.map(sz => (
-                  <span
-                    key={sz}
-                    className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
-                      isLightTheme
-                        ? 'bg-zinc-100 text-zinc-600'
-                        : 'bg-neutral-800 text-neutral-300'
-                    }`}
-                  >
-                    {sz}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {block.showPrice && (
-              <div className="pt-1 flex items-center gap-2">
-                <span className="text-sm sm:text-base font-black" style={{ color: accentColor }}>
-                  S/ {lowestPrice.toFixed(2)}
-                </span>
-                {product.hasSizes && (
-                  <span className="text-[10px] uppercase font-bold opacity-60">Desde</span>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="relative h-28 w-28 sm:h-32 sm:w-32 shrink-0 rounded-xl overflow-hidden bg-neutral-950">
-            <ProgressiveStoreImage
-              src={product.imageUrl}
-              alt={product.name}
-              width={128}
-              height={128}
-              isLightTheme={isLightTheme}
-              lazyLoad={shouldLazyLoadImg}
-              className={`w-full h-full ${
-                block.imageFit === 'contain' ? 'object-contain' : 'object-cover'
-              } group-hover:scale-105 transition-transform duration-300`}
-            />
-            {block.quickViewButton && (
+            <div className="kh-cq-thumb relative h-24 w-24 sm:h-28 sm:w-28 shrink-0 rounded-xl overflow-hidden bg-neutral-950">
+              <ProgressiveStoreImage
+                src={product.imageUrl}
+                alt={product.name}
+                width={128}
+                height={128}
+                isLightTheme={isLightTheme}
+                lazyLoad={shouldLazyLoadImg}
+                className={`w-full h-full ${
+                  block.imageFit === 'contain' ? 'object-contain' : 'object-cover'
+                } group-hover:scale-105 transition-transform duration-300`}
+              />
+              {block.quickViewButton && (
+                <button
+                  type="button"
+                  aria-label={`Vista rápida de ${product.name}`}
+                  onClick={e => {
+                    e.stopPropagation();
+                    onQuickViewProduct(product);
+                  }}
+                  className="absolute top-1.5 right-1.5 h-7 w-7 rounded-full bg-black/65 text-white flex items-center justify-center hover:bg-black"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                </button>
+              )}
               <button
                 type="button"
-                aria-label={`Vista rápida de ${product.name}`}
+                aria-label={`Agregar ${product.name}`}
                 onClick={e => {
                   e.stopPropagation();
-                  onQuickViewProduct(product);
+                  onSelectProduct(product);
                 }}
-                className="absolute top-1.5 right-1.5 h-7 w-7 rounded-full bg-black/65 text-white flex items-center justify-center hover:bg-black"
+                data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+                className="store-btn-solid absolute bottom-1.5 right-1.5 h-8 w-8 rounded-xl font-black shadow-md flex items-center justify-center active:scale-90 transition-transform"
               >
-                <Eye className="h-3.5 w-3.5" />
+                <Plus className="h-4 w-4" />
               </button>
-            )}
-            <button
-              type="button"
-              aria-label={`Agregar ${product.name}`}
-              onClick={e => {
-                e.stopPropagation();
-                onSelectProduct(product);
-              }}
-              data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-              className="store-btn-solid absolute bottom-1.5 right-1.5 h-8 w-8 rounded-xl font-black shadow-md flex items-center justify-center active:scale-90 transition-transform"
-            >
-              <Plus className="h-4 w-4" />
-            </button>
+            </div>
           </div>
         </div>
       );
@@ -1059,8 +1337,8 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
         <div
           key={product.id}
           onClick={() => onSelectProduct(product)}
-          className={`group relative ${
-            block.squareImage ? 'aspect-square' : 'h-80'
+          className={`kh-cq-card group relative ${
+            block.squareImage ? 'aspect-square' : isDense ? 'h-64' : 'h-80'
           } rounded-3xl overflow-hidden cursor-pointer shadow-lg hover:-translate-y-1 transition-all`}
         >
           <ProgressiveStoreImage
@@ -1074,13 +1352,13 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
               block.imageFit === 'contain' ? 'object-contain' : 'object-cover'
             } group-hover:scale-105 transition-transform duration-500`}
           />
-          <div className="absolute inset-0 bg-black/55" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/45 to-black/15" />
 
-          <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
+          <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1.5">
             {product.badge ? (
               <span
                 data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                className="store-btn-solid px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase shadow"
+                className="store-btn-solid px-2 py-0.5 rounded-full text-[9px] font-black uppercase shadow truncate max-w-[75%]"
               >
                 {product.badge}
               </span>
@@ -1096,33 +1374,33 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
                   e.stopPropagation();
                   onQuickViewProduct(product);
                 }}
-                className="h-8 w-8 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center border border-white/15"
+                className="h-7 w-7 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center border border-white/15 shrink-0"
               >
-                <Eye className="h-4 w-4" />
+                <Eye className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
 
-          <div className="absolute inset-x-0 bottom-0 p-5 bg-black/70 text-white space-y-2">
+          <div className={`absolute inset-x-0 bottom-0 ${isDense ? 'p-3' : 'p-4'} text-white space-y-1.5`}>
             {block.showVariants && enabledSizes.length > 0 && (
-              <div className="text-[10px] font-bold text-zinc-300 uppercase tracking-wider">
+              <div className="text-[9px] font-bold text-zinc-300 uppercase tracking-wider truncate">
                 {enabledSizes.join(' • ')}
               </div>
             )}
 
-            <h4 className="font-black text-lg leading-snug">{product.name}</h4>
+            <h4 className="kh-cq-title font-black line-clamp-2">{product.name}</h4>
 
             {block.showDescription && (
-              <p className="text-xs text-zinc-300 line-clamp-2">{product.description}</p>
+              <p className="text-[11px] text-zinc-300 line-clamp-2">{product.description}</p>
             )}
 
-            <div className="pt-2 flex items-center justify-between gap-2">
+            <div className="kh-cq-actions pt-1.5">
               {block.showPrice ? (
-                <div>
-                  <span className="text-[10px] uppercase text-zinc-400 block font-bold">
+                <div className="min-w-0">
+                  <span className="text-[9px] uppercase text-zinc-400 block font-bold leading-none">
                     {product.hasSizes ? 'Desde' : 'Precio'}
                   </span>
-                  <span className="text-lg font-black" style={{ color: accentColor }}>
+                  <span className="kh-cq-price font-black" style={{ color: accentColor }}>
                     S/ {lowestPrice.toFixed(2)}
                   </span>
                 </div>
@@ -1137,10 +1415,406 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
                   onSelectProduct(product);
                 }}
                 data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                className="store-btn-solid inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-black shadow-md active:scale-95 transition-transform whitespace-nowrap shrink-0"
+                className="kh-cq-cta store-btn-solid inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-black shadow-md active:scale-95 transition-transform whitespace-nowrap shrink-0"
               >
-                <Plus className="h-3.5 w-3.5" />
-                <span>Ver y Pedir</span>
+                <Plus className="h-3.5 w-3.5 shrink-0" />
+                <span>Elegir</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // CARD STYLE 6: VITRINA FLOTANTE (Floating Price Pill + Glass Footer)
+    if (block.cardStyle === 'vitrina') {
+      return (
+        <div
+          key={product.id}
+          onClick={e => {
+            const img = e.currentTarget.querySelector('img');
+            onSelectProduct(product, img);
+          }}
+          className={`kh-cq-card group rounded-3xl overflow-hidden flex flex-col justify-between cursor-pointer transition-all duration-300 hover:-translate-y-1 border ${
+            isLightTheme
+              ? 'bg-gradient-to-b from-white to-zinc-50/90 border-zinc-200/90 shadow-sm hover:shadow-xl text-zinc-900'
+              : 'bg-gradient-to-b from-neutral-900 to-neutral-950 border-neutral-800 hover:border-neutral-700 text-white'
+          }`}
+        >
+          <div className="relative p-2.5 pb-0">
+            <div
+              className={`relative ${
+                block.squareImage ? 'aspect-square' : isDense ? 'h-36' : 'h-44'
+              } w-full rounded-2xl overflow-hidden ${
+                isLightTheme ? 'bg-zinc-100' : 'bg-neutral-950'
+              }`}
+            >
+              <ProgressiveStoreImage
+                src={product.imageUrl}
+                alt={product.name}
+                width={400}
+                height={block.squareImage ? 400 : 220}
+                isLightTheme={isLightTheme}
+                lazyLoad={shouldLazyLoadImg}
+                className={`w-full h-full ${
+                  block.imageFit === 'contain' ? 'object-contain' : 'object-cover'
+                } group-hover:scale-105 transition-transform duration-500`}
+              />
+              {block.showPrice && (
+                <div
+                  style={{ backgroundColor: accentColor }}
+                  className="absolute bottom-2 right-2 px-2.5 py-1 rounded-xl text-neutral-950 font-black text-xs shadow-lg whitespace-nowrap"
+                >
+                  S/ {lowestPrice.toFixed(2)}
+                </div>
+              )}
+              {product.badge && (
+                <span className="absolute top-2 left-2 px-2 py-0.5 rounded-lg bg-black/75 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-wider truncate max-w-[75%]">
+                  {product.badge}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className={`${isDense ? 'p-3' : 'p-4'} flex-1 flex flex-col justify-between gap-2.5`}>
+            <div>
+              <h4 className="kh-cq-title font-black line-clamp-2">{product.name}</h4>
+              {block.showDescription && (
+                <p
+                  className={`text-xs line-clamp-2 mt-1 ${
+                    isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
+                  }`}
+                >
+                  {product.description}
+                </p>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={e => {
+                e.stopPropagation();
+                const cardEl = e.currentTarget.closest('.group');
+                const img = cardEl?.querySelector('img') as HTMLImageElement | null;
+                onSelectProduct(product, img);
+              }}
+              data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+              className="store-btn-solid w-full py-2 px-3 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-transform whitespace-nowrap"
+            >
+              <Plus className="w-3.5 h-3.5 shrink-0" />
+              <span>Personalizar / Pedir</span>
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // CARD STYLE 7: BENTO GRID MODERNO
+    if (block.cardStyle === 'bento') {
+      return (
+        <div
+          key={product.id}
+          onClick={e => {
+            const img = e.currentTarget.querySelector('img');
+            onSelectProduct(product, img);
+          }}
+          className={`kh-cq-card group rounded-3xl p-2.5 flex flex-col justify-between gap-2 cursor-pointer transition-all border ${
+            isLightTheme
+              ? 'bg-zinc-100/80 border-zinc-200/80 hover:bg-white hover:shadow-md text-zinc-900'
+              : 'bg-neutral-900/60 border-neutral-800 hover:bg-neutral-900 text-white'
+          }`}
+        >
+          <div
+            className={`relative ${
+              block.squareImage ? 'aspect-square' : isDense ? 'h-36' : 'h-44'
+            } w-full rounded-2xl overflow-hidden bg-neutral-950`}
+          >
+            <ProgressiveStoreImage
+              src={product.imageUrl}
+              alt={product.name}
+              width={400}
+              height={block.squareImage ? 400 : 220}
+              isLightTheme={isLightTheme}
+              lazyLoad={shouldLazyLoadImg}
+              className={`w-full h-full ${
+                block.imageFit === 'contain' ? 'object-contain' : 'object-cover'
+              } group-hover:scale-105 transition-transform duration-500`}
+            />
+            {product.badge && (
+              <span
+                style={{ backgroundColor: accentColor }}
+                className="absolute top-2 left-2 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase text-neutral-950 shadow-xs truncate max-w-[80%]"
+              >
+                {product.badge}
+              </span>
+            )}
+          </div>
+
+          <div
+            className={`rounded-2xl p-3 flex-1 flex flex-col justify-between gap-2 ${
+              isLightTheme ? 'bg-white shadow-2xs' : 'bg-neutral-950/90 border border-neutral-800/80'
+            }`}
+          >
+            <div>
+              <h4 className="kh-cq-title font-bold line-clamp-2">{product.name}</h4>
+              {block.showDescription && (
+                <p className="text-[11px] opacity-65 line-clamp-2 mt-1">{product.description}</p>
+              )}
+            </div>
+
+            <div className="kh-cq-actions pt-1">
+              {block.showPrice ? (
+                <span className="kh-cq-price font-black" style={{ color: accentColor }}>
+                  S/ {lowestPrice.toFixed(2)}
+                </span>
+              ) : (
+                <span className="text-[10px] opacity-60">Ver opciones</span>
+              )}
+              <button
+                type="button"
+                onClick={e => {
+                  e.stopPropagation();
+                  const cardEl = e.currentTarget.closest('.group');
+                  const img = cardEl?.querySelector('img') as HTMLImageElement | null;
+                  onSelectProduct(product, img);
+                }}
+                data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+                className="kh-cq-cta store-btn-solid px-3 py-1.5 rounded-xl font-black text-xs flex items-center gap-1 whitespace-nowrap shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5 shrink-0" />
+                <span>Elegir</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // CARD STYLE 8: GALERÍA EDITORIAL CENTRADA
+    if (block.cardStyle === 'galeria') {
+      return (
+        <div
+          key={product.id}
+          onClick={e => {
+            const img = e.currentTarget.querySelector('img');
+            onSelectProduct(product, img);
+          }}
+          className={`kh-cq-card group rounded-3xl overflow-hidden flex flex-col items-center text-center justify-between cursor-pointer transition-all border ${
+            isDense ? 'p-3' : 'p-4'
+          } ${
+            isLightTheme
+              ? 'bg-white border-zinc-200 hover:shadow-lg text-zinc-900'
+              : 'bg-neutral-900 border-neutral-800 hover:border-neutral-700 text-white'
+          }`}
+        >
+          <div className="w-full">
+            <div
+              className={`relative ${
+                block.squareImage ? 'aspect-square' : isDense ? 'h-36' : 'h-44'
+              } w-full rounded-2xl overflow-hidden mb-3 ${
+                isLightTheme ? 'bg-zinc-100' : 'bg-neutral-950'
+              }`}
+            >
+              <ProgressiveStoreImage
+                src={product.imageUrl}
+                alt={product.name}
+                width={400}
+                height={block.squareImage ? 400 : 220}
+                isLightTheme={isLightTheme}
+                lazyLoad={shouldLazyLoadImg}
+                className={`w-full h-full ${
+                  block.imageFit === 'contain' ? 'object-contain' : 'object-cover'
+                } group-hover:scale-105 transition-transform duration-500`}
+              />
+              {product.badge && (
+                <span
+                  style={{ backgroundColor: accentColor }}
+                  className="absolute top-2 inset-x-4 mx-auto w-fit px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase text-neutral-950 shadow truncate max-w-[85%]"
+                >
+                  {product.badge}
+                </span>
+              )}
+            </div>
+
+            <h4 className="kh-cq-title font-black line-clamp-2">{product.name}</h4>
+            {block.showDescription && (
+              <p className="text-xs opacity-65 line-clamp-2 mt-1">{product.description}</p>
+            )}
+          </div>
+
+          <div className="w-full pt-3 mt-2 border-t border-zinc-200/60 dark:border-neutral-800 flex flex-col items-center gap-2">
+            {block.showPrice && (
+              <div className="flex items-baseline gap-1">
+                {product.hasSizes && (
+                  <span className="text-[9px] uppercase font-bold opacity-55">Desde</span>
+                )}
+                <span className="kh-cq-price font-black" style={{ color: accentColor }}>
+                  S/ {lowestPrice.toFixed(2)}
+                </span>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={e => {
+                e.stopPropagation();
+                const cardEl = e.currentTarget.closest('.group');
+                const img = cardEl?.querySelector('img') as HTMLImageElement | null;
+                onSelectProduct(product, img);
+              }}
+              data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+              className="store-btn-solid w-full py-2 px-3 rounded-xl font-black text-xs flex items-center justify-center gap-1 whitespace-nowrap"
+            >
+              <Plus className="w-3.5 h-3.5 shrink-0" />
+              <span>Elegir</span>
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // CARD STYLE 9: LISTA MENÚ TRATTORIA (Carta de Pizzería Tradicional)
+    if (block.cardStyle === 'lista_menu') {
+      return (
+        <div
+          key={product.id}
+          onClick={() => onSelectProduct(product)}
+          className={`kh-cq-card group rounded-2xl border p-3.5 cursor-pointer transition-all ${
+            isLightTheme
+              ? 'bg-amber-50/40 border-amber-200/80 hover:bg-white hover:shadow-md text-zinc-900'
+              : 'bg-neutral-900/90 border-neutral-800 hover:border-amber-500/40 text-white'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <div className="h-16 w-16 rounded-xl overflow-hidden shrink-0 border border-black/10 bg-neutral-950">
+              <ProgressiveStoreImage
+                src={product.imageUrl}
+                alt={product.name}
+                width={64}
+                height={64}
+                isLightTheme={isLightTheme}
+                lazyLoad={shouldLazyLoadImg}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-baseline justify-between gap-2 border-b border-dashed border-zinc-300 dark:border-neutral-700 pb-1">
+                <h4 className="kh-cq-title font-black truncate">{product.name}</h4>
+                {block.showPrice && (
+                  <span className="kh-cq-price font-black shrink-0" style={{ color: accentColor }}>
+                    S/ {lowestPrice.toFixed(2)}
+                  </span>
+                )}
+              </div>
+              {block.showDescription && (
+                <p className="text-xs opacity-70 line-clamp-2 mt-1">{product.description}</p>
+              )}
+              <div className="flex items-center justify-between gap-2 mt-2">
+                {product.badge ? (
+                  <span
+                    style={{ color: accentColor }}
+                    className="text-[10px] font-black uppercase tracking-wider truncate"
+                  >
+                    ★ {product.badge}
+                  </span>
+                ) : (
+                  <span />
+                )}
+                <button
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation();
+                    onSelectProduct(product);
+                  }}
+                  data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+                  className="store-btn-solid px-2.5 py-1 rounded-lg font-black text-[11px] flex items-center gap-1 whitespace-nowrap shrink-0"
+                >
+                  <Plus className="w-3 h-3 shrink-0" />
+                  <span>Pedir</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // CARD STYLE 10: NEÓN PROMO (Borde Luminoso + Alto Impacto)
+    if (block.cardStyle === 'neon_promo') {
+      return (
+        <div
+          key={product.id}
+          onClick={e => {
+            const img = e.currentTarget.querySelector('img');
+            onSelectProduct(product, img);
+          }}
+          style={{
+            borderColor: `${accentColor}66`,
+            boxShadow: `0 10px 30px -12px ${accentColor}40`,
+          }}
+          className={`kh-cq-card group rounded-3xl overflow-hidden flex flex-col justify-between cursor-pointer transition-all duration-300 hover:-translate-y-1 border-2 ${
+            isLightTheme ? 'bg-white text-zinc-900' : 'bg-neutral-950 text-white'
+          }`}
+        >
+          <div
+            className={`relative ${
+              block.squareImage ? 'aspect-square' : isDense ? 'h-36' : 'h-44'
+            } w-full overflow-hidden bg-neutral-900`}
+          >
+            <ProgressiveStoreImage
+              src={product.imageUrl}
+              alt={product.name}
+              width={400}
+              height={block.squareImage ? 400 : 220}
+              isLightTheme={isLightTheme}
+              lazyLoad={shouldLazyLoadImg}
+              className={`w-full h-full ${
+                block.imageFit === 'contain' ? 'object-contain' : 'object-cover'
+              } group-hover:scale-105 transition-transform duration-500`}
+            />
+            {product.badge && (
+              <span
+                style={{ backgroundColor: accentColor }}
+                className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase text-neutral-950 shadow-md truncate max-w-[80%]"
+              >
+                {product.badge}
+              </span>
+            )}
+          </div>
+
+          <div className={`${isDense ? 'p-3' : 'p-4'} flex-1 flex flex-col justify-between gap-2.5`}>
+            <div>
+              <h4 className="kh-cq-title font-black line-clamp-2">{product.name}</h4>
+              {block.showDescription && (
+                <p className="text-xs opacity-70 line-clamp-2 mt-1">{product.description}</p>
+              )}
+            </div>
+
+            <div className="kh-cq-actions pt-2 border-t border-zinc-200/60 dark:border-neutral-800">
+              {block.showPrice ? (
+                <div className="min-w-0">
+                  <span className="text-[9px] uppercase font-bold opacity-60 block leading-none">
+                    {product.hasSizes ? 'Promo Desde' : 'Promo'}
+                  </span>
+                  <span className="kh-cq-price font-black" style={{ color: accentColor }}>
+                    S/ {lowestPrice.toFixed(2)}
+                  </span>
+                </div>
+              ) : (
+                <span />
+              )}
+              <button
+                type="button"
+                onClick={e => {
+                  e.stopPropagation();
+                  const cardEl = e.currentTarget.closest('.group');
+                  const img = cardEl?.querySelector('img') as HTMLImageElement | null;
+                  onSelectProduct(product, img);
+                }}
+                data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+                className="kh-cq-cta store-btn-solid px-3.5 py-2 rounded-xl font-black text-xs flex items-center gap-1 shadow-md whitespace-nowrap shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5 shrink-0" />
+                <span>Elegir</span>
               </button>
             </div>
           </div>
@@ -1150,6 +1824,7 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
 
     // CARD STYLES: 'elegante' | 'clasica' | 'minimalista'
     const isMinimal = block.cardStyle === 'minimalista';
+    const isClassic = block.cardStyle === 'clasica';
 
     return (
       <div
@@ -1158,20 +1833,21 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
           const img = e.currentTarget.querySelector('img');
           onSelectProduct(product, img);
         }}
-        className={`group rounded-3xl overflow-hidden flex flex-col justify-between cursor-pointer transition-all duration-300 hover:-translate-y-0.5 ${
+        style={isClassic ? { borderTopWidth: '4px', borderTopColor: accentColor } : undefined}
+        className={`kh-cq-card group rounded-3xl overflow-hidden flex flex-col justify-between cursor-pointer transition-all duration-300 hover:-translate-y-0.5 ${
           isMinimal
             ? isLightTheme
-              ? 'bg-transparent border border-zinc-200 hover:bg-white hover:shadow-md'
-              : 'bg-neutral-950 border border-neutral-800 hover:border-neutral-700'
+              ? 'bg-transparent border border-zinc-200 hover:bg-white hover:shadow-md text-zinc-900'
+              : 'bg-neutral-950 border border-neutral-800 hover:border-neutral-700 text-white'
             : isLightTheme
             ? 'bg-white border border-zinc-200 shadow-sm hover:shadow-lg text-zinc-900'
             : 'bg-neutral-900 border border-neutral-800 hover:border-neutral-700 text-white'
         }`}
       >
-        <div className={block.bleedImages ? '' : 'p-3 pb-0'}>
+        <div className={block.bleedImages ? '' : isDense ? 'p-2 pb-0' : 'p-3 pb-0'}>
           <div
             className={`relative ${
-              block.squareImage ? 'aspect-square' : 'h-44 sm:h-48'
+              block.squareImage ? 'aspect-square' : isDense ? 'h-36 sm:h-40' : 'h-44 sm:h-48'
             } w-full overflow-hidden ${
               isLightTheme ? 'bg-zinc-100' : 'bg-neutral-950'
             } ${block.bleedImages ? '' : 'rounded-2xl'}`}
@@ -1191,7 +1867,7 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
             {product.badge && (
               <span
                 data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                className="store-btn-solid absolute top-3 left-3 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-sm"
+                className="store-btn-solid absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow-sm truncate max-w-[80%]"
               >
                 {product.badge}
               </span>
@@ -1205,16 +1881,16 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
                   e.stopPropagation();
                   onQuickViewProduct(product);
                 }}
-                className="absolute top-3 right-3 h-8 w-8 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center border border-white/15 transition-transform hover:scale-105"
+                className="absolute top-2.5 right-2.5 h-7 w-7 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center border border-white/15 transition-transform hover:scale-105"
                 title="Vista Rápida"
               >
-                <Eye className="h-4 w-4" />
+                <Eye className="h-3.5 w-3.5" />
               </button>
             )}
 
-            <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between gap-2">
+            <div className="absolute bottom-2 left-2.5 right-2.5 flex items-center justify-between gap-1.5">
               {block.showVariants && enabledSizes.length > 0 ? (
-                <div className="flex items-center gap-1 bg-black/75 px-2 py-0.5 rounded-lg text-[10px] text-neutral-100 font-semibold border border-white/10 truncate">
+                <div className="flex items-center gap-1 bg-black/75 px-2 py-0.5 rounded-lg text-[9px] text-neutral-100 font-semibold border border-white/10 truncate">
                   {enabledSizes.join(' • ')}
                 </div>
               ) : (
@@ -1222,7 +1898,7 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
               )}
 
               {block.showStock && (
-                <span className="px-2 py-0.5 rounded-lg bg-emerald-500 text-neutral-950 text-[10px] font-black">
+                <span className="px-2 py-0.5 rounded-lg bg-emerald-500 text-neutral-950 text-[9px] font-black shrink-0">
                   En Stock
                 </span>
               )}
@@ -1230,10 +1906,10 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
           </div>
         </div>
 
-        <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+        <div className={`${isDense ? 'p-3' : 'p-4'} flex-1 flex flex-col justify-between space-y-2.5`}>
           <div>
             <h4
-              className={`font-bold text-base transition-colors ${
+              className={`kh-cq-title font-bold line-clamp-2 transition-colors ${
                 isLightTheme ? 'text-zinc-900' : 'text-white'
               }`}
             >
@@ -1252,20 +1928,20 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
           </div>
 
           <div
-            className={`flex items-center justify-between pt-2.5 border-t ${
+            className={`kh-cq-actions pt-2.5 border-t ${
               isLightTheme ? 'border-zinc-100' : 'border-neutral-800'
             }`}
           >
             {block.showPrice ? (
-              <div>
+              <div className="min-w-0">
                 <span
-                  className={`text-[10px] uppercase font-bold block ${
+                  className={`text-[9px] uppercase font-bold block leading-none mb-0.5 ${
                     isLightTheme ? 'text-zinc-400' : 'text-neutral-500'
                   }`}
                 >
                   {product.hasSizes ? 'Desde' : 'Precio'}
                 </span>
-                <span className="text-base sm:text-lg font-black" style={{ color: accentColor }}>
+                <span className="kh-cq-price font-black" style={{ color: accentColor }}>
                   S/ {lowestPrice.toFixed(2)}
                 </span>
               </div>
@@ -1282,9 +1958,9 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
                 onSelectProduct(product, img);
               }}
               data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-              className="store-btn-solid flex items-center gap-1.5 px-4 py-2 rounded-2xl font-black text-xs active:scale-95 transition-transform shadow-sm whitespace-nowrap shrink-0"
+              className="kh-cq-cta store-btn-solid flex items-center gap-1 px-3.5 py-2 rounded-2xl font-black text-xs active:scale-95 transition-transform shadow-sm whitespace-nowrap shrink-0"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-3.5 h-3.5 shrink-0" />
               <span>Elegir</span>
             </button>
           </div>
@@ -1292,6 +1968,8 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
       </div>
     );
   };
+
+  const gapValue = block.gapPx ?? 18;
 
   return (
     <div
@@ -1306,7 +1984,7 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
         <div className="flex items-center justify-between gap-3 mb-4">
           {headingLabel ? (
             <h3
-              className={`text-lg font-bold flex items-center gap-2 ${
+              className={`text-base sm:text-lg font-bold flex items-center gap-2 flex-wrap ${
                 isLightTheme ? 'text-zinc-900' : 'text-white'
               }`}
             >
@@ -1324,7 +2002,7 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
           )}
 
           {block.horizontalCarousel && displayedProducts.length > 1 && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
                 aria-label="Desplazar productos a la izquierda"
@@ -1367,15 +2045,15 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
       ) : block.horizontalCarousel ? (
         <div
           ref={carouselRef}
-          style={{ gap: `${block.gapPx ?? 18}px` }}
+          style={{ gap: `${gapValue}px` }}
           className="store-carousel-track pb-2"
         >
           {displayedProducts.map((product, cardIdx) => (
             <div
               key={product.id}
               style={{
-                flex: `0 0 calc(${100 / Math.max(1, resolvedCols)}% - 12px)`,
-                minWidth: viewport === 'mobile' ? '260px' : '280px',
+                flex: `0 0 calc((100% - ${(resolvedCols - 1) * gapValue}px) / ${resolvedCols})`,
+                minWidth: 0,
               }}
               className="snap-start"
             >
@@ -1419,14 +2097,37 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
 };
 
 /* ============================================================================
-   4. SEARCH BAR WIDGET & 5. PROMO STRIP WIDGET
+   4. SEARCH BAR WIDGET (7 Visual Styles + Device Columns)
    ============================================================================ */
 export const StoreSearchBarWidget: React.FC<{
   block: SearchBarBlockConfig;
+  viewport?: BuilderViewport;
+  accentColor?: string;
   isLightTheme: boolean;
   searchQuery: string;
   onChangeSearch: (q: string) => void;
-}> = ({ block, isLightTheme, searchQuery, onChangeSearch }) => {
+}> = ({
+  block,
+  viewport = 'desktop',
+  accentColor = '#f59e0b',
+  isLightTheme,
+  searchQuery,
+  onChangeSearch,
+}) => {
+  const resolvedCols = Math.max(
+    1,
+    Number(
+      viewport === 'mobile'
+        ? block.columnsMobile ?? 1
+        : viewport === 'tablet'
+        ? block.columnsTablet ?? 1
+        : block.columnsDesktop ?? 1
+    ) || 1
+  );
+
+  const quickTags = ['Pizza Familiar', '2 Sabores', 'Promociones', 'Bebidas'];
+  const styleMode = block.visualStyle || 'modern';
+
   return (
     <search
       style={{
@@ -1436,55 +2137,148 @@ export const StoreSearchBarWidget: React.FC<{
       }}
       className={getAnimationClass(block.advanced.animation)}
     >
-      {block.title && (
-        <label
-          htmlFor={`search-${block.id}`}
-          className={`block text-sm font-bold mb-2 ${
-            isLightTheme ? 'text-zinc-800' : 'text-neutral-200'
-          }`}
-        >
-          {block.title}
-        </label>
-      )}
-      <div className="relative">
-        <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
-        <input
-          id={`search-${block.id}`}
-          name="storeSearch"
-          type="search"
-          autoCorrect="off"
-          value={searchQuery}
-          onChange={e => onChangeSearch(e.target.value)}
-          placeholder={block.placeholder || 'Buscar pizza, bebida o ingrediente...'}
-          className={`w-full pl-10 pr-4 py-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/40 ${
-            block.visualStyle === 'pill'
-              ? 'rounded-full'
-              : block.visualStyle === 'minimal'
-              ? 'rounded-none border-x-0 border-t-0 border-b-2 bg-transparent'
-              : 'rounded-xl'
-          } ${
-            isLightTheme
-              ? 'bg-white border border-zinc-200 text-zinc-900 placeholder-zinc-400 shadow-sm'
-              : 'bg-neutral-900/90 border border-neutral-800 text-white placeholder-neutral-500 shadow-inner'
-          }`}
-        />
+      <div
+        style={
+          resolvedCols > 1
+            ? {
+                display: 'grid',
+                gridTemplateColumns: `repeat(${resolvedCols}, minmax(0, 1fr))`,
+                gap: '12px',
+                alignItems: 'center',
+              }
+            : undefined
+        }
+        className={
+          styleMode === 'hero_banner'
+            ? `p-4 sm:p-5 rounded-3xl border ${
+                isLightTheme
+                  ? 'bg-gradient-to-r from-amber-50 via-white to-orange-50 border-amber-200/80 shadow-sm'
+                  : 'bg-gradient-to-r from-neutral-900 via-neutral-900 to-neutral-950 border-neutral-800 shadow-lg'
+              }`
+            : styleMode === 'elevated_card'
+            ? `p-3.5 rounded-2xl border shadow-md ${
+                isLightTheme
+                  ? 'bg-white border-zinc-200/90'
+                  : 'bg-neutral-900 border-neutral-800'
+              }`
+            : ''
+        }
+      >
+        {block.title && (
+          <label
+            htmlFor={`search-${block.id}`}
+            className={`block text-sm font-black ${resolvedCols > 1 ? 'mb-0' : 'mb-2'} ${
+              isLightTheme ? 'text-zinc-800' : 'text-neutral-200'
+            }`}
+          >
+            {block.title}
+          </label>
+        )}
+
+        <div className="relative w-full min-w-0">
+          <Search
+            className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+            style={{ color: styleMode === 'neon_outline' ? accentColor : '#a1a1aa' }}
+          />
+          <input
+            id={`search-${block.id}`}
+            name="storeSearch"
+            type="search"
+            autoCorrect="off"
+            value={searchQuery}
+            onChange={e => onChangeSearch(e.target.value)}
+            placeholder={block.placeholder || 'Buscar pizza, bebida o ingrediente...'}
+            style={
+              styleMode === 'neon_outline'
+                ? {
+                    borderColor: accentColor,
+                    boxShadow: `0 0 18px -4px ${accentColor}55`,
+                  }
+                : undefined
+            }
+            className={`w-full pl-10 pr-4 py-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/40 ${
+              styleMode === 'pill'
+                ? 'rounded-full'
+                : styleMode === 'minimal'
+                ? 'rounded-none border-x-0 border-t-0 border-b-2 bg-transparent'
+                : styleMode === 'glass'
+                ? 'rounded-2xl backdrop-blur-md bg-white/70 dark:bg-neutral-900/60'
+                : styleMode === 'neon_outline'
+                ? 'rounded-2xl border-2'
+                : 'rounded-xl'
+            } ${
+              isLightTheme
+                ? 'bg-white border border-zinc-200 text-zinc-900 placeholder-zinc-400 shadow-xs'
+                : 'bg-neutral-900/90 border border-neutral-800 text-white placeholder-neutral-500 shadow-inner'
+            }`}
+          />
+        </div>
+
+        {resolvedCols > 1 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {quickTags.map(tag => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => onChangeSearch(searchQuery === tag ? '' : tag)}
+                className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all whitespace-nowrap ${
+                  searchQuery === tag
+                    ? 'bg-amber-500 text-neutral-950 shadow-xs'
+                    : isLightTheme
+                    ? 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+                }`}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </search>
   );
 };
 
+/* ============================================================================
+   5. PROMO STRIP WIDGET (5 Visual Styles + 7 Tones + Device Columns)
+   ============================================================================ */
 export const StorePromoStripWidget: React.FC<{
   block: PromoStripBlockConfig;
+  viewport?: BuilderViewport;
+  accentColor?: string;
   products: Product[];
   autoButtonContrast?: boolean;
   onSelectProduct: (p: Product) => void;
-}> = ({ block, products, autoButtonContrast = false, onSelectProduct }) => {
+}> = ({
+  block,
+  viewport = 'desktop',
+  accentColor = '#f59e0b',
+  products,
+  autoButtonContrast = false,
+  onSelectProduct,
+}) => {
   const toneClasses: Record<PromoStripBlockConfig['bgTone'], string> = {
     amber: 'bg-amber-600 text-white',
     crimson: 'bg-rose-600 text-white',
     emerald: 'bg-emerald-700 text-white',
     dark: 'bg-zinc-900 text-white border border-amber-500/30',
+    royal: 'bg-indigo-700 text-white',
+    sunset: 'bg-gradient-to-r from-orange-600 via-rose-600 to-pink-600 text-white',
+    gold: 'bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-600 text-neutral-950',
   };
+
+  const resolvedCols = Math.max(
+    1,
+    Number(
+      viewport === 'mobile'
+        ? block.columnsMobile ?? 1
+        : viewport === 'tablet'
+        ? block.columnsTablet ?? 1
+        : block.columnsDesktop ?? 1
+    ) || 1
+  );
+
+  const visualStyle = block.visualStyle || 'banner';
 
   const handleTrigger = () => {
     if (block.actionType === 'product' && block.productId) {
@@ -1505,30 +2299,63 @@ export const StorePromoStripWidget: React.FC<{
       className={getAnimationClass(block.advanced.animation)}
     >
       <div
-        className={`rounded-2xl p-4 sm:px-6 sm:py-4 ${
-          toneClasses[block.bgTone]
-        } shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3`}
+        style={
+          visualStyle === 'glass_glow'
+            ? { boxShadow: `0 12px 32px -10px ${accentColor}66` }
+            : undefined
+        }
+        className={`kh-cq-card relative overflow-hidden ${
+          visualStyle === 'ticket_coupon'
+            ? 'rounded-2xl border-2 border-dashed border-white/45 p-4 sm:px-6'
+            : visualStyle === 'compact_bar'
+            ? 'rounded-xl px-4 py-2.5'
+            : visualStyle === 'split_hero'
+            ? 'rounded-3xl p-5 sm:p-6'
+            : 'rounded-2xl p-4 sm:px-6 sm:py-4'
+        } ${toneClasses[block.bgTone] || toneClasses.amber} shadow-lg`}
       >
-        <div className="space-y-0.5">
-          {block.badgeText && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-black/25">
-              <Sparkles className="h-3 w-3" /> {block.badgeText}
-            </span>
-          )}
-          <h4 className="text-sm sm:text-base font-black">{block.title}</h4>
-          {block.subtitle && <p className="text-xs opacity-90">{block.subtitle}</p>}
-        </div>
+        <div
+          style={
+            resolvedCols > 1
+              ? {
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${resolvedCols}, minmax(0, 1fr))`,
+                  gap: '12px',
+                  alignItems: 'center',
+                }
+              : undefined
+          }
+          className={resolvedCols === 1 ? 'kh-cq-actions' : ''}
+        >
+          <div className="space-y-0.5 min-w-0">
+            {block.badgeText && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-black/25 text-white">
+                <Sparkles className="h-3 w-3 shrink-0" /> {block.badgeText}
+              </span>
+            )}
+            <h4 className="kh-cq-title font-black">{block.title}</h4>
+            {block.subtitle && resolvedCols === 1 && (
+              <p className="text-xs opacity-90">{block.subtitle}</p>
+            )}
+          </div>
 
-        {block.ctaLabel && block.actionType !== 'none' && (
-          <button
-            type="button"
-            onClick={handleTrigger}
-            data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-            className="store-btn-solid px-4 py-2 rounded-2xl font-black text-xs shadow active:scale-95 transition-transform whitespace-nowrap shrink-0"
-          >
-            {block.ctaLabel}
-          </button>
-        )}
+          {resolvedCols > 1 && block.subtitle && (
+            <p className="text-xs opacity-95 font-medium">{block.subtitle}</p>
+          )}
+
+          {block.ctaLabel && block.actionType !== 'none' && (
+            <div className={resolvedCols > 1 ? 'flex justify-end' : ''}>
+              <button
+                type="button"
+                onClick={handleTrigger}
+                data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+                className="kh-cq-cta store-btn-solid px-4 py-2 rounded-2xl font-black text-xs shadow active:scale-95 transition-transform whitespace-nowrap shrink-0"
+              >
+                {block.ctaLabel}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

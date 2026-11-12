@@ -1,5 +1,8 @@
 {
-  "buildId": "20261112043755",
-  "builtAt": "2026-11-12T04:37:55.307Z",
-  "message": "perf(load): lazy loading modular en tienda y ERP, skeletons sin parpadeo e imagenes progresivas"
+  "buildId": "20261112210015",
+  "builtAt": "2026-11-12T21:00:15.917Z",
+  "commitSha": "db54a72",
+  "message": "feat: facturacion facturalo.pe, evidencia fotografica delivery, sincronizacion omnicanal puntos y canjes POS, mejoras beneficios y juegos",
+  "totalFiles": 72,
+  "manifestSha256": "f99a9b8bfdd27dfeaee408610e75f585b10dd45254226d2fcfecfb4b278b542d"
 }

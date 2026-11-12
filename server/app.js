@@ -39,8 +39,9 @@ const server = http.createServer((req, res) => {
 
   // 1. CANAL SSE STREAMING: Cualquier URL que termine o contenga "stream"
   if (pathname.includes('stream')) {
-    const clientId = parsedUrl.query.clientId || `cli_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-    const branchId = parsedUrl.query.branchId || 'all';
+    const rawClientId = String(parsedUrl.query.clientId || '').replace(/[^A-Za-z0-9_\-]/g, '').slice(0, 64);
+    const clientId = rawClientId || `cli_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const branchId = String(parsedUrl.query.branchId || 'all').replace(/[^A-Za-z0-9_\-]/g, '').slice(0, 64) || 'all';
 
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
@@ -61,15 +62,49 @@ const server = http.createServer((req, res) => {
 
   // 2. BROADCAST DE EVENTOS: Cualquier POST que contenga "broadcast"
   if (pathname.includes('broadcast') && req.method === 'POST') {
+    const sharedSecret = process.env.ERP_REALTIME_SECRET || '';
+    const providedToken = String(req.headers['x-erp-token'] || req.headers['authorization'] || '').trim();
+    if (sharedSecret && providedToken !== sharedSecret) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: 'Unauthorized realtime broadcast' }));
+      return;
+    }
+
     let body = '';
+    let aborted = false;
     req.on('data', chunk => {
+      if (aborted) return;
       body += chunk;
-      if (body.length > 5 * 1024 * 1024) req.destroy();
+      if (body.length > 5 * 1024 * 1024) {
+        aborted = true;
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Payload Too Large (max 5MB)' }));
+        req.destroy();
+      }
     });
 
     req.on('end', () => {
+      if (aborted) return;
       try {
         const payload = JSON.parse(body || '{}');
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Invalid payload object' }));
+          return;
+        }
+
+        const hasValidHeaderOrSender = Boolean(
+          req.headers['x-client-id'] ||
+          req.headers['x-erp-token'] ||
+          (typeof payload.senderId === 'string' && payload.senderId.length > 0) ||
+          (typeof payload.action === 'string' && payload.action.length > 0)
+        );
+        if (!hasValidHeaderOrSender) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Missing client identifier or token' }));
+          return;
+        }
+
         const rawMessage = `data: ${JSON.stringify(payload)}\n\n`;
         const senderId = payload.senderId;
         const targetBranch = payload.branchId;
