@@ -7,6 +7,8 @@
  * sin necesidad de entrar a cPanel o subir archivos ZIP manualmente.
  */
 
+@ini_set('display_errors', '0');
+
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/storage-lib.php';
 
@@ -28,7 +30,6 @@ function fetchRemoteData($url, $timeout = 60) {
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
         $result = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlErr = curl_error($ch);
         curl_close($ch);
         if ($httpCode >= 200 && $httpCode < 300 && $result !== false && strlen($result) > 0) {
             return $result;
@@ -39,8 +40,8 @@ function fetchRemoteData($url, $timeout = 60) {
         'http' => [
             'method' => 'GET',
             'header' => [
-                "User-Agent: PHP-cPanel-AutoUpdater",
-                "Accept: application/vnd.github.v3+json"
+                "User-Agent: PHP-cPanel-AutoUpdater\r\n",
+                "Accept: application/vnd.github.v3+json\r\n"
             ],
             'follow_location' => 1,
             'max_redirects' => 5,
@@ -53,6 +54,36 @@ function fetchRemoteData($url, $timeout = 60) {
     ];
     $context = stream_context_create($opts);
     return @file_get_contents($url, false, $context);
+}
+
+function recursiveCopy($src, $dst, &$count) {
+    $dir = @opendir($src);
+    if (!$dir) return;
+    @mkdir($dst, 0755, true);
+    while (false !== ($file = readdir($dir))) {
+        if ($file !== '.' && $file !== '..') {
+            if (is_dir($src . '/' . $file)) {
+                recursiveCopy($src . '/' . $file, $dst . '/' . $file, $count);
+            } else {
+                if (basename($file) === 'config.local.php' && file_exists($dst . '/' . $file)) {
+                    continue;
+                }
+                if (@copy($src . '/' . $file, $dst . '/' . $file)) {
+                    $count++;
+                }
+            }
+        }
+    }
+    closedir($dir);
+}
+
+function recursiveDelete($dir) {
+    if (!file_exists($dir)) return;
+    $files = array_diff(scandir($dir), ['.', '..']);
+    foreach ($files as $file) {
+        (is_dir("$dir/$file")) ? recursiveDelete("$dir/$file") : @unlink("$dir/$file");
+    }
+    @rmdir($dir);
 }
 
 switch ($action) {
@@ -104,7 +135,7 @@ switch ($action) {
         if (!$isAuth) {
             sendResponse(['success' => false, 'error' => 'Solo un administrador con sesión activa o PIN maestro puede actualizar'], 401);
         }
-        // Descargar el zipball del repositorio y actualizar archivos
+
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             sendResponse(['success' => false, 'error' => 'Método POST requerido'], 405);
         }
@@ -119,7 +150,6 @@ switch ($action) {
         $zipUrl = "https://github.com/$repo/archive/refs/heads/main.zip";
         $tmpZip = sys_get_temp_dir() . '/khalessi_update_' . time() . '.zip';
 
-        // 1. Descargar ZIP de GitHub con cURL
         $content = fetchRemoteData($zipUrl, 90);
 
         if (!$content || strlen($content) < 1000) {
@@ -131,7 +161,6 @@ switch ($action) {
 
         file_put_contents($tmpZip, $content);
 
-        // 2. Extraer archivos en un directorio temporal
         $zip = new ZipArchive();
         if ($zip->open($tmpZip) !== true) {
             @unlink($tmpZip);
@@ -143,62 +172,27 @@ switch ($action) {
         $zip->close();
         @unlink($tmpZip);
 
-        // 3. Ubicar la carpeta extraída (ej: ERPKhalessi-main)
         $extractedDirs = glob($extractPath . '/*');
         if (empty($extractedDirs)) {
             sendResponse(['success' => false, 'error' => 'Estructura zip vacía'], 500);
         }
         $sourceDir = $extractedDirs[0];
 
-        // Copiar los archivos de public/ y dist/ hacia la raíz de public_html
-        $rootTarget = realpath(__DIR__ . '/..'); // Directorio public_html
+        $rootTarget = realpath(__DIR__ . '/..');
 
-        // El build compilado versionado vive en /release
         $releaseFolder = $sourceDir . '/release';
         if (!is_dir($releaseFolder)) {
             sendResponse(['success' => false, 'error' => 'El repositorio no contiene la carpeta release/. Ejecuta "npm run release" en local y haz git push.'], 500);
         }
 
         $copiedCount = 0;
-
-        function recursiveCopy($src, $dst, &$count) {
-            $dir = opendir($src);
-            @mkdir($dst);
-            while (false !== ($file = readdir($dir))) {
-                if (($file != '.') && ($file != '..')) {
-                    if (is_dir($src . '/' . $file)) {
-                        recursiveCopy($src . '/' . $file, $dst . '/' . $file, $count);
-                    } else {
-                        // Preservar config.local.php para no pisar credenciales de la base de datos
-                        if (basename($file) === 'config.local.php' && file_exists($dst . '/' . $file)) {
-                            continue;
-                        }
-                        if (copy($src . '/' . $file, $dst . '/' . $file)) {
-                            $count++;
-                        }
-                    }
-                }
-            }
-            closedir($dir);
-        }
-
         recursiveCopy($releaseFolder, $rootTarget, $copiedCount);
 
-        // Copiar también archivos del realtime server (server/app.js y server/package.json)
         $serverFolder = $sourceDir . '/server';
         if (is_dir($serverFolder)) {
             recursiveCopy($serverFolder, $rootTarget . '/server', $copiedCount);
         }
 
-        // Limpiar temporales
-        function recursiveDelete($dir) {
-            if (!file_exists($dir)) return;
-            $files = array_diff(scandir($dir), ['.', '..']);
-            foreach ($files as $file) {
-                (is_dir("$dir/$file")) ? recursiveDelete("$dir/$file") : @unlink("$dir/$file");
-            }
-            @rmdir($dir);
-        }
         recursiveDelete($extractPath);
 
         sendResponse([
@@ -210,7 +204,5 @@ switch ($action) {
 
     default:
         sendResponse(['success' => false, 'error' => 'Acción no válida'], 400);
-        break;
-}
         break;
 }
