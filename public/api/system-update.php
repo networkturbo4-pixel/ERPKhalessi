@@ -91,6 +91,41 @@ function fetchRemoteData(string $url, int $timeout = 60): ?string {
 }
 
 /**
+ * Comprueba de forma infalible si un directorio tiene permisos de escritura en Windows y Linux.
+ */
+function checkDirectoryWritable(string $dir): bool {
+    if (!is_dir($dir)) return false;
+    $testFile = rtrim($dir, '/\\') . '/.write_test_' . uniqid() . '_' . mt_rand(100, 999);
+    $written = @file_put_contents($testFile, '1');
+    if ($written !== false) {
+        @unlink($testFile);
+        return true;
+    }
+    return is_writable($dir);
+}
+
+/**
+ * Obtiene conexión PDO sin llamar a exit() en caso de fallo, permitiendo continuar
+ * con la sincronización de archivos si la base de datos no está disponible.
+ */
+function getSafeDbConnection(): ?PDO {
+    if (!defined('DB_HOST') || !defined('DB_NAME') || !defined('DB_USER')) {
+        return null;
+    }
+    $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . (defined('DB_CHARSET') ? DB_CHARSET : 'utf8mb4');
+    $options = [
+        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES   => false,
+    ];
+    try {
+        return new PDO($dsn, DB_USER, DB_PASS, $options);
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/**
  * Verifica si la petición proviene de un administrador autorizado (por Token ERP o por PIN de administrador).
  */
 function isAuthorizedForDeploy(): bool {
@@ -118,7 +153,10 @@ function isAuthorizedForDeploy(): bool {
     }
 
     try {
-        $pdo = getDbConnection();
+        $pdo = getSafeDbConnection();
+        if (!$pdo) {
+            return false;
+        }
         kvInit($pdo);
 
         foreach ([KH_SETTINGS_KEY, KH_RBAC_KEY] as $storageKey) {
@@ -169,7 +207,11 @@ function ensureDatabaseSchema(string $rootTarget): array {
     ];
 
     try {
-        $pdo = getDbConnection();
+        $pdo = getSafeDbConnection();
+        if (!$pdo) {
+            $stats['details'][] = 'Aviso BD: Conexión MySQL no disponible en este momento. Archivos sincronizados con éxito.';
+            return $stats;
+        }
         $stats['connected'] = true;
         kvInit($pdo);
         $stats['tables_verified']++;
@@ -330,7 +372,7 @@ switch ($action) {
             ], 403);
         }
 
-        if (!is_writable($rootTarget)) {
+        if (!checkDirectoryWritable($rootTarget)) {
             sendResponse([
                 'success' => false,
                 'error' => 'El directorio raíz del ERP (' . $rootTarget . ') no tiene permisos de escritura.'
@@ -338,206 +380,224 @@ switch ($action) {
         }
 
         $steps = [];
-        // Intentar descargar release/manifest.json desde raw.githubusercontent.com con cache-buster;
-        // si GitHub aún no lo propaga por CDN, respaldar vía GitHub REST API contents.
-        $manifestUrl = "https://raw.githubusercontent.com/$repo/$branch/release/manifest.json";
-        $manifestRaw = fetchRemoteData($manifestUrl, 30);
-        $manifest = $manifestRaw ? json_decode($manifestRaw, true) : null;
+        $stageDir = null;
 
-        if (!is_array($manifest) || !isset($manifest['files']) || !is_array($manifest['files'])) {
-            $apiManifestUrl = "https://api.github.com/repos/$repo/contents/release/manifest.json?ref=$branch";
-            $apiRaw = fetchRemoteData($apiManifestUrl, 30);
-            if ($apiRaw) {
-                $apiJson = json_decode($apiRaw, true);
-                if (is_array($apiJson) && isset($apiJson['content']) && is_string($apiJson['content'])) {
-                    $decodedContent = base64_decode(str_replace(["\r", "\n", ' '], '', $apiJson['content']));
-                    $manifest = $decodedContent ? json_decode($decodedContent, true) : null;
-                }
-            }
-        }
+        try {
+            // Intentar descargar release/manifest.json desde raw.githubusercontent.com con cache-buster;
+            // si GitHub aún no lo propaga por CDN, respaldar vía GitHub REST API contents.
+            $manifestUrl = "https://raw.githubusercontent.com/$repo/$branch/release/manifest.json";
+            $manifestRaw = fetchRemoteData($manifestUrl, 30);
+            $manifest = $manifestRaw ? json_decode($manifestRaw, true) : null;
 
-        if (!is_array($manifest) || !isset($manifest['files']) || !is_array($manifest['files'])) {
-            sendResponse([
-                'success' => false,
-                'error' => 'No se encontró release/manifest.json en GitHub. Ejecuta "npm run release" y sube los cambios a main.'
-            ], 500);
-        }
-
-        $targetBuildId = (string)($manifest['buildId'] ?? 'latest');
-        $manifestFiles = $manifest['files'];
-        $steps[] = "Manifiesto remoto verificado: build {$targetBuildId} (" . count($manifestFiles) . " archivos indexados).";
-
-        // 1. Determinar qué archivos cambiaron comparando SHA-256 local vs remoto
-        $toDownload = [];
-        $unchangedCount = 0;
-        $validAssetNames = [];
-
-        foreach ($manifestFiles as $entry) {
-            if (!is_array($entry) || empty($entry['path']) || empty($entry['sha256'])) continue;
-            $relPath = ltrim(str_replace('\\', '/', (string)$entry['path']), '/');
-
-            // Seguridad: impedir path traversal y proteger config.local.php y uploads/
-            if (
-                strpos($relPath, '..') !== false ||
-                $relPath === 'api/config.local.php' ||
-                strpos($relPath, 'uploads/') === 0
-            ) {
-                continue;
-            }
-
-            if (strpos($relPath, 'assets/') === 0) {
-                $validAssetNames[basename($relPath)] = true;
-            }
-
-            $localFile = $rootTarget . '/' . $relPath;
-            if (file_exists($localFile) && is_file($localFile)) {
-                $localHash = @hash_file('sha256', $localFile);
-                if ($localHash !== false && hash_equals(strtolower((string)$entry['sha256']), strtolower($localHash))) {
-                    $unchangedCount++;
-                    continue;
+            if (!is_array($manifest) || !isset($manifest['files']) || !is_array($manifest['files'])) {
+                $apiManifestUrl = "https://api.github.com/repos/$repo/contents/release/manifest.json?ref=$branch";
+                $apiRaw = fetchRemoteData($apiManifestUrl, 30);
+                if ($apiRaw) {
+                    $apiJson = json_decode($apiRaw, true);
+                    if (is_array($apiJson) && isset($apiJson['content']) && is_string($apiJson['content'])) {
+                        $decodedContent = base64_decode(str_replace(["\r", "\n", ' '], '', $apiJson['content']));
+                        $manifest = $decodedContent ? json_decode($decodedContent, true) : null;
+                    }
                 }
             }
 
-            $toDownload[] = [
-                'path' => $relPath,
-                'sha256' => strtolower((string)$entry['sha256']),
-                'size' => (int)($entry['size'] ?? 0),
-            ];
-        }
-
-        $steps[] = "Comparación SHA-256 completada: " . count($toDownload) . " archivos por actualizar, {$unchangedCount} idénticos omitidos.";
-
-        // 2. Directorio de staging DENTRO del proyecto (evita bloqueos de open_basedir en /tmp)
-        $stageDir = $rootTarget . '/.kh_update_stage_' . time() . '_' . mt_rand(100, 999);
-        if (!is_dir($stageDir) && !@mkdir($stageDir, 0755, true)) {
-            sendResponse([
-                'success' => false,
-                'error' => 'No se pudo crear el directorio temporal de staging en ' . $stageDir
-            ], 500);
-        }
-
-        // 3. Descargar archivos nuevos/modificados y verificar integridad SHA-256
-        $rawBase = "https://raw.githubusercontent.com/$repo/$branch/release/";
-        $deferredEntries = []; // index.html se aplica al final para transición atómica
-        $updatedCount = 0;
-
-        foreach ($toDownload as $item) {
-            $relPath = $item['path'];
-            // Codificar cada segmento de la ruta para URL
-            $encodedPath = implode('/', array_map('rawurlencode', explode('/', $relPath)));
-            $fileUrl = $rawBase . $encodedPath;
-
-            $data = fetchRemoteData($fileUrl, 45);
-            if ($data === null) {
-                recursiveDeleteDir($stageDir);
+            if (!is_array($manifest) || !isset($manifest['files']) || !is_array($manifest['files'])) {
                 sendResponse([
                     'success' => false,
-                    'error' => "Error al descargar el archivo '{$relPath}' desde GitHub.",
-                    'steps' => $steps,
-                ], 502);
-            }
-
-            $downloadedHash = strtolower(hash('sha256', $data));
-            if (!hash_equals($item['sha256'], $downloadedHash)) {
-                recursiveDeleteDir($stageDir);
-                sendResponse([
-                    'success' => false,
-                    'error' => "Fallo de verificación SHA-256 en '{$relPath}' (descarga corrupta o caché intermedia).",
-                    'steps' => $steps,
-                ], 502);
-            }
-
-            $stageFile = $stageDir . '/' . $relPath;
-            $stageParent = dirname($stageFile);
-            if (!is_dir($stageParent)) {
-                @mkdir($stageParent, 0755, true);
-            }
-            if (@file_put_contents($stageFile, $data) === false) {
-                recursiveDeleteDir($stageDir);
-                sendResponse([
-                    'success' => false,
-                    'error' => "No se pudo escribir en staging: {$relPath}",
-                    'steps' => $steps,
+                    'error' => 'No se encontró release/manifest.json en GitHub. Ejecuta "npm run release" y sube los cambios a main.'
                 ], 500);
             }
-        }
 
-        // 4. Promover archivos desde staging al directorio raíz (assets y API primero, index.html al final)
-        foreach ($toDownload as $item) {
-            $relPath = $item['path'];
-            if ($relPath === 'index.html') {
-                $deferredEntries[] = $relPath;
-                continue;
+            $targetBuildId = (string)($manifest['buildId'] ?? 'latest');
+            $manifestFiles = $manifest['files'];
+            $steps[] = "Manifiesto remoto verificado: build {$targetBuildId} (" . count($manifestFiles) . " archivos indexados).";
+
+            // 1. Determinar qué archivos cambiaron comparando SHA-256 local vs remoto
+            $toDownload = [];
+            $unchangedCount = 0;
+            $validAssetNames = [];
+
+            foreach ($manifestFiles as $entry) {
+                if (!is_array($entry) || empty($entry['path']) || empty($entry['sha256'])) continue;
+                $relPath = ltrim(str_replace('\\', '/', (string)$entry['path']), '/');
+
+                // Seguridad: impedir path traversal y proteger config.local.php y uploads/
+                if (
+                    strpos($relPath, '..') !== false ||
+                    $relPath === 'api/config.local.php' ||
+                    strpos($relPath, 'uploads/') === 0
+                ) {
+                    continue;
+                }
+
+                if (strpos($relPath, 'assets/') === 0) {
+                    $validAssetNames[basename($relPath)] = true;
+                }
+
+                $localFile = $rootTarget . '/' . $relPath;
+                if (file_exists($localFile) && is_file($localFile)) {
+                    $localHash = @hash_file('sha256', $localFile);
+                    if ($localHash !== false && hash_equals(strtolower((string)$entry['sha256']), strtolower($localHash))) {
+                        $unchangedCount++;
+                        continue;
+                    }
+                }
+
+                $toDownload[] = [
+                    'path' => $relPath,
+                    'sha256' => strtolower((string)$entry['sha256']),
+                    'size' => (int)($entry['size'] ?? 0),
+                ];
             }
-            $srcFile = $stageDir . '/' . $relPath;
-            $dstFile = $rootTarget . '/' . $relPath;
-            $dstParent = dirname($dstFile);
-            if (!is_dir($dstParent)) {
-                @mkdir($dstParent, 0755, true);
+
+            $steps[] = "Comparación SHA-256 completada: " . count($toDownload) . " archivos por actualizar, {$unchangedCount} idénticos omitidos.";
+
+            // 2. Directorio de staging DENTRO del proyecto (evita bloqueos de open_basedir en /tmp)
+            $stageDir = $rootTarget . '/.kh_update_stage_' . time() . '_' . mt_rand(100, 999);
+            if (!is_dir($stageDir) && !@mkdir($stageDir, 0755, true)) {
+                sendResponse([
+                    'success' => false,
+                    'error' => 'No se pudo crear el directorio temporal de staging en ' . $stageDir
+                ], 500);
             }
-            if (@copy($srcFile, $dstFile)) {
+
+            // 3. Descargar archivos nuevos/modificados y verificar integridad SHA-256
+            $rawBase = "https://raw.githubusercontent.com/$repo/$branch/release/";
+            $deferredEntries = []; // index.html se aplica al final para transición atómica
+            $updatedCount = 0;
+
+            foreach ($toDownload as $item) {
+                $relPath = $item['path'];
+                // Codificar cada segmento de la ruta para URL
+                $encodedPath = implode('/', array_map('rawurlencode', explode('/', $relPath)));
+                $fileUrl = $rawBase . $encodedPath;
+
+                $data = fetchRemoteData($fileUrl, 45);
+                if ($data === null) {
+                    if ($stageDir) recursiveDeleteDir($stageDir);
+                    sendResponse([
+                        'success' => false,
+                        'error' => "Error al descargar el archivo '{$relPath}' desde GitHub.",
+                        'steps' => $steps,
+                    ], 502);
+                }
+
+                $downloadedHash = strtolower(hash('sha256', $data));
+                if (!hash_equals($item['sha256'], $downloadedHash)) {
+                    if ($stageDir) recursiveDeleteDir($stageDir);
+                    sendResponse([
+                        'success' => false,
+                        'error' => "Fallo de verificación SHA-256 en '{$relPath}' (descarga corrupta o caché intermedia).",
+                        'steps' => $steps,
+                    ], 502);
+                }
+
+                $stageFile = $stageDir . '/' . $relPath;
+                $stageParent = dirname($stageFile);
+                if (!is_dir($stageParent)) {
+                    @mkdir($stageParent, 0755, true);
+                }
+                if (@file_put_contents($stageFile, $data) === false) {
+                    if ($stageDir) recursiveDeleteDir($stageDir);
+                    sendResponse([
+                        'success' => false,
+                        'error' => "No se pudo escribir en staging: {$relPath}",
+                        'steps' => $steps,
+                    ], 500);
+                }
+            }
+
+            // 4. Promover archivos desde staging al directorio raíz (assets y API primero, index.html al final)
+            foreach ($toDownload as $item) {
+                $relPath = $item['path'];
+                if ($relPath === 'index.html') {
+                    $deferredEntries[] = $relPath;
+                    continue;
+                }
+                $srcFile = $stageDir . '/' . $relPath;
+                $dstFile = $rootTarget . '/' . $relPath;
+                $dstParent = dirname($dstFile);
+                if (!is_dir($dstParent)) {
+                    @mkdir($dstParent, 0755, true);
+                }
+                if (@copy($srcFile, $dstFile)) {
+                    $updatedCount++;
+                }
+            }
+
+            foreach ($deferredEntries as $relPath) {
+                $srcFile = $stageDir . '/' . $relPath;
+                $dstFile = $rootTarget . '/' . $relPath;
+                if (@copy($srcFile, $dstFile)) {
+                    $updatedCount++;
+                }
+            }
+
+            // Actualizar manifest.json y version.json locales al final
+            if (!empty($manifestRaw)) {
+                @file_put_contents($rootTarget . '/manifest.json', $manifestRaw);
+            }
+            $versionUrl = "https://raw.githubusercontent.com/$repo/$branch/release/version.json";
+            $remoteVersionRaw = fetchRemoteData($versionUrl, 15);
+            if ($remoteVersionRaw) {
+                @file_put_contents($rootTarget . '/version.json', $remoteVersionRaw);
                 $updatedCount++;
             }
-        }
 
-        foreach ($deferredEntries as $relPath) {
-            $srcFile = $stageDir . '/' . $relPath;
-            $dstFile = $rootTarget . '/' . $relPath;
-            if (@copy($srcFile, $dstFile)) {
-                $updatedCount++;
+            if ($stageDir) {
+                recursiveDeleteDir($stageDir);
             }
-        }
 
-        // Actualizar manifest.json y version.json locales al final
-        @file_put_contents($rootTarget . '/manifest.json', $manifestRaw);
-        $remoteVersionRaw = fetchRemoteData($versionUrl, 15);
-        if ($remoteVersionRaw) {
-            @file_put_contents($rootTarget . '/version.json', $remoteVersionRaw);
-            $updatedCount++;
-        }
-
-        recursiveDeleteDir($stageDir);
-
-        // 5. Limpiar chunks antiguos de /assets que ya no forman parte del build actual
-        $cleanedAssets = 0;
-        $assetsDir = $rootTarget . '/assets';
-        if (is_dir($assetsDir) && !empty($validAssetNames)) {
-            $existingAssets = @scandir($assetsDir);
-            if (is_array($existingAssets)) {
-                foreach ($existingAssets as $assetFile) {
-                    if ($assetFile === '.' || $assetFile === '..') continue;
-                    if (!isset($validAssetNames[$assetFile])) {
-                        $fullAssetPath = $assetsDir . '/' . $assetFile;
-                        if (is_file($fullAssetPath) && @unlink($fullAssetPath)) {
-                            $cleanedAssets++;
+            // 5. Limpiar chunks antiguos de /assets que ya no forman parte del build actual
+            $cleanedAssets = 0;
+            $assetsDir = $rootTarget . '/assets';
+            if (is_dir($assetsDir) && !empty($validAssetNames)) {
+                $existingAssets = @scandir($assetsDir);
+                if (is_array($existingAssets)) {
+                    foreach ($existingAssets as $assetFile) {
+                        if ($assetFile === '.' || $assetFile === '..') continue;
+                        if (!isset($validAssetNames[$assetFile])) {
+                            $fullAssetPath = $assetsDir . '/' . $assetFile;
+                            if (is_file($fullAssetPath) && @unlink($fullAssetPath)) {
+                                $cleanedAssets++;
+                            }
                         }
                     }
                 }
             }
-        }
-        if ($cleanedAssets > 0) {
-            $steps[] = "Limpieza de caché: {$cleanedAssets} chunks antiguos eliminados de /assets.";
-        }
-
-        // 6. Ejecutar auto-migración no destructiva de Base de Datos MySQL
-        $dbStats = ensureDatabaseSchema($rootTarget);
-        if ($dbStats['connected']) {
-            $steps[] = "Base de datos verificada: {$dbStats['tables_verified']} tablas comprobadas, {$dbStats['columns_added']} columnas nuevas creadas (datos 100% intactos).";
-            foreach ($dbStats['details'] as $detail) {
-                $steps[] = "  ↳ {$detail}";
+            if ($cleanedAssets > 0) {
+                $steps[] = "Limpieza de caché: {$cleanedAssets} chunks antiguos eliminados de /assets.";
             }
-        }
 
-        sendResponse([
-            'success' => true,
-            'message' => '¡Actualización en caliente aplicada directamente desde GitHub!',
-            'build_id' => $targetBuildId,
-            'files_updated' => $updatedCount,
-            'files_unchanged' => $unchangedCount,
-            'files_cleaned' => $cleanedAssets,
-            'db_migration' => $dbStats,
-            'steps' => $steps,
-        ]);
+            // 6. Ejecutar auto-migración no destructiva de Base de Datos MySQL
+            $dbStats = ensureDatabaseSchema($rootTarget);
+            if ($dbStats['connected']) {
+                $steps[] = "Base de datos verificada: {$dbStats['tables_verified']} tablas comprobadas, {$dbStats['columns_added']} columnas nuevas creadas (datos 100% intactos).";
+                foreach ($dbStats['details'] as $detail) {
+                    $steps[] = "  ↳ {$detail}";
+                }
+            }
+
+            sendResponse([
+                'success' => true,
+                'message' => '¡Actualización en caliente aplicada directamente desde GitHub!',
+                'build_id' => $targetBuildId,
+                'files_updated' => $updatedCount,
+                'files_unchanged' => $unchangedCount,
+                'files_cleaned' => $cleanedAssets,
+                'db_migration' => $dbStats,
+                'steps' => $steps,
+            ]);
+        } catch (Throwable $e) {
+            if ($stageDir) {
+                recursiveDeleteDir($stageDir);
+            }
+            sendResponse([
+                'success' => false,
+                'error' => 'Error durante la actualización: ' . $e->getMessage(),
+                'steps' => $steps,
+            ], 500);
+        }
         break;
 
     default:

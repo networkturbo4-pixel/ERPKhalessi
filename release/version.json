@@ -1,8 +1,8 @@
 {
-  "buildId": "20261112213219",
-  "builtAt": "2026-11-12T21:32:19.925Z",
-  "commitSha": "386502f",
-  "message": "chore(release): build 20261112213120 con manifest.json sincronizado",
-  "totalFiles": 72,
-  "manifestSha256": "475d4f825522f8c06c53707691b5270a220d827394e8d40d900dfcb7d8b90756"
+  "buildId": "20261112232603",
+  "builtAt": "2026-11-12T23:26:03.377Z",
+  "commitSha": "4cdbf07",
+  "message": "feat: media gallery module, user avatar upload, fixed product modal footer, sidebar reorder & extras/half-and-half fixes",
+  "totalFiles": 73,
+  "manifestSha256": "9913c4ddfa1466f109027a3ddacb8353965a1cdd25f4c94e11d5f5f23c6a2c88"
 }

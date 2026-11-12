@@ -282,72 +282,76 @@ export const SystemUpdateTab: React.FC = () => {
 
       <PermissionGate permission="settings:system_update">
         {/* Version info banner */}
-        <div className="saas-card p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                Versión Instalada:
-              </span>
-              <span className="text-lg font-extrabold text-zinc-950 dark:text-white font-mono">
-                {systemMetrics.version}
-              </span>
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
-                <CheckCircle className="h-3 w-3" /> Producción
-              </span>
+        <div className="saas-card p-6 flex flex-col gap-5 overflow-hidden">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                  Versión Instalada:
+                </span>
+                <span className="text-lg font-extrabold text-zinc-950 dark:text-white font-mono">
+                  {systemMetrics.version}
+                </span>
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full whitespace-nowrap">
+                  <CheckCircle className="h-3 w-3" /> Producción
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-zinc-600 dark:text-zinc-300 font-mono">
+                <span className="flex items-center gap-1">
+                  <GitBranch className="h-3.5 w-3.5 text-brand-500 dark:text-brand-400 shrink-0" />
+                  Rama: <strong className="text-zinc-900 dark:text-white">{systemMetrics.gitBranch}</strong>
+                </span>
+                <span className="flex items-center gap-1">
+                  <GitCommit className="h-3.5 w-3.5 text-brand-500 dark:text-brand-400 shrink-0" />
+                  Build instalado:{' '}
+                  <strong className="text-zinc-900 dark:text-white">{installedBuild ?? 'verificando...'}</strong>
+                </span>
+                <span className="text-zinc-400 truncate">
+                  Repositorio: <strong>github.com/{GITHUB_REPO}</strong>
+                </span>
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-zinc-600 dark:text-zinc-300 font-mono">
-              <span className="flex items-center gap-1">
-                <GitBranch className="h-3.5 w-3.5 text-brand-500 dark:text-brand-400" />
-                Rama: <strong className="text-zinc-900 dark:text-white">{systemMetrics.gitBranch}</strong>
-              </span>
-              <span className="flex items-center gap-1">
-                <GitCommit className="h-3.5 w-3.5 text-brand-500 dark:text-brand-400" />
-                Build instalado:{' '}
-                <strong className="text-zinc-900 dark:text-white">{installedBuild ?? 'verificando...'}</strong>
-              </span>
-              <span className="text-zinc-400">
-                Repositorio: <strong>github.com/{GITHUB_REPO}</strong>
-              </span>
+            <div className="flex items-center gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={handleStartUpdate}
+                disabled={isUpdating}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/80 border border-zinc-300 dark:border-zinc-700 rounded-xl shadow-sm transition-colors disabled:opacity-60 whitespace-nowrap shrink-0"
+                title="Sincroniza directamente desde GitHub verificando hashes SHA-256 y aplicando migraciones de BD nuevas"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 text-blue-500 ${isUpdating ? 'animate-spin' : ''}`} />
+                <span>{isUpdating ? 'Sincronizando e instalando...' : 'Sincronizar / Forzar Actualización'}</span>
+              </button>
             </div>
           </div>
 
-          {/* Update Action Buttons */}
-          <div className="flex flex-wrap items-center gap-3">
-            {updateAvailable && (
-              <div className="flex-1 flex items-center gap-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 p-3.5 rounded-xl">
+          {/* Update Available Banner - Ancho completo y responsivo sin desbordamiento */}
+          {updateAvailable && (
+            <div className="w-full min-w-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 p-3.5 rounded-xl overflow-hidden">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
                 <div className="min-w-0 flex-1">
                   <span className="text-xs font-bold text-amber-950 dark:text-amber-200 block truncate">
                     Nueva versión disponible: [{remoteCommitInfo?.sha}]
                   </span>
-                  <span className="text-[10px] text-amber-800 dark:text-amber-300 block truncate max-w-sm">
+                  <span className="text-[10px] text-amber-800 dark:text-amber-300 block truncate">
                     {remoteCommitInfo?.message || 'Actualización lista para desplegar en caliente.'}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleStartUpdate}
-                  disabled={isUpdating}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-500 rounded-lg shadow-sm shrink-0 transition-colors disabled:opacity-60 whitespace-nowrap"
-                >
-                  <ArrowUpCircle className="h-3.5 w-3.5" />
-                  {isUpdating ? 'Actualizando...' : 'Actualizar Ahora'}
-                </button>
               </div>
-            )}
-
-            <button
-              type="button"
-              onClick={handleStartUpdate}
-              disabled={isUpdating}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-700/80 border border-zinc-300 dark:border-zinc-700 rounded-xl shadow-sm transition-colors disabled:opacity-60 whitespace-nowrap shrink-0"
-              title="Sincroniza directamente desde GitHub verificando hashes SHA-256 y aplicando migraciones de BD nuevas"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 text-blue-500 ${isUpdating ? 'animate-spin' : ''}`} />
-              <span>{isUpdating ? 'Sincronizando e instalando...' : 'Sincronizar / Forzar Actualización'}</span>
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={handleStartUpdate}
+                disabled={isUpdating}
+                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-500 rounded-lg shadow-sm shrink-0 transition-colors disabled:opacity-60 whitespace-nowrap w-full sm:w-auto"
+              >
+                <ArrowUpCircle className="h-3.5 w-3.5 shrink-0" />
+                {isUpdating ? 'Actualizando...' : 'Actualizar Ahora'}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Direct Differential Sync & Auto-Migration Card */}
