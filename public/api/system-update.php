@@ -168,15 +168,42 @@ switch ($action) {
         }
 
         $extractPath = sys_get_temp_dir() . '/khalessi_extracted_' . time();
-        $zip->extractTo($extractPath);
+        if (!is_dir($extractPath)) {
+            @mkdir($extractPath, 0755, true);
+        }
+        $extractedOk = $zip->extractTo($extractPath);
         $zip->close();
         @unlink($tmpZip);
 
-        $extractedDirs = glob($extractPath . '/*');
-        if (empty($extractedDirs)) {
-            sendResponse(['success' => false, 'error' => 'Estructura zip vacía'], 500);
+        if (!$extractedOk) {
+            sendResponse(['success' => false, 'error' => 'No se pudo descomprimir el archivo en ' . $extractPath], 500);
         }
-        $sourceDir = $extractedDirs[0];
+
+        $allEntries = scandir($extractPath);
+        $candidateDirs = [];
+        if (is_array($allEntries)) {
+            foreach ($allEntries as $entry) {
+                if ($entry === '.' || $entry === '..') continue;
+                $full = $extractPath . '/' . $entry;
+                if (is_dir($full)) {
+                    $candidateDirs[] = $full;
+                }
+            }
+        }
+
+        if (empty($candidateDirs)) {
+            // Verificar si los archivos se descomprimieron en la raíz directamente
+            if (is_dir($extractPath . '/release')) {
+                $sourceDir = $extractPath;
+            } else {
+                sendResponse([
+                    'success' => false,
+                    'error' => 'Estructura zip no identificada en ' . $extractPath . ' (entradas: ' . implode(', ', array_slice($allEntries ?: [], 0, 5)) . ')'
+                ], 500);
+            }
+        } else {
+            $sourceDir = $candidateDirs[0];
+        }
 
         $rootTarget = realpath(__DIR__ . '/..');
 

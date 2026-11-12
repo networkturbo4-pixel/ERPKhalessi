@@ -1,5 +1,5 @@
 {
-  "buildId": "20261112034901",
-  "builtAt": "2026-11-12T03:49:01.469Z",
-  "message": "fix(db-config): configurar credenciales cPanel directas en config.php"
+  "buildId": "20261112035453",
+  "builtAt": "2026-11-12T03:54:53.503Z",
+  "message": "feat: optimizacion tiempo real, autocuracion base64, mapa Leaflet y foto por sucursal"
 }
