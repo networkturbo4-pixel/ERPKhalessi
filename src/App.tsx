@@ -6,6 +6,7 @@ import { StoreBuilderProvider } from './context/StoreBuilderContext';
 import { StoreCustomerProvider } from './context/StoreCustomerContext';
 import { BenefitsProvider } from './context/BenefitsContext';
 import { InventoryProvider } from './context/InventoryContext';
+import { MediaGalleryProvider } from './context/MediaGalleryContext';
 import { BrandBootSplash } from './components/common/AppSurfaceSkeleton';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
@@ -114,27 +115,29 @@ export function App() {
         <SettingsProvider>
           <OrderCatalogProvider>
             <InventoryProvider>
-              <StoreCustomerProvider>
-                <BenefitsProvider>
-                  <StoreBuilderProvider>
-                    <Suspense fallback={<BrandBootSplash pathname={currentPath} />}>
-                      {isKioskRoute ? (
-                        <KioskSelfServiceView
-                          embeddedInAdmin={false}
-                          onExitToAdmin={() => navigate('/admin')}
-                        />
-                      ) : isAdminRoute ? (
-                        <AppGate
-                          onNavigateToStore={() => navigate('/')}
-                          onNavigateToKiosk={() => navigate('/kiosco')}
-                        />
-                      ) : (
-                        <StorefrontView onNavigateToAdmin={() => navigate('/admin')} />
-                      )}
-                    </Suspense>
-                  </StoreBuilderProvider>
-                </BenefitsProvider>
-              </StoreCustomerProvider>
+              <MediaGalleryProvider>
+                <StoreCustomerProvider>
+                  <BenefitsProvider>
+                    <StoreBuilderProvider>
+                      <Suspense fallback={<BrandBootSplash pathname={currentPath} />}>
+                        {isKioskRoute ? (
+                          <KioskSelfServiceView
+                            embeddedInAdmin={false}
+                            onExitToAdmin={() => navigate('/admin')}
+                          />
+                        ) : isAdminRoute ? (
+                          <AppGate
+                            onNavigateToStore={() => navigate('/')}
+                            onNavigateToKiosk={() => navigate('/kiosco')}
+                          />
+                        ) : (
+                          <StorefrontView onNavigateToAdmin={() => navigate('/admin')} />
+                        )}
+                      </Suspense>
+                    </StoreBuilderProvider>
+                  </BenefitsProvider>
+                </StoreCustomerProvider>
+              </MediaGalleryProvider>
             </InventoryProvider>
           </OrderCatalogProvider>
         </SettingsProvider>

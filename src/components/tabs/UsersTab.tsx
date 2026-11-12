@@ -16,7 +16,12 @@ import {
   X,
   Lock,
   Store,
+  FileImage,
+  Upload,
+  Clipboard,
 } from 'lucide-react';
+import { MediaGalleryModal } from '../media/MediaGalleryModal';
+import { compressImageFile } from '../../utils/imageCompressor';
 
 export const UsersTab: React.FC = () => {
   const {
@@ -37,6 +42,16 @@ export const UsersTab: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended'>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [onlyCurrentBranch, setOnlyCurrentBranch] = useState<boolean>(true);
+
+  const [mediaPickerConfig, setMediaPickerConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    onSelect: (url: string) => void;
+  }>({
+    isOpen: false,
+    title: 'Foto de Perfil',
+    onSelect: () => {},
+  });
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -417,6 +432,84 @@ export const UsersTab: React.FC = () => {
               </div>
 
               <form onSubmit={handleSaveCreate} className="space-y-3.5">
+                {/* Selector de Foto de Perfil */}
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                  <img
+                    src={formData.avatarUrl}
+                    alt="Avatar preview"
+                    className="w-12 h-12 rounded-xl object-cover ring-1 ring-zinc-300 dark:ring-zinc-700 shrink-0"
+                  />
+                  <div className="space-y-1 flex-1 min-w-0">
+                    <span className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase block">
+                      Foto de Perfil
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMediaPickerConfig({
+                            isOpen: true,
+                            title: 'Foto de Perfil del Colaborador',
+                            onSelect: (url) => setFormData((prev) => ({ ...prev, avatarUrl: url })),
+                          })
+                        }
+                        className="px-2 py-1 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 text-[11px] font-bold flex items-center gap-1 transition-colors whitespace-nowrap shadow-xs"
+                      >
+                        <FileImage className="w-3 h-3" />
+                        <span>Galería</span>
+                      </button>
+
+                      <label className="px-2 py-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-[11px] font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white flex items-center gap-1 cursor-pointer whitespace-nowrap shadow-xs">
+                        <Upload className="w-3 h-3" />
+                        <span>Subir</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              const comp = await compressImageFile(file, { maxWidth: 400, maxHeight: 400, quality: 0.85 });
+                              setFormData((prev) => ({ ...prev, avatarUrl: comp.dataUrl }));
+                              dispatchToast('Foto Lista', 'Se adjuntó la foto del usuario.', 'success');
+                            } catch {
+                              // ignore
+                            }
+                          }}
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            if (!navigator.clipboard?.read) return;
+                            const items = await navigator.clipboard.read();
+                            for (const it of items) {
+                              const type = it.types.find((t) => t.startsWith('image/'));
+                              if (type) {
+                                const blob = await it.getType(type);
+                                const file = new File([blob], `avatar-${Date.now()}.png`, { type });
+                                const comp = await compressImageFile(file, { maxWidth: 400, maxHeight: 400, quality: 0.85 });
+                                setFormData((prev) => ({ ...prev, avatarUrl: comp.dataUrl }));
+                                dispatchToast('Foto Pegada', 'Foto pegada desde el portapapeles.', 'success');
+                                return;
+                              }
+                            }
+                          } catch {
+                            dispatchToast('Portapapeles', 'Copia una imagen para pegarla.', 'info');
+                          }
+                        }}
+                        className="px-2 py-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-[11px] font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white flex items-center gap-1 whitespace-nowrap shadow-xs"
+                      >
+                        <Clipboard className="w-3 h-3" />
+                        <span>Pegar</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="sm:col-span-2">
                     <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase mb-1">
@@ -580,6 +673,84 @@ export const UsersTab: React.FC = () => {
               </div>
 
               <form onSubmit={handleSaveEdit} className="space-y-3.5">
+                {/* Selector de Foto de Perfil */}
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                  <img
+                    src={editingUser.avatarUrl}
+                    alt="Avatar preview"
+                    className="w-12 h-12 rounded-xl object-cover ring-1 ring-zinc-300 dark:ring-zinc-700 shrink-0"
+                  />
+                  <div className="space-y-1 flex-1 min-w-0">
+                    <span className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase block">
+                      Foto de Perfil
+                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMediaPickerConfig({
+                            isOpen: true,
+                            title: 'Foto de Perfil del Colaborador',
+                            onSelect: (url) => setEditingUser((prev) => (prev ? { ...prev, avatarUrl: url } : null)),
+                          })
+                        }
+                        className="px-2 py-1 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 text-[11px] font-bold flex items-center gap-1 transition-colors whitespace-nowrap shadow-xs"
+                      >
+                        <FileImage className="w-3 h-3" />
+                        <span>Galería</span>
+                      </button>
+
+                      <label className="px-2 py-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-[11px] font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white flex items-center gap-1 cursor-pointer whitespace-nowrap shadow-xs">
+                        <Upload className="w-3 h-3" />
+                        <span>Subir</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            try {
+                              const comp = await compressImageFile(file, { maxWidth: 400, maxHeight: 400, quality: 0.85 });
+                              setEditingUser((prev) => (prev ? { ...prev, avatarUrl: comp.dataUrl } : null));
+                              dispatchToast('Foto Lista', 'Se actualizó la foto.', 'success');
+                            } catch {
+                              // ignore
+                            }
+                          }}
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            if (!navigator.clipboard?.read) return;
+                            const items = await navigator.clipboard.read();
+                            for (const it of items) {
+                              const type = it.types.find((t) => t.startsWith('image/'));
+                              if (type) {
+                                const blob = await it.getType(type);
+                                const file = new File([blob], `avatar-${Date.now()}.png`, { type });
+                                const comp = await compressImageFile(file, { maxWidth: 400, maxHeight: 400, quality: 0.85 });
+                                setEditingUser((prev) => (prev ? { ...prev, avatarUrl: comp.dataUrl } : null));
+                                dispatchToast('Foto Pegada', 'Foto pegada desde el portapapeles.', 'success');
+                                return;
+                              }
+                            }
+                          } catch {
+                            dispatchToast('Portapapeles', 'Copia una imagen para pegarla.', 'info');
+                          }
+                        }}
+                        className="px-2 py-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-[11px] font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white flex items-center gap-1 whitespace-nowrap shadow-xs"
+                      >
+                        <Clipboard className="w-3 h-3" />
+                        <span>Pegar</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="sm:col-span-2">
                     <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase mb-1">
@@ -743,6 +914,16 @@ export const UsersTab: React.FC = () => {
             </div>
           </div>
         )}
+        {/* Media Gallery Modal for Avatars */}
+        <MediaGalleryModal
+          isOpen={mediaPickerConfig.isOpen}
+          title={mediaPickerConfig.title}
+          onClose={() => setMediaPickerConfig((prev) => ({ ...prev, isOpen: false }))}
+          onSelect={(url) => {
+            mediaPickerConfig.onSelect(url);
+            setMediaPickerConfig((prev) => ({ ...prev, isOpen: false }));
+          }}
+        />
       </PermissionGate>
     </div>
   );

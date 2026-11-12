@@ -141,7 +141,15 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
     }));
   };
 
-  const [selectedExtras, setSelectedExtras] = useState<Record<string, boolean>>({});
+  const [selectedExtras, setSelectedExtras] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    (product.allowedExtras || []).forEach(e => {
+      if (e.enabled !== false && e.isIncluded) {
+        initial[e.id] = true;
+      }
+    });
+    return initial;
+  });
   const [notes, setNotes] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [allExpanded, setAllExpanded] = useState(true);
@@ -240,7 +248,8 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
   let selectedExtrasCount = 0;
   enabledExtras.forEach(extra => {
     if (selectedExtras[extra.id]) {
-      extrasTotal += extra.price;
+      const cost = extra.isIncluded ? 0 : extra.price;
+      extrasTotal += cost;
       selectedExtrasCount += 1;
     }
   });
@@ -305,7 +314,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
         extrasList.push({
           id: extra.id,
           name: extra.name,
-          price: extra.price,
+          price: extra.isIncluded ? 0 : extra.price,
           quantity: 1,
         });
       }
@@ -1642,27 +1651,49 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
                             >
                               {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                             </div>
-                            <span
-                              className={`text-xs sm:text-sm font-bold truncate ${
-                                isChecked
-                                  ? isLightTheme
-                                    ? 'text-zinc-950'
-                                    : 'text-white'
-                                  : isLightTheme
-                                  ? 'text-zinc-800'
-                                  : 'text-zinc-200'
-                              }`}
-                            >
-                              {extra.name}
-                            </span>
+
+                            {extra.imageUrl && (
+                              <img
+                                src={extra.imageUrl}
+                                alt={extra.name}
+                                className="w-10 h-10 rounded-xl object-cover shrink-0 border border-zinc-200 dark:border-neutral-700"
+                              />
+                            )}
+
+                            <div className="min-w-0">
+                              <span
+                                className={`text-xs sm:text-sm font-bold truncate block ${
+                                  isChecked
+                                    ? isLightTheme
+                                      ? 'text-zinc-950'
+                                      : 'text-white'
+                                    : isLightTheme
+                                    ? 'text-zinc-800'
+                                    : 'text-zinc-200'
+                                }`}
+                              >
+                                {extra.name}
+                              </span>
+                              {extra.isIncluded && (
+                                <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 block mt-0.5">
+                                  ✓ Incluido por defecto
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           <span
                             className={`text-xs font-black shrink-0 ${
-                              isLightTheme ? 'text-amber-700' : 'text-amber-400'
+                              extra.isIncluded
+                                ? isLightTheme
+                                  ? 'text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full'
+                                  : 'text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded-full'
+                                : isLightTheme
+                                ? 'text-amber-700'
+                                : 'text-amber-400'
                             }`}
                           >
-                            + S/ {extra.price.toFixed(2)}
+                            {extra.isIncluded ? 'Incluido' : `+ S/ ${extra.price.toFixed(2)}`}
                           </span>
                         </button>
                       );

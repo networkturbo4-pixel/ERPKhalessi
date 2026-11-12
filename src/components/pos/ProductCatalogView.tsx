@@ -44,7 +44,10 @@ import {
   ListOrdered,
   LayoutGrid,
   SlidersHorizontal,
+  FileImage,
 } from 'lucide-react';
+import { MediaGalleryModal } from '../media/MediaGalleryModal';
+import { compressImageFile } from '../../utils/imageCompressor';
 
 export interface ProductOptionTemplate {
   id: string;
@@ -294,6 +297,17 @@ export const ProductCatalogView: React.FC = () => {
 
   // Sub-options group & choices state (Image 2 Full Architecture)
   const [expandedChoiceSubOptions, setExpandedChoiceSubOptions] = useState<Record<string, boolean>>({});
+
+  // Media Gallery Picker modal state
+  const [mediaPickerConfig, setMediaPickerConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    onSelect: (url: string) => void;
+  }>({
+    isOpen: false,
+    title: 'Galería de Medios',
+    onSelect: () => {},
+  });
 
   // Option Templates state
   const [optionTemplates, setOptionTemplates] = useState<ProductOptionTemplate[]>(() => {
@@ -897,12 +911,75 @@ export const ProductCatalogView: React.FC = () => {
       })),
     }));
 
+    // Auto-commit any active size being edited
+    let currentSizes = [...(tempProduct.sizes || [])];
+    if (editingSizeId && editSizeName.trim()) {
+      currentSizes = currentSizes.map((s) =>
+        s.id === editingSizeId
+          ? {
+              ...s,
+              name: editSizeName.trim(),
+              slices: editSizeSlices,
+              price: editSizePrice,
+              imageUrl: editSizeImage.trim() || undefined,
+            }
+          : s
+      );
+    }
+
+    // Auto-commit any active extra being edited
+    let currentExtras = [...(tempProduct.allowedExtras || [])];
+    if (editingExtraId && editExtraName.trim()) {
+      currentExtras = currentExtras.map((ext) =>
+        ext.id === editingExtraId
+          ? {
+              ...ext,
+              name: editExtraName.trim(),
+              price: editExtraPrice,
+              category: editExtraCategory,
+              imageUrl: editExtraImage.trim() || undefined,
+              isIncluded: editExtraIncluded,
+              conditionalRule: editExtraHasCond
+                ? { minQty: editExtraMinQty, discountedPrice: editExtraCondPrice }
+                : undefined,
+            }
+          : ext
+      );
+    }
+
+    // Auto-commit new extra if user filled out the form and hit save product
+    if (isAddingExtra && newExtraName.trim()) {
+      currentExtras.push({
+        id: `ext-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name: newExtraName.trim(),
+        price: newExtraPrice,
+        category: newExtraCategory,
+        imageUrl: newExtraImage.trim() || undefined,
+        isIncluded: newExtraIsIncluded,
+        enabled: true,
+        conditionalRule: newExtraHasCond
+          ? { minQty: newExtraMinQty, discountedPrice: newExtraCondPrice }
+          : undefined,
+      });
+    }
+
+    const normalizedExtras: ExtraModifier[] = currentExtras.map((ext) => ({
+      ...ext,
+      name: ext.name.trim(),
+      price: typeof ext.price === 'number' ? ext.price : parseFloat(String(ext.price)) || 0,
+      enabled: ext.enabled !== false,
+      isIncluded: !!ext.isIncluded,
+      imageUrl: ext.imageUrl?.trim() || undefined,
+    }));
+
     const productToSave: Product = {
       ...tempProduct,
       name: tempProduct.name.trim(),
+      basePrice: typeof tempProduct.basePrice === 'number' ? tempProduct.basePrice : parseFloat(String(tempProduct.basePrice)) || 0,
+      hasSizes: !!tempProduct.hasSizes,
       subOptions: normalizedSubOptions,
-      sizes: tempProduct.sizes || [],
-      allowedExtras: tempProduct.allowedExtras || [],
+      sizes: currentSizes,
+      allowedExtras: normalizedExtras,
     };
 
     if (isCreatingProduct) {
@@ -910,21 +987,32 @@ export const ProductCatalogView: React.FC = () => {
     } else {
       updateProduct(productToSave);
     }
+    setEditingSizeId(null);
+    setEditingExtraId(null);
+    setIsAddingExtra(false);
+    setIsAddingSize(false);
     setIsEditModalOpen(false);
   };
 
-  // Helper for reading uploaded file or pasted image to base64
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, onResult: (b64: string) => void) => {
+  // Helper for reading uploaded file with automatic client compression
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, onResult: (b64: string) => void) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (loadEv) => {
-      if (typeof loadEv.target?.result === 'string') {
-        onResult(loadEv.target.result);
-        dispatchToast('Imagen Cargada', 'Se adjuntó la foto exitosamente.', 'success');
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      dispatchToast('Comprimiendo', 'Optimizando foto...', 'info');
+      const compressed = await compressImageFile(file, { maxWidth: 1280, maxHeight: 1280, quality: 0.82 });
+      onResult(compressed.dataUrl);
+      dispatchToast('Imagen Cargada', 'Se adjuntó la foto optimizada con éxito.', 'success');
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (loadEv) => {
+        if (typeof loadEv.target?.result === 'string') {
+          onResult(loadEv.target.result);
+          dispatchToast('Imagen Cargada', 'Se adjuntó la foto exitosamente.', 'success');
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handlePasteClipboardImage = async (onResult: (b64: string) => void) => {
@@ -938,14 +1026,11 @@ export const ProductCatalogView: React.FC = () => {
         const imageType = item.types.find((t) => t.startsWith('image/'));
         if (imageType) {
           const blob = await item.getType(imageType);
-          const reader = new FileReader();
-          reader.onload = (loadEv) => {
-            if (typeof loadEv.target?.result === 'string') {
-              onResult(loadEv.target.result);
-              dispatchToast('Imagen Pegada', 'Foto pegada desde el portapapeles.', 'success');
-            }
-          };
-          reader.readAsDataURL(blob);
+          const file = new File([blob], `paste-${Date.now()}.png`, { type: imageType });
+          dispatchToast('Comprimiendo', 'Optimizando foto pegada...', 'info');
+          const compressed = await compressImageFile(file, { maxWidth: 1280, maxHeight: 1280, quality: 0.82 });
+          onResult(compressed.dataUrl);
+          dispatchToast('Imagen Pegada', 'Foto pegada y comprimida con éxito.', 'success');
           return;
         }
       }
@@ -1550,8 +1635,9 @@ export const ProductCatalogView: React.FC = () => {
               </button>
             </div>
 
-            {/* Modal Body */}
-            <form onSubmit={handleSaveProduct} className="p-5 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
+            {/* Modal Body with Fixed Bottom Footer */}
+            <form onSubmit={handleSaveProduct} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="p-5 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
               {/* Product Basic Info + Live Image Preview + Upload & Paste */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800">
                 {/* Live Preview Box */}
@@ -1585,11 +1671,26 @@ export const ProductCatalogView: React.FC = () => {
                       </span>
                     )}
                   </div>
-                  {/* Upload & Paste Buttons */}
-                  <div className="flex gap-2">
-                    <label className="flex-1 py-1.5 px-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-xs">
+                  {/* Upload & Paste & Gallery Buttons */}
+                  <div className="grid grid-cols-3 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setMediaPickerConfig({
+                          isOpen: true,
+                          title: 'Seleccionar Foto del Producto',
+                          onSelect: (url) => setTempProduct({ ...tempProduct, imageUrl: url }),
+                        })
+                      }
+                      className="py-1.5 px-2 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 text-[11px] font-black flex items-center justify-center gap-1 transition-colors whitespace-nowrap shadow-xs"
+                    >
+                      <FileImage className="w-3.5 h-3.5" />
+                      <span>Galería</span>
+                    </button>
+
+                    <label className="py-1.5 px-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-[11px] font-bold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white flex items-center justify-center gap-1 cursor-pointer transition-colors shadow-xs">
                       <Upload className="w-3.5 h-3.5" />
-                      <span>Subir Foto</span>
+                      <span>Subir</span>
                       <input
                         type="file"
                         accept="image/*"
@@ -1597,13 +1698,14 @@ export const ProductCatalogView: React.FC = () => {
                         onChange={(e) => handleFileUpload(e, (b64) => setTempProduct({ ...tempProduct, imageUrl: b64 }))}
                       />
                     </label>
+
                     <button
                       type="button"
                       onClick={() => handlePasteClipboardImage((b64) => setTempProduct({ ...tempProduct, imageUrl: b64 }))}
-                      className="flex-1 py-1.5 px-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                      className="py-1.5 px-2 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-[11px] font-bold text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white flex items-center justify-center gap-1 transition-colors shadow-xs"
                     >
                       <Clipboard className="w-3.5 h-3.5" />
-                      <span>Pegar (Ctrl+V)</span>
+                      <span>Pegar</span>
                     </button>
                   </div>
                 </div>
@@ -1622,6 +1724,36 @@ export const ProductCatalogView: React.FC = () => {
                       placeholder="Ej: Carnívora Khalessi Supreme"
                       className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-white font-bold focus:outline-none focus:border-amber-500"
                     />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
+                      Precio Base / Venta (S/) *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.10"
+                      min="0"
+                      value={tempProduct.basePrice ?? 0}
+                      onChange={(e) =>
+                        setTempProduct({ ...tempProduct, basePrice: parseFloat(e.target.value) || 0 })
+                      }
+                      className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs sm:text-sm font-bold text-amber-500 focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div className="flex items-center pt-2 sm:pt-6">
+                    <label className="inline-flex items-center gap-2 cursor-pointer text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                      <input
+                        type="checkbox"
+                        checked={tempProduct.hasSizes}
+                        onChange={(e) =>
+                          setTempProduct({ ...tempProduct, hasSizes: e.target.checked })
+                        }
+                        className="w-4 h-4 rounded text-amber-500"
+                      />
+                      <span>Manejar múltiples tamaños (4, 6, 8, 12 cortes)</span>
+                    </label>
                   </div>
 
                   <div>
@@ -1907,6 +2039,20 @@ export const ProductCatalogView: React.FC = () => {
                             <ImageIcon className="w-5 h-5" />
                           </div>
                         )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setMediaPickerConfig({
+                              isOpen: true,
+                              title: 'Foto del Tamaño',
+                              onSelect: (url) => setNewSizeImage(url),
+                            })
+                          }
+                          className="py-1.5 px-3 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 text-xs font-black flex items-center gap-1 transition-colors whitespace-nowrap shadow-xs"
+                        >
+                          <FileImage className="w-3.5 h-3.5" />
+                          <span>Galería</span>
+                        </button>
                         <label className="py-1.5 px-3 rounded-xl border border-zinc-300 dark:border-zinc-700 text-xs font-bold cursor-pointer">
                           <span>Subir Foto de Tamaño</span>
                           <input
@@ -1982,6 +2128,20 @@ export const ProductCatalogView: React.FC = () => {
                                 {editSizeImage ? (
                                   <img src={editSizeImage} alt="Size preview" className="w-8 h-8 rounded-lg object-cover border" />
                                 ) : null}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setMediaPickerConfig({
+                                      isOpen: true,
+                                      title: 'Cambiar Foto del Tamaño',
+                                      onSelect: (url) => setEditSizeImage(url),
+                                    })
+                                  }
+                                  className="text-[11px] font-bold px-2 py-1 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 flex items-center gap-1 transition-colors whitespace-nowrap shadow-xs"
+                                >
+                                  <FileImage className="w-3 h-3" />
+                                  <span>Galería</span>
+                                </button>
                                 <label className="text-[11px] font-bold px-2 py-1 rounded-lg border border-zinc-300 dark:border-zinc-700 cursor-pointer">
                                   <span>Subir Foto</span>
                                   <input
@@ -2691,6 +2851,21 @@ export const ProductCatalogView: React.FC = () => {
                           <ImageIcon className="w-5 h-5" />
                         </div>
                       )}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMediaPickerConfig({
+                            isOpen: true,
+                            title: 'Foto del Nuevo Adicional',
+                            onSelect: (url) => setNewExtraImage(url),
+                          })
+                        }
+                        className="py-1.5 px-3 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 text-xs font-black flex items-center gap-1 transition-colors whitespace-nowrap shadow-xs"
+                      >
+                        <FileImage className="w-3.5 h-3.5" />
+                        <span>Galería</span>
+                      </button>
+
                       <label className="py-1.5 px-3 rounded-xl border border-zinc-300 dark:border-zinc-700 text-xs font-bold cursor-pointer">
                         <span>Subir Foto del Extra</span>
                         <input
@@ -2804,6 +2979,20 @@ export const ProductCatalogView: React.FC = () => {
                               {editExtraImage ? (
                                 <img src={editExtraImage} alt="Extra preview" className="w-8 h-8 rounded-lg object-cover border" />
                               ) : null}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setMediaPickerConfig({
+                                    isOpen: true,
+                                    title: 'Cambiar Foto del Adicional',
+                                    onSelect: (url) => setEditExtraImage(url),
+                                  })
+                                }
+                                className="text-[11px] font-bold px-2 py-1 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 flex items-center gap-1 transition-colors whitespace-nowrap shadow-xs"
+                              >
+                                <FileImage className="w-3 h-3" />
+                                <span>Galería</span>
+                              </button>
                               <label className="text-[11px] font-bold px-2 py-1 rounded-lg border border-zinc-300 dark:border-zinc-700 cursor-pointer">
                                 <span>Subir Foto</span>
                                 <input
@@ -2939,13 +3128,15 @@ export const ProductCatalogView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Actions Footer */}
-              <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3 shrink-0">
+              </div>
+
+              {/* Fixed Bottom Action Bar */}
+              <div className="p-4 sm:p-5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 flex items-center justify-between gap-3 shrink-0 shadow-lg z-20">
                 {!isCreatingProduct && (
                   <button
                     type="button"
                     onClick={() => handleDeleteProduct(tempProduct.id, tempProduct.name)}
-                    className="whitespace-nowrap shrink-0 px-4 py-2.5 rounded-xl border border-rose-300 dark:border-rose-900/40 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-bold flex items-center gap-1.5"
+                    className="whitespace-nowrap shrink-0 px-4 py-2.5 rounded-xl border border-rose-300 dark:border-rose-900/40 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-bold flex items-center gap-1.5 transition-colors"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Eliminar Producto</span>
@@ -2956,13 +3147,13 @@ export const ProductCatalogView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsEditModalOpen(false)}
-                    className="whitespace-nowrap shrink-0 px-4 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white text-xs font-semibold"
+                    className="whitespace-nowrap shrink-0 px-4 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white text-xs font-bold transition-colors"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="whitespace-nowrap shrink-0 px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black shadow-md"
+                    className="whitespace-nowrap shrink-0 px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black shadow-md transition-colors"
                   >
                     Guardar Cambios
                   </button>
@@ -3235,6 +3426,17 @@ export const ProductCatalogView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* REUSABLE MEDIA GALLERY PICKER MODAL */}
+      <MediaGalleryModal
+        isOpen={mediaPickerConfig.isOpen}
+        title={mediaPickerConfig.title}
+        onClose={() => setMediaPickerConfig((prev) => ({ ...prev, isOpen: false }))}
+        onSelect={(selectedUrl) => {
+          mediaPickerConfig.onSelect(selectedUrl);
+          setMediaPickerConfig((prev) => ({ ...prev, isOpen: false }));
+        }}
+      />
     </div>
   );
 };

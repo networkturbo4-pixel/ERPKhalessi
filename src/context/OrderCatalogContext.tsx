@@ -519,19 +519,14 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const broadcastRef = useRef<BroadcastChannel | null>(null);
   const [lastRealtimeSyncAt, setLastRealtimeSyncAt] = useState<string>(() => new Date().toISOString());
 
-  // Products state (persisted, ensuring seeded Mitad y Mitad product exists)
+  // Products state (persisted from storage; respects deletions including pizza mitad y mitad)
   const [products, setProducts] = useState<Product[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.products);
       if (saved !== null) {
         const parsed: Product[] = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          // An intentionally emptied catalog ("[]") must stay empty after F5 / on other devices.
-          if (parsed.length === 0) return parsed;
-          const hasHalfAndHalf = parsed.some(
-            p => p.id === SEEDED_HALF_AND_HALF_PRODUCT.id || p.productType === 'half_and_half'
-          );
-          return hasHalfAndHalf ? parsed : [SEEDED_HALF_AND_HALF_PRODUCT, ...parsed];
+          return parsed;
         }
       }
     } catch {

@@ -8,6 +8,8 @@ import { UnsavedChangesModal } from './common/UnsavedChangesModal';
 import { SystemNoticeModal } from './common/SystemNoticeModal';
 import { ModuleWorkspaceSkeleton } from './common/AppSurfaceSkeleton';
 import { PermissionGate } from './common/PermissionGate';
+import { MediaGalleryModal } from './media/MediaGalleryModal';
+import { compressImageFile } from '../utils/imageCompressor';
 
 const loadDashboardView = () =>
   import('./dashboard/DashboardView').then(m => ({ default: m.DashboardView }));
@@ -37,6 +39,8 @@ const loadThermalTicketBuilderModal = () =>
   import('./pos/ThermalTicketBuilderModal').then(m => ({ default: m.ThermalTicketBuilderModal }));
 const loadInventoryModuleView = () =>
   import('./inventory/InventoryModuleView').then(m => ({ default: m.InventoryModuleView }));
+const loadMediaGalleryView = () =>
+  import('./media/MediaGalleryView').then(m => ({ default: m.MediaGalleryView }));
 
 const DashboardView = lazy(loadDashboardView);
 const SettingsView = lazy(loadSettingsView);
@@ -52,6 +56,7 @@ const KioskSelfServiceView = lazy(loadKioskSelfServiceView);
 const PublicEmployeePortal = lazy(loadPublicEmployeePortal);
 const ThermalTicketBuilderModal = lazy(loadThermalTicketBuilderModal);
 const InventoryModuleView = lazy(loadInventoryModuleView);
+const MediaGalleryView = lazy(loadMediaGalleryView);
 
 import {
   LayoutDashboard,
@@ -83,6 +88,9 @@ import {
   Gift,
   Smartphone,
   Boxes,
+  FileImage,
+  Upload,
+  Clipboard as ClipboardIcon,
 } from 'lucide-react';
 
 export type MainModuleId =
@@ -95,6 +103,7 @@ export type MainModuleId =
   | 'clients'
   | 'benefits'
   | 'products'
+  | 'media'
   | 'inventory'
   | 'hr'
   | 'settings';
@@ -118,7 +127,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
     saveAllSettings,
     isDarkResolved,
     logoutSession,
+    updateUser,
+    dispatchToast,
   } = useSettings();
+
+  const [isProfileMediaPickerOpen, setIsProfileMediaPickerOpen] = useState(false);
 
   const { currentUser, setCurrentUser, roles, hasPermission } = useRBAC();
   const { todayRecords, getEmployeeProfile, updateEmployeeProfile } = useHR();
@@ -802,6 +815,125 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
               )}
             </button>
 
+            {/* Pedidos Multisucursal Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveMainModule('orders');
+                setMobileMenuOpen(false);
+              }}
+              className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-all ${
+                sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
+              } ${
+                activeMainModule === 'orders'
+                  ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
+              }`}
+              title="Central de Pedidos por Sucursal"
+            >
+              <ClipboardList
+                className="h-4 w-4 shrink-0 transition-colors"
+                style={activeMainModule === 'orders' ? { color: customization.primaryColor } : undefined}
+              />
+              {(!sidebarCollapsed || mobileMenuOpen) && (
+                <div className="flex items-center justify-between flex-1 min-w-0">
+                  <span className="truncate">Pedidos</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-zinc-200/80 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 font-bold">
+                    {orders.length}
+                  </span>
+                </div>
+              )}
+            </button>
+
+            {/* Inventario & Recetas Button */}
+            <PermissionGate permission="inventory:view" hideInsteadOfBanner>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveMainModule('inventory');
+                  setMobileMenuOpen(false);
+                }}
+                className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-all ${
+                  sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
+                } ${
+                  activeMainModule === 'inventory'
+                    ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
+                    : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
+                }`}
+                title="Inventario, Recetas y Etiquetas"
+              >
+                <Boxes
+                  className="h-4 w-4 shrink-0 transition-colors"
+                  style={activeMainModule === 'inventory' ? { color: customization.primaryColor } : undefined}
+                />
+                {(!sidebarCollapsed || mobileMenuOpen) && (
+                  <div className="flex items-center justify-between flex-1 min-w-0">
+                    <span className="truncate">Inventario & Recetas</span>
+                  </div>
+                )}
+              </button>
+            </PermissionGate>
+
+            {/* Clientes CRM Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveMainModule('clients');
+                setMobileMenuOpen(false);
+              }}
+              className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-all ${
+                sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
+              } ${
+                activeMainModule === 'clients'
+                  ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
+              }`}
+              title="Clientes CRM (DNI / Manual)"
+            >
+              <Users
+                className="h-4 w-4 shrink-0 transition-colors"
+                style={activeMainModule === 'clients' ? { color: customization.primaryColor } : undefined}
+              />
+              {(!sidebarCollapsed || mobileMenuOpen) && (
+                <div className="flex items-center justify-between flex-1 min-w-0">
+                  <span className="truncate">Clientes</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold">
+                    {customers.length}
+                  </span>
+                </div>
+              )}
+            </button>
+
+            {/* Catálogo & Modificadores */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveMainModule('products');
+                setMobileMenuOpen(false);
+              }}
+              className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-all ${
+                sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
+              } ${
+                activeMainModule === 'products'
+                  ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
+              }`}
+              title="Productos & Catálogo"
+            >
+              <Pizza
+                className="h-4 w-4 shrink-0 transition-colors"
+                style={activeMainModule === 'products' ? { color: customization.primaryColor } : undefined}
+              />
+              {(!sidebarCollapsed || mobileMenuOpen) && (
+                <div className="flex items-center justify-between flex-1 min-w-0">
+                  <span className="truncate">Productos</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-zinc-200/80 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+                    Menú
+                  </span>
+                </div>
+              )}
+            </button>
+
             {/* MÓDULO RECURSOS HUMANOS O MI BOLETA SEGÚN PERMISOS */}
             <button
               type="button"
@@ -1029,90 +1161,31 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
               )}
             </button>
 
-            {/* Pedidos Multisucursal Button */}
+            {/* Galería de Medios & Fotos Button */}
             <button
               type="button"
               onClick={() => {
-                setActiveMainModule('orders');
+                setActiveMainModule('media');
                 setMobileMenuOpen(false);
               }}
               className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-all ${
                 sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
               } ${
-                activeMainModule === 'orders'
+                activeMainModule === 'media'
                   ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
                   : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
               }`}
-              title="Central de Pedidos por Sucursal"
+              title="Galería de Medios & Fotos"
             >
-              <ClipboardList
+              <FileImage
                 className="h-4 w-4 shrink-0 transition-colors"
-                style={activeMainModule === 'orders' ? { color: customization.primaryColor } : undefined}
+                style={activeMainModule === 'media' ? { color: customization.primaryColor } : undefined}
               />
               {(!sidebarCollapsed || mobileMenuOpen) && (
                 <div className="flex items-center justify-between flex-1 min-w-0">
-                  <span className="truncate">Pedidos</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-zinc-200/80 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 font-bold">
-                    {orders.length}
-                  </span>
-                </div>
-              )}
-            </button>
-
-            {/* Inventario & Recetas Button */}
-            <PermissionGate permission="inventory:view" hideInsteadOfBanner>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveMainModule('inventory');
-                  setMobileMenuOpen(false);
-                }}
-                className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-all ${
-                  sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
-                } ${
-                  activeMainModule === 'inventory'
-                    ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
-                    : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
-                }`}
-                title="Inventario, Recetas y Etiquetas"
-              >
-                <Boxes
-                  className="h-4 w-4 shrink-0 transition-colors"
-                  style={activeMainModule === 'inventory' ? { color: customization.primaryColor } : undefined}
-                />
-                {(!sidebarCollapsed || mobileMenuOpen) && (
-                  <div className="flex items-center justify-between flex-1 min-w-0">
-                    <span className="truncate">Inventario & Recetas</span>
-                  </div>
-                )}
-              </button>
-            </PermissionGate>
-
-            {/* Clientes CRM Button */}
-            <button
-              type="button"
-              onClick={() => {
-                setActiveMainModule('clients');
-                setMobileMenuOpen(false);
-              }}
-              className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-all ${
-                sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
-              } ${
-                activeMainModule === 'clients'
-                  ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
-                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
-              }`}
-              title="Clientes CRM (DNI / Manual)"
-            >
-              <Users
-                className="h-4 w-4 shrink-0 transition-colors"
-                style={activeMainModule === 'clients' ? { color: customization.primaryColor } : undefined}
-              />
-              {(!sidebarCollapsed || mobileMenuOpen) && (
-                <div className="flex items-center justify-between flex-1 min-w-0">
-                  <span className="truncate">Clientes</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold">
-                    {customers.length}
+                  <span className="truncate">Galería de Medios</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-zinc-200/80 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+                    Fotos
                   </span>
                 </div>
               )}
@@ -1143,36 +1216,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                   <span className="truncate">Beneficios</span>
                   <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold">
                     Puntos
-                  </span>
-                </div>
-              )}
-            </button>
-
-            {/* Catálogo & Modificadores */}
-            <button
-              type="button"
-              onClick={() => {
-                setActiveMainModule('products');
-                setMobileMenuOpen(false);
-              }}
-              className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-all ${
-                sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
-              } ${
-                activeMainModule === 'products'
-                  ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
-                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
-              }`}
-              title="Productos & Catálogo"
-            >
-              <Pizza
-                className="h-4 w-4 shrink-0 transition-colors"
-                style={activeMainModule === 'products' ? { color: customization.primaryColor } : undefined}
-              />
-              {(!sidebarCollapsed || mobileMenuOpen) && (
-                <div className="flex items-center justify-between flex-1 min-w-0">
-                  <span className="truncate">Productos</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-zinc-200/80 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
-                    Menú
                   </span>
                 </div>
               )}
@@ -1421,6 +1464,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 <BenefitsModuleView />
               ) : activeMainModule === 'products' ? (
                 <ProductCatalogView />
+              ) : activeMainModule === 'media' ? (
+                <MediaGalleryView />
               ) : activeMainModule === 'inventory' ? (
                 <InventoryModuleView />
               ) : (
@@ -1482,6 +1527,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
           <form
             onSubmit={e => {
               e.preventDefault();
+              updateUser(currentUser);
               setIsEditProfileModalOpen(false);
             }}
             className="saas-card !rounded-3xl p-6 space-y-4 shadow-2xl border border-zinc-200 dark:border-zinc-700"
@@ -1491,8 +1537,80 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 Editar Mis Datos de Perfil
               </h2>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Información de contacto y datos laborales vinculados a tu DNI ({currentUser.pin}).
+                Información de contacto, foto y datos laborales vinculados a tu DNI ({currentUser.pin}).
               </p>
+            </div>
+
+            {/* Selector de Foto de Perfil del Usuario */}
+            <div className="flex items-center gap-3.5 p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+              <img
+                src={currentUser.avatarUrl}
+                alt={currentUser.name}
+                className="w-14 h-14 rounded-2xl object-cover ring-2 ring-amber-500/40 shadow-sm shrink-0"
+              />
+              <div className="space-y-1.5 flex-1 min-w-0">
+                <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block">
+                  Foto de Perfil
+                </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsProfileMediaPickerOpen(true)}
+                    className="px-2.5 py-1 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500 hover:text-zinc-950 text-xs font-bold flex items-center gap-1 transition-colors whitespace-nowrap shrink-0 shadow-xs"
+                  >
+                    <FileImage className="w-3.5 h-3.5" />
+                    <span>Galería</span>
+                  </button>
+
+                  <label className="px-2.5 py-1 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0 shadow-xs">
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Subir</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          const comp = await compressImageFile(file, { maxWidth: 400, maxHeight: 400, quality: 0.85 });
+                          updateUser({ ...currentUser, avatarUrl: comp.dataUrl });
+                          dispatchToast('Foto Actualizada', 'Tu foto de perfil se actualizó correctamente.', 'success');
+                        } catch {
+                          // ignore
+                        }
+                      }}
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        if (!navigator.clipboard?.read) return;
+                        const items = await navigator.clipboard.read();
+                        for (const it of items) {
+                          const type = it.types.find(t => t.startsWith('image/'));
+                          if (type) {
+                            const blob = await it.getType(type);
+                            const file = new File([blob], `avatar-${Date.now()}.png`, { type });
+                            const comp = await compressImageFile(file, { maxWidth: 400, maxHeight: 400, quality: 0.85 });
+                            updateUser({ ...currentUser, avatarUrl: comp.dataUrl });
+                            dispatchToast('Foto Actualizada', 'Foto pegada desde el portapapeles.', 'success');
+                            return;
+                          }
+                        }
+                      } catch {
+                        dispatchToast('Portapapeles', 'Copia una imagen para pegarla.', 'info');
+                      }
+                    }}
+                    className="px-2.5 py-1 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white flex items-center gap-1 whitespace-nowrap shrink-0 shadow-xs"
+                  >
+                    <ClipboardIcon className="w-3.5 h-3.5" />
+                    <span>Pegar</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -1619,6 +1737,19 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
           </div>
         </div>
       )}
+
+      {/* Media Gallery Selector for User Profile */}
+      <MediaGalleryModal
+        isOpen={isProfileMediaPickerOpen}
+        title="Foto de Perfil"
+        subtitle="Selecciona una imagen para tu avatar de usuario"
+        onClose={() => setIsProfileMediaPickerOpen(false)}
+        onSelect={(url) => {
+          updateUser({ ...currentUser, avatarUrl: url });
+          setIsProfileMediaPickerOpen(false);
+          dispatchToast('Foto Actualizada', 'Tu avatar ha sido actualizado.', 'success');
+        }}
+      />
     </div>
   );
 };

@@ -58,7 +58,14 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
       }
     });
     setSelectedSubOptions(initialSubs);
-    setSelectedExtras({});
+
+    const initialExtras: Record<string, boolean> = {};
+    (product.allowedExtras || []).forEach((ext) => {
+      if (ext.enabled && ext.isIncluded) {
+        initialExtras[ext.id] = true;
+      }
+    });
+    setSelectedExtras(initialExtras);
     setNotes('');
     setQuantity(1);
   }, [product, isOpen]);
@@ -95,7 +102,7 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
   if (product) {
     product.allowedExtras.forEach((extra) => {
       if (extra.enabled && selectedExtras[extra.id]) {
-        extrasTotal += extra.price;
+        extrasTotal += extra.isIncluded ? 0 : extra.price;
       }
     });
   }
@@ -140,7 +147,7 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
         extrasList.push({
           id: extra.id,
           name: extra.name,
-          price: extra.price,
+          price: extra.isIncluded ? 0 : extra.price,
           quantity: 1,
         });
       }
@@ -337,10 +344,33 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
                             >
                               {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" aria-hidden="true" />}
                             </div>
-                            <span className="truncate">{extra.name}</span>
+
+                            {extra.imageUrl && (
+                              <img
+                                src={extra.imageUrl}
+                                alt={extra.name}
+                                className="w-8 h-8 rounded-lg object-cover shrink-0 border border-zinc-200 dark:border-zinc-700"
+                              />
+                            )}
+
+                            <div className="min-w-0">
+                              <span className="truncate block font-bold">{extra.name}</span>
+                              {extra.isIncluded && (
+                                <span className="text-[9px] font-black uppercase text-emerald-600 dark:text-emerald-400 block">
+                                  ✓ Incluido por defecto
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <span className="text-xs font-bold text-amber-600 dark:text-amber-400 shrink-0">
-                            +S/ {extra.price.toFixed(2)}
+
+                          <span
+                            className={`text-xs font-bold shrink-0 ${
+                              extra.isIncluded
+                                ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-full'
+                                : 'text-amber-600 dark:text-amber-400'
+                            }`}
+                          >
+                            {extra.isIncluded ? 'Incluido' : `+S/ ${extra.price.toFixed(2)}`}
                           </span>
                         </button>
                       );
