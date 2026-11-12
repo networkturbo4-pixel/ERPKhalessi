@@ -63,12 +63,18 @@ if ($method === 'POST' || $method === 'DELETE') {
     if ($token !== '' && $admin === null) {
         sendResponse(['error' => 'Token inválido o vencido'], 401);
     }
-    // Visitantes anónimos (tienda): se acepta y se ignora, sin generar reintentos
-    if ($admin === null || !validKey($key) || !in_array($key, KH_SYNC_KEYS, true)) {
+
+    // Claves públicas donde visitantes anónimos de la tienda pueden enviar datos (pedidos y CRM)
+    $isPublicWritable = in_array($key, KH_PUBLIC_WRITE_KEYS, true);
+    if ($admin === null && !$isPublicWritable) {
+        sendResponse(['success' => true, 'ignored' => true]);
+    }
+    if (!validKey($key) || !in_array($key, KH_SYNC_KEYS, true)) {
         sendResponse(['success' => true, 'ignored' => true]);
     }
 
     if ($method === 'DELETE') {
+        if ($admin === null) sendResponse(['error' => 'No autorizado'], 403);
         kvDelete($pdo, $key);
         sendResponse(['success' => true]);
     }
@@ -82,17 +88,54 @@ if ($method === 'POST' || $method === 'DELETE') {
         sendResponse(['error' => 'Cuerpo JSON inválido'], 400);
     }
     $data = is_string($input['data']) ? $input['data'] : json_encode($input['data'], JSON_UNESCAPED_UNICODE);
+
+    // Si es kh_orders_list: combinar inteligentemente con los pedidos existentes para no sobreescribir ni perder pedidos
+    if ($key === 'kh_orders_list') {
+        $existingRaw = kvGet($pdo, 'kh_orders_list');
+        $existing = $existingRaw ? json_decode($existingRaw, true) : [];
+        if (!is_array($existing)) $existing = [];
+
+        $incoming = is_array($input['data']) ? $input['data'] : json_decode($data, true);
+        if (is_array($incoming)) {
+            $orderMap = [];
+            foreach ($existing as $ord) {
+                if (isset($ord['id'])) $orderMap[$ord['id']] = $ord;
+            }
+            foreach ($incoming as $ord) {
+                if (isset($ord['id'])) {
+                    // Si el visitante envía un pedido pero cocina ya actualizó su estado, preservar estado de cocina
+                    if ($admin === null && isset($orderMap[$ord['id']])) {
+                        continue;
+                    }
+                    $orderMap[$ord['id']] = $ord;
+                }
+            }
+            $mergedOrders = array_values($orderMap);
+            usort($mergedOrders, function($a, $b) {
+                return strcmp($b['createdAt'] ?? '', $a['createdAt'] ?? '');
+            });
+            $data = json_encode($mergedOrders, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+    }
+
     kvSet($pdo, $key, $data);
 
-    // Notificar al motor Node.js SSE si está encendido en cPanel
-    @file_get_contents('http://127.0.0.1:3000/broadcast', false, stream_context_create([
+    // Notificar al motor Node.js SSE para entrega instantánea en Cocina KDS y Admin
+    $ssePayload = json_encode([
+        'action'    => 'set',
+        'key'       => $key,
+        'eventHint' => $key === 'kh_orders_list' ? 'new_order' : 'generic',
+        'ts'        => time()
+    ]);
+    $ctx = stream_context_create([
         'http' => [
             'method'  => 'POST',
             'header'  => "Content-Type: application/json\r\n",
-            'content' => json_encode(['action' => 'set', 'key' => $key]),
-            'timeout' => 0.1
+            'content' => $ssePayload,
+            'timeout' => 0.5
         ]
-    ]));
+    ]);
+    @file_get_contents('http://127.0.0.1:3000/broadcast', false, $ctx);
 
     sendResponse(['success' => true]);
 }

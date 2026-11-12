@@ -1,5 +1,5 @@
 {
-  "buildId": "20261111234705",
-  "builtAt": "2026-11-11T23:47:05.883Z",
-  "message": "fix(update): corregir 401 de mapbox y auth, robustecer auto-updater con curl y empaquetar deploy_cpanel.zip"
+  "buildId": "20261112000501",
+  "builtAt": "2026-11-12T00:05:01.416Z",
+  "message": "perf(storage): sanitizar base64 en pedidos y regenerar release con deploy_cpanel.zip"
 }

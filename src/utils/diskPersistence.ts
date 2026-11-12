@@ -24,6 +24,8 @@ const SERVER_SYNC_KEYS = [
   'kh_product_categories_v1',
   'kh_erp_benefits_v1',
   'kh_floor_tables_v1',
+  'kh_orders_list',
+  'kh_customers_crm_v1',
 ];
 
 const SETTINGS_KEY = 'khalessi_erp_settings_v3';

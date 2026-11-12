@@ -1034,6 +1034,58 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
       orderStatus: 'recibido',
     });
 
+    // 1. Respaldo directo en tabla relacional MySQL (orders / order_items)
+    void (async () => {
+      try {
+        await fetch('/api/orders.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: newOrder.id,
+            tenant_id: newOrder.tenantId,
+            order_number: newOrder.orderNumber,
+            channel: newOrder.channel,
+            status: newOrder.status,
+            customer_name: newOrder.customerName,
+            customer_phone: newOrder.customerPhone,
+            delivery_address: newOrder.deliveryAddress,
+            payment_method: newOrder.paymentMethod,
+            payment_status: newOrder.paymentStatus,
+            total: newOrder.total,
+            items: (newOrder.items || []).map((it) => ({
+              id: it.productId,
+              name: it.productName,
+              quantity: it.quantity,
+              price: it.unitPrice,
+              totalPrice: it.totalPrice,
+            })),
+          }),
+        });
+      } catch {
+        // ignore
+      }
+    })();
+
+    // 2. Difusión inmediata al motor SSE Node.js
+    void (async () => {
+      try {
+        await fetch('/realtime/broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'set',
+            key: 'kh_orders_list',
+            eventHint: 'new_order',
+            orderNumber: newOrder.orderNumber,
+            branchId: newOrder.tenantId,
+            senderId: tabInstanceIdRef.current,
+          }),
+        });
+      } catch {
+        // ignore
+      }
+    })();
+
     dispatchToast(
       '¡Nuevo Pedido Sincronizado!',
       `Orden ${newOrder.orderNumber} enviada en tiempo real a Cocina KDS${

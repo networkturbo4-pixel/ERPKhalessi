@@ -15,6 +15,8 @@ const KH_SYNC_KEYS = [
     'kh_product_categories_v1',
     'kh_erp_benefits_v1',
     'kh_floor_tables_v1',
+    'kh_orders_list',
+    'kh_customers_crm_v1',
 ];
 
 // Claves que cualquier visitante de la tienda puede LEER (la de ajustes se entrega sin datos sensibles)
@@ -24,6 +26,12 @@ const KH_PUBLIC_READ_KEYS = [
     'kh_catalog_products',
     'kh_product_categories_v1',
     'kh_erp_benefits_v1',
+];
+
+// Claves que clientes anónimos de la tienda pueden enviar/crear (ej: pedidos y registro CRM)
+const KH_PUBLIC_WRITE_KEYS = [
+    'kh_orders_list',
+    'kh_customers_crm_v1',
 ];
 
 const KH_SETTINGS_KEY = 'khalessi_erp_settings_v3';
