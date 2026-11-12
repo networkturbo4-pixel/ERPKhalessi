@@ -12,9 +12,9 @@ if (file_exists(__DIR__ . '/config.local.php')) {
     require_once __DIR__ . '/config.local.php';
 }
 defined('DB_HOST') || define('DB_HOST', 'localhost');
-defined('DB_USER') || define('DB_USER', 'CAMBIAR_USUARIO');
-defined('DB_PASS') || define('DB_PASS', 'CAMBIAR_PASSWORD');
-defined('DB_NAME') || define('DB_NAME', 'CAMBIAR_BASE');
+defined('DB_USER') || define('DB_USER', 'pizzjkyq_erpkhale');
+defined('DB_PASS') || define('DB_PASS', 'Khalessi2026@');
+defined('DB_NAME') || define('DB_NAME', 'pizzjkyq_khalessierp');
 defined('DB_CHARSET') || define('DB_CHARSET', 'utf8mb4');
 
 header('Access-Control-Allow-Origin: *');
