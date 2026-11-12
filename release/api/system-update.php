@@ -338,11 +338,23 @@ switch ($action) {
         }
 
         $steps = [];
+        // Intentar descargar release/manifest.json desde raw.githubusercontent.com con cache-buster;
+        // si GitHub aún no lo propaga por CDN, respaldar vía GitHub REST API contents.
         $manifestUrl = "https://raw.githubusercontent.com/$repo/$branch/release/manifest.json";
-        $versionUrl = "https://raw.githubusercontent.com/$repo/$branch/release/version.json";
-
         $manifestRaw = fetchRemoteData($manifestUrl, 30);
         $manifest = $manifestRaw ? json_decode($manifestRaw, true) : null;
+
+        if (!is_array($manifest) || !isset($manifest['files']) || !is_array($manifest['files'])) {
+            $apiManifestUrl = "https://api.github.com/repos/$repo/contents/release/manifest.json?ref=$branch";
+            $apiRaw = fetchRemoteData($apiManifestUrl, 30);
+            if ($apiRaw) {
+                $apiJson = json_decode($apiRaw, true);
+                if (is_array($apiJson) && isset($apiJson['content']) && is_string($apiJson['content'])) {
+                    $decodedContent = base64_decode(str_replace(["\r", "\n", ' '], '', $apiJson['content']));
+                    $manifest = $decodedContent ? json_decode($decodedContent, true) : null;
+                }
+            }
+        }
 
         if (!is_array($manifest) || !isset($manifest['files']) || !is_array($manifest['files'])) {
             sendResponse([

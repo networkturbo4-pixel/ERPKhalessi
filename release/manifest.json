@@ -1,8 +1,8 @@
 {
-  "buildId": "20261112213120",
-  "builtAt": "2026-11-12T21:31:20.192Z",
-  "commitSha": "f8206f8",
-  "message": "feat(system): actualizar widgets, footer, modales y compilar release con manifest.json",
+  "buildId": "20261112213219",
+  "builtAt": "2026-11-12T21:32:19.925Z",
+  "commitSha": "386502f",
+  "message": "chore(release): build 20261112213120 con manifest.json sincronizado",
   "totalFiles": 72,
   "files": [
     {
@@ -57,8 +57,8 @@
     },
     {
       "path": "api/system-update.php",
-      "sha256": "f4f973eb0a6b2ceaa0433f84dbd9d72f808f08e2dd2773032c3cce845249b0ec",
-      "size": 21907
+      "sha256": "3811dd21f9ddfd616b078f061d3e5dd5fc0b9bcc7a96d92adb84e7da281f2cf3",
+      "size": 22708
     },
     {
       "path": "api/test.php",

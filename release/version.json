@@ -1,8 +1,8 @@
 {
-  "buildId": "20261112213120",
-  "builtAt": "2026-11-12T21:31:20.192Z",
-  "commitSha": "f8206f8",
-  "message": "feat(system): actualizar widgets, footer, modales y compilar release con manifest.json",
+  "buildId": "20261112213219",
+  "builtAt": "2026-11-12T21:32:19.925Z",
+  "commitSha": "386502f",
+  "message": "chore(release): build 20261112213120 con manifest.json sincronizado",
   "totalFiles": 72,
-  "manifestSha256": "7485573f29d075759d2681ac54cff22fb97dcb1bdb9637b64d415431a2afb2d5"
+  "manifestSha256": "475d4f825522f8c06c53707691b5270a220d827394e8d40d900dfcb7d8b90756"
 }
