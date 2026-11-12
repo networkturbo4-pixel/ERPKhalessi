@@ -1,8 +1,8 @@
 {
-  "buildId": "20261112210015",
-  "builtAt": "2026-11-12T21:00:15.917Z",
-  "commitSha": "db54a72",
-  "message": "feat: facturacion facturalo.pe, evidencia fotografica delivery, sincronizacion omnicanal puntos y canjes POS, mejoras beneficios y juegos",
+  "buildId": "20261112213120",
+  "builtAt": "2026-11-12T21:31:20.192Z",
+  "commitSha": "f8206f8",
+  "message": "feat(system): actualizar widgets, footer, modales y compilar release con manifest.json",
   "totalFiles": 72,
   "files": [
     {
