@@ -88,6 +88,8 @@ export interface ProductGridBlockConfig extends BlockDeviceVisibility {
   enableLoadMore: boolean;
   horizontalCarousel: boolean;
   bleedImages: boolean;
+  squareImage?: boolean;
+  imageFit?: 'cover' | 'contain';
   quickViewButton: boolean;
   showPrice: boolean;
   showStock: boolean;

@@ -1019,7 +1019,9 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
               height={128}
               isLightTheme={isLightTheme}
               lazyLoad={shouldLazyLoadImg}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className={`w-full h-full ${
+                block.imageFit === 'contain' ? 'object-contain' : 'object-cover'
+              } group-hover:scale-105 transition-transform duration-300`}
             />
             {block.quickViewButton && (
               <button
@@ -1057,16 +1059,20 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
         <div
           key={product.id}
           onClick={() => onSelectProduct(product)}
-          className="group relative h-80 rounded-3xl overflow-hidden cursor-pointer shadow-lg hover:-translate-y-1 transition-all"
+          className={`group relative ${
+            block.squareImage ? 'aspect-square' : 'h-80'
+          } rounded-3xl overflow-hidden cursor-pointer shadow-lg hover:-translate-y-1 transition-all`}
         >
           <ProgressiveStoreImage
             src={product.imageUrl}
             alt={product.name}
             width={400}
-            height={320}
+            height={block.squareImage ? 400 : 320}
             isLightTheme={false}
             lazyLoad={shouldLazyLoadImg}
-            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            className={`absolute inset-0 w-full h-full ${
+              block.imageFit === 'contain' ? 'object-contain' : 'object-cover'
+            } group-hover:scale-105 transition-transform duration-500`}
           />
           <div className="absolute inset-0 bg-black/55" />
 
@@ -1164,18 +1170,22 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
       >
         <div className={block.bleedImages ? '' : 'p-3 pb-0'}>
           <div
-            className={`relative h-44 sm:h-48 w-full overflow-hidden bg-neutral-950 ${
-              block.bleedImages ? '' : 'rounded-2xl'
-            }`}
+            className={`relative ${
+              block.squareImage ? 'aspect-square' : 'h-44 sm:h-48'
+            } w-full overflow-hidden ${
+              isLightTheme ? 'bg-zinc-100' : 'bg-neutral-950'
+            } ${block.bleedImages ? '' : 'rounded-2xl'}`}
           >
             <ProgressiveStoreImage
               src={product.imageUrl}
               alt={product.name}
               width={400}
-              height={220}
+              height={block.squareImage ? 400 : 220}
               isLightTheme={isLightTheme}
               lazyLoad={shouldLazyLoadImg}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              className={`w-full h-full ${
+                block.imageFit === 'contain' ? 'object-contain' : 'object-cover'
+              } group-hover:scale-105 transition-transform duration-500`}
             />
 
             {product.badge && (

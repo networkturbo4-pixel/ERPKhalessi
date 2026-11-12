@@ -839,6 +839,7 @@ export const ElementorBuilderSidebar: React.FC = () => {
                   {(
                     [
                       ['horizontalCarousel', 'Modo Carrusel Horizontal'],
+                      ['squareImage', 'Imagen cuadrado completo (1:1)'],
                       ['bleedImages', 'Imágenes "Bleed" (Sin bordes internos)'],
                       ['quickViewButton', 'Botón "Vista Rápida" (Ojo)'],
                       ['showPrice', 'Mostrar precio'],
@@ -853,13 +854,50 @@ export const ElementorBuilderSidebar: React.FC = () => {
                     >
                       <input
                         type="checkbox"
-                        checked={blk[key]}
+                        checked={Boolean(blk[key])}
                         onChange={e => patch({ [key]: e.target.checked })}
                         className="w-4 h-4 rounded accent-rose-500 cursor-pointer shrink-0"
                       />
                       <span className="text-xs font-semibold text-zinc-100">{label}</span>
                     </label>
                   ))}
+
+                  {blk.squareImage && (
+                    <div className="p-3 rounded-xl border border-[#252836] bg-[#14161f] space-y-2 mt-1">
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                        Ajuste de Imagen Cuadrada
+                      </label>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => patch({ imageFit: 'cover' })}
+                          className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap shrink-0 ${
+                            (blk.imageFit || 'cover') === 'cover'
+                              ? 'bg-rose-500/20 border-rose-500 text-white font-bold shadow-xs'
+                              : 'bg-[#0e1017] border-[#252836] text-zinc-400 hover:text-zinc-200'
+                          }`}
+                        >
+                          Cubrir (Cover)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => patch({ imageFit: 'contain' })}
+                          className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all whitespace-nowrap shrink-0 ${
+                            blk.imageFit === 'contain'
+                              ? 'bg-rose-500/20 border-rose-500 text-white font-bold shadow-xs'
+                              : 'bg-[#0e1017] border-[#252836] text-zinc-400 hover:text-zinc-200'
+                          }`}
+                        >
+                          Contener (Contain)
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-zinc-400 leading-tight">
+                        {blk.imageFit === 'contain'
+                          ? 'Muestra la imagen 100% entera sin ningún recorte.'
+                          : 'Llena uniformemente todo el marco cuadrado 1:1.'}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* OPCIONES AVANZADAS */}

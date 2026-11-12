@@ -125,6 +125,8 @@ export function createDefaultBlock(type: StoreBlockType): StoreBlock {
       enableLoadMore: true,
       horizontalCarousel: false,
       bleedImages: true,
+      squareImage: false,
+      imageFit: 'cover',
       quickViewButton: true,
       showPrice: true,
       showStock: false,
