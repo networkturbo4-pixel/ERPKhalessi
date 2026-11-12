@@ -11,6 +11,7 @@ interface LeafletStoreMapProps {
   onCustomerMove: (coords: [number, number]) => void;
   routeGeometry: [number, number][] | null; // [lng, lat][]
   accentColor?: string;
+  activeMobileTab?: 'list' | 'map';
 }
 
 const DEFAULT_LAT = -11.93605;
@@ -36,6 +37,7 @@ export const LeafletStoreMap: React.FC<LeafletStoreMapProps> = ({
   onCustomerMove,
   routeGeometry,
   accentColor = '#e11d48',
+  activeMobileTab,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -173,8 +175,26 @@ export const LeafletStoreMap: React.FC<LeafletStoreMapProps> = ({
     }).addTo(map);
 
     // Ajustar vista inicial enfocada entre la tienda y el cliente con zoom de barrio (14-15)
+    map.invalidateSize();
     map.fitBounds(L.latLngBounds([store, user]).pad(0.35), { animate: true, maxZoom: 15 });
-  }, [tenants, selectedTenantId, customerCoords, routeGeometry, accentColor]);
+  }, [tenants, selectedTenantId, customerCoords, routeGeometry, accentColor, activeMobileTab]);
+
+  // Si cambia la pestaña móvil a 'map', invalidar tamaño inmediatamente y centrar
+  useEffect(() => {
+    if (activeMobileTab === 'map' && mapRef.current) {
+      const map = mapRef.current;
+      const tenant = tenants.find(t => t.id === selectedTenantId) || tenants[0];
+      const timer = window.setTimeout(() => {
+        map.invalidateSize();
+        if (tenant) {
+          const store = tenantLatLng(tenant);
+          const user: L.LatLngTuple = [customerCoords[1], customerCoords[0]];
+          map.fitBounds(L.latLngBounds([store, user]).pad(0.35), { animate: true, maxZoom: 15 });
+        }
+      }, 100);
+      return () => window.clearTimeout(timer);
+    }
+  }, [activeMobileTab, tenants, selectedTenantId, customerCoords]);
 
   return <div ref={containerRef} className="absolute inset-0 w-full h-full z-0" style={{ touchAction: 'none' }} />;
 };

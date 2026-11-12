@@ -441,6 +441,7 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
               onCustomerMove={handleCustomerMove}
               routeGeometry={routeGeometry}
               accentColor={accentColor}
+              activeMobileTab={activeMobileTab}
             />
 
 
