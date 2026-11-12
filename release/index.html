@@ -8,13 +8,27 @@
     <title>Pizza Khalessi | Plataforma Multisucursal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Geist:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script type="module" crossorigin src="/assets/index-C1ZHzouk.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/rolldown-runtime-WkwZ5CU-.js">
-    <link rel="modulepreload" crossorigin href="/assets/vendor-icons-BxAqAXht.js">
-    <link rel="modulepreload" crossorigin href="/assets/vendor-react-HtADSDgp.js">
-    <link rel="modulepreload" crossorigin href="/assets/SystemNoticeModal-D0TYqQb3.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-DtwXMTq7.css">
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      onload="this.onload=null;this.rel='stylesheet'"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Geist:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Roboto:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Geist:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Roboto:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    </noscript>
+    <script type="module" crossorigin src="/assets/index-wVkPoOP4.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/rolldown-runtime-XKyaHtl9.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-icons-Vr9gUYZ3.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-react-CsicRWUc.js">
+    <link rel="modulepreload" crossorigin href="/assets/SettingsContext-BRgjnP-5.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-C2B-8Khu.css">
   </head>
   <body class="bg-zinc-100 dark:bg-[#09090b]">
     <div id="root">
@@ -48,23 +62,64 @@
                 }
               }
             }
-            var isStorefront = !window.location.pathname.startsWith('/admin') &&
-              (localStorage.getItem('kh_active_main_module') || 'storefront') === 'storefront';
-            var useLight = isStorefront ? theme !== 'dark' : theme === 'light';
+            var path = window.location.pathname || '/';
+            var hash = window.location.hash || '';
+            var isAdmin = path.startsWith('/admin') || hash.startsWith('#admin');
+            var isKiosk = path.startsWith('/kiosco') || hash.startsWith('#kiosco');
+            var isStorefront = !isAdmin && !isKiosk;
+
+            var storeThemeMode = '';
+            if (isStorefront) {
+              var rawBuilder = localStorage.getItem('kh_store_builder_v2');
+              if (rawBuilder) {
+                var parsedBuilder = JSON.parse(rawBuilder);
+                if (parsedBuilder && Array.isArray(parsedBuilder.templates) && parsedBuilder.templates.length > 0) {
+                  var activeId = parsedBuilder.activeTemplateId || parsedBuilder.templates[0].id;
+                  var activeTpl = parsedBuilder.templates[0];
+                  for (var i = 0; i < parsedBuilder.templates.length; i++) {
+                    if (parsedBuilder.templates[i] && parsedBuilder.templates[i].id === activeId) {
+                      activeTpl = parsedBuilder.templates[i];
+                      break;
+                    }
+                  }
+                  if (activeTpl && (activeTpl.themeMode === 'light' || activeTpl.themeMode === 'dark')) {
+                    storeThemeMode = activeTpl.themeMode;
+                  }
+                }
+              }
+            }
+
+            var useLight = false;
+            if (isStorefront) {
+              useLight = storeThemeMode ? storeThemeMode === 'light' : false;
+            } else if (isKiosk) {
+              useLight = false;
+            } else {
+              if (theme === 'light') useLight = true;
+              else if (theme === 'dark') useLight = false;
+              else useLight = !(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            }
+
+            document.documentElement.classList.toggle('dark', !useLight);
+            var surfaceBg = useLight ? (isStorefront ? '#f8fafc' : '#f4f4f5') : (isStorefront ? '#0b0c10' : '#09090b');
+            document.body.style.backgroundColor = surfaceBg;
+
             var splash = document.getElementById('kh-brand-splash');
             var shell = document.getElementById('kh-favicon-shell');
             var ring = document.getElementById('kh-favicon-ring');
             var img = document.getElementById('kh-splash-favicon');
 
-            if (splash && useLight) {
-              splash.style.background = '#f8fafc';
-              if (shell) {
-                shell.style.background = '#ffffff';
-                shell.style.boxShadow = '0 18px 40px -10px rgba(15,23,42,0.16), inset 0 0 0 1px rgba(15,23,42,0.06)';
-              }
-              if (img) {
-                img.style.border = '2px solid rgba(15,23,42,0.12)';
-                img.style.background = '#ffffff';
+            if (splash) {
+              splash.style.background = surfaceBg;
+              if (useLight) {
+                if (shell) {
+                  shell.style.background = '#ffffff';
+                  shell.style.boxShadow = '0 18px 40px -10px rgba(15,23,42,0.16), inset 0 0 0 1px rgba(15,23,42,0.06)';
+                }
+                if (img) {
+                  img.style.border = '2px solid rgba(15,23,42,0.12)';
+                  img.style.background = '#ffffff';
+                }
               }
             }
 

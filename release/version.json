@@ -1,5 +1,5 @@
 {
-  "buildId": "20261112040537",
-  "builtAt": "2026-11-12T04:05:37.666Z",
-  "message": "fix(store-modal): animacion bottom-sheet pegada abajo en movil, mapa ampliado y soporte realtime local en vite"
+  "buildId": "20261112042936",
+  "builtAt": "2026-11-12T04:29:37.021Z",
+  "message": "perf(load): lazy loading modular en tienda y ERP, skeletons sin parpadeo e imagenes progresivas"
 }

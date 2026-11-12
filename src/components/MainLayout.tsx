@@ -1,24 +1,53 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { useRBAC } from '../context/RBACContext';
 import { useHR } from '../context/HRContext';
 import { useOrderCatalog } from '../context/OrderCatalogContext';
-import { DashboardView } from './dashboard/DashboardView';
-import { SettingsView } from './settings/SettingsView';
-import { HRModuleView } from './hr/HRModuleView';
-import { POSView } from './pos/POSView';
-import { KitchenKDSView } from './kitchen/KitchenKDSView';
-import { DeliveryView } from './delivery/DeliveryView';
-import { OrdersManagementView } from './orders/OrdersManagementView';
-import { ClientsCRMView } from './crm/ClientsCRMView';
-import { BenefitsModuleView } from './benefits/BenefitsModuleView';
-import { ProductCatalogView } from './pos/ProductCatalogView';
-import { KioskSelfServiceView } from './kiosk/KioskSelfServiceView';
-import { PublicEmployeePortal } from './hr/PublicEmployeePortal';
-import { ThermalTicketBuilderModal } from './pos/ThermalTicketBuilderModal';
 import { ToastContainer } from './common/ToastContainer';
 import { UnsavedChangesModal } from './common/UnsavedChangesModal';
 import { SystemNoticeModal } from './common/SystemNoticeModal';
+import { ModuleWorkspaceSkeleton } from './common/AppSurfaceSkeleton';
+
+const loadDashboardView = () =>
+  import('./dashboard/DashboardView').then(m => ({ default: m.DashboardView }));
+const loadSettingsView = () =>
+  import('./settings/SettingsView').then(m => ({ default: m.SettingsView }));
+const loadHRModuleView = () =>
+  import('./hr/HRModuleView').then(m => ({ default: m.HRModuleView }));
+const loadPOSView = () =>
+  import('./pos/POSView').then(m => ({ default: m.POSView }));
+const loadKitchenKDSView = () =>
+  import('./kitchen/KitchenKDSView').then(m => ({ default: m.KitchenKDSView }));
+const loadDeliveryView = () =>
+  import('./delivery/DeliveryView').then(m => ({ default: m.DeliveryView }));
+const loadOrdersManagementView = () =>
+  import('./orders/OrdersManagementView').then(m => ({ default: m.OrdersManagementView }));
+const loadClientsCRMView = () =>
+  import('./crm/ClientsCRMView').then(m => ({ default: m.ClientsCRMView }));
+const loadBenefitsModuleView = () =>
+  import('./benefits/BenefitsModuleView').then(m => ({ default: m.BenefitsModuleView }));
+const loadProductCatalogView = () =>
+  import('./pos/ProductCatalogView').then(m => ({ default: m.ProductCatalogView }));
+const loadKioskSelfServiceView = () =>
+  import('./kiosk/KioskSelfServiceView').then(m => ({ default: m.KioskSelfServiceView }));
+const loadPublicEmployeePortal = () =>
+  import('./hr/PublicEmployeePortal').then(m => ({ default: m.PublicEmployeePortal }));
+const loadThermalTicketBuilderModal = () =>
+  import('./pos/ThermalTicketBuilderModal').then(m => ({ default: m.ThermalTicketBuilderModal }));
+
+const DashboardView = lazy(loadDashboardView);
+const SettingsView = lazy(loadSettingsView);
+const HRModuleView = lazy(loadHRModuleView);
+const POSView = lazy(loadPOSView);
+const KitchenKDSView = lazy(loadKitchenKDSView);
+const DeliveryView = lazy(loadDeliveryView);
+const OrdersManagementView = lazy(loadOrdersManagementView);
+const ClientsCRMView = lazy(loadClientsCRMView);
+const BenefitsModuleView = lazy(loadBenefitsModuleView);
+const ProductCatalogView = lazy(loadProductCatalogView);
+const KioskSelfServiceView = lazy(loadKioskSelfServiceView);
+const PublicEmployeePortal = lazy(loadPublicEmployeePortal);
+const ThermalTicketBuilderModal = lazy(loadThermalTicketBuilderModal);
 
 import {
   LayoutDashboard,
@@ -124,6 +153,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
       // ignore
     }
   }, [activeMainModule]);
+
+  // Silent idle prefetch of core operational POS/Orders/Kitchen views after active view paints
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadPOSView();
+      void loadOrdersManagementView();
+      void loadKitchenKDSView();
+    }, 650);
+    return () => window.clearTimeout(timer);
+  }, []);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       // Auto-compact sidebar into 68px icon rail on square POS screens & horizontal tablets (1024-1279px)
@@ -474,25 +513,31 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
         {/* Operational Workspace Body (1600px max width) */}
         <main className="flex-1 overflow-y-auto p-3 sm:p-5 bg-zinc-50 dark:bg-zinc-950 custom-scrollbar">
           <div className="max-w-[1600px] mx-auto w-full">
-            {isCashierRole ? (
-              <POSView
-                hideHeader={true}
-                activeTab={stationPosTab}
-                onTabChange={setStationPosTab}
-              />
-            ) : isDeliveryRole ? (
-              <DeliveryView />
-            ) : (
-              <KitchenKDSView />
-            )}
+            <Suspense fallback={<ModuleWorkspaceSkeleton />}>
+              {isCashierRole ? (
+                <POSView
+                  hideHeader={true}
+                  activeTab={stationPosTab}
+                  onTabChange={setStationPosTab}
+                />
+              ) : isDeliveryRole ? (
+                <DeliveryView />
+              ) : (
+                <KitchenKDSView />
+              )}
+            </Suspense>
           </div>
         </main>
 
         {/* Thermal Ticket Builder Modal */}
-        <ThermalTicketBuilderModal
-          isOpen={isThermalModalOpen}
-          onClose={() => setIsThermalModalOpen(false)}
-        />
+        {isThermalModalOpen && (
+          <Suspense fallback={null}>
+            <ThermalTicketBuilderModal
+              isOpen={isThermalModalOpen}
+              onClose={() => setIsThermalModalOpen(false)}
+            />
+          </Suspense>
+        )}
 
         {/* Modal for Personal Technical Sheet / Remuneration Voucher */}
         {isPersonalVoucherOpen && (
@@ -512,11 +557,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-                <PublicEmployeePortal
-                  initialDni={currentUser.pin}
-                  lockToCurrentUser={true}
-                  onClose={() => setIsPersonalVoucherOpen(false)}
-                />
+                <Suspense fallback={<ModuleWorkspaceSkeleton compact />}>
+                  <PublicEmployeePortal
+                    initialDni={currentUser.pin}
+                    lockToCurrentUser={true}
+                    onClose={() => setIsPersonalVoucherOpen(false)}
+                  />
+                </Suspense>
               </div>
             </div>
           </div>
@@ -1352,32 +1399,34 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
         {/* ELEVATED SAAS MAIN SURFACE (1600PX WORKSPACE) */}
         <main className="flex-1 w-full min-w-0 saas-scroll erp-canvas-surface lg:rounded-2xl lg:border lg:border-zinc-200/90 dark:lg:border-zinc-800 lg:shadow-sm">
           <div className="max-w-[1600px] mx-auto w-full px-3 py-4 sm:px-5 sm:py-5 lg:px-5 lg:py-5 xl:px-8 xl:py-7">
-            {activeMainModule === 'dashboard' ? (
-              <DashboardView onNavigateToSettings={() => setActiveMainModule('settings')} />
-            ) : activeMainModule === 'hr' ? (
-              <HRModuleView />
-            ) : activeMainModule === 'pos' ? (
-              <POSView />
-            ) : activeMainModule === 'kiosk' ? (
-              <KioskSelfServiceView
-                embeddedInAdmin={true}
-                onOpenStandaloneKiosk={onNavigateToKiosk}
-              />
-            ) : activeMainModule === 'kitchen' ? (
-              <KitchenKDSView />
-            ) : activeMainModule === 'delivery' ? (
-              <DeliveryView />
-            ) : activeMainModule === 'orders' ? (
-              <OrdersManagementView />
-            ) : activeMainModule === 'clients' ? (
-              <ClientsCRMView />
-            ) : activeMainModule === 'benefits' ? (
-              <BenefitsModuleView />
-            ) : activeMainModule === 'products' ? (
-              <ProductCatalogView />
-            ) : (
-              <SettingsView />
-            )}
+            <Suspense fallback={<ModuleWorkspaceSkeleton />}>
+              {activeMainModule === 'dashboard' ? (
+                <DashboardView onNavigateToSettings={() => setActiveMainModule('settings')} />
+              ) : activeMainModule === 'hr' ? (
+                <HRModuleView />
+              ) : activeMainModule === 'pos' ? (
+                <POSView />
+              ) : activeMainModule === 'kiosk' ? (
+                <KioskSelfServiceView
+                  embeddedInAdmin={true}
+                  onOpenStandaloneKiosk={onNavigateToKiosk}
+                />
+              ) : activeMainModule === 'kitchen' ? (
+                <KitchenKDSView />
+              ) : activeMainModule === 'delivery' ? (
+                <DeliveryView />
+              ) : activeMainModule === 'orders' ? (
+                <OrdersManagementView />
+              ) : activeMainModule === 'clients' ? (
+                <ClientsCRMView />
+              ) : activeMainModule === 'benefits' ? (
+                <BenefitsModuleView />
+              ) : activeMainModule === 'products' ? (
+                <ProductCatalogView />
+              ) : (
+                <SettingsView />
+              )}
+            </Suspense>
           </div>
         </main>
       </div>
@@ -1558,11 +1607,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-              <PublicEmployeePortal
-                initialDni={currentUser.pin}
-                lockToCurrentUser={true}
-                onClose={() => setIsPersonalVoucherOpen(false)}
-              />
+              <Suspense fallback={<ModuleWorkspaceSkeleton compact />}>
+                <PublicEmployeePortal
+                  initialDni={currentUser.pin}
+                  lockToCurrentUser={true}
+                  onClose={() => setIsPersonalVoucherOpen(false)}
+                />
+              </Suspense>
             </div>
           </div>
         </div>

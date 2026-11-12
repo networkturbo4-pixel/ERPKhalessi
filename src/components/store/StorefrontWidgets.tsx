@@ -114,6 +114,68 @@ export function getAnimationClass(anim: StoreAnimationType): string {
 }
 
 /* ============================================================================
+   0. PROGRESSIVE STORE IMAGE (Zero abrupt pop-in + instant cache detection)
+   ============================================================================ */
+interface ProgressiveStoreImageProps {
+  src: string;
+  alt: string;
+  className?: string;
+  isLightTheme?: boolean;
+  lazyLoad?: boolean;
+  width?: number;
+  height?: number;
+}
+
+const ProgressiveStoreImage: React.FC<ProgressiveStoreImageProps> = ({
+  src,
+  alt,
+  className = '',
+  isLightTheme = false,
+  lazyLoad = true,
+  width,
+  height,
+}) => {
+  const imgRef = useRef<HTMLImageElement>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const el = imgRef.current;
+    if (el && el.complete && el.naturalWidth > 0) {
+      setLoaded(true);
+    } else {
+      setLoaded(false);
+    }
+  }, [src]);
+
+  return (
+    <>
+      {!loaded && (
+        <span
+          aria-hidden="true"
+          className={`absolute inset-0 animate-pulse pointer-events-none ${
+            isLightTheme ? 'bg-zinc-200/80' : 'bg-neutral-800/80'
+          }`}
+        />
+      )}
+      <img
+        ref={imgRef}
+        src={src}
+        alt={alt}
+        width={width}
+        height={height}
+        loading={lazyLoad ? 'lazy' : 'eager'}
+        decoding="async"
+        onLoad={() => setLoaded(true)}
+        onError={() => setLoaded(true)}
+        className={`${className} transition-opacity duration-200 ${
+          loaded ? 'opacity-100' : 'opacity-0'
+        }`}
+      />
+    </>
+  );
+};
+
+/* ============================================================================
    1. SLIDER WIDGET (Native Scroll-Snap + Accessible Controls + 3-View Images)
    ============================================================================ */
 interface StoreSliderWidgetProps {
@@ -124,6 +186,7 @@ interface StoreSliderWidgetProps {
   autoButtonContrast?: boolean;
   products: Product[];
   onSelectProduct: (product: Product) => void;
+  isHero?: boolean;
 }
 
 export const StoreSliderWidget: React.FC<StoreSliderWidgetProps> = ({
@@ -134,6 +197,7 @@ export const StoreSliderWidget: React.FC<StoreSliderWidgetProps> = ({
   autoButtonContrast = false,
   products,
   onSelectProduct,
+  isHero = false,
 }) => {
   const trackRef = useRef<HTMLDivElement>(null);
   const pendingTargetRef = useRef<number | null>(null);
@@ -368,11 +432,38 @@ export const StoreSliderWidget: React.FC<StoreSliderWidgetProps> = ({
                   isClickable && !slide.ctaLabel ? 'cursor-pointer' : ''
                 }`}
               >
-                <img
-                  src={imgSrc}
-                  alt={slide.headline || `Slide ${idx + 1}`}
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
+                {idx === 0 && isHero ? (
+                  <img
+                    src={imgSrc}
+                    alt={slide.headline || `Slide ${idx + 1}`}
+                    width={1200}
+                    height={resolvedHeight}
+                    fetchPriority="high"
+                    decoding="async"
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                ) : idx > 0 ? (
+                  <img
+                    src={imgSrc}
+                    alt={slide.headline || `Slide ${idx + 1}`}
+                    width={1200}
+                    height={resolvedHeight}
+                    fetchPriority="low"
+                    loading="lazy"
+                    decoding="async"
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                ) : (
+                  <img
+                    src={imgSrc}
+                    alt={slide.headline || `Slide ${idx + 1}`}
+                    width={1200}
+                    height={resolvedHeight}
+                    loading="lazy"
+                    decoding="async"
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                )}
 
                 {/* Content (Sin capa oscura / sin hover negro) */}
                 {(slide.badge || slide.headline || slide.subheadline || ((slide.ctaLabel || linkedProduct) && isClickable)) && (
@@ -573,7 +664,7 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
                 <div className="flex items-center gap-2.5 min-w-0">
                   {cat.bannerImg ? (
                     <div className="w-8 h-8 rounded-xl overflow-hidden shrink-0 border border-zinc-200/60 dark:border-zinc-700/60 shadow-xs">
-                      <img src={cat.bannerImg} alt={cat.label} className="w-full h-full object-cover" />
+                      <img src={cat.bannerImg} alt={cat.label} width={32} height={32} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                     </div>
                   ) : (
                     <span className="text-xl shrink-0">{cat.icon}</span>
@@ -616,7 +707,7 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
                   }`}
                 >
                   {cat.bannerImg ? (
-                    <img src={cat.bannerImg} alt={cat.label} className="w-full h-full object-cover" />
+                    <img src={cat.bannerImg} alt={cat.label} width={56} height={56} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                   ) : (
                     cat.icon
                   )}
@@ -654,7 +745,7 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
                 }`}
               >
                 {cat.bannerImg ? (
-                  <img src={cat.bannerImg} alt={cat.label} className="w-4 h-4 rounded-md object-cover shrink-0" />
+                  <img src={cat.bannerImg} alt={cat.label} width={16} height={16} loading="lazy" decoding="async" className="w-4 h-4 rounded-md object-cover shrink-0" />
                 ) : (
                   <span>{cat.icon}</span>
                 )}
@@ -678,6 +769,10 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
                 <img
                   src={cat.bannerImg}
                   alt={cat.label}
+                  width={180}
+                  height={80}
+                  loading="lazy"
+                  decoding="async"
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 />
                 <div className="absolute inset-0 bg-black/60" />
@@ -711,7 +806,7 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
               }`}
             >
               {cat.bannerImg ? (
-                <img src={cat.bannerImg} alt={cat.label} className="w-4 h-4 rounded-full object-cover shrink-0" />
+                <img src={cat.bannerImg} alt={cat.label} width={16} height={16} loading="lazy" decoding="async" className="w-4 h-4 rounded-full object-cover shrink-0" />
               ) : (
                 <span>{cat.icon}</span>
               )}
@@ -751,6 +846,7 @@ interface StoreProductGridWidgetProps {
   searchQuery: string;
   onSelectProduct: (product: Product, imgEl?: HTMLImageElement | null) => void;
   onQuickViewProduct: (product: Product) => void;
+  isAboveFold?: boolean;
 }
 
 export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
@@ -764,6 +860,7 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
   searchQuery,
   onSelectProduct,
   onQuickViewProduct,
+  isAboveFold = false,
 }) => {
   const carouselRef = useRef<HTMLDivElement>(null);
   const [visibleLimit, setVisibleLimit] = useState<number>(block.maxInitialProducts || 10);
@@ -833,7 +930,8 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
       ? getStoreCategories().find(c => c.id === activeCategory)?.label || 'Catálogo'
       : '';
 
-  const renderCard = (product: Product) => {
+  const renderCard = (product: Product, cardIdx = 0) => {
+    const shouldLazyLoadImg = !isAboveFold || cardIdx >= 4;
     const lowestPrice =
       product.hasSizes && product.sizes.length > 0
         ? Math.min(...product.sizes.filter(s => s.enabled).map(s => s.price))
@@ -914,9 +1012,13 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
           </div>
 
           <div className="relative h-28 w-28 sm:h-32 sm:w-32 shrink-0 rounded-xl overflow-hidden bg-neutral-950">
-            <img
+            <ProgressiveStoreImage
               src={product.imageUrl}
               alt={product.name}
+              width={128}
+              height={128}
+              isLightTheme={isLightTheme}
+              lazyLoad={shouldLazyLoadImg}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
             {block.quickViewButton && (
@@ -957,9 +1059,13 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
           onClick={() => onSelectProduct(product)}
           className="group relative h-80 rounded-3xl overflow-hidden cursor-pointer shadow-lg hover:-translate-y-1 transition-all"
         >
-          <img
+          <ProgressiveStoreImage
             src={product.imageUrl}
             alt={product.name}
+            width={400}
+            height={320}
+            isLightTheme={false}
+            lazyLoad={shouldLazyLoadImg}
             className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
           <div className="absolute inset-0 bg-black/55" />
@@ -1062,9 +1168,13 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
               block.bleedImages ? '' : 'rounded-2xl'
             }`}
           >
-            <img
+            <ProgressiveStoreImage
               src={product.imageUrl}
               alt={product.name}
+              width={400}
+              height={220}
+              isLightTheme={isLightTheme}
+              lazyLoad={shouldLazyLoadImg}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
 
@@ -1250,7 +1360,7 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
           style={{ gap: `${block.gapPx ?? 18}px` }}
           className="store-carousel-track pb-2"
         >
-          {displayedProducts.map(product => (
+          {displayedProducts.map((product, cardIdx) => (
             <div
               key={product.id}
               style={{
@@ -1259,7 +1369,7 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
               }}
               className="snap-start"
             >
-              {renderCard(product)}
+              {renderCard(product, cardIdx)}
             </div>
           ))}
         </div>
@@ -1271,7 +1381,7 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
             gap: `${block.gapPx ?? 20}px`,
           }}
         >
-          {displayedProducts.map(product => renderCard(product))}
+          {displayedProducts.map((product, cardIdx) => renderCard(product, cardIdx))}
         </div>
       )}
 

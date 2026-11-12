@@ -1,21 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { useRBAC } from '../../context/RBACContext';
 import { TabId } from '../../types/settings';
+import { ModuleWorkspaceSkeleton } from '../common/AppSurfaceSkeleton';
 
-// Tabs
-import { IdentityTab } from '../tabs/IdentityTab';
-import { AppearanceTab } from '../tabs/AppearanceTab';
-import { DialogsTab } from '../tabs/DialogsTab';
-import { LoginTab } from '../tabs/LoginTab';
-import { CompanyTab } from '../tabs/CompanyTab';
-import { UsersTab } from '../tabs/UsersTab';
-import { RolesTab } from '../tabs/RolesTab';
-import { TenantsTab } from '../tabs/TenantsTab';
-import { AuditHealthTab } from '../tabs/AuditHealthTab';
-import { DriveTab } from '../tabs/DriveTab';
-import { ConnectionsTab } from '../tabs/ConnectionsTab';
-import { SystemUpdateTab } from '../tabs/SystemUpdateTab';
+// Lazy-loaded Settings Tabs (splits heavy Company, Tenants, Users & RBAC tabs)
+const IdentityTab = lazy(() =>
+  import('../tabs/IdentityTab').then(m => ({ default: m.IdentityTab }))
+);
+const AppearanceTab = lazy(() =>
+  import('../tabs/AppearanceTab').then(m => ({ default: m.AppearanceTab }))
+);
+const DialogsTab = lazy(() =>
+  import('../tabs/DialogsTab').then(m => ({ default: m.DialogsTab }))
+);
+const LoginTab = lazy(() =>
+  import('../tabs/LoginTab').then(m => ({ default: m.LoginTab }))
+);
+const CompanyTab = lazy(() =>
+  import('../tabs/CompanyTab').then(m => ({ default: m.CompanyTab }))
+);
+const UsersTab = lazy(() =>
+  import('../tabs/UsersTab').then(m => ({ default: m.UsersTab }))
+);
+const RolesTab = lazy(() =>
+  import('../tabs/RolesTab').then(m => ({ default: m.RolesTab }))
+);
+const TenantsTab = lazy(() =>
+  import('../tabs/TenantsTab').then(m => ({ default: m.TenantsTab }))
+);
+const AuditHealthTab = lazy(() =>
+  import('../tabs/AuditHealthTab').then(m => ({ default: m.AuditHealthTab }))
+);
+const DriveTab = lazy(() =>
+  import('../tabs/DriveTab').then(m => ({ default: m.DriveTab }))
+);
+const ConnectionsTab = lazy(() =>
+  import('../tabs/ConnectionsTab').then(m => ({ default: m.ConnectionsTab }))
+);
+const SystemUpdateTab = lazy(() =>
+  import('../tabs/SystemUpdateTab').then(m => ({ default: m.SystemUpdateTab }))
+);
 
 import {
   Sparkles,
@@ -207,7 +232,9 @@ export const SettingsView: React.FC = () => {
 
       {/* Active Tab Content Area */}
       <div className="flex-1 w-full min-w-0">
-        {renderActiveTabContent()}
+        <Suspense fallback={<ModuleWorkspaceSkeleton compact />}>
+          {renderActiveTabContent()}
+        </Suspense>
       </div>
     </div>
   );

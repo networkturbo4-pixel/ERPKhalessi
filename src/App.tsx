@@ -1,17 +1,56 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { RBACProvider } from './context/RBACContext';
 import { SettingsProvider, useSettings } from './context/SettingsContext';
-import { HRProvider } from './context/HRContext';
 import { OrderCatalogProvider } from './context/OrderCatalogContext';
 import { StoreBuilderProvider } from './context/StoreBuilderContext';
 import { StoreCustomerProvider } from './context/StoreCustomerContext';
 import { BenefitsProvider } from './context/BenefitsContext';
-const MainLayout = lazy(() => import('./components/MainLayout').then(m => ({ default: m.MainLayout })));
-const LoginScreen = lazy(() => import('./components/auth/LoginScreen').then(m => ({ default: m.LoginScreen })));
-import { StorefrontView } from './components/store/StorefrontView';
-const KioskSelfServiceView = lazy(() =>
-  import('./components/kiosk/KioskSelfServiceView').then(m => ({ default: m.KioskSelfServiceView }))
-);
+import { BrandBootSplash } from './components/common/AppSurfaceSkeleton';
+
+const loadMainLayout = () =>
+  import('./components/MainLayout').then(m => ({ default: m.MainLayout }));
+const loadLoginScreen = () =>
+  import('./components/auth/LoginScreen').then(m => ({ default: m.LoginScreen }));
+const loadStorefrontView = () =>
+  import('./components/store/StorefrontView').then(m => ({ default: m.StorefrontView }));
+const loadKioskSelfServiceView = () =>
+  import('./components/kiosk/KioskSelfServiceView').then(m => ({ default: m.KioskSelfServiceView }));
+const loadHRProvider = () =>
+  import('./context/HRContext').then(m => ({ default: m.HRProvider }));
+
+const MainLayout = lazy(loadMainLayout);
+const LoginScreen = lazy(loadLoginScreen);
+const StorefrontView = lazy(loadStorefrontView);
+const KioskSelfServiceView = lazy(loadKioskSelfServiceView);
+const LazyHRProvider = lazy(loadHRProvider);
+
+/**
+ * Dispara en paralelo la descarga del chunk JS correspondiente a la ruta inicial
+ * para eliminar la cascada secuencial (main.js -> hidratación API -> chunk de ruta).
+ */
+export function preloadInitialRouteChunk(): void {
+  if (typeof window === 'undefined') return;
+  const path = window.location.pathname || '/';
+  const hash = window.location.hash || '';
+
+  if (path.startsWith('/kiosco') || hash.startsWith('#kiosco')) {
+    void loadKioskSelfServiceView();
+    return;
+  }
+
+  if (path.startsWith('/admin') || hash.startsWith('#admin')) {
+    void loadHRProvider();
+    const isAuth = localStorage.getItem('khalessi_erp_auth_v1') === 'authenticated';
+    if (isAuth) {
+      void loadMainLayout();
+    } else {
+      void loadLoginScreen();
+    }
+    return;
+  }
+
+  void loadStorefrontView();
+}
 
 interface AppGateProps {
   onNavigateToStore: () => void;
@@ -20,13 +59,17 @@ interface AppGateProps {
 
 const AppGate: React.FC<AppGateProps> = ({ onNavigateToStore, onNavigateToKiosk }) => {
   const { isAuthenticated } = useSettings();
-  return isAuthenticated ? (
-    <MainLayout
-      onNavigateToStore={onNavigateToStore}
-      onNavigateToKiosk={onNavigateToKiosk}
-    />
-  ) : (
-    <LoginScreen onNavigateToStore={onNavigateToStore} />
+  return (
+    <LazyHRProvider>
+      {isAuthenticated ? (
+        <MainLayout
+          onNavigateToStore={onNavigateToStore}
+          onNavigateToKiosk={onNavigateToKiosk}
+        />
+      ) : (
+        <LoginScreen onNavigateToStore={onNavigateToStore} />
+      )}
+    </LazyHRProvider>
   );
 };
 
@@ -66,12 +109,11 @@ export function App() {
   return (
     <RBACProvider>
       <SettingsProvider>
-        <HRProvider>
-          <OrderCatalogProvider>
-            <StoreCustomerProvider>
-              <BenefitsProvider>
-                <StoreBuilderProvider>
-                  <Suspense fallback={<div className="min-h-screen bg-neutral-950" />}>
+        <OrderCatalogProvider>
+          <StoreCustomerProvider>
+            <BenefitsProvider>
+              <StoreBuilderProvider>
+                <Suspense fallback={<BrandBootSplash pathname={currentPath} />}>
                   {isKioskRoute ? (
                     <KioskSelfServiceView
                       embeddedInAdmin={false}
@@ -85,12 +127,11 @@ export function App() {
                   ) : (
                     <StorefrontView onNavigateToAdmin={() => navigate('/admin')} />
                   )}
-                  </Suspense>
-                </StoreBuilderProvider>
-              </BenefitsProvider>
-            </StoreCustomerProvider>
-          </OrderCatalogProvider>
-        </HRProvider>
+                </Suspense>
+              </StoreBuilderProvider>
+            </BenefitsProvider>
+          </StoreCustomerProvider>
+        </OrderCatalogProvider>
       </SettingsProvider>
     </RBACProvider>
   );

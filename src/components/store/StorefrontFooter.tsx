@@ -1,8 +1,16 @@
-import React, { useState, useEffect, useRef, useId } from 'react';
+import React, { useState, useEffect, useRef, useId, Suspense, lazy } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
 import { ComplaintGoodType, ComplaintType } from '../../types/settings';
-import { UnifiedJobApplicationModal } from '../hr/UnifiedJobApplicationModal';
+
+const LazyHRProvider = lazy(() =>
+  import('../../context/HRContext').then(m => ({ default: m.HRProvider }))
+);
+const LazyJobApplicationModal = lazy(() =>
+  import('../hr/UnifiedJobApplicationModal').then(m => ({
+    default: m.UnifiedJobApplicationModal,
+  }))
+);
 import {
   MapPin,
   Phone,
@@ -45,8 +53,15 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme 
   // Modals state
   const [isClaimOpen, setIsClaimOpen] = useState(false);
   const [isJobModalOpen, setIsJobModalOpen] = useState(false);
+  const [hasOpenedJobModal, setHasOpenedJobModal] = useState(false);
   const [jobInitialQr, setJobInitialQr] = useState(false);
   const [infoModal, setInfoModal] = useState<'terms' | 'returns' | 'orders' | null>(null);
+
+  useEffect(() => {
+    if (isJobModalOpen) {
+      setHasOpenedJobModal(true);
+    }
+  }, [isJobModalOpen]);
 
   const claimDialogRef = useRef<HTMLDialogElement>(null);
   const infoDialogRef = useRef<HTMLDialogElement>(null);
@@ -997,13 +1012,19 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme 
       </dialog>
 
       {/* ======================================================================
-          MODAL 2: UNIFIED JOB APPLICATION MODAL (HR FORM BUILDER POWERED)
+          MODAL 2: UNIFIED JOB APPLICATION MODAL (HR FORM BUILDER POWERED - LAZY)
          ====================================================================== */}
-      <UnifiedJobApplicationModal
-        isOpen={isJobModalOpen}
-        onClose={() => setIsJobModalOpen(false)}
-        initialShowQr={jobInitialQr}
-      />
+      {hasOpenedJobModal && (
+        <Suspense fallback={null}>
+          <LazyHRProvider>
+            <LazyJobApplicationModal
+              isOpen={isJobModalOpen}
+              onClose={() => setIsJobModalOpen(false)}
+              initialShowQr={jobInitialQr}
+            />
+          </LazyHRProvider>
+        </Suspense>
+      )}
 
       {/* ======================================================================
           MODAL 3: CUSTOMER CARE INFO MODALS (Términos / Cambios / Mis Pedidos)

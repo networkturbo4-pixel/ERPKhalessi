@@ -468,3 +468,14 @@ dialog.store-responsive-drawer {
     animation: none !important;
   }
 }
+
+/* Deferred layout & paint for strictly below-the-fold storefront sections (per modern-web-guidance) */
+.store-below-fold-section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto none auto 420px;
+}
+
+.store-below-fold-footer {
+  content-visibility: auto;
+  contain-intrinsic-size: auto none auto 480px;
+}

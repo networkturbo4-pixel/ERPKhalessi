@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useId, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useId, useMemo, useCallback, Suspense, lazy } from 'react';
 import { flushSync } from 'react-dom';
 import { Product, PaymentMethod, InvoiceDocumentType, OrderItem } from '../../types/catalog';
 import {
@@ -20,6 +20,7 @@ import {
 } from '../../utils/culqiCheckout';
 import { ToastContainer } from '../common/ToastContainer';
 import { SystemNoticeModal } from '../common/SystemNoticeModal';
+import { StorefrontSkeleton } from '../common/AppSurfaceSkeleton';
 import {
   StoreSliderWidget,
   StoreCategoriesWidget,
@@ -27,17 +28,47 @@ import {
   StoreSearchBarWidget,
   StorePromoStripWidget,
 } from './StorefrontWidgets';
-import { StoreProductDetailPage } from './StoreProductDetailPage';
-import { StoreCheckoutPage } from './StoreCheckoutPage';
-import { StoreLocationModal } from './StoreLocationModal';
-import { StoreCustomerProfileDrawer } from './StoreCustomerProfileDrawer';
-import { StoreCustomerOrdersDrawer } from './StoreCustomerOrdersDrawer';
-import { StoreSearchDrawer } from './StoreSearchDrawer';
 import { StoreAccountMenu } from './StoreAccountMenu';
-import { StoreBenefitsDrawer } from './StoreBenefitsDrawer';
-import { StoreCulqiSandboxDialog } from './StoreCulqiSandboxDialog';
-import { ElementorBuilderSidebar } from './ElementorBuilderSidebar';
-import { StorefrontFooter } from './StorefrontFooter';
+
+const loadStoreProductDetailPage = () =>
+  import('./StoreProductDetailPage').then(m => ({ default: m.StoreProductDetailPage }));
+const loadStoreCheckoutPage = () =>
+  import('./StoreCheckoutPage').then(m => ({ default: m.StoreCheckoutPage }));
+const loadStoreLocationModal = () =>
+  import('./StoreLocationModal').then(m => ({ default: m.StoreLocationModal }));
+const loadStoreCustomerProfileDrawer = () =>
+  import('./StoreCustomerProfileDrawer').then(m => ({ default: m.StoreCustomerProfileDrawer }));
+const loadStoreCustomerOrdersDrawer = () =>
+  import('./StoreCustomerOrdersDrawer').then(m => ({ default: m.StoreCustomerOrdersDrawer }));
+const loadStoreSearchDrawer = () =>
+  import('./StoreSearchDrawer').then(m => ({ default: m.StoreSearchDrawer }));
+const loadStoreBenefitsDrawer = () =>
+  import('./StoreBenefitsDrawer').then(m => ({ default: m.StoreBenefitsDrawer }));
+const loadStoreCulqiSandboxDialog = () =>
+  import('./StoreCulqiSandboxDialog').then(m => ({ default: m.StoreCulqiSandboxDialog }));
+const loadElementorBuilderSidebar = () =>
+  import('./ElementorBuilderSidebar').then(m => ({ default: m.ElementorBuilderSidebar }));
+const loadStorefrontFooter = () =>
+  import('./StorefrontFooter').then(m => ({ default: m.StorefrontFooter }));
+
+const StoreProductDetailPage = lazy(loadStoreProductDetailPage);
+const StoreCheckoutPage = lazy(loadStoreCheckoutPage);
+const StoreLocationModal = lazy(loadStoreLocationModal);
+const StoreCustomerProfileDrawer = lazy(loadStoreCustomerProfileDrawer);
+const StoreCustomerOrdersDrawer = lazy(loadStoreCustomerOrdersDrawer);
+const StoreSearchDrawer = lazy(loadStoreSearchDrawer);
+const StoreBenefitsDrawer = lazy(loadStoreBenefitsDrawer);
+const StoreCulqiSandboxDialog = lazy(loadStoreCulqiSandboxDialog);
+const ElementorBuilderSidebar = lazy(loadElementorBuilderSidebar);
+const StorefrontFooter = lazy(loadStorefrontFooter);
+
+function useHasOpened(isOpen: boolean): boolean {
+  const [opened, setOpened] = useState(isOpen);
+  useEffect(() => {
+    if (isOpen) setOpened(true);
+  }, [isOpen]);
+  return opened || isOpen;
+}
 import {
   ShoppingBag,
   Search,
@@ -468,17 +499,22 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
       };
 
       const docWithVT = document as Document & {
-        startViewTransition?: (cb: () => void) => { finished: Promise<void> };
+        startViewTransition?: (cb: () => void | Promise<void>) => { finished: Promise<void> };
       };
 
       if (typeof docWithVT.startViewTransition === 'function') {
-        const transition = docWithVT.startViewTransition(applyRoute);
+        const transition = docWithVT.startViewTransition(async () => {
+          await loadStoreProductDetailPage();
+          applyRoute();
+        });
         transition.finished.finally(() => {
           if (sourceImg) sourceImg.style.viewTransitionName = '';
         });
       } else {
-        applyRoute();
-        if (sourceImg) sourceImg.style.viewTransitionName = '';
+        void loadStoreProductDetailPage().then(() => {
+          applyRoute();
+          if (sourceImg) sourceImg.style.viewTransitionName = '';
+        });
       }
     },
     []
@@ -547,6 +583,22 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     [orderConfirmed, orders]
   );
   const [isCulqiSandboxOpen, setIsCulqiSandboxOpen] = useState(false);
+
+  const hasOpenedLocationModal = useHasOpened(isLocationModalOpen);
+  const hasOpenedProfile = useHasOpened(isProfileOpen);
+  const hasOpenedOrders = useHasOpened(isOrdersOpen);
+  const hasOpenedBenefits = useHasOpened(isBenefitsOpen);
+  const hasOpenedSearch = useHasOpened(isSearchOpen);
+  const hasOpenedCulqiSandbox = useHasOpened(isCulqiSandboxOpen);
+
+  // Idle prefetch of Product Detail & Footer after above-the-fold Hero + Catalog paint
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadStoreProductDetailPage();
+      void loadStorefrontFooter();
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   // Order-confirmed modal keyboard support: Enter → follow order live, Esc → keep shopping
   useEffect(() => {
@@ -988,7 +1040,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     finalizeOrderCreation();
   };
 
-  const renderBlockContent = (block: StoreBlock) => {
+  const renderBlockContent = (block: StoreBlock, idx = 0) => {
     switch (block.type) {
       case 'slider':
         return (
@@ -1000,6 +1052,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
             autoButtonContrast={autoButtonContrast}
             products={products}
             onSelectProduct={prod => navigateToProductSlug(prod)}
+            isHero={idx === 0}
           />
         );
       case 'categories':
@@ -1028,6 +1081,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
             searchQuery={searchQuery}
             onSelectProduct={(prod, imgEl) => navigateToProductSlug(prod, imgEl)}
             onQuickViewProduct={prod => setQuickViewProduct(prod)}
+            isAboveFold={idx <= 2}
           />
         );
       case 'search_bar':
@@ -1068,48 +1122,52 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
 
   const storeSurfaceContent =
     isCheckoutPageOpen && !isBuilderOpen ? (
-      <StoreCheckoutPage
-        onBackToStore={() => setIsCheckoutPageOpen(false)}
-        cartItems={cartItems}
-        cartSubtotal={cartSubtotal}
-        clearCart={clearCart}
-        activeTenant={activeTenant}
-        tenants={tenants}
-        deliveryType={deliveryType}
-        deliveryAddress={deliveryAddress}
-        resolvedDeliveryFee={resolvedDeliveryFee}
-        onOpenLocationModal={() => setIsLocationModalOpen(true)}
-        onOrderConfirmed={orderData => {
-          setIsCheckoutPageOpen(false);
-          setOrderConfirmed(orderData);
-        }}
-        onOpenCulqiSandbox={() => setIsCulqiSandboxOpen(true)}
-        customization={customization}
-        companyInfo={companyInfo}
-        isLightTheme={isLightTheme}
-      />
+      <Suspense fallback={<StorefrontSkeleton isLight={isLightTheme} accentColor={accentColor} />}>
+        <StoreCheckoutPage
+          onBackToStore={() => setIsCheckoutPageOpen(false)}
+          cartItems={cartItems}
+          cartSubtotal={cartSubtotal}
+          clearCart={clearCart}
+          activeTenant={activeTenant}
+          tenants={tenants}
+          deliveryType={deliveryType}
+          deliveryAddress={deliveryAddress}
+          resolvedDeliveryFee={resolvedDeliveryFee}
+          onOpenLocationModal={() => setIsLocationModalOpen(true)}
+          onOrderConfirmed={orderData => {
+            setIsCheckoutPageOpen(false);
+            setOrderConfirmed(orderData);
+          }}
+          onOpenCulqiSandbox={() => setIsCulqiSandboxOpen(true)}
+          customization={customization}
+          companyInfo={companyInfo}
+          isLightTheme={isLightTheme}
+        />
+      </Suspense>
     ) : activeSlugProduct && !isBuilderOpen ? (
-      <StoreProductDetailPage
-        product={activeSlugProduct}
-        isLightTheme={isLightTheme}
-        accentColor={accentColor}
-        buttonColor={buttonColor}
-        buttonTextColor={buttonTextColor}
-        autoButtonContrast={autoButtonContrast}
-        branchName={activeTenant.name}
-        orderMode={deliveryType}
-        cartCount={totalCartUnits}
-        onBackToCatalog={navigateBackToCatalog}
-        onOpenCart={() => setIsCartOpen(true)}
-        onAddToCart={item => {
-          addToCart(item);
-          dispatchToast(
-            'Agregado a tu Pedido',
-            `${item.quantity}× ${item.productName} listo en tu carrito.`,
-            'success'
-          );
-        }}
-      />
+      <Suspense fallback={<StorefrontSkeleton isLight={isLightTheme} accentColor={accentColor} />}>
+        <StoreProductDetailPage
+          product={activeSlugProduct}
+          isLightTheme={isLightTheme}
+          accentColor={accentColor}
+          buttonColor={buttonColor}
+          buttonTextColor={buttonTextColor}
+          autoButtonContrast={autoButtonContrast}
+          branchName={activeTenant.name}
+          orderMode={deliveryType}
+          cartCount={totalCartUnits}
+          onBackToCatalog={navigateBackToCatalog}
+          onOpenCart={() => setIsCartOpen(true)}
+          onAddToCart={item => {
+            addToCart(item);
+            dispatchToast(
+              'Agregado a tu Pedido',
+              `${item.quantity}× ${item.productName} listo en tu carrito.`,
+              'success'
+            );
+          }}
+        />
+      </Suspense>
     ) : (
       <div
         style={storeThemeVars}
@@ -1447,7 +1505,14 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
             const isSelected = isBuilderOpen && selectedBlockId === block.id;
 
             if (!isBuilderOpen) {
-              return <React.Fragment key={block.id}>{renderBlockContent(block)}</React.Fragment>;
+              if (idx >= 3) {
+                return (
+                  <div key={block.id} className="store-below-fold-section">
+                    {renderBlockContent(block, idx)}
+                  </div>
+                );
+              }
+              return <React.Fragment key={block.id}>{renderBlockContent(block, idx)}</React.Fragment>;
             }
 
             return (
@@ -1543,14 +1608,18 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                   </button>
                 </div>
 
-                {renderBlockContent(block)}
+                {renderBlockContent(block, idx)}
               </div>
             );
           })}
         </main>
 
-        {/* 3. Solid Corporate & Fiscal Footer */}
-        <StorefrontFooter footerTheme={activeTemplate.footerTheme} />
+        {/* 3. Solid Corporate & Fiscal Footer (deferred below the fold) */}
+        <div className="store-below-fold-footer">
+          <Suspense fallback={<div className="h-48" />}>
+            <StorefrontFooter footerTheme={activeTemplate.footerTheme} />
+          </Suspense>
+        </div>
       </div>
     );
 
@@ -1662,7 +1731,17 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
           ===================================================================== */}
       {isBuilderOpen ? (
         <div className="flex-1 flex flex-col lg:flex-row h-[calc(100dvh-49px)] overflow-hidden">
-          <ElementorBuilderSidebar />
+          <Suspense
+            fallback={
+              <div className="w-full lg:w-[370px] shrink-0 bg-[#11131c] border-r border-[#24283b] p-4 space-y-3 animate-pulse">
+                <div className="h-8 w-44 rounded-lg bg-white/10" />
+                <div className="h-24 w-full rounded-xl bg-white/5" />
+                <div className="h-40 w-full rounded-xl bg-white/5" />
+              </div>
+            }
+          >
+            <ElementorBuilderSidebar />
+          </Suspense>
 
           <div
             onClick={() => setSelectedBlockId(null)}
@@ -1686,30 +1765,34 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
       )}
 
       {/* =====================================================================
-          1. MAPBOX GL TIENDAS & COBERTURA ULTRA DETALLE MODAL
+          1. MAPBOX GL TIENDAS & COBERTURA ULTRA DETALLE MODAL (LAZY)
           ===================================================================== */}
-      <StoreLocationModal
-        isOpen={isLocationModalOpen}
-        onClose={() => setIsLocationModalOpen(false)}
-        tenants={tenants}
-        activeTenantId={activeTenant.id}
-        onSelectTenant={(tenantId, selectedDeliveryType, address) => {
-          if (tenantId !== activeTenant.id) {
-            switchTenant(tenantId);
-          }
-          setDeliveryType(selectedDeliveryType);
-          if (address) setDeliveryAddress(address);
-          dispatchToast(
-            'Sede y Cobertura Actualizadas',
-            `Sede activa: ${tenants.find(t => t.id === tenantId)?.name.replace('Khalessi Pizza - ', '') || 'Actualizada'} (${selectedDeliveryType === 'delivery' ? 'Envío a Domicilio' : 'Retiro en Tienda'})`,
-            'success'
-          );
-        }}
-        currentDeliveryType={deliveryType}
-        accentColor={accentColor}
-        isLightTheme={isLightTheme}
-        storeFavicon={customization.favicon || customization.storeHeaderLogo}
-      />
+      {hasOpenedLocationModal && (
+        <Suspense fallback={null}>
+          <StoreLocationModal
+            isOpen={isLocationModalOpen}
+            onClose={() => setIsLocationModalOpen(false)}
+            tenants={tenants}
+            activeTenantId={activeTenant.id}
+            onSelectTenant={(tenantId, selectedDeliveryType, address) => {
+              if (tenantId !== activeTenant.id) {
+                switchTenant(tenantId);
+              }
+              setDeliveryType(selectedDeliveryType);
+              if (address) setDeliveryAddress(address);
+              dispatchToast(
+                'Sede y Cobertura Actualizadas',
+                `Sede activa: ${tenants.find(t => t.id === tenantId)?.name.replace('Khalessi Pizza - ', '') || 'Actualizada'} (${selectedDeliveryType === 'delivery' ? 'Envío a Domicilio' : 'Retiro en Tienda'})`,
+                'success'
+              );
+            }}
+            currentDeliveryType={deliveryType}
+            accentColor={accentColor}
+            isLightTheme={isLightTheme}
+            storeFavicon={customization.favicon || customization.storeHeaderLogo}
+          />
+        </Suspense>
+      )}
 
       {/* =====================================================================
           2. RESPONSIVE CART DRAWER (Off-Canvas on PC, Bottom-Sheet on Mobile)
@@ -3181,77 +3264,97 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
       </dialog>
 
       {/* =====================================================================
-          5. CUSTOMER PROFILE, REALTIME ORDERS & LIVE SEARCH DRAWERS
+          5. CUSTOMER PROFILE, REALTIME ORDERS & LIVE SEARCH DRAWERS (LAZY)
           ===================================================================== */}
-      <StoreCustomerProfileDrawer
-        isOpen={isProfileOpen}
-        onClose={() => setIsProfileOpen(false)}
-        accentColor={accentColor}
-        autoButtonContrast={autoButtonContrast}
-        currentDeliveryAddress={deliveryAddress}
-        onApplyAddressToOrder={(street, ref) => {
-          setDeliveryType('delivery');
-          setDeliveryAddress(street);
-          if (ref !== undefined) setDeliveryReference(ref);
-        }}
-        onRequestGpsAddress={() => requestRealtimeLocation(true)}
-        isLocatingGps={isLocating}
-        isLightTheme={isLightTheme}
-      />
+      {hasOpenedProfile && (
+        <Suspense fallback={null}>
+          <StoreCustomerProfileDrawer
+            isOpen={isProfileOpen}
+            onClose={() => setIsProfileOpen(false)}
+            accentColor={accentColor}
+            autoButtonContrast={autoButtonContrast}
+            currentDeliveryAddress={deliveryAddress}
+            onApplyAddressToOrder={(street, ref) => {
+              setDeliveryType('delivery');
+              setDeliveryAddress(street);
+              if (ref !== undefined) setDeliveryReference(ref);
+            }}
+            onRequestGpsAddress={() => requestRealtimeLocation(true)}
+            isLocatingGps={isLocating}
+            isLightTheme={isLightTheme}
+          />
+        </Suspense>
+      )}
 
-      <StoreCustomerOrdersDrawer
-        isOpen={isOrdersOpen}
-        onClose={() => {
-          setIsOrdersOpen(false);
-          setFocusedOrderId(null);
-        }}
-        onOpenProfile={() => setIsProfileOpen(true)}
-        onOpenCart={() => setIsCartOpen(true)}
-        accentColor={accentColor}
-        autoButtonContrast={autoButtonContrast}
-        isLightTheme={isLightTheme}
-        initialOrderId={focusedOrderId}
-      />
+      {hasOpenedOrders && (
+        <Suspense fallback={null}>
+          <StoreCustomerOrdersDrawer
+            isOpen={isOrdersOpen}
+            onClose={() => {
+              setIsOrdersOpen(false);
+              setFocusedOrderId(null);
+            }}
+            onOpenProfile={() => setIsProfileOpen(true)}
+            onOpenCart={() => setIsCartOpen(true)}
+            accentColor={accentColor}
+            autoButtonContrast={autoButtonContrast}
+            isLightTheme={isLightTheme}
+            initialOrderId={focusedOrderId}
+          />
+        </Suspense>
+      )}
 
-      <StoreBenefitsDrawer
-        isOpen={isBenefitsOpen}
-        onClose={() => setIsBenefitsOpen(false)}
-        accentColor={accentColor}
-        autoButtonContrast={autoButtonContrast}
-        isLightTheme={isLightTheme}
-        onOpenProfile={() => setIsProfileOpen(true)}
-        onApplyCouponToCart={code => {
-          setCouponInput(code);
-          setIsCartOpen(true);
-        }}
-      />
+      {hasOpenedBenefits && (
+        <Suspense fallback={null}>
+          <StoreBenefitsDrawer
+            isOpen={isBenefitsOpen}
+            onClose={() => setIsBenefitsOpen(false)}
+            accentColor={accentColor}
+            autoButtonContrast={autoButtonContrast}
+            isLightTheme={isLightTheme}
+            onOpenProfile={() => setIsProfileOpen(true)}
+            onApplyCouponToCart={code => {
+              setCouponInput(code);
+              setIsCartOpen(true);
+            }}
+          />
+        </Suspense>
+      )}
 
-      <StoreSearchDrawer
-        isOpen={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
-        products={products}
-        searchQuery={searchQuery}
-        onChangeSearch={q => setSearchQuery(q)}
-        onSelectProduct={prod => navigateToProductSlug(prod)}
-        accentColor={accentColor}
-        autoButtonContrast={autoButtonContrast}
-        isLightTheme={isLightTheme}
-      />
+      {hasOpenedSearch && (
+        <Suspense fallback={null}>
+          <StoreSearchDrawer
+            isOpen={isSearchOpen}
+            onClose={() => setIsSearchOpen(false)}
+            products={products}
+            searchQuery={searchQuery}
+            onChangeSearch={q => setSearchQuery(q)}
+            onSelectProduct={prod => navigateToProductSlug(prod)}
+            accentColor={accentColor}
+            autoButtonContrast={autoButtonContrast}
+            isLightTheme={isLightTheme}
+          />
+        </Suspense>
+      )}
 
-      <StoreCulqiSandboxDialog
-        isOpen={isCulqiSandboxOpen}
-        storeTitle={companyInfo.commercialName || customization.appName}
-        amountSoles={resolvedPayableTotal}
-        customerEmail={currentCustomer?.email || ''}
-        yapeEnabled={companyInfo.culqiConfig?.yapeEnabled ?? true}
-        accentColor={buttonColor}
-        autoButtonContrast={autoButtonContrast}
-        onCancel={() => setIsCulqiSandboxOpen(false)}
-        onApproved={({ referenceId }) => {
-          setIsCulqiSandboxOpen(false);
-          finalizeOrderCreation({ culqiReference: referenceId, forcePaid: true });
-        }}
-      />
+      {hasOpenedCulqiSandbox && (
+        <Suspense fallback={null}>
+          <StoreCulqiSandboxDialog
+            isOpen={isCulqiSandboxOpen}
+            storeTitle={companyInfo.commercialName || customization.appName}
+            amountSoles={resolvedPayableTotal}
+            customerEmail={currentCustomer?.email || ''}
+            yapeEnabled={companyInfo.culqiConfig?.yapeEnabled ?? true}
+            accentColor={buttonColor}
+            autoButtonContrast={autoButtonContrast}
+            onCancel={() => setIsCulqiSandboxOpen(false)}
+            onApproved={({ referenceId }) => {
+              setIsCulqiSandboxOpen(false);
+              finalizeOrderCreation({ culqiReference: referenceId, forcePaid: true });
+            }}
+          />
+        </Suspense>
+      )}
 
       {/* Order Confirmation Modal with Direct Real-Time Order Tracking CTA */}
       {orderConfirmed && (
