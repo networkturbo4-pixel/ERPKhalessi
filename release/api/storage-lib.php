@@ -19,19 +19,25 @@ const KH_SYNC_KEYS = [
     'kh_customers_crm_v1',
 ];
 
-// Claves que cualquier visitante de la tienda puede LEER (la de ajustes se entrega sin datos sensibles)
+// Claves que terminales operativas y tienda pueden LEER (ajustes siempre sanitizado sin claves ni PINs)
 const KH_PUBLIC_READ_KEYS = [
     'khalessi_erp_settings_v3',
     'kh_store_builder_v2',
     'kh_catalog_products',
     'kh_product_categories_v1',
     'kh_erp_benefits_v1',
+    'kh_orders_list',
+    'kh_customers_crm_v1',
+    'kh_floor_tables_v1',
+    'khalessi_erp_complaints_v1',
 ];
 
-// Claves que clientes anónimos de la tienda pueden enviar/crear (ej: pedidos y registro CRM)
+// Claves operativas que tienda, KDS, Delivery y Libro de Reclamaciones pueden actualizar sin bloqueo 401
 const KH_PUBLIC_WRITE_KEYS = [
     'kh_orders_list',
     'kh_customers_crm_v1',
+    'kh_floor_tables_v1',
+    'khalessi_erp_complaints_v1',
 ];
 
 const KH_SETTINGS_KEY = 'khalessi_erp_settings_v3';
@@ -91,15 +97,31 @@ function b64uDecode(string $s): string {
     return (string)base64_decode(strtr($s, '-_', '+/'));
 }
 
-function createToken(string $userId, string $name): array {
+function createToken(string $userId, string $name, string $roleId = 'role-admin'): array {
     $exp = time() + KH_TOKEN_TTL;
-    $payload = b64u(json_encode(['uid' => $userId, 'name' => $name, 'exp' => $exp]));
+    $payload = b64u(json_encode(['uid' => $userId, 'name' => $name, 'roleId' => $roleId, 'exp' => $exp]));
     $sig = b64u(hash_hmac('sha256', $payload, tokenSecret(), true));
     return ['token' => $payload . '.' . $sig, 'expires' => $exp];
 }
 
 function requestToken(): string {
-    return isset($_SERVER['HTTP_X_ERP_TOKEN']) ? trim((string)$_SERVER['HTTP_X_ERP_TOKEN']) : '';
+    if (!empty($_SERVER['HTTP_X_ERP_TOKEN'])) {
+        return trim((string)$_SERVER['HTTP_X_ERP_TOKEN']);
+    }
+    if (!empty($_SERVER['REDIRECT_HTTP_X_ERP_TOKEN'])) {
+        return trim((string)$_SERVER['REDIRECT_HTTP_X_ERP_TOKEN']);
+    }
+    if (function_exists('getallheaders')) {
+        $headers = getallheaders();
+        if (is_array($headers)) {
+            foreach ($headers as $hk => $hv) {
+                if (strtolower((string)$hk) === 'x-erp-token' && trim((string)$hv) !== '') {
+                    return trim((string)$hv);
+                }
+            }
+        }
+    }
+    return '';
 }
 
 /** Devuelve el payload del token si es válido; null si no. */

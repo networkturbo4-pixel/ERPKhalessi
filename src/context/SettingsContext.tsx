@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authenticateServer } from '../utils/diskPersistence';
+import { authenticateServer, getServerToken } from '../utils/diskPersistence';
 import {
   TenantCustomization,
   CompanyInfo,
@@ -895,13 +895,22 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   useEffect(() => {
     try {
       localStorage.setItem(AUTH_STORAGE_KEY, isAuthenticated ? 'authenticated' : 'locked');
-      if (isAuthenticated) {
-        void authenticateServer(currentUser.pin || '230825');
+      if (isAuthenticated && !getServerToken()) {
+        const isErpView =
+          window.location.pathname.startsWith('/admin') ||
+          (localStorage.getItem('kh_active_main_module') || 'storefront') !== 'storefront';
+        if (isErpView) {
+          const syncedUser = users.find(u => u.id === currentUser.id);
+          const resolvedPin = syncedUser?.pin || currentUser.pin;
+          if (resolvedPin) {
+            void authenticateServer(resolvedPin);
+          }
+        }
       }
     } catch {
       // Ignore storage errors
     }
-  }, [isAuthenticated, currentUser.pin]);
+  }, [isAuthenticated, currentUser.id, currentUser.pin, users]);
 
   useEffect(() => {
     try {
@@ -1203,7 +1212,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
 
     setIsAuthenticated(true);
-    void authenticateServer(updatedLoginUser.pin);
+    void authenticateServer(updatedLoginUser.pin, true);
     logAuditEvent(
       'auth',
       authNote?.includes('Authenticator') ? 'warning' : 'info',

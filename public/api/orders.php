@@ -7,7 +7,9 @@
  */
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/storage-lib.php';
 $pdo = getDbConnection();
+kvInit($pdo);
 $method = $_SERVER['REQUEST_METHOD'];
 
 switch ($method) {
@@ -72,6 +74,7 @@ switch ($method) {
             $stmt = $pdo->prepare("
                 INSERT INTO orders (id, tenant_id, order_number, channel, status, customer_name, total, created_at)
                 VALUES (:id, :tenant_id, :order_number, :channel, :status, :customer_name, :total, NOW())
+                ON DUPLICATE KEY UPDATE status = VALUES(status), total = VALUES(total), updated_at = NOW()
             ");
             $stmt->execute([
                 ':id'            => $orderId,
@@ -124,6 +127,30 @@ switch ($method) {
         } else {
             sendResponse(['success' => false, 'error' => 'No hay campos para actualizar'], 400);
         }
+        break;
+
+    case 'DELETE':
+        $id = isset($_GET['id']) ? trim($_GET['id']) : null;
+        if (!$id) {
+            sendResponse(['success' => false, 'error' => 'Falta el parámetro id'], 400);
+        }
+        try {
+            $pdo->prepare("DELETE FROM order_items WHERE order_id = :id")->execute([':id' => $id]);
+            $pdo->prepare("DELETE FROM orders WHERE id = :id")->execute([':id' => $id]);
+        } catch (Throwable $e) {
+            // Ignorar si las tablas relacionales no contienen el registro
+        }
+        $existingRaw = kvGet($pdo, 'kh_orders_list');
+        if ($existingRaw !== null) {
+            $list = json_decode($existingRaw, true);
+            if (is_array($list)) {
+                $filtered = array_values(array_filter($list, function ($o) use ($id) {
+                    return !is_array($o) || ($o['id'] ?? '') !== $id;
+                }));
+                kvSet($pdo, 'kh_orders_list', json_encode($filtered, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+            }
+        }
+        sendResponse(['success' => true, 'deleted' => $id]);
         break;
 
     default:

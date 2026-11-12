@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Tenant } from '../../types/settings';
 import { getMapboxSettings, isMapboxTokenValid } from '../../utils/mapboxConfig';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import type mapboxgl from 'mapbox-gl';
 import {
   X,
   Bike,
@@ -200,150 +199,161 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
       return;
     }
 
-    try {
-      mapboxgl.accessToken = mSettings.accessToken.trim();
+    let cancelled = false;
+    void (async () => {
+      try {
+        await import('mapbox-gl/dist/mapbox-gl.css');
+        const mapboxMod = await import('mapbox-gl');
+        const mb = mapboxMod.default;
+        if (cancelled || !mapContainerRef.current) return;
 
-      const map = new mapboxgl.Map({
-        container: mapContainerRef.current,
-        style: mSettings.styleUrl || 'mapbox://styles/mapbox/streets-v12',
-        center: [(storeLng + customerCoords[0]) / 2, (storeLat + customerCoords[1]) / 2],
-        zoom: mSettings.defaultZoom || 13,
-        pitch: mSettings.enable3DBuildings ? mSettings.pitch3D || 45 : 0,
-        bearing: -10,
-        attributionControl: false,
-      });
+        mb.accessToken = mSettings.accessToken.trim();
 
-      map.addControl(new mapboxgl.NavigationControl({ showCompass: true, visualizePitch: true }), 'top-right');
+        const map = new mb.Map({
+          container: mapContainerRef.current,
+          style: mSettings.styleUrl || 'mapbox://styles/mapbox/streets-v12',
+          center: [(storeLng + customerCoords[0]) / 2, (storeLat + customerCoords[1]) / 2],
+          zoom: mSettings.defaultZoom || 13,
+          pitch: mSettings.enable3DBuildings ? mSettings.pitch3D || 45 : 0,
+          bearing: -10,
+          attributionControl: false,
+        });
 
-      map.on('load', () => {
-        // 3D Buildings layer
-        if (mSettings.enable3DBuildings) {
-          const layers = map.getStyle().layers;
-          const labelLayerId = layers?.find(layer => layer.type === 'symbol' && layer.layout?.['text-field'])?.id;
+        map.addControl(new mb.NavigationControl({ showCompass: true, visualizePitch: true }), 'top-right');
 
-          if (!map.getLayer('add-3d-buildings')) {
-            map.addLayer(
-              {
-                id: 'add-3d-buildings',
-                source: 'composite',
-                'source-layer': 'building',
-                filter: ['==', 'extrude', 'true'],
-                type: 'fill-extrusion',
-                minzoom: 14,
-                paint: {
-                  'fill-extrusion-color': isLightTheme ? '#e2e8f0' : '#1e293b',
-                  'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 14, 0, 15.05, ['get', 'height']],
-                  'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 14, 0, 15.05, ['get', 'min_height']],
-                  'fill-extrusion-opacity': 0.65,
+        map.on('load', () => {
+          // 3D Buildings layer
+          if (mSettings.enable3DBuildings) {
+            const layers = map.getStyle().layers;
+            const labelLayerId = layers?.find(layer => layer.type === 'symbol' && layer.layout?.['text-field'])?.id;
+
+            if (!map.getLayer('add-3d-buildings')) {
+              map.addLayer(
+                {
+                  id: 'add-3d-buildings',
+                  source: 'composite',
+                  'source-layer': 'building',
+                  filter: ['==', 'extrude', 'true'],
+                  type: 'fill-extrusion',
+                  minzoom: 14,
+                  paint: {
+                    'fill-extrusion-color': isLightTheme ? '#e2e8f0' : '#1e293b',
+                    'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 14, 0, 15.05, ['get', 'height']],
+                    'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 14, 0, 15.05, ['get', 'min_height']],
+                    'fill-extrusion-opacity': 0.65,
+                  },
+                },
+                labelLayerId
+              );
+            }
+          }
+
+          // Route Source & Layer
+          if (!map.getSource('route-source')) {
+            map.addSource('route-source', {
+              type: 'geojson',
+              data: {
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                  type: 'LineString',
+                  coordinates: [
+                    [storeLng, storeLat],
+                    [(storeLng + customerCoords[0]) / 2 + 0.003, (storeLat + customerCoords[1]) / 2 - 0.002],
+                    [customerCoords[0], customerCoords[1]],
+                  ],
                 },
               },
-              labelLayerId
-            );
-          }
-        }
+            });
 
-        // Route Source & Layer
-        if (!map.getSource('route-source')) {
-          map.addSource('route-source', {
-            type: 'geojson',
-            data: {
-              type: 'Feature',
-              properties: {},
-              geometry: {
-                type: 'LineString',
-                coordinates: [
-                  [storeLng, storeLat],
-                  [(storeLng + customerCoords[0]) / 2 + 0.003, (storeLat + customerCoords[1]) / 2 - 0.002],
-                  [customerCoords[0], customerCoords[1]],
-                ],
+            map.addLayer({
+              id: 'route-line-casing',
+              type: 'line',
+              source: 'route-source',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round',
               },
-            },
-          });
+              paint: {
+                'line-color': '#ffffff',
+                'line-width': 7,
+                'line-opacity': 0.85,
+              },
+            });
 
-          map.addLayer({
-            id: 'route-line-casing',
-            type: 'line',
-            source: 'route-source',
-            layout: {
-              'line-join': 'round',
-              'line-cap': 'round',
-            },
-            paint: {
-              'line-color': '#ffffff',
-              'line-width': 7,
-              'line-opacity': 0.85,
-            },
-          });
+            map.addLayer({
+              id: 'route-line',
+              type: 'line',
+              source: 'route-source',
+              layout: {
+                'line-join': 'round',
+                'line-cap': 'round',
+              },
+              paint: {
+                'line-color': '#e11d48',
+                'line-width': 4.5,
+                'line-opacity': 0.95,
+              },
+            });
+          }
 
-          map.addLayer({
-            id: 'route-line',
-            type: 'line',
-            source: 'route-source',
-            layout: {
-              'line-join': 'round',
-              'line-cap': 'round',
-            },
-            paint: {
-              'line-color': '#e11d48',
-              'line-width': 4.5,
-              'line-opacity': 0.95,
-            },
-          });
-        }
+          calculateRoute(storeLng, storeLat, customerCoords[0], customerCoords[1]);
+        });
 
-        calculateRoute(storeLng, storeLat, customerCoords[0], customerCoords[1]);
-      });
+        // Custom Store Marker Element
+        const storeEl = document.createElement('div');
+        storeEl.className = 'group relative flex flex-col items-center cursor-pointer';
+        storeEl.innerHTML = `
+          <div style="background-color: #e11d48;" class="text-white font-black text-[11px] px-2.5 py-1 rounded-full shadow-lg border-2 border-white flex items-center gap-1.5 whitespace-nowrap mb-1">
+            <span>🍕</span>
+            <span>${activeTenant.name.replace('Khalessi Pizza - ', '')}</span>
+          </div>
+          <div style="background-color: #e11d48;" class="w-8 h-8 rounded-full border-2 border-white shadow-xl flex items-center justify-center text-white font-bold text-xs">
+            🏠
+          </div>
+          <div class="w-2 h-2 rotate-45 -mt-1 bg-white"></div>
+        `;
 
-      // Custom Store Marker Element
-      const storeEl = document.createElement('div');
-      storeEl.className = 'group relative flex flex-col items-center cursor-pointer';
-      storeEl.innerHTML = `
-        <div style="background-color: #e11d48;" class="text-white font-black text-[11px] px-2.5 py-1 rounded-full shadow-lg border-2 border-white flex items-center gap-1.5 whitespace-nowrap mb-1">
-          <span>🍕</span>
-          <span>${activeTenant.name.replace('Khalessi Pizza - ', '')}</span>
-        </div>
-        <div style="background-color: #e11d48;" class="w-8 h-8 rounded-full border-2 border-white shadow-xl flex items-center justify-center text-white font-bold text-xs">
-          🏠
-        </div>
-        <div class="w-2 h-2 rotate-45 -mt-1 bg-white"></div>
-      `;
+        const storeMarker = new mb.Marker({ element: storeEl, anchor: 'bottom' })
+          .setLngLat([storeLng, storeLat])
+          .addTo(map);
 
-      const storeMarker = new mapboxgl.Marker({ element: storeEl, anchor: 'bottom' })
-        .setLngLat([storeLng, storeLat])
-        .addTo(map);
+        storeMarkerRef.current = storeMarker;
 
-      storeMarkerRef.current = storeMarker;
+        // Custom User Marker Element
+        const userEl = document.createElement('div');
+        userEl.className = 'relative flex items-center justify-center';
+        userEl.innerHTML = `
+          <div class="absolute w-8 h-8 rounded-full bg-red-500/30 animate-ping"></div>
+          <div class="relative w-7 h-7 rounded-full bg-rose-600 border-2 border-white shadow-xl flex items-center justify-center text-white text-xs">
+            📍
+          </div>
+        `;
 
-      // Custom User Marker Element
-      const userEl = document.createElement('div');
-      userEl.className = 'relative flex items-center justify-center';
-      userEl.innerHTML = `
-        <div class="absolute w-8 h-8 rounded-full bg-red-500/30 animate-ping"></div>
-        <div class="relative w-7 h-7 rounded-full bg-rose-600 border-2 border-white shadow-xl flex items-center justify-center text-white text-xs">
-          📍
-        </div>
-      `;
+        const userMarker = new mb.Marker({ element: userEl, anchor: 'center' })
+          .setLngLat([customerCoords[0], customerCoords[1]])
+          .addTo(map);
 
-      const userMarker = new mapboxgl.Marker({ element: userEl, anchor: 'center' })
-        .setLngLat([customerCoords[0], customerCoords[1]])
-        .addTo(map);
+        userMarkerRef.current = userMarker;
 
-      userMarkerRef.current = userMarker;
-
-      mapRef.current = map;
-      setMapboxError(null);
-      map.on('error', e => {
-        if (e.error?.message?.includes('Forbidden') || e.error?.message?.includes('Unauthorized')) {
+        mapRef.current = map;
+        setMapboxError(null);
+        map.on('error', e => {
+          if (e.error?.message?.includes('Forbidden') || e.error?.message?.includes('Unauthorized')) {
+            setMapboxError('Modo mapa interactivo activo.');
+            setMapboxConfigured(false);
+          }
+        });
+      } catch {
+        if (!cancelled) {
           setMapboxError('Modo mapa interactivo activo.');
           setMapboxConfigured(false);
         }
-      });
-    } catch {
-      setMapboxError('Modo mapa interactivo activo.');
-      setMapboxConfigured(false);
-    }
+      }
+    })();
 
     return () => {
+      cancelled = true;
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;

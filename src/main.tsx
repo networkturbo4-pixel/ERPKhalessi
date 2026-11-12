@@ -2,17 +2,32 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
-import { initDiskPersistence } from './utils/diskPersistence'
+import { installStorageInterceptor, initDiskPersistence } from './utils/diskPersistence'
 
-// Renderizado inmediato de React: no bloqueamos el primer render esperando red
+// 1. Conectar sincrónicamente el interceptor de almacenamiento ANTES de montar React
+installStorageInterceptor()
+
 const rootEl = document.getElementById('root')!
-const root = createRoot(rootEl)
 
-root.render(
-  <StrictMode>
-    <App />
-  </StrictMode>
-)
+async function bootstrap() {
+  const hasCachedState = Boolean(localStorage.getItem('khalessi_erp_settings_v3'))
 
-// Inicializar la sincronización de disco y tiempo real en segundo plano
-void initDiskPersistence()
+  if (!hasCachedState) {
+    // Primera visita en un dispositivo nuevo: hidratar desde el servidor (máx 900ms) mostrando el favicon de marca
+    await Promise.race([
+      initDiskPersistence(),
+      new Promise<void>(resolve => setTimeout(resolve, 900)),
+    ])
+  } else {
+    // Recarga habitual (F5): renderizar en 0ms y sincronizar cambios del servidor en vivo vía eventos
+    void initDiskPersistence()
+  }
+
+  createRoot(rootEl).render(
+    <StrictMode>
+      <App />
+    </StrictMode>
+  )
+}
+
+void bootstrap()

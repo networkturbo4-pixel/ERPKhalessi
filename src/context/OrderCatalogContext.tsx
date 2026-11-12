@@ -656,18 +656,33 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
             setOrders(parsed);
 
-            // When an order arrives from another device via SSE (not already announced by same-browser BroadcastChannel)
-            if (!fromBroadcast && newlyArrived.length > 0) {
-              soundSynth.play(audioThemeRef.current || 'chime');
-              if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
-                const latest = newlyArrived[0];
-                dispatchToastRef.current(
-                  `¡Nuevo Pedido en Vivo! ${latest.orderNumber}`,
-                  `${latest.customerName} · S/ ${latest.total.toFixed(2)} (${
-                    latest.channel === 'online' ? 'Tienda Virtual' : latest.channel
-                  })`,
-                  'success'
-                );
+            // When an order arrives or changes status from another device via SSE
+            if (!fromBroadcast) {
+              if (newlyArrived.length > 0) {
+                soundSynth.play(audioThemeRef.current || 'chime');
+                const isErpSurface =
+                  typeof window !== 'undefined' &&
+                  (window.location.pathname.startsWith('/admin') ||
+                    (localStorage.getItem('kh_active_main_module') || 'storefront') !== 'storefront');
+                if (isErpSurface) {
+                  const latest = newlyArrived[0];
+                  dispatchToastRef.current(
+                    `¡Nuevo Pedido en Vivo! ${latest.orderNumber}`,
+                    `${latest.customerName} · S/ ${latest.total.toFixed(2)} (${
+                      latest.channel === 'online' ? 'Tienda Virtual' : latest.channel
+                    })`,
+                    'success'
+                  );
+                }
+              } else {
+                const prevStatusById = new Map(prevOrders.map((o) => [o.id, o.status]));
+                const statusAdvanced = parsed.some((o) => {
+                  const oldSt = prevStatusById.get(o.id);
+                  return oldSt && oldSt !== o.status && (o.status === 'listo' || o.status === 'en_ruta');
+                });
+                if (statusAdvanced) {
+                  soundSynth.play(audioThemeRef.current || 'modern');
+                }
               }
             }
           }
@@ -1034,7 +1049,8 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
       orderStatus: 'recibido',
     });
 
-    // 1. Respaldo directo en tabla relacional MySQL (orders / order_items)
+    // Respaldo directo en tabla relacional MySQL (orders / order_items)
+    // La difusión SSE ocurre automáticamente en diskPersistence al confirmar guardado en kv_storage
     void (async () => {
       try {
         await fetch('/api/orders.php', {
@@ -1059,26 +1075,6 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
               price: it.unitPrice,
               totalPrice: it.totalPrice,
             })),
-          }),
-        });
-      } catch {
-        // ignore
-      }
-    })();
-
-    // 2. Difusión inmediata al motor SSE Node.js
-    void (async () => {
-      try {
-        await fetch('/realtime/broadcast', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'set',
-            key: 'kh_orders_list',
-            eventHint: 'new_order',
-            orderNumber: newOrder.orderNumber,
-            branchId: newOrder.tenantId,
-            senderId: tabInstanceIdRef.current,
           }),
         });
       } catch {
@@ -1122,6 +1118,12 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
         orderStatus: status,
       }
     );
+
+    void fetch(`/api/orders.php?id=${encodeURIComponent(orderId)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    }).catch(() => {});
 
     if (targetOrder) {
       const statusLabels: Record<OrderStatus, string> = {
@@ -1177,6 +1179,9 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const deleteOrder = (orderId: string) => {
+    void fetch(`/api/orders.php?id=${encodeURIComponent(orderId)}`, {
+      method: 'DELETE',
+    }).catch(() => {});
     persistAndSyncOrders((prev) => prev.filter((o) => o.id !== orderId));
   };
 

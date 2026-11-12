@@ -3,40 +3,90 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="color-scheme" content="light dark" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🍕</text></svg>" />
+    <link rel="icon" href="/api/favicon.php" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Khalessi Pizza ERP | Plataforma Multisucursal</title>
+    <title>Pizza Khalessi | Plataforma Multisucursal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Geist:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Roboto:wght@300;400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   </head>
   <body class="bg-zinc-100 dark:bg-[#09090b]">
     <div id="root">
-      <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#09090b;font-family:system-ui,-apple-system,sans-serif;color:#ffffff;">
-        <div style="width:68px;height:68px;border-radius:22px;background:linear-gradient(135deg,#e11d48,#be123c);display:flex;align-items:center;justify-content:center;font-size:34px;box-shadow:0 12px 28px -5px rgba(225,29,72,0.45);animation:khPulse 1.6s infinite ease-in-out;">
-          🍕
-        </div>
-        <div style="margin-top:20px;font-weight:900;font-size:18px;letter-spacing:1.5px;color:#ffffff;">
-          KHALESSI PIZZA ERP
-        </div>
-        <div style="margin-top:5px;font-size:11px;font-weight:700;letter-spacing:2px;color:#94a3b8;text-transform:uppercase;">
-          Cargando Sistema...
-        </div>
-        <div style="margin-top:22px;width:150px;height:3.5px;background:rgba(255,255,255,0.08);border-radius:99px;overflow:hidden;position:relative;">
-          <div style="position:absolute;top:0;left:0;height:100%;background:linear-gradient(90deg,#f43f5e,#fb7185);border-radius:99px;animation:khBar 1.2s infinite ease-in-out;"></div>
+      <div id="kh-brand-splash" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#09090b;transition:background 0.15s ease;">
+        <div id="kh-favicon-shell" style="position:relative;padding:7px;border-radius:26px;background:rgba(255,255,255,0.04);border:2px solid rgba(225,29,72,0.55);box-shadow:0 16px 38px -8px rgba(225,29,72,0.32),inset 0 0 0 1px rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;animation:khFloat 1.6s infinite ease-in-out;">
+          <div id="kh-favicon-ring" style="position:absolute;inset:-6px;border-radius:31px;border:2px solid transparent;border-top-color:#e11d48;border-right-color:rgba(225,29,72,0.35);animation:khSpin 1.05s linear infinite;pointer-events:none;"></div>
+          <img
+            id="kh-splash-favicon"
+            src="/api/favicon.php"
+            alt="Logo"
+            style="width:74px;height:74px;border-radius:19px;object-fit:cover;display:block;border:2px solid rgba(255,255,255,0.28);background:#18181b;"
+          />
         </div>
       </div>
       <style>
-        @keyframes khPulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.06); opacity: 0.88; }
+        @keyframes khSpin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
-        @keyframes khBar {
-          0% { left: -50%; width: 35%; }
-          50% { left: 35%; width: 50%; }
-          100% { left: 110%; width: 35%; }
+        @keyframes khFloat {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.035); }
         }
       </style>
+      <script>
+        (function () {
+          try {
+            var icon = localStorage.getItem('kh_brand_favicon_v1') || '';
+            var primary = localStorage.getItem('kh_brand_primary_v1') || '';
+            var theme = localStorage.getItem('kh_brand_theme_v1') || '';
+            if (!icon || !primary) {
+              var raw = localStorage.getItem('khalessi_erp_settings_v3');
+              if (raw) {
+                var parsed = JSON.parse(raw);
+                var c = parsed && parsed.customization ? parsed.customization : null;
+                if (c) {
+                  icon = icon || c.favicon || c.storeHeaderLogo || c.logoDark || c.logoLight || '';
+                  primary = primary || c.primaryColor || '';
+                  theme = theme || c.themePreference || '';
+                }
+              }
+            }
+            var isStorefront = !window.location.pathname.startsWith('/admin') &&
+              (localStorage.getItem('kh_active_main_module') || 'storefront') === 'storefront';
+            var useLight = isStorefront ? theme !== 'dark' : theme === 'light';
+            var splash = document.getElementById('kh-brand-splash');
+            var shell = document.getElementById('kh-favicon-shell');
+            var ring = document.getElementById('kh-favicon-ring');
+            var img = document.getElementById('kh-splash-favicon');
+
+            if (splash && useLight) {
+              splash.style.background = '#f8fafc';
+              if (shell) {
+                shell.style.background = '#ffffff';
+                shell.style.boxShadow = '0 18px 40px -10px rgba(15,23,42,0.16), inset 0 0 0 1px rgba(15,23,42,0.06)';
+              }
+              if (img) {
+                img.style.border = '2px solid rgba(15,23,42,0.12)';
+                img.style.background = '#ffffff';
+              }
+            }
+
+            if (primary && /^#[0-9a-fA-F]{6}$/.test(primary)) {
+              if (shell) shell.style.borderColor = primary + '88';
+              if (ring) {
+                ring.style.borderTopColor = primary;
+                ring.style.borderRightColor = primary + '44';
+              }
+            }
+
+            if (icon && img) {
+              img.src = icon;
+              var headLink = document.querySelector("link[rel*='icon']");
+              if (headLink) headLink.href = icon;
+            }
+          } catch (e) {}
+        })();
+      </script>
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
