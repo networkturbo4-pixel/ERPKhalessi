@@ -1,5 +1,5 @@
 {
-  "buildId": "20261112035731",
-  "builtAt": "2026-11-12T03:57:31.065Z",
-  "message": "fix(system-update): robustecer descompresion con scandir y fallback de raiz"
+  "buildId": "20261112040242",
+  "builtAt": "2026-11-12T04:02:42.253Z",
+  "message": "fix(responsive): pestanas moviles lista/mapa en modal de tiendas y tarjeta flotante con auto-wrap"
 }

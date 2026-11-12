@@ -88,6 +88,48 @@ function diskStoragePlugin(): Plugin {
           }
         }
 
+        // Mock /realtime para desarrollo local con Vite (SSE y broadcast)
+        if (req.url?.startsWith('/realtime')) {
+          const urlObj = new URL(req.url, 'http://localhost')
+          if (urlObj.pathname === '/realtime/stream') {
+            const clientId = urlObj.searchParams.get('clientId') || ''
+            const connId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
+            res.writeHead(200, {
+              'Content-Type': 'text/event-stream; charset=utf-8',
+              'Cache-Control': 'no-cache, no-transform',
+              Connection: 'keep-alive',
+              'X-Accel-Buffering': 'no',
+            })
+            res.write(`data: ${JSON.stringify({ action: 'connected', clientId, connectedAt: new Date().toISOString() })}\n\n`)
+
+            sseClients.set(connId, { id: connId, clientId, res })
+
+            req.on('close', () => {
+              sseClients.delete(connId)
+            })
+            return
+          }
+
+          if (urlObj.pathname === '/realtime/broadcast' && req.method === 'POST') {
+            const chunks: Buffer[] = []
+            req.on('data', c => chunks.push(Buffer.from(c)))
+            req.on('end', () => {
+              try {
+                const body = JSON.parse(Buffer.concat(chunks).toString('utf-8'))
+                broadcastStorageChange(body)
+                res.setHeader('Content-Type', 'application/json')
+                res.statusCode = 200
+                res.end(JSON.stringify({ success: true }))
+              } catch {
+                res.statusCode = 400
+                res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }))
+              }
+            })
+            return
+          }
+        }
+
         if (!req.url?.startsWith('/api/storage')) {
           return next()
         }

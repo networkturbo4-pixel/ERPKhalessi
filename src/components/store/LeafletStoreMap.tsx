@@ -70,7 +70,7 @@ export const LeafletStoreMap: React.FC<LeafletStoreMapProps> = ({
 
     const userIcon = L.divIcon({
       className: '',
-      html: '<div style="width:26px;height:26px;border-radius:9999px;background:#2563eb;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4)"></div>',
+      html: '<div style="width:26px;height:26px;border-radius:9999px;background:#2563eb;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center"><div style="width:8px;height:8px;border-radius:9999px;background:#fff"></div></div>',
       iconSize: [26, 26],
       iconAnchor: [13, 13],
     });
@@ -95,8 +95,20 @@ export const LeafletStoreMap: React.FC<LeafletStoreMapProps> = ({
     // El contenedor puede montarse dentro de un modal con animación: recalcular tamaño
     const ro = new ResizeObserver(() => map.invalidateSize());
     ro.observe(containerRef.current);
-    const t1 = window.setTimeout(() => map.invalidateSize(), 150);
-    const t2 = window.setTimeout(() => map.invalidateSize(), 600);
+    const t1 = window.setTimeout(() => {
+      map.invalidateSize();
+      const tenant = tenants.find(t => t.id === selectedTenantId) || tenants[0];
+      if (tenant) {
+        map.fitBounds(L.latLngBounds([tenantLatLng(tenant), [customerCoords[1], customerCoords[0]]]).pad(0.35), { maxZoom: 15 });
+      }
+    }, 200);
+    const t2 = window.setTimeout(() => {
+      map.invalidateSize();
+      const tenant = tenants.find(t => t.id === selectedTenantId) || tenants[0];
+      if (tenant) {
+        map.fitBounds(L.latLngBounds([tenantLatLng(tenant), [customerCoords[1], customerCoords[0]]]).pad(0.35), { maxZoom: 15 });
+      }
+    }, 600);
 
     return () => {
       ro.disconnect();
@@ -160,7 +172,8 @@ export const LeafletStoreMap: React.FC<LeafletStoreMapProps> = ({
       dashArray: routeGeometry && routeGeometry.length > 1 ? undefined : '8 8',
     }).addTo(map);
 
-    map.fitBounds(L.latLngBounds([store, user]).pad(0.35), { animate: true, maxZoom: 16 });
+    // Ajustar vista inicial enfocada entre la tienda y el cliente con zoom de barrio (14-15)
+    map.fitBounds(L.latLngBounds([store, user]).pad(0.35), { animate: true, maxZoom: 15 });
   }, [tenants, selectedTenantId, customerCoords, routeGeometry, accentColor]);
 
   return <div ref={containerRef} className="absolute inset-0 w-full h-full z-0" style={{ touchAction: 'none' }} />;

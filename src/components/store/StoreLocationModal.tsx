@@ -190,11 +190,11 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-5 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
     >
       <div
-        className={`relative w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] border ${
-          isLightTheme ? 'bg-white border-zinc-200 text-zinc-900' : 'bg-neutral-900 border-neutral-800 text-white'
+        className={`relative w-full max-w-5xl rounded-t-[2rem] sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[90vh] sm:h-auto sm:max-h-[92vh] border-t sm:border border-zinc-200 dark:border-neutral-800 animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-300 ${
+          isLightTheme ? 'bg-white text-zinc-900' : 'bg-neutral-900 text-white'
         }`}
       >
         {/* Top Header */}
@@ -429,7 +429,7 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
 
           {/* Right Column: Interactive Map (Desktop always visible, Mobile in "map" tab) */}
           <div
-            className={`flex-1 relative flex flex-col min-h-[350px] sm:min-h-[440px] bg-zinc-100 dark:bg-neutral-950 overflow-hidden ${
+            className={`flex-1 relative flex flex-col h-full min-h-[420px] sm:min-h-[480px] bg-zinc-100 dark:bg-neutral-950 overflow-hidden ${
               activeMobileTab === 'list' ? 'hidden lg:flex' : 'flex'
             }`}
           >
