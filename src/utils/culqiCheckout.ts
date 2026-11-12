@@ -65,6 +65,14 @@ export function ensureCulqiScriptLoaded(): Promise<boolean> {
   });
 }
 
+export function resolveCulqiPublicKey(config?: CulqiGatewayConfig): string {
+  if (!config) return '';
+  if (config.environment === 'live') {
+    return (config.livePublicKey || config.publicKey || '').trim();
+  }
+  return (config.testPublicKey || config.publicKey || '').trim();
+}
+
 export function isRealCulqiPublicKey(publicKey?: string): boolean {
   if (!publicKey) return false;
   const clean = publicKey.trim();
@@ -169,7 +177,8 @@ export async function openOfficialCulqiCheckout(params: {
       }
     };
 
-    window.Culqi!.publicKey = params.config.publicKey.trim();
+    const activePublicKey = resolveCulqiPublicKey(params.config);
+    window.Culqi!.publicKey = activePublicKey;
     window.Culqi!.settings({
       title: params.storeTitle,
       currency: 'PEN',
@@ -182,6 +191,9 @@ export async function openOfficialCulqiCheckout(params: {
         tarjeta: true,
         yape: params.config.yapeEnabled,
         billetera: params.config.billeteraEnabled,
+        bancaMovil: Boolean(params.config.multipayEnabled),
+        agente: Boolean(params.config.multipayEnabled),
+        cuotealo: Boolean(params.config.multipayEnabled),
       },
       style: {
         logo: params.logoUrl || undefined,

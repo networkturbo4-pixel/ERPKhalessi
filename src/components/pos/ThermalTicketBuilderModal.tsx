@@ -189,9 +189,9 @@ export const ThermalTicketBuilderModal: React.FC<ThermalTicketBuilderModalProps>
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-black/80 backdrop-blur-xs w-dvw h-dvh max-w-none max-h-none m-0 border-0 outline-hidden"
+      className="thermal-builder-dialog modal-wide fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/80 backdrop-blur-xs w-full max-w-[1380px] h-full max-h-[96vh] m-auto border-0 outline-hidden"
     >
-      <div className="w-[96vw] max-w-[1360px] h-[92vh] rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-2xl overflow-hidden flex flex-col">
+      <div className="w-full max-w-[1380px] h-[92vh] rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-2xl overflow-hidden flex flex-col">
         {/* Modal Top Header */}
         <div className="p-4 sm:p-5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between bg-zinc-50 dark:bg-zinc-950 shrink-0">
           <div className="flex items-center gap-3">
@@ -300,7 +300,7 @@ export const ThermalTicketBuilderModal: React.FC<ThermalTicketBuilderModalProps>
                     : 'text-amber-700 dark:text-amber-400'
                 }`}
               >
-                Ticket 🧾
+                Ticket
               </button>
             </div>
           </div>
@@ -762,16 +762,17 @@ export const ThermalTicketBuilderModal: React.FC<ThermalTicketBuilderModalProps>
             <div
               style={{
                 width: config.paperWidth === '58mm' ? '280px' : '360px',
+                maxWidth: '100%',
                 fontFamily: config.fontFamily === 'monospace' ? "'Courier New', Courier, monospace" : 'system-ui',
               }}
-              className="bg-white text-zinc-950 p-5 shadow-2xl rounded-xs border-t-8 border-b-8 border-dashed border-zinc-400 text-xs leading-normal transition-all my-auto max-w-[calc(100vw-48px)]"
+              className="bg-white text-zinc-950 p-5 shadow-2xl rounded-xs border-t-8 border-b-8 border-dashed border-zinc-400 text-xs leading-normal transition-all my-auto box-border"
             >
               {activeTab === 'receipt' ? (
                 // RECEIPT PREVIEW
                 <div>
                   {config.receipt.showLogo && (
                     <div className="text-center text-sm font-black tracking-wider mb-1">
-                      🍕 KHALESSI PIZZA
+                      KHALESSI PIZZA
                     </div>
                   )}
                   <div className="text-center font-bold text-xs uppercase mb-0.5 break-words">
@@ -783,7 +784,7 @@ export const ThermalTicketBuilderModal: React.FC<ThermalTicketBuilderModalProps>
                     </div>
                   )}
                   {config.receipt.ruc && (
-                    <div className="text-center text-[10px]">{config.receipt.ruc}</div>
+                    <div className="text-center text-[10px] font-mono">{config.receipt.ruc}</div>
                   )}
                   {config.receipt.address && (
                     <div className="text-center text-[9px] text-zinc-600 break-words">{config.receipt.address}</div>
@@ -796,13 +797,13 @@ export const ThermalTicketBuilderModal: React.FC<ThermalTicketBuilderModalProps>
                     {config.receipt.showOrderNumber && (
                       <div className="flex justify-between font-bold">
                         <span>ORDEN:</span>
-                        <span>#KH-1028</span>
+                        <span className="font-mono">#KH-1028</span>
                       </div>
                     )}
                     {config.receipt.showDateTime && (
                       <div className="flex justify-between">
                         <span>FECHA:</span>
-                        <span>{new Date().toLocaleDateString()} {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className="font-mono">{new Date().toLocaleDateString()} {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                     )}
                     {config.receipt.showChannel && (
@@ -828,9 +829,9 @@ export const ThermalTicketBuilderModal: React.FC<ThermalTicketBuilderModalProps>
 
                     <div className="space-y-1.5">
                       <div>
-                        <div className="flex justify-between font-bold">
-                          <span>1x Pizza Americana</span>
-                          <span className="shrink-0 ml-2">S/ 51.00</span>
+                        <div className="flex items-start justify-between font-bold gap-2">
+                          <span className="min-w-0 break-words">1x Pizza Americana</span>
+                          <span className="shrink-0 text-right font-mono">S/ 51.00</span>
                         </div>
                         {config.receipt.showItemSizes && (
                           <div className="text-[9px] text-zinc-600 pl-2">· 08 Tajadas Familiar</div>
@@ -848,12 +849,12 @@ export const ThermalTicketBuilderModal: React.FC<ThermalTicketBuilderModalProps>
                       </div>
 
                       <div>
-                        <div className="flex justify-between font-bold">
-                          <span>2x Gaseosa Inka Cola 1.5L</span>
-                          <span className="shrink-0 ml-2">S/ 23.00</span>
+                        <div className="flex items-start justify-between font-bold gap-2">
+                          <span className="min-w-0 break-words">2x Gaseosa Inka Cola 1.5L</span>
+                          <span className="shrink-0 text-right font-mono">S/ 23.00</span>
                         </div>
                         {config.receipt.showUnitPrice && (
-                          <div className="text-[9px] text-zinc-600 pl-2">S/ 11.50 c/u</div>
+                          <div className="text-[9px] text-zinc-600 pl-2 font-mono">S/ 11.50 c/u</div>
                         )}
                       </div>
                     </div>
@@ -864,24 +865,24 @@ export const ThermalTicketBuilderModal: React.FC<ThermalTicketBuilderModalProps>
                     {config.receipt.showSubtotal && (
                       <div className="flex justify-between">
                         <span>SUBTOTAL:</span>
-                        <span>S/ 74.00</span>
+                        <span className="font-mono">S/ 74.00</span>
                       </div>
                     )}
                     {config.receipt.showIgvBreakdown && (
                       <div className="flex justify-between text-zinc-600">
                         <span>OP. GRAVADA / IGV (18%):</span>
-                        <span>S/ 11.29</span>
+                        <span className="font-mono">S/ 11.29</span>
                       </div>
                     )}
                     {config.receipt.showDiscount && (
                       <div className="flex justify-between text-zinc-600">
                         <span>DESCUENTO:</span>
-                        <span>- S/ 5.00</span>
+                        <span className="font-mono">- S/ 5.00</span>
                       </div>
                     )}
                     <div className="flex justify-between font-black text-xs border-t border-zinc-900 pt-1 mt-1">
                       <span>TOTAL A PAGAR:</span>
-                      <span>S/ 69.00</span>
+                      <span className="font-mono">S/ 69.00</span>
                     </div>
                   </div>
 
@@ -948,7 +949,7 @@ export const ThermalTicketBuilderModal: React.FC<ThermalTicketBuilderModalProps>
                       )}
                       {config.comanda.highlightItemNotes && (
                         <div className="mt-1 p-1 bg-zinc-200 border-l-2 border-zinc-900 text-[10px] font-black">
-                          ⚠️ NOTA: BIEN DORADITA POR FAVOR
+                          [NOTA]: BIEN DORADITA POR FAVOR
                         </div>
                       )}
                     </div>

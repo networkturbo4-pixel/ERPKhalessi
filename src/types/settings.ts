@@ -117,11 +117,32 @@ export interface CulqiGatewayConfig {
   enabled: boolean;
   environment: 'test' | 'live';
   publicKey: string;
+  secretKey?: string;
+  testPublicKey?: string;
+  testSecretKey?: string;
+  livePublicKey?: string;
+  liveSecretKey?: string;
+  multipayEnabled?: boolean;
+  webhookUrl?: string;
   yapeEnabled: boolean;
   billeteraEnabled: boolean;
   allowCashFallback: boolean;
   backendOrderEndpoint?: string;
   backendChargeEndpoint?: string;
+}
+
+export interface FacturaloConfig {
+  enabled: boolean;
+  apiUrl: string;
+  apiToken?: string;
+  testSecretKey?: string; // sk_test_... (Demo / Sandbox)
+  liveSecretKey?: string; // sk_live_... (Producción SUNAT)
+  multiCompanyToken?: string; // user_sk_... (Token de cuenta multiempresa)
+  companyName?: string; // e.g. "THE ROMA AGENCY CORPORACION S.A.C."
+  environment: 'demo' | 'production';
+  defaultSeriesBoleta?: string;
+  defaultSeriesFactura?: string;
+  autoEmitOnPaid?: boolean;
 }
 
 export interface DeliveryDistanceBracket {
@@ -151,6 +172,7 @@ export interface CompanyInfo {
   wallets: DigitalWallet[];
   socialLinks?: SocialLinks;
   culqiConfig?: CulqiGatewayConfig;
+  facturaloConfig?: FacturaloConfig;
   deliveryTariff?: DeliveryTariffConfig;
 }
 
@@ -227,9 +249,12 @@ export interface BranchOperationalProfile {
   branchFormat: BranchFormat;
   branchCode: string;
   billingSeries: string;
+  billingSeriesBoleta?: string;
+  billingSeriesFactura?: string;
   schedule: string;
   tablesCount: number;
   deliveryRadiusKm: number;
+  deliveryTariff?: DeliveryTariffConfig;
   dailyGoalSoles: number;
   address: string;
   latitude?: number;

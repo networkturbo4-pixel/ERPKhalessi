@@ -15,6 +15,15 @@ interface OrderStatusPatch {
   assignedDriverId?: string;
   assignedDriverName?: string;
   paymentStatus?: 'pendiente' | 'pagado';
+  dispatchedAt?: string;
+  deliveredAt?: string;
+  pickupProofPhoto?: string;
+  pickupProofAt?: string;
+  pickupProofDriverName?: string;
+  deliveryProofPhoto?: string;
+  deliveryProofAt?: string;
+  deliveryProofDriverName?: string;
+  deliveryAuthorizedBy?: string;
 }
 
 interface OrderCatalogContextType {
@@ -491,6 +500,17 @@ interface RealtimeMessage {
   timestamp: string;
 }
 
+// External order event callbacks (e.g. for automatic inventory deduction and restocking)
+type OrderLifecycleCallback = (order: Order, prevStatus?: OrderStatus, newStatus?: OrderStatus) => void;
+const orderLifecycleListeners = new Set<OrderLifecycleCallback>();
+
+export const registerOrderLifecycleListener = (cb: OrderLifecycleCallback): (() => void) => {
+  orderLifecycleListeners.add(cb);
+  return () => {
+    orderLifecycleListeners.delete(cb);
+  };
+};
+
 const OrderCatalogContext = createContext<OrderCatalogContextType | undefined>(undefined);
 
 export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -868,6 +888,10 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
           whatsapp: cleanPhone || existing.whatsapp,
           address: customerData.address.trim() || existing.address,
           reference: customerData.reference.trim() || existing.reference,
+          loyaltyPoints:
+            typeof customerData.loyaltyPoints === 'number'
+              ? customerData.loyaltyPoints
+              : existing.loyaltyPoints || 0,
           tenantId: customerData.tenantId || existing.tenantId,
           updatedAt: now,
         }
@@ -879,6 +903,7 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
           whatsapp: cleanPhone,
           address: customerData.address.trim(),
           reference: customerData.reference.trim(),
+          loyaltyPoints: customerData.loyaltyPoints || 0,
           tenantId: customerData.tenantId || activeTenant.id,
           createdAt: now,
           updatedAt: now,
@@ -1114,6 +1139,13 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
             ...(patch?.assignedDriverId ? { assignedDriverId: patch.assignedDriverId } : {}),
             ...(patch?.assignedDriverName ? { assignedDriverName: patch.assignedDriverName } : {}),
             ...(patch?.paymentStatus ? { paymentStatus: patch.paymentStatus } : {}),
+            ...(patch?.pickupProofPhoto ? { pickupProofPhoto: patch.pickupProofPhoto } : {}),
+            ...(patch?.pickupProofAt ? { pickupProofAt: patch.pickupProofAt } : {}),
+            ...(patch?.pickupProofDriverName ? { pickupProofDriverName: patch.pickupProofDriverName } : {}),
+            ...(patch?.deliveryProofPhoto ? { deliveryProofPhoto: patch.deliveryProofPhoto } : {}),
+            ...(patch?.deliveryProofAt ? { deliveryProofAt: patch.deliveryProofAt } : {}),
+            ...(patch?.deliveryProofDriverName ? { deliveryProofDriverName: patch.deliveryProofDriverName } : {}),
+            ...(patch?.deliveryAuthorizedBy ? { deliveryAuthorizedBy: patch.deliveryAuthorizedBy } : {}),
             ...(status === 'en_ruta' ? { dispatchedAt: nowIso } : {}),
             ...(status === 'entregado' ? { deliveredAt: nowIso, paymentStatus: 'pagado' } : {}),
           };
@@ -1132,6 +1164,7 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }).catch(() => {});
 
     if (targetOrder) {
+      const prevStatus = targetOrder.status;
       const statusLabels: Record<OrderStatus, string> = {
         recibido: 'En Espera',
         en_cocina: 'En Preparación',
@@ -1142,6 +1175,15 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
         cancelado: 'Cancelado ❌',
       };
       dispatchToast(`Pedido ${targetOrder.orderNumber}`, `Estado en tiempo real: ${statusLabels[status]}`, 'info');
+
+      // Notify external lifecycle listeners
+      orderLifecycleListeners.forEach((listener) => {
+        try {
+          listener({ ...targetOrder, status }, prevStatus, status);
+        } catch (err) {
+          console.error('[OrderCatalog] Error en listener de ciclo de vida:', err);
+        }
+      });
     }
   };
 

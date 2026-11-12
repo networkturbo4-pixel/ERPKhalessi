@@ -31,6 +31,15 @@ export function saveThermalConfig(config: ThermalPrintConfig): void {
   }
 }
 
+export function stripEmojis(str: string): string {
+  return (str || '')
+    .replace(
+      /[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F100}-\u{1F1FF}\u{1F200}-\u{1F2FF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2300}-\u{23FF}\u{2B50}\u{203C}\u{2049}\u{2194}-\u{2199}\u{21A9}-\u{21AA}\u{2934}-\u{2935}\u{25AA}-\u{25AB}\u{25B6}\u{25C0}\u{25FB}-\u{25FE}]/gu,
+      ''
+    )
+    .trim();
+}
+
 export function printThermalTicket(
   type: 'receipt' | 'comanda',
   order: Partial<Order> & { items: OrderItem[]; total: number },
@@ -66,12 +75,12 @@ export function printThermalTicket(
 
     htmlContent = `
       <div style="text-align: center; margin-bottom: 8px;">
-        ${r.showLogo ? '<div style="font-size: 20px; font-weight: 900; letter-spacing: 1px;">🍕 KHALESSI PIZZA</div>' : ''}
-        <div style="font-weight: bold; font-size: 13px;">${r.businessName}</div>
-        ${r.slogan ? `<div style="font-size: 10px; font-style: italic; margin-bottom: 2px;">${r.slogan}</div>` : ''}
-        ${r.ruc ? `<div style="font-size: 11px;">${r.ruc}</div>` : ''}
-        ${r.address ? `<div style="font-size: 10px;">${r.address}</div>` : ''}
-        ${r.phone ? `<div style="font-size: 10px;">${r.phone}</div>` : ''}
+        ${r.showLogo ? '<div style="font-size: 20px; font-weight: 900; letter-spacing: 1px;">KHALESSI PIZZA</div>' : ''}
+        <div style="font-weight: bold; font-size: 13px;">${stripEmojis(r.businessName)}</div>
+        ${r.slogan ? `<div style="font-size: 10px; font-style: italic; margin-bottom: 2px;">${stripEmojis(r.slogan)}</div>` : ''}
+        ${r.ruc ? `<div style="font-size: 11px;">${stripEmojis(r.ruc)}</div>` : ''}
+        ${r.address ? `<div style="font-size: 10px;">${stripEmojis(r.address)}</div>` : ''}
+        ${r.phone ? `<div style="font-size: 10px;">${stripEmojis(r.phone)}</div>` : ''}
       </div>
 
       <div style="border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 4px 0; margin-bottom: 8px; font-size: 11px;">
@@ -188,27 +197,27 @@ export function printThermalTicket(
             </div>
             ${
               item.halfAndHalf
-                ? `<div style="font-size: 12px; font-weight: bold; padding-left: 8px;">🍕 ½ ${item.halfAndHalf.firstHalfName} + ½ ${item.halfAndHalf.secondHalfName}</div>`
+                ? `<div style="font-size: 12px; font-weight: bold; padding-left: 8px;">[1/2] ${stripEmojis(item.halfAndHalf.firstHalfName)} + [1/2] ${stripEmojis(item.halfAndHalf.secondHalfName)}</div>`
                 : ''
             }
             ${
               c.showItemModifiers && item.subOptions && item.subOptions.length > 0
                 ? item.subOptions
-                    .map((s) => `<div style="font-size: 11px; padding-left: 8px;">• ${s.groupName}: <strong>${s.choiceName}</strong></div>`)
+                    .map((s) => `<div style="font-size: 11px; padding-left: 8px;">- ${stripEmojis(s.groupName)}: <strong>${stripEmojis(s.choiceName)}</strong></div>`)
                     .join('')
                 : ''
             }
             ${
               c.showItemModifiers && item.extras && item.extras.length > 0
                 ? item.extras
-                    .map((e) => `<div style="font-size: 11px; font-weight: bold; padding-left: 8px;">+ EXTRA: ${e.name} (x${e.quantity})</div>`)
+                    .map((e) => `<div style="font-size: 11px; font-weight: bold; padding-left: 8px;">+ EXTRA: ${stripEmojis(e.name)} (x${e.quantity})</div>`)
                     .join('')
                 : ''
             }
             ${
               c.highlightItemNotes && item.notes
                 ? `<div style="font-size: 12px; font-weight: 900; background: #eee; border-left: 3px solid #000; padding: 2px 4px; margin-top: 2px;">
-                    ⚠️ NOTA: ${item.notes.toUpperCase()}
+                    [NOTA]: ${stripEmojis(item.notes).toUpperCase()}
                    </div>`
                 : ''
             }

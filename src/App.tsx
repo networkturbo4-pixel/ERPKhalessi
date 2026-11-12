@@ -5,6 +5,7 @@ import { OrderCatalogProvider } from './context/OrderCatalogContext';
 import { StoreBuilderProvider } from './context/StoreBuilderContext';
 import { StoreCustomerProvider } from './context/StoreCustomerContext';
 import { BenefitsProvider } from './context/BenefitsContext';
+import { InventoryProvider } from './context/InventoryContext';
 import { BrandBootSplash } from './components/common/AppSurfaceSkeleton';
 
 const loadMainLayout = () =>
@@ -110,27 +111,29 @@ export function App() {
     <RBACProvider>
       <SettingsProvider>
         <OrderCatalogProvider>
-          <StoreCustomerProvider>
-            <BenefitsProvider>
-              <StoreBuilderProvider>
-                <Suspense fallback={<BrandBootSplash pathname={currentPath} />}>
-                  {isKioskRoute ? (
-                    <KioskSelfServiceView
-                      embeddedInAdmin={false}
-                      onExitToAdmin={() => navigate('/admin')}
-                    />
-                  ) : isAdminRoute ? (
-                    <AppGate
-                      onNavigateToStore={() => navigate('/')}
-                      onNavigateToKiosk={() => navigate('/kiosco')}
-                    />
-                  ) : (
-                    <StorefrontView onNavigateToAdmin={() => navigate('/admin')} />
-                  )}
-                </Suspense>
-              </StoreBuilderProvider>
-            </BenefitsProvider>
-          </StoreCustomerProvider>
+          <InventoryProvider>
+            <StoreCustomerProvider>
+              <BenefitsProvider>
+                <StoreBuilderProvider>
+                  <Suspense fallback={<BrandBootSplash pathname={currentPath} />}>
+                    {isKioskRoute ? (
+                      <KioskSelfServiceView
+                        embeddedInAdmin={false}
+                        onExitToAdmin={() => navigate('/admin')}
+                      />
+                    ) : isAdminRoute ? (
+                      <AppGate
+                        onNavigateToStore={() => navigate('/')}
+                        onNavigateToKiosk={() => navigate('/kiosco')}
+                      />
+                    ) : (
+                      <StorefrontView onNavigateToAdmin={() => navigate('/admin')} />
+                    )}
+                  </Suspense>
+                </StoreBuilderProvider>
+              </BenefitsProvider>
+            </StoreCustomerProvider>
+          </InventoryProvider>
         </OrderCatalogProvider>
       </SettingsProvider>
     </RBACProvider>

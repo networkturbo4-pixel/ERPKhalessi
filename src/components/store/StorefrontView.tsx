@@ -746,11 +746,12 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
         distanceKm: activeBranchDistanceKm,
         branchMaxRadiusKm: activeTenant.operations?.deliveryRadiusKm || 6,
         cartSubtotal,
-        tariff: companyInfo.deliveryTariff,
+        tariff: activeTenant.operations?.deliveryTariff || companyInfo.deliveryTariff,
       }),
     [
       activeBranchDistanceKm,
       activeTenant.operations?.deliveryRadiusKm,
+      activeTenant.operations?.deliveryTariff,
       cartSubtotal,
       companyInfo.deliveryTariff,
       deliveryType,
@@ -855,6 +856,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     const willEarnPoints =
       Boolean(currentCustomer) &&
       pointsConfig.enabled &&
+      pointsConfig.status !== 'paused' &&
       cartSubtotal >= pointsConfig.minPurchaseAmountForPoint
         ? pointsConfig.pointsPerPurchase
         : 0;
@@ -959,6 +961,17 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
 
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentCustomer) {
+      dispatchToast(
+        'Registro Requerido',
+        'Para realizar tu pedido, por favor inicia sesión o crea tu cuenta.',
+        'warning'
+      );
+      setIsCheckoutModalOpen(false);
+      setIsProfileOpen(true);
+      return;
+    }
+
     if (!customerName.trim() || !customerPhone.trim()) {
       dispatchToast(
         'Datos Incompletos',
@@ -2231,7 +2244,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                   </div>
 
                   {/* Canjear Premios de la Tarjeta de Puntos */}
-                  {currentCustomer && pointsConfig.enabled && (
+                  {currentCustomer && pointsConfig.enabled && pointsConfig.status !== 'paused' && (
                     <div
                       className={`pt-2.5 border-t space-y-1.5 ${
                         isLightTheme ? 'border-zinc-200' : 'border-neutral-800'
@@ -2362,6 +2375,16 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                 <button
                   type="button"
                   onClick={() => {
+                    if (!currentCustomer) {
+                      dispatchToast(
+                        'Registro Requerido',
+                        'Para realizar tu pedido, por favor crea tu cuenta o inicia sesión.',
+                        'warning'
+                      );
+                      setIsCartOpen(false);
+                      setIsProfileOpen(true);
+                      return;
+                    }
                     setIsCartOpen(false);
                     setIsCheckoutPageOpen(true);
                     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -3120,6 +3143,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                 )}
                 {currentCustomer &&
                   pointsConfig.enabled &&
+                  pointsConfig.status !== 'paused' &&
                   cartSubtotal >= pointsConfig.minPurchaseAmountForPoint && (
                     <div
                       className={`pt-1 text-[11px] font-bold flex items-center justify-between ${

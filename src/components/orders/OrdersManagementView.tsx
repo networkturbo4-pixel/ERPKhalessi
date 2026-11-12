@@ -22,16 +22,22 @@ import {
   Smartphone,
   Printer,
   Flame,
+  Camera,
+  Calendar,
+  UserCheck,
+  Filter,
+  RotateCcw,
 } from 'lucide-react';
+import { ImageLightboxModal } from '../common/ImageLightboxModal';
 
 const STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
   { value: 'recibido', label: 'Recibido (Cola)' },
-  { value: 'en_cocina', label: 'Preparando Masa 👨‍🍳' },
-  { value: 'en_horno', label: 'En Horno 🔥' },
-  { value: 'listo', label: 'Listo p/ Despacho ✅' },
-  { value: 'en_ruta', label: 'En Ruta Delivery 🛵' },
-  { value: 'entregado', label: 'Entregado 🎉' },
-  { value: 'cancelado', label: 'Cancelado ❌' },
+  { value: 'en_cocina', label: 'Preparando Masa' },
+  { value: 'en_horno', label: 'En Horno' },
+  { value: 'listo', label: 'Listo p/ Despacho' },
+  { value: 'en_ruta', label: 'En Ruta Delivery' },
+  { value: 'entregado', label: 'Entregado' },
+  { value: 'cancelado', label: 'Cancelado' },
 ];
 
 export const OrdersManagementView: React.FC = () => {
@@ -44,13 +50,45 @@ export const OrdersManagementView: React.FC = () => {
   const [channelFilter, setChannelFilter] = useState<'all' | OrderChannel>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | OrderStatus>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [driverFilter, setDriverFilter] = useState('all');
+  const [hourRangeFilter, setHourRangeFilter] = useState('all');
+
   const [inspectedOrderId, setInspectedOrderId] = useState<string | null>(null);
   const [isThermalModalOpen, setIsThermalModalOpen] = useState(false);
+
+  const [lightboxState, setLightboxState] = useState<{
+    isOpen: boolean;
+    imageUrl: string | null;
+    title: string;
+    subtitle?: string;
+    metadata?: {
+      capturedAt?: string;
+      operatorOrDriver?: string;
+      stageLabel?: string;
+    };
+  }>({
+    isOpen: false,
+    imageUrl: null,
+    title: '',
+  });
 
   const inspectedOrder = useMemo(
     () => (inspectedOrderId ? orders.find((o) => o.id === inspectedOrderId) || null : null),
     [orders, inspectedOrderId]
   );
+
+  const availableDrivers = useMemo(() => {
+    const set = new Set<string>();
+    orders.forEach((o) => {
+      if (o.assignedDriverName) set.add(o.assignedDriverName);
+      if (o.pickupProofDriverName) set.add(o.pickupProofDriverName);
+      if (o.deliveryProofDriverName) set.add(o.deliveryProofDriverName);
+      if (o.deliveryAuthorizedBy) set.add(o.deliveryAuthorizedBy);
+    });
+    return Array.from(set).filter(Boolean);
+  }, [orders]);
 
   const inspectDialogRef = useRef<HTMLDialogElement>(null);
   const inspectTitleId = useId();
@@ -78,6 +116,28 @@ export const OrdersManagementView: React.FC = () => {
     if (selectedBranch !== 'all' && o.tenantId !== selectedBranch) return false;
     if (channelFilter !== 'all' && o.channel !== channelFilter) return false;
     if (statusFilter !== 'all' && o.status !== statusFilter) return false;
+    if (startDate) {
+      const orderDate = o.createdAt.slice(0, 10);
+      if (orderDate < startDate) return false;
+    }
+    if (endDate) {
+      const orderDate = o.createdAt.slice(0, 10);
+      if (orderDate > endDate) return false;
+    }
+    if (driverFilter !== 'all') {
+      const match =
+        o.assignedDriverName === driverFilter ||
+        o.pickupProofDriverName === driverFilter ||
+        o.deliveryProofDriverName === driverFilter ||
+        o.deliveryAuthorizedBy === driverFilter;
+      if (!match) return false;
+    }
+    if (hourRangeFilter !== 'all') {
+      const hour = new Date(o.createdAt).getHours();
+      if (hourRangeFilter === 'morning' && (hour < 6 || hour >= 14)) return false;
+      if (hourRangeFilter === 'afternoon' && (hour < 14 || hour >= 19)) return false;
+      if (hourRangeFilter === 'night' && (hour < 19 && hour >= 6)) return false;
+    }
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -85,7 +145,9 @@ export const OrdersManagementView: React.FC = () => {
       o.customerName.toLowerCase().includes(q) ||
       (o.customerDni && o.customerDni.includes(q)) ||
       (o.tableNumber && o.tableNumber.toLowerCase().includes(q)) ||
-      (o.deliveryAddress && o.deliveryAddress.toLowerCase().includes(q))
+      (o.deliveryAddress && o.deliveryAddress.toLowerCase().includes(q)) ||
+      (o.assignedDriverName && o.assignedDriverName.toLowerCase().includes(q)) ||
+      (o.deliveryAuthorizedBy && o.deliveryAuthorizedBy.toLowerCase().includes(q))
     );
   });
 
@@ -321,6 +383,85 @@ export const OrdersManagementView: React.FC = () => {
         </div>
       </div>
 
+      {/* Advanced Filters: Fecha Desde / Hasta, Rango Horario, y Motorizado / Autorizador */}
+      <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 flex flex-wrap items-center gap-3 text-xs">
+        <div className="flex items-center gap-1.5 text-zinc-500 font-bold shrink-0">
+          <Filter className="w-3.5 h-3.5 text-amber-500" />
+          <span>Filtros Avanzados:</span>
+        </div>
+
+        {/* Fecha Desde */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-zinc-500 font-semibold">Desde:</span>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 text-xs font-medium text-zinc-900 dark:text-zinc-100"
+          />
+        </div>
+
+        {/* Fecha Hasta */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-zinc-500 font-semibold">Hasta:</span>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 text-xs font-medium text-zinc-900 dark:text-zinc-100"
+          />
+        </div>
+
+        {/* Horario / Turno */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-zinc-500 font-semibold">Horario:</span>
+          <select
+            value={hourRangeFilter}
+            onChange={(e) => setHourRangeFilter(e.target.value)}
+            className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 text-xs font-medium text-zinc-900 dark:text-zinc-100"
+          >
+            <option value="all">Todas las Horas</option>
+            <option value="morning">Turno Mañana (06:00 - 14:00)</option>
+            <option value="afternoon">Turno Tarde (14:00 - 19:00)</option>
+            <option value="night">Turno Noche / Cena (19:00 - 05:59)</option>
+          </select>
+        </div>
+
+        {/* Motorizado / Quien entrega o autoriza */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-zinc-500 font-semibold">Entregador / Autoriza:</span>
+          <select
+            value={driverFilter}
+            onChange={(e) => setDriverFilter(e.target.value)}
+            className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 text-xs font-medium text-zinc-900 dark:text-zinc-100 max-w-[200px]"
+          >
+            <option value="all">Todos los Operadores</option>
+            {availableDrivers.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {(startDate || endDate || driverFilter !== 'all' || hourRangeFilter !== 'all' || searchQuery) && (
+          <button
+            type="button"
+            onClick={() => {
+              setStartDate('');
+              setEndDate('');
+              setDriverFilter('all');
+              setHourRangeFilter('all');
+              setSearchQuery('');
+            }}
+            className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-semibold whitespace-nowrap shrink-0 transition-colors"
+          >
+            <RotateCcw className="w-3 h-3" />
+            <span>Restablecer Filtros</span>
+          </button>
+        )}
+      </div>
+
       {/* Orders List (Cards on Mobile, Crisp Table/Rows on Desktop) */}
       {filteredOrders.length === 0 ? (
         <div className="p-12 text-center rounded-2xl bg-white dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-800 space-y-2">
@@ -398,6 +539,61 @@ export const OrdersManagementView: React.FC = () => {
                     )
                     .join(' · ')}
                 </p>
+
+                {/* Evidencias fotográficas registradas en la orden */}
+                {(liveOrder.pickupProofPhoto || liveOrder.deliveryProofPhoto) && (
+                  <div className="flex items-center gap-2 pt-1 flex-wrap">
+                    {liveOrder.pickupProofPhoto && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setLightboxState({
+                            isOpen: true,
+                            imageUrl: liveOrder.pickupProofPhoto!,
+                            title: `Foto Salida de Tienda · ${liveOrder.orderNumber}`,
+                            subtitle: `Motorizado: ${liveOrder.pickupProofDriverName || liveOrder.assignedDriverName || 'Asignado'}`,
+                            metadata: {
+                              stageLabel: 'Salida de Tienda',
+                              operatorOrDriver: liveOrder.pickupProofDriverName || liveOrder.assignedDriverName || liveOrder.deliveryAuthorizedBy,
+                              capturedAt: liveOrder.pickupProofAt,
+                            },
+                          })
+                        }
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 text-[11px] font-bold border border-amber-500/20 whitespace-nowrap shrink-0 transition-colors"
+                      >
+                        <Camera className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Foto Salida</span>
+                      </button>
+                    )}
+                    {liveOrder.deliveryProofPhoto && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setLightboxState({
+                            isOpen: true,
+                            imageUrl: liveOrder.deliveryProofPhoto!,
+                            title: `Foto Entrega Conforme · ${liveOrder.orderNumber}`,
+                            subtitle: `Cliente: ${liveOrder.customerName}`,
+                            metadata: {
+                              stageLabel: 'Entrega Conforme',
+                              operatorOrDriver: liveOrder.deliveryProofDriverName || liveOrder.assignedDriverName,
+                              capturedAt: liveOrder.deliveryProofAt,
+                            },
+                          })
+                        }
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold border border-emerald-500/20 whitespace-nowrap shrink-0 transition-colors"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                        <span>Foto Entrega</span>
+                      </button>
+                    )}
+                    {liveOrder.deliveryAuthorizedBy && (
+                      <span className="text-[10px] text-zinc-500">
+                        Autorizado: <strong>{liveOrder.deliveryAuthorizedBy}</strong>
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Right: Payment, Live Status Select & Quick Actions */}
@@ -579,6 +775,129 @@ export const OrdersManagementView: React.FC = () => {
                 )}
               </div>
 
+              {/* Sección de Evidencia Fotográfica y Despacho */}
+              {(inspectedOrder.pickupProofPhoto || inspectedOrder.deliveryProofPhoto || inspectedOrder.assignedDriverName || inspectedOrder.deliveryAuthorizedBy) && (
+                <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-3 text-xs">
+                  <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2">
+                    <span className="font-black text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 uppercase text-[11px] tracking-wider">
+                      <Camera className="w-3.5 h-3.5 text-amber-500" />
+                      Evidencias de Entrega y Despacho
+                    </span>
+                    {inspectedOrder.assignedDriverName && (
+                      <span className="font-bold text-[11px] text-zinc-600 dark:text-zinc-400">
+                        Motorizado: {inspectedOrder.assignedDriverName}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Evidencia de Recojo / Salida */}
+                    <div className="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[11px] text-amber-700 dark:text-amber-400">
+                          1. Salida de Tienda
+                        </span>
+                        {inspectedOrder.pickupProofAt && (
+                          <span className="text-[10px] text-zinc-400">
+                            {new Date(inspectedOrder.pickupProofAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                      </div>
+
+                      {inspectedOrder.pickupProofPhoto ? (
+                        <div
+                          onClick={() =>
+                            setLightboxState({
+                              isOpen: true,
+                              imageUrl: inspectedOrder.pickupProofPhoto!,
+                              title: `Evidencia de Salida · ${inspectedOrder.orderNumber}`,
+                              subtitle: `Autorizado por: ${inspectedOrder.deliveryAuthorizedBy || 'Encargado'}`,
+                              metadata: {
+                                stageLabel: 'Salida de Tienda (Pickup)',
+                                operatorOrDriver: inspectedOrder.pickupProofDriverName || inspectedOrder.assignedDriverName,
+                                capturedAt: inspectedOrder.pickupProofAt,
+                              },
+                            })
+                          }
+                          className="relative rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 aspect-video cursor-pointer group bg-black/10"
+                        >
+                          <img
+                            src={inspectedOrder.pickupProofPhoto}
+                            alt="Evidencia salida"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold text-[11px]">
+                            Ver en Grande
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-4 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-center text-zinc-400 text-[11px]">
+                          Sin foto de salida
+                        </div>
+                      )}
+
+                      {inspectedOrder.deliveryAuthorizedBy && (
+                        <p className="text-[10px] text-zinc-500">
+                          Autorizó: <strong>{inspectedOrder.deliveryAuthorizedBy}</strong>
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Evidencia de Entrega al Cliente */}
+                    <div className="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[11px] text-emerald-700 dark:text-emerald-400">
+                          2. Entrega al Cliente
+                        </span>
+                        {inspectedOrder.deliveryProofAt && (
+                          <span className="text-[10px] text-zinc-400">
+                            {new Date(inspectedOrder.deliveryProofAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        )}
+                      </div>
+
+                      {inspectedOrder.deliveryProofPhoto ? (
+                        <div
+                          onClick={() =>
+                            setLightboxState({
+                              isOpen: true,
+                              imageUrl: inspectedOrder.deliveryProofPhoto!,
+                              title: `Evidencia de Entrega · ${inspectedOrder.orderNumber}`,
+                              subtitle: `Entregado a: ${inspectedOrder.customerName}`,
+                              metadata: {
+                                stageLabel: 'Entrega Conforme',
+                                operatorOrDriver: inspectedOrder.deliveryProofDriverName || inspectedOrder.assignedDriverName,
+                                capturedAt: inspectedOrder.deliveryProofAt,
+                              },
+                            })
+                          }
+                          className="relative rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-700 aspect-video cursor-pointer group bg-black/10"
+                        >
+                          <img
+                            src={inspectedOrder.deliveryProofPhoto}
+                            alt="Evidencia entrega"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-bold text-[11px]">
+                            Ver en Grande
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-4 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-center text-zinc-400 text-[11px]">
+                          Sin foto de entrega
+                        </div>
+                      )}
+
+                      {inspectedOrder.deliveredAt && (
+                        <p className="text-[10px] text-zinc-500">
+                          Hora: <strong>{new Date(inspectedOrder.deliveredAt).toLocaleTimeString()}</strong>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 {inspectedOrder.items.map((it, idx) => (
                   <div
@@ -591,7 +910,7 @@ export const OrdersManagementView: React.FC = () => {
                       </span>
                       {it.halfAndHalf && (
                         <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400">
-                          🍕 1/2 {it.halfAndHalf.firstHalfName} + 1/2 {it.halfAndHalf.secondHalfName}
+                          [1/2] {it.halfAndHalf.firstHalfName} + [1/2] {it.halfAndHalf.secondHalfName}
                         </p>
                       )}
                       {it.subOptions.length > 0 && (
@@ -680,6 +999,16 @@ export const OrdersManagementView: React.FC = () => {
       <ThermalTicketBuilderModal
         isOpen={isThermalModalOpen}
         onClose={() => setIsThermalModalOpen(false)}
+      />
+
+      {/* Lightbox para Visualización de Evidencias */}
+      <ImageLightboxModal
+        isOpen={lightboxState.isOpen}
+        onClose={() => setLightboxState(prev => ({ ...prev, isOpen: false, imageUrl: null }))}
+        imageUrl={lightboxState.imageUrl}
+        title={lightboxState.title}
+        subtitle={lightboxState.subtitle}
+        metadata={lightboxState.metadata}
       />
     </div>
   );

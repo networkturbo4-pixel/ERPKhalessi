@@ -58,6 +58,72 @@ function diskStoragePlugin(): Plugin {
       })
 
       server.middlewares.use(async (req, res, next) => {
+        // Proxy para Factúralo PRO (resuelve bloqueo de CORS de api.facturalo.pe en el navegador)
+        if (req.url?.startsWith('/api/facturalo-proxy')) {
+          res.setHeader('Access-Control-Allow-Origin', '*')
+          res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+
+          if (req.method === 'OPTIONS') {
+            res.statusCode = 204
+            res.end()
+            return
+          }
+
+          if (req.method === 'POST') {
+            const chunks: Buffer[] = []
+            req.on('data', c => chunks.push(Buffer.from(c)))
+            req.on('end', async () => {
+              try {
+                const bodyStr = Buffer.concat(chunks).toString('utf-8')
+                const payload = JSON.parse(bodyStr || '{}')
+                const { targetUrl, method = 'GET', headers = {}, body } = payload
+
+                if (!targetUrl || typeof targetUrl !== 'string') {
+                  res.setHeader('Content-Type', 'application/json')
+                  res.statusCode = 400
+                  res.end(JSON.stringify({ ok: false, error: 'targetUrl es requerido' }))
+                  return
+                }
+
+                const fetchHeaders: Record<string, string> = { ...headers }
+                if (body && !fetchHeaders['Content-Type']) {
+                  fetchHeaders['Content-Type'] = 'application/json'
+                }
+
+                const upstreamRes = await fetch(targetUrl, {
+                  method,
+                  headers: fetchHeaders,
+                  body: body ? (typeof body === 'string' ? body : JSON.stringify(body)) : undefined,
+                })
+
+                const upstreamText = await upstreamRes.text()
+                let parsedData: any = null
+                try {
+                  parsedData = JSON.parse(upstreamText)
+                } catch {
+                  parsedData = upstreamText
+                }
+
+                res.setHeader('Content-Type', 'application/json')
+                res.statusCode = 200
+                res.end(
+                  JSON.stringify({
+                    ok: upstreamRes.ok,
+                    status: upstreamRes.status,
+                    data: parsedData,
+                  })
+                )
+              } catch (err: any) {
+                res.setHeader('Content-Type', 'application/json')
+                res.statusCode = 500
+                res.end(JSON.stringify({ ok: false, error: err?.message || 'Error en proxy Factúralo' }))
+              }
+            })
+            return
+          }
+        }
+
         // Mock /api/auth.php para desarrollo local
         if (req.url?.startsWith('/api/auth')) {
           if (req.method === 'POST') {

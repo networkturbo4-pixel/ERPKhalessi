@@ -4,6 +4,7 @@ import {
   PointsProgramConfig,
   PointReward,
   RewardRedemptionRecord,
+  GameSettingsConfig,
 } from '../types/benefits';
 
 const BENEFITS_STORAGE_KEY = 'kh_erp_benefits_v1';
@@ -51,11 +52,87 @@ const DEFAULT_COUPONS: PromoCoupon[] = [
 
 const DEFAULT_POINTS_CONFIG: PointsProgramConfig = {
   enabled: true,
+  status: 'active',
   cardTitle: 'Tarjeta de Puntos Khalessi',
   cardSubtitle: 'Acumula 1 punto por cada compra online y canjea pizzas o complementos gratis.',
+  cardIcon: 'crown',
+  cardBgColor: '#18181b',
+  recommendedDimensionsNote: '1000 x 600 px (proporción 5:3 / tarjeta estándar)',
+  awardPointPerOrder: true,
+  awardPointOnRegister: true,
   pointsPerPurchase: 1,
   minPurchaseAmountForPoint: 20,
   stampsPerCardGoal: 8,
+};
+
+const DEFAULT_GAME_SETTINGS: GameSettingsConfig = {
+  enabled: true,
+  title: 'Ruleta Khalessi de la Suerte',
+  subtitle: '¡Gira y gana descuentos directos, bebidas o pizzas familiares gratis!',
+  gameType: 'ruleta',
+  frequency: 'daily',
+  maxAttempts: 1,
+  themeColor: '#f59e0b',
+  difficultyLevel: 'medio',
+  winAnimation: 'confetti',
+  loseAnimation: 'shake',
+  prizes: [
+    {
+      id: 'prz-1',
+      label: '10% Descuento',
+      rewardType: 'discount_percent',
+      discountValue: 10,
+      color: '#f59e0b',
+      weight: 8,
+      isWinning: true,
+    },
+    {
+      id: 'prz-2',
+      label: 'S/ 5.00 Cupón',
+      rewardType: 'discount_fixed',
+      discountValue: 5,
+      color: '#10b981',
+      weight: 6,
+      isWinning: true,
+    },
+    {
+      id: 'prz-3',
+      label: 'Gaseosa 1.5L Gratis',
+      rewardType: 'free_product',
+      freeProductName: 'Gaseosa 1.5L',
+      discountValue: 10.5,
+      color: '#3b82f6',
+      weight: 4,
+      isWinning: true,
+    },
+    {
+      id: 'prz-4',
+      label: 'Sigue Intentando',
+      rewardType: 'no_prize',
+      color: '#6b7280',
+      weight: 10,
+      isWinning: false,
+    },
+    {
+      id: 'prz-5',
+      label: '1 Pizza Personal Gratis',
+      rewardType: 'free_product',
+      freeProductName: 'Pizza Personal',
+      discountValue: 24.9,
+      color: '#ec4899',
+      weight: 2,
+      isWinning: true,
+    },
+    {
+      id: 'prz-6',
+      label: '+2 Puntos Extra',
+      rewardType: 'points',
+      pointsValue: 2,
+      color: '#8b5cf6',
+      weight: 5,
+      isWinning: true,
+    },
+  ],
 };
 
 const DEFAULT_REWARDS: PointReward[] = [
@@ -99,6 +176,7 @@ interface PersistedBenefitsState {
   pointsConfig: PointsProgramConfig;
   rewards: PointReward[];
   redemptionHistory: RewardRedemptionRecord[];
+  gameSettings: GameSettingsConfig;
 }
 
 function loadBenefitsState(): PersistedBenefitsState {
@@ -108,6 +186,7 @@ function loadBenefitsState(): PersistedBenefitsState {
       pointsConfig: DEFAULT_POINTS_CONFIG,
       rewards: DEFAULT_REWARDS,
       redemptionHistory: [],
+      gameSettings: DEFAULT_GAME_SETTINGS,
     };
   }
   try {
@@ -118,6 +197,7 @@ function loadBenefitsState(): PersistedBenefitsState {
         pointsConfig: DEFAULT_POINTS_CONFIG,
         rewards: DEFAULT_REWARDS,
         redemptionHistory: [],
+        gameSettings: DEFAULT_GAME_SETTINGS,
       };
     }
     const parsed = JSON.parse(raw);
@@ -126,6 +206,7 @@ function loadBenefitsState(): PersistedBenefitsState {
       pointsConfig: { ...DEFAULT_POINTS_CONFIG, ...(parsed.pointsConfig || {}) },
       rewards: Array.isArray(parsed.rewards) ? parsed.rewards : DEFAULT_REWARDS,
       redemptionHistory: Array.isArray(parsed.redemptionHistory) ? parsed.redemptionHistory : [],
+      gameSettings: { ...DEFAULT_GAME_SETTINGS, ...(parsed.gameSettings || {}) },
     };
   } catch {
     return {
@@ -133,6 +214,7 @@ function loadBenefitsState(): PersistedBenefitsState {
       pointsConfig: DEFAULT_POINTS_CONFIG,
       rewards: DEFAULT_REWARDS,
       redemptionHistory: [],
+      gameSettings: DEFAULT_GAME_SETTINGS,
     };
   }
 }
@@ -149,17 +231,20 @@ interface BenefitsContextType {
   pointsConfig: PointsProgramConfig;
   rewards: PointReward[];
   redemptionHistory: RewardRedemptionRecord[];
+  gameSettings: GameSettingsConfig;
   saveCoupon: (coupon: Omit<PromoCoupon, 'id' | 'createdAt' | 'usedCount'> & { id?: string }) => void;
   toggleCouponActive: (couponId: string) => void;
   deleteCoupon: (couponId: string) => void;
   validateCoupon: (rawCode: string, cartSubtotal: number) => CouponValidationResult;
   registerCouponUsage: (code: string) => void;
   updatePointsConfig: (patch: Partial<PointsProgramConfig>) => void;
+  updateGameSettings: (patch: Partial<GameSettingsConfig>) => void;
   saveReward: (reward: Omit<PointReward, 'id' | 'redeemedCount'> & { id?: string }) => void;
   toggleRewardActive: (rewardId: string) => void;
   deleteReward: (rewardId: string) => void;
   calculateRewardDiscount: (reward: PointReward, cartSubtotal: number) => number;
   registerRewardRedemption: (payload: Omit<RewardRedemptionRecord, 'id' | 'redeemedAt'>) => void;
+  redeemReward: (rewardId: string, customerName: string, customerPhone: string, orderNumber: string) => void;
 }
 
 const BenefitsContext = createContext<BenefitsContextType | undefined>(undefined);
@@ -296,6 +381,13 @@ export const BenefitsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }));
   }, []);
 
+  const updateGameSettings = useCallback((patch: Partial<GameSettingsConfig>) => {
+    setState(prev => ({
+      ...prev,
+      gameSettings: { ...prev.gameSettings, ...patch },
+    }));
+  }, []);
+
   const saveReward = useCallback(
     (rewardInput: Omit<PointReward, 'id' | 'redeemedCount'> & { id?: string }) => {
       setState(prev => {
@@ -360,6 +452,21 @@ export const BenefitsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     []
   );
 
+  const redeemReward = useCallback(
+    (rewardId: string, customerName: string, customerPhone: string, orderNumber: string) => {
+      const reward = state.rewards.find(r => r.id === rewardId);
+      registerRewardRedemption({
+        rewardId,
+        rewardTitle: reward?.title || 'Premio Canjeado',
+        customerName: customerName || 'Cliente',
+        customerPhone: customerPhone || 'Sin celular',
+        pointsSpent: reward?.pointsCost || 0,
+        orderNumber: orderNumber || 'PED-000',
+      });
+    },
+    [state.rewards, registerRewardRedemption]
+  );
+
   return (
     <BenefitsContext.Provider
       value={{
@@ -367,17 +474,20 @@ export const BenefitsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         pointsConfig: state.pointsConfig,
         rewards: state.rewards,
         redemptionHistory: state.redemptionHistory,
+        gameSettings: state.gameSettings,
         saveCoupon,
         toggleCouponActive,
         deleteCoupon,
         validateCoupon,
         registerCouponUsage,
         updatePointsConfig,
+        updateGameSettings,
         saveReward,
         toggleRewardActive,
         deleteReward,
         calculateRewardDiscount,
         registerRewardRedemption,
+        redeemReward,
       }}
     >
       {children}

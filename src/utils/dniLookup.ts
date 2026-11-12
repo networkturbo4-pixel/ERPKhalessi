@@ -1,4 +1,5 @@
 import { Customer } from '../types/catalog';
+import { lookupDniFacturalo, lookupRucFacturalo, FacturaloRucResponse } from './facturaloApi';
 
 export interface ReniecApiConfig {
   endpointUrl: string;
@@ -7,7 +8,7 @@ export interface ReniecApiConfig {
 
 export interface DniLookupResult {
   found: boolean;
-  source: 'crm' | 'api' | 'padron_demo' | 'manual';
+  source: 'crm' | 'facturalo' | 'api' | 'padron_demo' | 'manual';
   dni: string;
   fullName: string;
   email?: string;
@@ -17,6 +18,9 @@ export interface DniLookupResult {
   existingCustomer?: Customer;
   message: string;
 }
+
+export { lookupRucFacturalo };
+export type { FacturaloRucResponse };
 
 const RENIEC_CONFIG_KEY = 'kh_reniec_api_config';
 
@@ -100,7 +104,24 @@ export async function lookupPersonByDni(
     };
   }
 
-  // 2. Consultar API RENIEC configurada (si tiene token o endpoint público accesible)
+  // 2. Consultar API Factúralo PRO (docs.facturalo.pe)
+  try {
+    const facturaloRes = await lookupDniFacturalo(dni);
+    if (facturaloRes.success && facturaloRes.fullName) {
+      return {
+        found: true,
+        source: facturaloRes.source === 'facturalo' ? 'facturalo' : 'padron_demo',
+        dni,
+        fullName: facturaloRes.fullName,
+        address: facturaloRes.direccion,
+        message: facturaloRes.message,
+      };
+    }
+  } catch {
+    // Continuar a fallback de API RENIEC secundaria
+  }
+
+  // 3. Consultar API RENIEC secundaria configurada (si tiene token o endpoint público accesible)
   const config = getReniecApiConfig();
   if (config.endpointUrl) {
     const controller = new AbortController();

@@ -12,9 +12,12 @@ import {
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useRBAC } from '../../context/RBACContext';
+import { useStoreCustomer } from '../../context/StoreCustomerContext';
 import { lookupPersonByDni } from '../../utils/dniLookup';
 import { ProductCustomizerModal } from '../common/ProductCustomizerModal';
 import { ThermalTicketBuilderModal } from './ThermalTicketBuilderModal';
+import { CustomerAddressMapPicker } from './CustomerAddressMapPicker';
+import { calculateDynamicDeliveryFee } from '../../utils/culqiCheckout';
 import { printThermalTicket } from '../../utils/thermalPrinter';
 import {
   Receipt,
@@ -52,7 +55,12 @@ import {
   Printer,
   Sun,
   Moon,
+  Sparkles,
+  Gift,
+  Tag,
 } from 'lucide-react';
+import { useBenefits } from '../../context/BenefitsContext';
+import { PointReward } from '../../types/benefits';
 
 interface CashRegisterSession {
   isOpen: boolean;
@@ -89,12 +97,16 @@ export const POSView: React.FC<POSViewProps> = ({
   } = useOrderCatalog();
   const {
     activeTenant,
+    companyInfo,
     dispatchToast,
     openNoticeModal,
     isDarkResolved,
     updateCustomization,
   } = useSettings();
   const { currentUser } = useRBAC();
+  const { rewards, redeemReward, pointsConfig } = useBenefits();
+  const { allCustomerAccounts, adjustAccountPointsById } = useStoreCustomer();
+  const accounts = allCustomerAccounts;
 
   const [internalActiveTab, setInternalActiveTab] = useState<'carta' | 'mesas'>('carta');
   const activePosTab = propActiveTab ?? internalActiveTab;
@@ -222,6 +234,48 @@ export const POSView: React.FC<POSViewProps> = ({
   const [quickDniInput, setQuickDniInput] = useState('');
   const [isLookingUpDni, setIsLookingUpDni] = useState(false);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [appliedReward, setAppliedReward] = useState<PointReward | null>(null);
+  const [customerSearchMatches, setCustomerSearchMatches] = useState<Customer[]>([]);
+  const [showCustomerSearchDropdown, setShowCustomerSearchDropdown] = useState(false);
+
+  // Matched Storefront Customer Account (Omnichannel Loyalty Sync)
+  const matchedStoreAccount = useMemo(() => {
+    if (!selectedCustomer) return null;
+    const cleanDni = (selectedCustomer.dni || '').replace(/\D/g, '');
+    const cleanPhone = (selectedCustomer.whatsapp || '').replace(/\D/g, '').slice(-9);
+    return (
+      accounts.find(
+        (a) =>
+          (cleanDni.length >= 8 && a.dni && a.dni.replace(/\D/g, '') === cleanDni) ||
+          (cleanPhone.length >= 7 && a.phone && a.phone.replace(/\D/g, '').slice(-9) === cleanPhone) ||
+          (a.fullName &&
+            selectedCustomer.fullName &&
+            a.fullName.toLowerCase().trim() === selectedCustomer.fullName.toLowerCase().trim())
+      ) || null
+    );
+  }, [selectedCustomer, accounts]);
+
+  const customerPoints = matchedStoreAccount
+    ? (matchedStoreAccount.points || 0)
+    : (selectedCustomer?.loyaltyPoints || 0);
+
+  // Sync points to selectedCustomer in state if account has updated points
+  useEffect(() => {
+    if (selectedCustomer && matchedStoreAccount) {
+      if ((selectedCustomer.loyaltyPoints ?? 0) !== (matchedStoreAccount.points ?? 0)) {
+        setSelectedCustomer((prev) =>
+          prev ? { ...prev, loyaltyPoints: matchedStoreAccount.points || 0 } : null
+        );
+      }
+    }
+  }, [selectedCustomer, matchedStoreAccount]);
+
+  // Auto-apertura de caja si la caja está cerrada al ingresar al POS
+  useEffect(() => {
+    if (!cashSession.isOpen) {
+      setIsAperturaModalOpen(true);
+    }
+  }, [cashSession.isOpen]);
 
   // Customer Form Fields (DNI API + Manual)
   const [custId, setCustId] = useState<string | undefined>(undefined);
@@ -231,6 +285,9 @@ export const POSView: React.FC<POSViewProps> = ({
   const [custWhatsapp, setCustWhatsapp] = useState('');
   const [custAddress, setCustAddress] = useState('');
   const [custReference, setCustReference] = useState('');
+  const [custCoords, setCustCoords] = useState<[number, number] | null>(null);
+  const [custDistanceKm, setCustDistanceKm] = useState<number | undefined>(undefined);
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
   const [dniFeedbackMsg, setDniFeedbackMsg] = useState('');
 
   // Sync native <dialog> visibility
@@ -327,8 +384,18 @@ export const POSView: React.FC<POSViewProps> = ({
   }, [products, activeCategory, searchQuery]);
 
   const subtotal = ticketItems.reduce((acc, item) => acc + item.totalPrice, 0);
-  const deliveryExtra = channel === 'pos-delivery' && ticketItems.length > 0 ? 5.0 : 0;
-  const total = subtotal + deliveryExtra;
+  const activeBranchTariff = activeTenant.operations?.deliveryTariff || companyInfo.deliveryTariff;
+  const currentCustomerDistanceKm = selectedCustomer?.distanceKm ?? custDistanceKm ?? null;
+  const dynamicDelivery = calculateDynamicDeliveryFee({
+    orderMode: channel === 'pos-delivery' ? 'delivery' : 'pickup',
+    distanceKm: currentCustomerDistanceKm,
+    branchMaxRadiusKm: activeTenant.operations?.deliveryRadiusKm || 8,
+    cartSubtotal: subtotal,
+    tariff: activeBranchTariff,
+  });
+  const deliveryExtra = channel === 'pos-delivery' && ticketItems.length > 0 ? dynamicDelivery.feeSoles : 0;
+  const rewardDiscount = appliedReward ? Math.min(subtotal, appliedReward.discountValue) : 0;
+  const total = Math.max(0, subtotal + deliveryExtra - rewardDiscount);
   const totalUnits = ticketItems.reduce((acc, item) => acc + item.quantity, 0);
 
   const handleAddItemToTicket = (item: OrderItem) => {
@@ -420,8 +487,56 @@ export const POSView: React.FC<POSViewProps> = ({
     setCustWhatsapp(prefill?.whatsapp || '');
     setCustAddress(prefill?.address || '');
     setCustReference(prefill?.reference || '');
+    setCustCoords(prefill?.latitude && prefill?.longitude ? [prefill.latitude, prefill.longitude] : null);
+    setCustDistanceKm(prefill?.distanceKm);
     setDniFeedbackMsg(statusNote);
     setIsCustomerModalOpen(true);
+  };
+
+  const handleConfirmMapLocation = (coords: [number, number], addressText: string, distance: number) => {
+    setCustCoords(coords);
+    if (addressText) {
+      setCustAddress(addressText);
+    }
+    setCustDistanceKm(distance);
+    dispatchToast('Ubicación Fijada', `Coordenadas guardadas a ${distance} km de la sede.`, 'success');
+  };
+
+  const handleQuickCustomerSearch = async (searchTerm?: string) => {
+    const raw = (searchTerm ?? quickDniInput).trim();
+    if (!raw) return;
+
+    // Check if it's 8 digits (DNI lookup)
+    const digitsOnly = raw.replace(/\D/g, '');
+    if (digitsOnly.length === 8 && raw.length === 8) {
+      await handleQuickDniLookup(digitsOnly);
+      return;
+    }
+
+    // Search by name, phone or DNI in CRM
+    const q = raw.toLowerCase();
+    const matches = customers.filter(
+      (c) =>
+        c.fullName.toLowerCase().includes(q) ||
+        c.dni.includes(q) ||
+        c.whatsapp.includes(q)
+    );
+
+    if (matches.length === 1) {
+      setSelectedCustomer(matches[0]);
+      setShowCustomerSearchDropdown(false);
+      setQuickDniInput('');
+      dispatchToast('Cliente Vinculado', `${matches[0].fullName} cargado (${matches[0].loyaltyPoints || 0} pts).`, 'success');
+    } else if (matches.length > 1) {
+      setCustomerSearchMatches(matches);
+      setShowCustomerSearchDropdown(true);
+    } else {
+      if (digitsOnly.length === 8) {
+        await handleQuickDniLookup(digitsOnly);
+      } else {
+        dispatchToast('No Encontrado', `No se encontró ningún cliente con "${raw}". Puedes crearlo con "+ Manual".`, 'info');
+      }
+    }
   };
 
   const handleQuickDniLookup = async (rawDniValue?: string) => {
@@ -473,6 +588,12 @@ export const POSView: React.FC<POSViewProps> = ({
       setCustWhatsapp(result.existingCustomer.whatsapp);
       setCustAddress(result.existingCustomer.address);
       setCustReference(result.existingCustomer.reference);
+      setCustCoords(
+        result.existingCustomer.latitude && result.existingCustomer.longitude
+          ? [result.existingCustomer.latitude, result.existingCustomer.longitude]
+          : null
+      );
+      setCustDistanceKm(result.existingCustomer.distanceKm);
     } else if (result.fullName) {
       setCustFullName(result.fullName);
     }
@@ -493,6 +614,9 @@ export const POSView: React.FC<POSViewProps> = ({
       whatsapp: custWhatsapp.trim(),
       address: custAddress.trim(),
       reference: custReference.trim(),
+      latitude: custCoords ? custCoords[0] : undefined,
+      longitude: custCoords ? custCoords[1] : undefined,
+      distanceKm: custDistanceKm,
       tenantId: activeTenant.id,
     });
 
@@ -589,7 +713,7 @@ export const POSView: React.FC<POSViewProps> = ({
       ? `${selectedTable.name} (Salón)`
       : 'Cliente Mostrador';
 
-    createOrder({
+    const newOrder = createOrder({
       channel,
       tenantId: activeTenant.id,
       customerId: selectedCustomer?.id,
@@ -606,10 +730,37 @@ export const POSView: React.FC<POSViewProps> = ({
       items: ticketItems,
       subtotal,
       deliveryFee: deliveryExtra,
-      discount: 0,
+      discount: rewardDiscount,
+      rewardRedeemedTitle: appliedReward ? appliedReward.title : undefined,
       total,
       estimatedMinutes: channel === 'pos-delivery' ? 30 : 18,
     });
+
+    if (appliedReward && selectedCustomer) {
+      if (matchedStoreAccount) {
+        adjustAccountPointsById(
+          matchedStoreAccount.id,
+          -appliedReward.pointsCost,
+          `Canje en POS (${appliedReward.title})`
+        );
+      }
+      const remainingPts = Math.max(0, customerPoints - appliedReward.pointsCost);
+      upsertCustomer(
+        {
+          ...selectedCustomer,
+          loyaltyPoints: remainingPts,
+        },
+        true
+      );
+      setSelectedCustomer((prev) => (prev ? { ...prev, loyaltyPoints: remainingPts } : null));
+      redeemReward(appliedReward.id, selectedCustomer.fullName, selectedCustomer.whatsapp, newOrder.orderNumber);
+      dispatchToast(
+        'Premio Canjeado',
+        `Se canjeó "${appliedReward.title}" por ${appliedReward.pointsCost} puntos.`,
+        'success'
+      );
+      setAppliedReward(null);
+    }
 
     setTicketItems([]);
     setIsMobileCartOpen(false);
@@ -743,62 +894,197 @@ export const POSView: React.FC<POSViewProps> = ({
           </div>
 
           {selectedCustomer ? (
-            <div className="p-2 rounded-lg bg-white dark:bg-zinc-900 border border-emerald-500/30 flex items-start justify-between gap-2">
-              <div className="min-w-0 text-xs">
-                <p className="font-bold text-zinc-900 dark:text-white truncate">{selectedCustomer.fullName}</p>
-                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-                  {selectedCustomer.dni ? `DNI ${selectedCustomer.dni}` : 'Sin DNI'}
-                  {selectedCustomer.whatsapp ? ` · ${selectedCustomer.whatsapp}` : ''}
-                </p>
-                {selectedCustomer.address && (
-                  <p className="text-[10px] text-amber-600 dark:text-amber-400 truncate mt-0.5">
-                    📍 {selectedCustomer.address}
+            <div className="p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-emerald-500/30 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 text-xs">
+                  <p className="font-bold text-zinc-900 dark:text-white truncate">{selectedCustomer.fullName}</p>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                    {selectedCustomer.dni ? `DNI ${selectedCustomer.dni}` : 'Sin DNI'}
+                    {selectedCustomer.whatsapp ? ` · ${selectedCustomer.whatsapp}` : ''}
                   </p>
+                  {selectedCustomer.address && (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 truncate mt-0.5">
+                      📍 {selectedCustomer.address}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  aria-label="Desvincular cliente"
+                  onClick={() => {
+                    setSelectedCustomer(null);
+                    setAppliedReward(null);
+                    setQuickDniInput('');
+                  }}
+                  className="p-1 rounded-md text-zinc-400 hover:text-rose-500 shrink-0"
+                >
+                  <X className="w-3.5 h-3.5" aria-hidden="true" />
+                </button>
+              </div>
+
+              {/* Loyalty Points & Active Rewards */}
+              <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-amber-500" />
+                    Puntos Club: {customerPoints} pts
+                  </span>
+                  {appliedReward && (
+                    <button
+                      type="button"
+                      onClick={() => setAppliedReward(null)}
+                      className="text-[10px] font-bold text-rose-500 hover:underline"
+                    >
+                      Quitar canje
+                    </button>
+                  )}
+                </div>
+
+                {appliedReward ? (
+                  <div className="p-1.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold flex items-center justify-between">
+                    <span className="truncate">🎁 {appliedReward.title}</span>
+                    <span className="shrink-0 font-mono">-S/ {appliedReward.discountValue.toFixed(2)}</span>
+                  </div>
+                ) : (
+                  (() => {
+                    const claimable = rewards.filter(
+                      (r) => r.isActive && r.pointsCost <= customerPoints
+                    );
+                    if (claimable.length === 0) {
+                      return (
+                        <p className="text-[10px] text-zinc-400 italic">
+                          {customerPoints === 0
+                            ? 'Sin puntos acumulados aún.'
+                            : 'No alcanza para premios activos.'}
+                        </p>
+                      );
+                    }
+                    return (
+                      <div className="space-y-1">
+                        <p className="text-[10px] text-zinc-500 font-semibold">Premios canjeables:</p>
+                        {claimable.map((r) => (
+                          <button
+                            key={r.id}
+                            type="button"
+                            onClick={() => {
+                              setAppliedReward(r);
+                              dispatchToast('Premio Seleccionado', `Se aplicará "${r.title}" al ticket.`, 'info');
+                            }}
+                            className="w-full p-1.5 rounded-lg border border-amber-200 dark:border-amber-800/40 bg-amber-50/50 dark:bg-amber-950/20 hover:border-amber-500 text-left text-xs flex items-center justify-between transition-all"
+                          >
+                            <span className="truncate text-zinc-900 dark:text-white font-medium">
+                              {r.badgeIcon} {r.title} ({r.pointsCost} pts)
+                            </span>
+                            <span className="text-[10px] font-black text-amber-700 dark:text-amber-300 shrink-0 ml-1">
+                              Canjear
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()
                 )}
               </div>
-              <button
-                type="button"
-                aria-label="Desvincular cliente"
-                onClick={() => {
-                  setSelectedCustomer(null);
-                  setQuickDniInput('');
-                }}
-                className="p-1 rounded-md text-zinc-400 hover:text-rose-500 shrink-0"
-              >
-                <X className="w-3.5 h-3.5" aria-hidden="true" />
-              </button>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5">
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={8}
-                value={quickDniInput}
-                onChange={(e) => {
-                  const clean = e.target.value.replace(/\D/g, '').slice(0, 8);
-                  setQuickDniInput(clean);
-                  if (clean.length === 8) {
-                    void handleQuickDniLookup(clean);
-                  }
-                }}
-                placeholder="DNI (8 dígitos)..."
-                aria-label="Buscar cliente por DNI de 8 dígitos"
-                className="min-h-[40px] flex-1 min-w-0 px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg text-xs font-mono text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
-              />
-              <button
-                type="button"
-                disabled={isLookingUpDni}
-                onClick={() => void handleQuickDniLookup()}
-                className="min-h-[40px] px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold flex items-center gap-1 shrink-0 transition-colors"
-              >
-                {isLookingUpDni ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
-                ) : (
-                  <Fingerprint className="w-3.5 h-3.5" aria-hidden="true" />
-                )}
-                <span>DNI</span>
-              </button>
+            <div className="relative">
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="text"
+                  value={quickDniInput}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setQuickDniInput(val);
+                    const q = val.trim().toLowerCase();
+                    if (q.length >= 2) {
+                      const matches = customers
+                        .filter(
+                          (c) =>
+                            c.fullName.toLowerCase().includes(q) ||
+                            c.dni.includes(q) ||
+                            c.whatsapp.includes(q)
+                        )
+                        .slice(0, 5);
+                      setCustomerSearchMatches(matches);
+                      setShowCustomerSearchDropdown(matches.length > 0);
+                    } else {
+                      setShowCustomerSearchDropdown(false);
+                    }
+                    const clean = val.replace(/\D/g, '').slice(0, 8);
+                    if (clean.length === 8 && val.length === 8) {
+                      void handleQuickDniLookup(clean);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void handleQuickCustomerSearch();
+                    }
+                  }}
+                  placeholder="DNI (8 dígitos) o Nombre..."
+                  aria-label="Buscar cliente por DNI o Nombre"
+                  className="min-h-[40px] flex-1 min-w-0 px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg text-xs font-mono text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
+                />
+                <button
+                  type="button"
+                  disabled={isLookingUpDni}
+                  onClick={() => void handleQuickCustomerSearch()}
+                  className="min-h-[40px] px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold flex items-center gap-1 shrink-0 transition-colors"
+                >
+                  {isLookingUpDni ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Search className="w-3.5 h-3.5" aria-hidden="true" />
+                  )}
+                  <span>Buscar</span>
+                </button>
+              </div>
+
+              {/* Autocomplete Dropdown */}
+              {showCustomerSearchDropdown && customerSearchMatches.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-30 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto saas-scroll">
+                  {customerSearchMatches.map((c) => {
+                    const cleanDni = (c.dni || '').replace(/\D/g, '');
+                    const cleanPhone = (c.whatsapp || '').replace(/\D/g, '').slice(-9);
+                    const acc = accounts.find(
+                      (a) =>
+                        (cleanDni && a.dni && a.dni.replace(/\D/g, '') === cleanDni) ||
+                        (cleanPhone && a.phone && a.phone.replace(/\D/g, '').slice(-9) === cleanPhone) ||
+                        (a.fullName &&
+                          c.fullName &&
+                          a.fullName.toLowerCase().trim() === c.fullName.toLowerCase().trim())
+                    );
+                    const pts = acc ? acc.points || 0 : c.loyaltyPoints || 0;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCustomer({ ...c, loyaltyPoints: pts });
+                          setShowCustomerSearchDropdown(false);
+                          setQuickDniInput('');
+                          dispatchToast(
+                            'Cliente Vinculado',
+                            `${c.fullName} seleccionado (${pts} pts).`,
+                            'success'
+                          );
+                        }}
+                        className="w-full text-left p-2.5 hover:bg-amber-500/10 border-b border-zinc-100 dark:border-zinc-800 last:border-0 flex items-center justify-between gap-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-zinc-900 dark:text-white truncate">{c.fullName}</p>
+                          <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                            {c.dni ? `DNI ${c.dni}` : 'Sin DNI'} {c.whatsapp ? `· ${c.whatsapp}` : ''}
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md shrink-0">
+                          ⭐ {pts} pts
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1079,6 +1365,12 @@ export const POSView: React.FC<POSViewProps> = ({
                 <span>S/ {deliveryExtra.toFixed(2)}</span>
               </div>
             )}
+            {rewardDiscount > 0 && (
+              <div className="flex justify-between text-xs text-emerald-600 dark:text-emerald-400 font-bold">
+                <span>Premio Canjeado ({appliedReward?.title})</span>
+                <span>-S/ {rewardDiscount.toFixed(2)}</span>
+              </div>
+            )}
             <div className="flex justify-between text-base font-black text-zinc-900 dark:text-white pt-1">
               <span>Total</span>
               <span className="text-amber-600 dark:text-amber-400">S/ {total.toFixed(2)}</span>
@@ -1136,46 +1428,8 @@ export const POSView: React.FC<POSViewProps> = ({
             </div>
           </div>
 
-          {/* Center: Main Navigation Tabs (Carta vs Plano de Mesas) */}
-          <nav aria-label="Pestañas del POS" className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/80 self-stretch md:self-auto justify-center">
-            <button
-              type="button"
-              onClick={() => setActivePosTab('carta')}
-              className={`min-h-[42px] px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
-                activePosTab === 'carta'
-                  ? 'bg-amber-500 text-zinc-950 shadow-xs'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-              }`}
-            >
-              <UtensilsCrossed className="w-4 h-4" />
-              <span>Carta de Productos</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActivePosTab('mesas')}
-              className={`min-h-[42px] px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
-                activePosTab === 'mesas'
-                  ? 'bg-amber-500 text-zinc-950 shadow-xs'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-              }`}
-            >
-              <LayoutGrid className="w-4 h-4" />
-              <span>Plano de Mesas</span>
-              {occupiedTablesCount > 0 && (
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
-                  activePosTab === 'mesas'
-                    ? 'bg-zinc-950 text-amber-400'
-                    : 'bg-amber-500 text-zinc-950'
-                }`}>
-                  {occupiedTablesCount} ocup.
-                </span>
-              )}
-            </button>
-          </nav>
-
           {/* Right: User / Operator Popover Menu */}
-          <div className="flex items-center gap-2.5 justify-end">
+          <div className="flex items-center gap-2 justify-end">
             <div className="relative" ref={userMenuRef}>
               <button
                 type="button"
@@ -1215,8 +1469,63 @@ export const POSView: React.FC<POSViewProps> = ({
                     </div>
                   </div>
 
+                  {/* Vistas / Pestañas del POS en el Desplegable */}
+                  <div className="pt-1 pb-1 border-y border-zinc-100 dark:border-zinc-800 space-y-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 px-2.5 block pt-0.5">
+                      Pestañas del POS
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActivePosTab('carta');
+                        setIsUserMenuOpen(false);
+                      }}
+                      className={`w-full p-2.5 rounded-xl text-left text-xs font-bold flex items-center justify-between transition-colors ${
+                        activePosTab === 'carta'
+                          ? 'bg-amber-500/15 text-amber-900 dark:text-amber-200 border border-amber-500/30'
+                          : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <UtensilsCrossed className="w-4 h-4 text-amber-500" />
+                        <span>Carta de Productos</span>
+                      </span>
+                      {activePosTab === 'carta' && (
+                        <span className="w-2 h-2 rounded-full bg-amber-500" />
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActivePosTab('mesas');
+                        setIsUserMenuOpen(false);
+                      }}
+                      className={`w-full p-2.5 rounded-xl text-left text-xs font-bold flex items-center justify-between transition-colors ${
+                        activePosTab === 'mesas'
+                          ? 'bg-amber-500/15 text-amber-900 dark:text-amber-200 border border-amber-500/30'
+                          : 'hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200'
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <LayoutGrid className="w-4 h-4 text-amber-500" />
+                        <span>Plano de Mesas</span>
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {occupiedTablesCount > 0 && (
+                          <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-zinc-950">
+                            {occupiedTablesCount} ocup.
+                          </span>
+                        )}
+                        {activePosTab === 'mesas' && (
+                          <span className="w-2 h-2 rounded-full bg-amber-500" />
+                        )}
+                      </div>
+                    </button>
+                  </div>
+
                   {/* Cash Session Action */}
-                  <div className="pt-1">
+                  <div className="pt-0.5">
                     {cashSession.isOpen ? (
                       <button
                         type="button"
@@ -1250,7 +1559,7 @@ export const POSView: React.FC<POSViewProps> = ({
                     )}
                   </div>
 
-                  {/* Thermal Ticket Builder Modal Trigger */}
+                  {/* Constructor de Recibos Térmicos */}
                   <button
                     type="button"
                     onClick={() => {
@@ -1261,7 +1570,7 @@ export const POSView: React.FC<POSViewProps> = ({
                   >
                     <span className="flex items-center gap-2">
                       <Printer className="w-4 h-4 text-amber-500" />
-                      <span>Recibos & Comandas Térmicas</span>
+                      <span>Formato de Recibos y Comandas</span>
                     </span>
                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-400">
                       80/58mm
@@ -1528,24 +1837,6 @@ export const POSView: React.FC<POSViewProps> = ({
           ) : (
             /* Dedicated Product Catalog View (Zero Clutter, Immediate Access) */
             <>
-              {/* Subtle Salon Table Pill (if salon channel active) */}
-              {channel === 'pos-salon' && selectedTable && (
-                <div className="px-4 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between text-xs font-bold text-amber-800 dark:text-amber-300">
-                  <div className="flex items-center gap-2">
-                    <UtensilsCrossed className="w-4 h-4 text-amber-500" />
-                    <span>Mesa Seleccionada: <strong>{selectedTable.name}</strong> · {selectedTable.zone} ({selectedTable.capacity} personas)</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setActivePosTab('mesas')}
-                    className="text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 font-black shrink-0"
-                  >
-                    <span>Ver Plano de Mesas</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
-
           {/* Tactile Search & Category Filter Bar */}
           <div className="flex flex-col sm:flex-row gap-2.5">
             <div className="relative flex-1 min-w-0">
@@ -1914,11 +2205,21 @@ export const POSView: React.FC<POSViewProps> = ({
                 </div>
               </div>
 
-              {/* Address & Reference */}
+              {/* Address & Reference with GPS PIN Map Picker */}
               <div>
-                <label htmlFor="pos-cust-address" className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
-                  Dirección Exacta {channel === 'pos-delivery' ? '*' : ''}
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label htmlFor="pos-cust-address" className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                    Dirección Exacta {channel === 'pos-delivery' ? '*' : ''}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsMapPickerOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-xl transition-all shadow-xs cursor-pointer"
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span>Marcar en Mapa con PIN</span>
+                  </button>
+                </div>
                 <div className="relative">
                   <MapPin className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" aria-hidden="true" />
                   <input
@@ -1933,6 +2234,17 @@ export const POSView: React.FC<POSViewProps> = ({
                     className="min-h-[44px] w-full pl-9 pr-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
                   />
                 </div>
+                {custDistanceKm !== undefined && (
+                  <div className="mt-1.5 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300">
+                    <span className="font-bold flex items-center gap-1.5">
+                      <Bike className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      GPS fijado: a {custDistanceKm} km de {activeTenant.name.replace('Khalessi Pizza - ', '')}
+                    </span>
+                    <span className="text-[11px] font-bold">
+                      {custDistanceKm <= (activeTenant.operations?.deliveryRadiusKm || 8) ? '✓ Dentro de cobertura' : '⚠️ Fuera de cobertura'}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -1970,6 +2282,22 @@ export const POSView: React.FC<POSViewProps> = ({
           </div>
         )}
       </dialog>
+
+      {/* MAPA PICKER CON PIN PARA FIJAR DIRECCIÓN Y COORDENADAS EXACTAS */}
+      <CustomerAddressMapPicker
+        isOpen={isMapPickerOpen}
+        onClose={() => setIsMapPickerOpen(false)}
+        branchCoords={[
+          activeTenant.operations?.latitude || -11.93605,
+          activeTenant.operations?.longitude || -77.05432,
+        ]}
+        branchName={activeTenant.name}
+        branchRadiusKm={activeTenant.operations?.deliveryRadiusKm || 8}
+        initialCoords={custCoords}
+        initialAddress={custAddress}
+        tariff={activeTenant.operations?.deliveryTariff || companyInfo.deliveryTariff}
+        onConfirm={handleConfirmMapLocation}
+      />
 
       {/* NATIVE <dialog>: CONSTRUCTOR DE MESA (CREAR / EDITAR MESA) */}
       <dialog

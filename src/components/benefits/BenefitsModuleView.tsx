@@ -4,7 +4,7 @@ import {
   Ticket,
   Award,
   Users,
-  Truck,
+  Gamepad2,
   Plus,
   Edit2,
   Trash2,
@@ -16,14 +16,18 @@ import {
   Star,
   History,
   Sliders,
+  Image as ImageIcon,
+  Flame,
+  Crown,
+  Upload,
 } from 'lucide-react';
 import { useBenefits } from '../../context/BenefitsContext';
 import { useStoreCustomer } from '../../context/StoreCustomerContext';
 import { useSettings } from '../../context/SettingsContext';
 import { PromoCoupon, PointReward, CouponDiscountType, RewardBenefitType } from '../../types/benefits';
-import { DeliveryDistanceBracket } from '../../types/settings';
+import { GamesSettingsTab } from './GamesSettingsTab';
 
-type BenefitsTab = 'coupons' | 'points_card' | 'customers_points' | 'delivery_tariff';
+type BenefitsTab = 'coupons' | 'points_card' | 'customers_points' | 'games';
 
 export const BenefitsModuleView: React.FC = () => {
   const {
@@ -65,11 +69,6 @@ export const BenefitsModuleView: React.FC = () => {
   const [rewType, setRewType] = useState<RewardBenefitType>('free_product');
   const [rewValue, setRewValue] = useState(24.9);
   const [rewIcon, setRewIcon] = useState('🍕');
-
-  // Delivery Bracket New Row State
-  const [newMinKm, setNewMinKm] = useState(10);
-  const [newMaxKm, setNewMaxKm] = useState(14);
-  const [newFeeSoles, setNewFeeSoles] = useState(15);
 
   const openCreateCoupon = () => {
     setEditingCouponId(undefined);
@@ -197,62 +196,6 @@ export const BenefitsModuleView: React.FC = () => {
     });
   };
 
-  const tariff = companyInfo.deliveryTariff || {
-    enabled: true,
-    baseFallbackFeeSoles: 5,
-    extraPerKmSoles: 1.5,
-    freeDeliveryMinSubtotal: 120,
-    brackets: [],
-  };
-
-  const updateTariffPatch = (patch: Partial<typeof tariff>) => {
-    updateCompanyInfo({
-      ...companyInfo,
-      deliveryTariff: {
-        ...tariff,
-        ...patch,
-      },
-    });
-  };
-
-  const handleUpdateBracketField = (
-    bracketId: string,
-    field: keyof Omit<DeliveryDistanceBracket, 'id'>,
-    val: number
-  ) => {
-    const nextBrackets = tariff.brackets.map(b =>
-      b.id === bracketId ? { ...b, [field]: Math.max(0, Number(val)) } : b
-    );
-    updateTariffPatch({ brackets: nextBrackets });
-  };
-
-  const handleAddBracket = () => {
-    if (newMaxKm <= newMinKm) {
-      dispatchToast('Rango Inválido', 'El kilómetro final debe ser mayor al kilómetro inicial.', 'warning');
-      return;
-    }
-    const created: DeliveryDistanceBracket = {
-      id: `km-${Date.now()}`,
-      minKm: Number(newMinKm),
-      maxKm: Number(newMaxKm),
-      feeSoles: Math.max(0, Number(newFeeSoles)),
-    };
-    const sorted = [...tariff.brackets, created].sort((a, b) => a.minKm - b.minKm);
-    updateTariffPatch({ brackets: sorted });
-    setNewMinKm(Number(newMaxKm));
-    setNewMaxKm(Number(newMaxKm) + 3);
-    dispatchToast('Tramo Agregado', `Se añadió el tramo ${created.minKm}–${created.maxKm} km (S/ ${created.feeSoles.toFixed(2)}).`, 'success');
-  };
-
-  const handleRemoveBracket = (bracketId: string) => {
-    if (tariff.brackets.length <= 1) {
-      dispatchToast('Acción no permitida', 'Mantén al menos un tramo de kilometraje activo.', 'warning');
-      return;
-    }
-    updateTariffPatch({ brackets: tariff.brackets.filter(b => b.id !== bracketId) });
-    dispatchToast('Tramo Eliminado', 'Se actualizó el tarifario de delivery por kilómetro.', 'info');
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -265,7 +208,7 @@ export const BenefitsModuleView: React.FC = () => {
             Módulo de Beneficios, Cupones & Tarjetas de Puntos
           </h1>
           <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-            Gestiona cupones promocionales, tarjetas de puntos (1 punto por compra web), premios canjeables y tarifario de delivery por km.
+            Gestiona cupones promocionales, tarjetas de puntos digitales personalizadas, premios canjeables y juegos interactivos (ruleta y rompecabezas).
           </p>
         </div>
 
@@ -275,7 +218,7 @@ export const BenefitsModuleView: React.FC = () => {
             { id: 'coupons' as const, label: 'Cupones', icon: Ticket, count: coupons.length },
             { id: 'points_card' as const, label: 'Tarjetas de Puntos & Premios', icon: Award, count: rewards.length },
             { id: 'customers_points' as const, label: 'Puntos de Clientes', icon: Users, count: allCustomerAccounts.length },
-            { id: 'delivery_tariff' as const, label: 'Tarifario Delivery / Km', icon: Truck, count: tariff.brackets.length },
+            { id: 'games' as const, label: 'Juegos (Ruleta & Retos)', icon: Gamepad2 },
           ].map(t => {
             const Icon = t.icon;
             const active = activeTab === t.id;
@@ -419,45 +362,264 @@ export const BenefitsModuleView: React.FC = () => {
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* Configurador de Reglas de la Tarjeta */}
-            <div className="lg:col-span-7 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4">
-              <div className="flex items-center justify-between gap-3">
+            <div className="lg:col-span-7 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-5 space-y-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3 border-b border-zinc-200 dark:border-zinc-800 pb-3">
                 <div className="flex items-center gap-2.5">
                   <Sliders className="w-5 h-5 text-amber-500" />
                   <div>
                     <h2 className="text-base font-black text-zinc-950 dark:text-white">
-                      Reglas de la Tarjeta de Puntos
+                      Personalización & Reglas de la Tarjeta
                     </h2>
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      Cada compra en la tienda virtual suma puntos automáticamente a la tarjeta digital del cliente.
+                      Define el diseño visual, íconos, fondo y la lógica de acumulación de puntos.
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    updatePointsConfig({ enabled: !pointsConfig.enabled });
-                    dispatchToast(
-                      !pointsConfig.enabled ? 'Tarjeta de Puntos Activa' : 'Programa Pausado',
-                      !pointsConfig.enabled
-                        ? 'Los clientes volverán a acumular puntos por cada compra online.'
-                        : 'Se pausó temporalmente la acumulación de puntos.',
-                      'info'
+
+                {/* Switcher Activo / Pausado */}
+                {(() => {
+                  const isCardActive = pointsConfig.enabled && pointsConfig.status !== 'paused';
+                  return (
+                    <div className="flex items-center gap-2.5 p-2 px-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 shrink-0">
+                      <div className="text-right">
+                        <span className="text-xs font-black block text-zinc-900 dark:text-white">
+                          {isCardActive ? '🟢 Tarjeta Activa' : '🔴 Tarjeta Pausada'}
+                        </span>
+                        <span className="text-[10px] text-zinc-500 block">
+                          {isCardActive ? 'Visible en tienda' : 'Oculta en tienda'}
+                        </span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={isCardActive}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            updatePointsConfig({
+                              enabled: checked,
+                              status: checked ? 'active' : 'paused',
+                            });
+                            dispatchToast(
+                              checked ? 'Tarjeta Activada' : 'Tarjeta Pausada',
+                              checked
+                                ? 'La tarjeta y puntos ahora se mostrarán en la tienda virtual.'
+                                : 'La tarjeta se ha ocultado de la tienda virtual.',
+                              checked ? 'success' : 'info'
+                            );
+                          }}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-zinc-300 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500" />
+                      </label>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Lógica de Asignación de Puntos */}
+              <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-3">
+                <span className="text-xs font-black uppercase tracking-wider text-zinc-800 dark:text-zinc-200 block">
+                  Lógica de Acumulación de Puntos
+                </span>
+
+                <div className="space-y-2.5">
+                  {/* Switch 1: +1 punto por nuevo pedido */}
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                    <div>
+                      <span className="text-xs font-bold text-zinc-900 dark:text-white block">
+                        +1 Punto por Cada Nuevo Pedido
+                      </span>
+                      <span className="text-[11px] text-zinc-500">
+                        Suma 1 punto al completar y confirmar la compra en la tienda
+                      </span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={pointsConfig.awardPointPerOrder !== false}
+                        onChange={(e) => updatePointsConfig({ awardPointPerOrder: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-zinc-300 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500" />
+                    </label>
+                  </div>
+
+                  {/* Switch 2: +1 punto al registrarse por primera vez */}
+                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                    <div>
+                      <span className="text-xs font-bold text-zinc-900 dark:text-white block">
+                        +1 Punto al Registrarse por Primera Vez
+                      </span>
+                      <span className="text-[11px] text-zinc-500">
+                        {pointsConfig.awardPointOnRegister
+                          ? 'Activado: el nuevo usuario recibe 1 punto de bienvenida'
+                          : 'Desactivado: el usuario comienza con 0 puntos'}
+                      </span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(pointsConfig.awardPointOnRegister)}
+                        onChange={(e) => updatePointsConfig({ awardPointOnRegister: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-zinc-300 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500" />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Selector de Icono de la Tarjeta y Subida de Ícono Propio */}
+              <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                    Ícono Personalizado de la Tarjeta
+                  </label>
+                  {pointsConfig.customIconUrl && (
+                    <button
+                      type="button"
+                      onClick={() => updatePointsConfig({ customIconUrl: undefined })}
+                      className="text-[10px] text-rose-500 hover:underline font-bold"
+                    >
+                      Quitar Ícono Propio
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-7 gap-2">
+                  {[
+                    { id: 'crown', label: 'Corona', Icon: Crown },
+                    { id: 'pizza', label: 'Pizza', Icon: Gift },
+                    { id: 'flame', label: 'Fuego', Icon: Flame },
+                    { id: 'award', label: 'Medalla', Icon: Award },
+                    { id: 'star', label: 'Estrella', Icon: Star },
+                    { id: 'sparkles', label: 'Brillo', Icon: Sparkles },
+                  ].map((ico) => {
+                    const IconCmp = ico.Icon;
+                    const selected = !pointsConfig.customIconUrl && (pointsConfig.cardIcon || 'crown') === ico.id;
+                    return (
+                      <button
+                        key={ico.id}
+                        type="button"
+                        onClick={() => updatePointsConfig({ cardIcon: ico.id, customIconUrl: undefined })}
+                        className={`p-2 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all ${
+                          selected
+                            ? 'bg-amber-500/20 border-amber-500 text-amber-600 dark:text-amber-400 font-bold shadow-xs'
+                            : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <IconCmp className="w-4 h-4" />
+                        <span className="text-[10px]">{ico.label}</span>
+                      </button>
                     );
-                  }}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-black whitespace-nowrap shrink-0 ${
-                    pointsConfig.enabled
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
-                  }`}
-                >
-                  {pointsConfig.enabled ? 'Programa Activo' : 'Pausado'}
-                </button>
+                  })}
+
+                  {/* 7mo slot: Subir Ícono Propio */}
+                  <label
+                    className={`p-2 rounded-xl border flex flex-col items-center justify-center gap-1 cursor-pointer transition-all ${
+                      pointsConfig.customIconUrl
+                        ? 'bg-amber-500/20 border-amber-500 text-amber-600 dark:text-amber-400 font-bold shadow-xs'
+                        : 'bg-white dark:bg-zinc-900 border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-500 hover:border-amber-400'
+                    }`}
+                  >
+                    {pointsConfig.customIconUrl ? (
+                      <img src={pointsConfig.customIconUrl} alt="Ícono" className="w-4 h-4 object-contain" />
+                    ) : (
+                      <Upload className="w-4 h-4 text-amber-500" />
+                    )}
+                    <span className="text-[10px] text-center leading-tight">
+                      {pointsConfig.customIconUrl ? 'Subido' : 'Subir'}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          if (ev.target?.result) {
+                            updatePointsConfig({ customIconUrl: String(ev.target.result) });
+                            dispatchToast('Ícono Personalizado Cargado', 'Se aplicó el nuevo ícono a la tarjeta.', 'success');
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {/* Etiqueta de Tamaño Recomendado para el Ícono */}
+                <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2">
+                  <span className="font-bold shrink-0">📐 Tamaño del Ícono:</span>
+                  <span>
+                    Diseña tu ícono en <strong>128 x 128 px</strong> o <strong>256 x 256 px</strong> (cuadrado 1:1, PNG con fondo transparente o SVG).
+                  </span>
+                </div>
+              </div>
+
+              {/* Subir Imagen de Fondo de la Tarjeta */}
+              <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                    <ImageIcon className="w-4 h-4 text-amber-500" />
+                    Imagen de Fondo de la Tarjeta Digital
+                  </label>
+                  {pointsConfig.cardBgImage && (
+                    <button
+                      type="button"
+                      onClick={() => updatePointsConfig({ cardBgImage: undefined })}
+                      className="text-[10px] text-rose-500 hover:underline font-bold"
+                    >
+                      Quitar Imagen
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={pointsConfig.cardBgImage || ''}
+                    onChange={(e) => updatePointsConfig({ cardBgImage: e.target.value })}
+                    placeholder="https://... o sube una imagen de fondo"
+                    className="flex-1 px-3 py-2 text-xs rounded-xl saas-input font-mono"
+                  />
+                  <label className="px-3.5 py-2 rounded-xl bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-xs font-bold cursor-pointer whitespace-nowrap shrink-0 transition-colors">
+                    <span>Subir Foto</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          if (ev.target?.result) {
+                            updatePointsConfig({ cardBgImage: String(ev.target.result) });
+                            dispatchToast('Imagen de Tarjeta Cargada', 'Fondo actualizado para clientes.', 'success');
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {/* Indicación de Tamaño Recomendado */}
+                <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2">
+                  <span className="font-bold shrink-0">ℹ️ Dimensiones Recomendadas:</span>
+                  <span>
+                    Diseña tu tarjeta en <strong>1000 x 600 px</strong> (proporción 5:3 / formato estándar CR80).
+                  </span>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-zinc-600 dark:text-zinc-400 mb-1">
-                    Nombre de la Tarjeta Digital
+                    Título de la Tarjeta
                   </label>
                   <input
                     type="text"
@@ -468,37 +630,7 @@ export const BenefitsModuleView: React.FC = () => {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-zinc-600 dark:text-zinc-400 mb-1">
-                    Puntos Ganados por Compra Web
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={pointsConfig.pointsPerPurchase}
-                    onChange={e =>
-                      updatePointsConfig({ pointsPerPurchase: Math.max(1, Number(e.target.value) || 1) })
-                    }
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-sm font-black text-zinc-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-zinc-600 dark:text-zinc-400 mb-1">
-                    Compra Mínima para Ganar Punto (S/)
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    step="1"
-                    value={pointsConfig.minPurchaseAmountForPoint}
-                    onChange={e =>
-                      updatePointsConfig({ minPurchaseAmountForPoint: Math.max(0, Number(e.target.value) || 0) })
-                    }
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-sm font-black text-zinc-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-zinc-600 dark:text-zinc-400 mb-1">
-                    Meta Visual de Sellos en Tarjeta
+                    Meta Visual de Sellos
                   </label>
                   <input
                     type="number"
@@ -514,57 +646,92 @@ export const BenefitsModuleView: React.FC = () => {
                   />
                 </div>
               </div>
-
-              <div>
-                <label className="block text-xs font-bold text-zinc-600 dark:text-zinc-400 mb-1">
-                  Descripción en el Perfil del Cliente
-                </label>
-                <input
-                  type="text"
-                  value={pointsConfig.cardSubtitle}
-                  onChange={e => updatePointsConfig({ cardSubtitle: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-900 dark:text-white"
-                />
-              </div>
             </div>
 
-            {/* Vista Previa en Vivo de la Tarjeta de Puntos (Sin degradados) */}
-            <div className="lg:col-span-5 bg-zinc-950 text-white border border-zinc-800 rounded-2xl p-5 flex flex-col justify-between gap-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500 text-zinc-950 text-[10px] font-black uppercase tracking-wider">
-                    <Sparkles className="w-3 h-3" /> Vista Previa Cliente
-                  </span>
-                  <h3 className="text-lg font-black mt-2">{pointsConfig.cardTitle}</h3>
-                  <p className="text-xs text-zinc-400 mt-0.5">{pointsConfig.cardSubtitle}</p>
+            {/* Vista Previa en Vivo de la Tarjeta de Puntos Personalizada */}
+            <div className="lg:col-span-5 relative overflow-hidden rounded-3xl border border-zinc-800 shadow-2xl p-6 flex flex-col justify-between gap-5 bg-zinc-950 text-white min-h-[280px]">
+              {/* Fondo personalizado con imagen o gradiente */}
+              {pointsConfig.cardBgImage && (
+                <div
+                  className="absolute inset-0 bg-cover bg-center opacity-30 pointer-events-none"
+                  style={{ backgroundImage: `url(${pointsConfig.cardBgImage})` }}
+                />
+              )}
+
+              <div className="relative z-10 flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500 text-zinc-950 text-[10px] font-black uppercase tracking-wider shadow-xs">
+                      {pointsConfig.customIconUrl ? (
+                        <img src={pointsConfig.customIconUrl} alt="Ícono" className="w-3.5 h-3.5 object-contain" />
+                      ) : (
+                        <span>
+                          {pointsConfig.cardIcon === 'pizza'
+                            ? '🍕'
+                            : pointsConfig.cardIcon === 'flame'
+                            ? '🔥'
+                            : pointsConfig.cardIcon === 'award'
+                            ? '🏅'
+                            : pointsConfig.cardIcon === 'star'
+                            ? '⭐'
+                            : pointsConfig.cardIcon === 'sparkles'
+                            ? '✨'
+                            : '👑'}
+                        </span>
+                      )}
+                      <span>Tarjeta Digital</span>
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                      (pointsConfig.status || (pointsConfig.enabled ? 'active' : 'paused')) === 'active'
+                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                        : 'bg-zinc-800 text-zinc-400'
+                    }`}>
+                      {(pointsConfig.status || (pointsConfig.enabled ? 'active' : 'paused')) === 'active' ? 'Activa' : 'Pausada'}
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-black mt-2 tracking-tight">{pointsConfig.cardTitle}</h3>
+                  <p className="text-xs text-zinc-300 line-clamp-2">{pointsConfig.cardSubtitle}</p>
                 </div>
+
                 <div className="text-right shrink-0">
                   <div className="text-2xl font-black text-amber-400">5 / {pointsConfig.stampsPerCardGoal}</div>
-                  <div className="text-[10px] uppercase font-bold text-zinc-400">Puntos</div>
+                  <div className="text-[10px] uppercase font-bold text-zinc-400">Puntos Sellados</div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-4 sm:grid-cols-4 gap-2 py-2">
+              {/* Sellos Visuales en la Tarjeta */}
+              <div className="relative z-10 grid grid-cols-4 gap-2 py-1">
                 {Array.from({ length: pointsConfig.stampsPerCardGoal }).map((_, idx) => {
                   const stamped = idx < 5;
                   return (
                     <div
                       key={idx}
-                      className={`h-12 rounded-xl border flex flex-col items-center justify-center text-xs font-black ${
+                      className={`h-11 rounded-xl border flex flex-col items-center justify-center text-xs font-black shadow-inner transition-all ${
                         stamped
-                          ? 'bg-amber-500 border-amber-400 text-zinc-950'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-500'
+                          ? 'bg-amber-500 border-amber-400 text-zinc-950 shadow-amber-500/20'
+                          : 'bg-zinc-900/80 border-zinc-800 text-zinc-500'
                       }`}
                     >
-                      {stamped ? <Star className="w-4 h-4 fill-current" /> : <span>#{idx + 1}</span>}
+                      {stamped ? (
+                        pointsConfig.customIconUrl ? (
+                          <img src={pointsConfig.customIconUrl} alt="Sello" className="w-5 h-5 object-contain" />
+                        ) : (
+                          <Star className="w-4 h-4 fill-current" />
+                        )
+                      ) : (
+                        <span>#{idx + 1}</span>
+                      )}
                     </div>
                   );
                 })}
               </div>
 
-              <div className="text-[11px] text-zinc-400 flex items-center justify-between pt-2 border-t border-zinc-800">
-                <span>+{pointsConfig.pointsPerPurchase} pto(s) por compra web ≥ S/ {pointsConfig.minPurchaseAmountForPoint}</span>
-                <span className="font-bold text-amber-400">{rewards.filter(r => r.isActive).length} premios activos</span>
+              <div className="relative z-10 text-[11px] text-zinc-300 flex items-center justify-between pt-3 border-t border-zinc-800/80">
+                <span>
+                  {pointsConfig.awardPointPerOrder !== false ? '✓ +1 pto por pedido' : 'Sin puntos por pedido'} ·{' '}
+                  {pointsConfig.awardPointOnRegister ? '+1 bienvenida' : '0 al registrarse'}
+                </span>
+                <span className="font-bold text-amber-400">{rewards.filter(r => r.isActive).length} premios disponibles</span>
               </div>
             </div>
           </div>
@@ -749,185 +916,8 @@ export const BenefitsModuleView: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 4: TARIFARIO DE DELIVERY DINÁMICO POR KILÓMETRO */}
-      {activeTab === 'delivery_tariff' && (
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-zinc-100 dark:border-zinc-800">
-            <div>
-              <h2 className="text-base font-black text-zinc-950 dark:text-white flex items-center gap-2">
-                <Truck className="w-5 h-5 text-amber-500" />
-                Tarifario Oficial de Delivery Dinámico por Kilómetro
-              </h2>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                Calcula automáticamente el costo de envío según los kilómetros reales entre la sucursal seleccionada y el GPS del cliente.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                updateTariffPatch({ enabled: !tariff.enabled });
-                dispatchToast(
-                  !tariff.enabled ? 'Tarifa Dinámica Activa' : 'Tarifa Fija Activa',
-                  !tariff.enabled
-                    ? 'La tienda calculará el envío por tramos de kilometraje.'
-                    : 'Se usará la tarifa base fija de respaldo.',
-                  'info'
-                );
-              }}
-              className={`px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap shrink-0 ${
-                tariff.enabled ? 'bg-emerald-500 text-white' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600'
-              }`}
-            >
-              {tariff.enabled ? 'Cálculo por Km Activo' : 'Usando Tarifa Fija'}
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-zinc-600 dark:text-zinc-400 mb-1">
-                Tarifa Base sin GPS (S/)
-              </label>
-              <input
-                type="number"
-                min={0}
-                step="0.5"
-                value={tariff.baseFallbackFeeSoles}
-                onChange={e => updateTariffPatch({ baseFallbackFeeSoles: Math.max(0, Number(e.target.value) || 0) })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-sm font-black text-zinc-900 dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-zinc-600 dark:text-zinc-400 mb-1">
-                Recargo por Km Adicional fuera de tramo (S/)
-              </label>
-              <input
-                type="number"
-                min={0}
-                step="0.5"
-                value={tariff.extraPerKmSoles}
-                onChange={e => updateTariffPatch({ extraPerKmSoles: Math.max(0, Number(e.target.value) || 0) })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-sm font-black text-zinc-900 dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-zinc-600 dark:text-zinc-400 mb-1">
-                Delivery Gratis desde Compra Mayor a (S/)
-              </label>
-              <input
-                type="number"
-                min={0}
-                step="5"
-                value={tariff.freeDeliveryMinSubtotal || 0}
-                onChange={e =>
-                  updateTariffPatch({ freeDeliveryMinSubtotal: Math.max(0, Number(e.target.value) || 0) })
-                }
-                className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-sm font-black text-zinc-900 dark:text-white"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2.5">
-            <div className="text-xs font-black uppercase tracking-wider text-zinc-500">
-              Tramos Configurados (Desde Km → Hasta Km = Precio S/)
-            </div>
-            {tariff.brackets.map(b => (
-              <div
-                key={b.id}
-                className="grid grid-cols-3 sm:grid-cols-4 gap-3 items-center p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800"
-              >
-                <div>
-                  <span className="block text-[10px] font-bold text-zinc-400">Desde (km)</span>
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.5"
-                    value={b.minKm}
-                    onChange={e => handleUpdateBracketField(b.id, 'minKm', Number(e.target.value))}
-                    className="w-full mt-0.5 px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-bold text-zinc-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <span className="block text-[10px] font-bold text-zinc-400">Hasta (km)</span>
-                  <input
-                    type="number"
-                    min={0.5}
-                    step="0.5"
-                    value={b.maxKm}
-                    onChange={e => handleUpdateBracketField(b.id, 'maxKm', Number(e.target.value))}
-                    className="w-full mt-0.5 px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-bold text-zinc-900 dark:text-white"
-                  />
-                </div>
-                <div>
-                  <span className="block text-[10px] font-bold text-zinc-400">Tarifa (S/)</span>
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.5"
-                    value={b.feeSoles}
-                    onChange={e => handleUpdateBracketField(b.id, 'feeSoles', Number(e.target.value))}
-                    className="w-full mt-0.5 px-2.5 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-black text-emerald-600 dark:text-emerald-400"
-                  />
-                </div>
-                <div className="col-span-3 sm:col-span-1 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveBracket(b.id)}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold hover:bg-rose-500/20 whitespace-nowrap shrink-0"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Quitar</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Add New Bracket Row */}
-          <div className="p-4 rounded-xl border border-dashed border-amber-500/40 bg-amber-500/5 flex flex-col sm:flex-row items-end gap-3">
-            <div className="w-full sm:w-32">
-              <label className="block text-[11px] font-bold text-zinc-600 dark:text-zinc-400 mb-1">Desde (km)</label>
-              <input
-                type="number"
-                min={0}
-                step="0.5"
-                value={newMinKm}
-                onChange={e => setNewMinKm(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-bold"
-              />
-            </div>
-            <div className="w-full sm:w-32">
-              <label className="block text-[11px] font-bold text-zinc-600 dark:text-zinc-400 mb-1">Hasta (km)</label>
-              <input
-                type="number"
-                min={0.5}
-                step="0.5"
-                value={newMaxKm}
-                onChange={e => setNewMaxKm(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-bold"
-              />
-            </div>
-            <div className="w-full sm:w-36">
-              <label className="block text-[11px] font-bold text-zinc-600 dark:text-zinc-400 mb-1">Tarifa Envío (S/)</label>
-              <input
-                type="number"
-                min={0}
-                step="0.5"
-                value={newFeeSoles}
-                onChange={e => setNewFeeSoles(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-black"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={handleAddBracket}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black whitespace-nowrap shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Añadir Tramo Km</span>
-            </button>
-          </div>
-        </div>
-      )}
+      {/* TAB 4: JUEGOS INTERACTIVOS (RULETA & ROMPECABEZAS) */}
+      {activeTab === 'games' && <GamesSettingsTab />}
 
       {/* MODAL CREAR / EDITAR CUPÓN */}
       {isCouponModalOpen && (

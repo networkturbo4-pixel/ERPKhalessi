@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { authenticateServer, getServerToken } from '../utils/diskPersistence';
 import {
   TenantCustomization,
@@ -135,11 +135,31 @@ const DEFAULT_COMPANY_INFO: CompanyInfo = {
     enabled: true,
     environment: 'test',
     publicKey: 'pk_test_demo_khalessi_v4',
+    secretKey: 'sk_test_demo_khalessi_secret',
+    testPublicKey: 'pk_test_demo_khalessi_v4',
+    testSecretKey: 'sk_test_demo_khalessi_secret',
+    livePublicKey: '',
+    liveSecretKey: '',
+    multipayEnabled: false,
+    webhookUrl: 'https://pizzakhalessi.com/api/culqi/webhook',
     yapeEnabled: true,
     billeteraEnabled: true,
     allowCashFallback: true,
     backendOrderEndpoint: '',
     backendChargeEndpoint: '',
+  },
+  facturaloConfig: {
+    enabled: true,
+    apiUrl: 'https://api.facturalo.pe/api/v3',
+    apiToken: '',
+    testSecretKey: '',
+    liveSecretKey: '',
+    multiCompanyToken: '',
+    companyName: 'THE ROMA AGENCY CORPORACION S.A.C.',
+    environment: 'demo',
+    defaultSeriesBoleta: 'B001',
+    defaultSeriesFactura: 'F001',
+    autoEmitOnPaid: false,
   },
   deliveryTariff: {
     enabled: true,
@@ -664,6 +684,14 @@ function normalizeLoadedState(raw: string | null): PersistedSnapshot | null {
       companyInfo: {
         ...DEFAULT_COMPANY_INFO,
         ...(parsed.companyInfo || {}),
+        bankAccounts:
+          Array.isArray(parsed.companyInfo?.bankAccounts)
+            ? parsed.companyInfo.bankAccounts
+            : DEFAULT_COMPANY_INFO.bankAccounts,
+        wallets:
+          Array.isArray(parsed.companyInfo?.wallets)
+            ? parsed.companyInfo.wallets
+            : DEFAULT_COMPANY_INFO.wallets,
         socialLinks: {
           ...DEFAULT_COMPANY_INFO.socialLinks,
           ...(parsed.companyInfo?.socialLinks || {}),
@@ -671,6 +699,23 @@ function normalizeLoadedState(raw: string | null): PersistedSnapshot | null {
         culqiConfig: {
           ...DEFAULT_COMPANY_INFO.culqiConfig!,
           ...(parsed.companyInfo?.culqiConfig || {}),
+          testPublicKey:
+            parsed.companyInfo?.culqiConfig?.testPublicKey ||
+            parsed.companyInfo?.culqiConfig?.publicKey ||
+            DEFAULT_COMPANY_INFO.culqiConfig!.testPublicKey,
+          testSecretKey:
+            parsed.companyInfo?.culqiConfig?.testSecretKey ||
+            parsed.companyInfo?.culqiConfig?.secretKey ||
+            DEFAULT_COMPANY_INFO.culqiConfig!.testSecretKey,
+          livePublicKey: parsed.companyInfo?.culqiConfig?.livePublicKey || '',
+          liveSecretKey: parsed.companyInfo?.culqiConfig?.liveSecretKey || '',
+          webhookUrl:
+            parsed.companyInfo?.culqiConfig?.webhookUrl ||
+            'https://pizzakhalessi.com/api/culqi/webhook',
+        },
+        facturaloConfig: {
+          ...DEFAULT_COMPANY_INFO.facturaloConfig!,
+          ...(parsed.companyInfo?.facturaloConfig || {}),
         },
         deliveryTariff: {
           ...DEFAULT_COMPANY_INFO.deliveryTariff!,
@@ -848,6 +893,10 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [noticeModal, setNoticeModal] = useState<NoticeModalOptions | null>(null);
 
+  const lastSerializedPayloadRef = useRef<string>('');
+  const lastSerializedComplaintsRef = useRef<string>('');
+  const lastSerializedAuditRef = useRef<string>('');
+
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     try {
       return localStorage.getItem(AUTH_STORAGE_KEY) === 'authenticated';
@@ -884,7 +933,10 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   useEffect(() => {
     try {
-      localStorage.setItem(COMPLAINTS_STORAGE_KEY, JSON.stringify(complaints));
+      const json = JSON.stringify(complaints);
+      if (lastSerializedComplaintsRef.current === json) return;
+      lastSerializedComplaintsRef.current = json;
+      localStorage.setItem(COMPLAINTS_STORAGE_KEY, json);
     } catch {
       // Ignore storage quota errors
     }
@@ -914,7 +966,10 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   useEffect(() => {
     try {
-      localStorage.setItem(AUDIT_STORAGE_KEY, JSON.stringify(auditLogs.slice(0, 250)));
+      const json = JSON.stringify(auditLogs.slice(0, 250));
+      if (lastSerializedAuditRef.current === json) return;
+      lastSerializedAuditRef.current = json;
+      localStorage.setItem(AUDIT_STORAGE_KEY, json);
     } catch {
       // Ignore storage errors
     }
@@ -935,29 +990,56 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   useEffect(() => {
     const handleStorageSync = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY && e.newValue) {
+        // Ignorar eventos que coincidan exactamente con la última serialización local
+        if (e.newValue === lastSerializedPayloadRef.current) return;
+        lastSerializedPayloadRef.current = e.newValue;
+
         const loaded = normalizeLoadedState(e.newValue);
         if (!loaded) return;
-        setCustomization(loaded.customization);
-        setCompanyInfo(loaded.companyInfo);
-        setTenants(loaded.tenants);
-        setUsers(loaded.users);
-        setDriveConfig(loaded.driveConfig);
-        setGeminiConfig(loaded.geminiConfig);
-        // Preserve each device's active branch selection unless that branch was deleted
-        setActiveTenantId(prevId =>
-          loaded.tenants.some(t => t.id === prevId) ? prevId : loaded.activeTenantId
+
+        // Preservar igualdad referencial si el contenido no ha cambiado
+        setCustomization(prev =>
+          JSON.stringify(prev) === JSON.stringify(loaded.customization) ? prev : loaded.customization
         );
+        setCompanyInfo(prev =>
+          JSON.stringify(prev) === JSON.stringify(loaded.companyInfo) ? prev : loaded.companyInfo
+        );
+        setTenants(prev =>
+          JSON.stringify(prev) === JSON.stringify(loaded.tenants) ? prev : loaded.tenants
+        );
+        setUsers(prev =>
+          JSON.stringify(prev) === JSON.stringify(loaded.users) ? prev : loaded.users
+        );
+        setDriveConfig(prev =>
+          JSON.stringify(prev) === JSON.stringify(loaded.driveConfig) ? prev : loaded.driveConfig
+        );
+        setGeminiConfig(prev =>
+          JSON.stringify(prev) === JSON.stringify(loaded.geminiConfig) ? prev : loaded.geminiConfig
+        );
+        // Preserve each device's active branch selection unless that branch was deleted
+        setActiveTenantId(prevId => {
+          const nextId = loaded.tenants.some(t => t.id === prevId) ? prevId : loaded.activeTenantId;
+          return prevId === nextId ? prevId : nextId;
+        });
       } else if (e.key === COMPLAINTS_STORAGE_KEY && e.newValue) {
+        if (e.newValue === lastSerializedComplaintsRef.current) return;
+        lastSerializedComplaintsRef.current = e.newValue;
         try {
           const parsed = JSON.parse(e.newValue);
-          if (Array.isArray(parsed)) setComplaints(parsed);
+          if (Array.isArray(parsed)) {
+            setComplaints(prev => (JSON.stringify(prev) === e.newValue ? prev : parsed));
+          }
         } catch {
           // ignore
         }
       } else if (e.key === AUDIT_STORAGE_KEY && e.newValue) {
+        if (e.newValue === lastSerializedAuditRef.current) return;
+        lastSerializedAuditRef.current = e.newValue;
         try {
           const parsed = JSON.parse(e.newValue);
-          if (Array.isArray(parsed)) setAuditLogs(parsed);
+          if (Array.isArray(parsed)) {
+            setAuditLogs(prev => (JSON.stringify(prev) === e.newValue ? prev : parsed));
+          }
         } catch {
           // ignore
         }
@@ -1271,8 +1353,13 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         geminiConfig,
         activeTab,
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      localStorage.setItem(CHECKPOINT_KEY, JSON.stringify(payload));
+      const json = JSON.stringify(payload);
+      if (lastSerializedPayloadRef.current === json) {
+        return;
+      }
+      lastSerializedPayloadRef.current = json;
+      localStorage.setItem(STORAGE_KEY, json);
+      localStorage.setItem(CHECKPOINT_KEY, json);
     } catch {
       // Ignore storage quota errors
     }
@@ -1618,13 +1705,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const updateCompanyInfo = (partial: Partial<CompanyInfo>) => {
     setCompanyInfo(prev => ({ ...prev, ...partial }));
     setIsDirty(true);
-    const changedKeys = Object.keys(partial).join(', ');
-    logAuditEvent(
-      'fiscal',
-      'critical',
-      'Actualización de Datos Fiscales / Cobros',
-      `Campos modificados en empresa matriz: ${changedKeys}.`
-    );
   };
 
   const switchTenant = (tenantId: string) => {
@@ -1858,8 +1938,10 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         geminiConfig,
         activeTab,
       };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
-      localStorage.setItem(CHECKPOINT_KEY, JSON.stringify(snapshot));
+      const json = JSON.stringify(snapshot);
+      lastSerializedPayloadRef.current = json;
+      localStorage.setItem(STORAGE_KEY, json);
+      localStorage.setItem(CHECKPOINT_KEY, json);
     } catch {
       // Ignore quota errors
     }

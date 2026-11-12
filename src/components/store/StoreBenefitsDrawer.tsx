@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useId } from 'react';
+import React, { useState, useEffect, useRef, useId, useMemo } from 'react';
 import {
   Gift,
   Trophy,
@@ -37,11 +37,32 @@ export const StoreBenefitsDrawer: React.FC<StoreBenefitsDrawerProps> = ({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
-  const { pointsConfig, rewards, coupons } = useBenefits();
+  const { pointsConfig, rewards, coupons, gameSettings } = useBenefits();
   const { currentCustomer } = useStoreCustomer();
   const { dispatchToast } = useSettings();
 
+  const isCardActive = pointsConfig.enabled && pointsConfig.status !== 'paused';
+  const isGamesActive = gameSettings.enabled;
+
+  const availableTabs = useMemo<Array<[BenefitsTab, string, React.ComponentType<{ className?: string }>]>>(() => {
+    const list: Array<[BenefitsTab, string, React.ComponentType<{ className?: string }>]> = [];
+    if (isCardActive || rewards.some(r => r.isActive)) {
+      list.push(['premios', isCardActive ? 'Premios & Tarjeta' : 'Premios Canjeables', Trophy]);
+    }
+    if (isGamesActive) {
+      list.push(['juegos', 'Juegos Interactivos', Sparkles]);
+    }
+    list.push(['cupones', 'Cupones de Descuento', Ticket]);
+    return list;
+  }, [isCardActive, isGamesActive, rewards]);
+
   const [activeTab, setActiveTab] = useState<BenefitsTab>('premios');
+
+  useEffect(() => {
+    if (!availableTabs.some(([k]: [BenefitsTab, string, unknown]) => k === activeTab)) {
+      setActiveTab(availableTabs[0]?.[0] || 'cupones');
+    }
+  }, [availableTabs, activeTab]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -132,13 +153,7 @@ export const StoreBenefitsDrawer: React.FC<StoreBenefitsDrawerProps> = ({
               isLightTheme ? 'bg-white border-zinc-200' : 'bg-neutral-900 border-neutral-800'
             }`}
           >
-            {(
-              [
-                ['premios', 'Premios & Tarjeta', Trophy],
-                ['juegos', 'Juegos Interactivos', Sparkles],
-                ['cupones', 'Cupones de Descuento', Ticket],
-              ] as const
-            ).map(([tabKey, label, Icon]) => {
+            {availableTabs.map(([tabKey, label, Icon]: [BenefitsTab, string, React.ComponentType<{ className?: string }>]) => {
               const active = activeTab === tabKey;
               return (
                 <button
@@ -166,85 +181,101 @@ export const StoreBenefitsDrawer: React.FC<StoreBenefitsDrawerProps> = ({
             {/* TAB 1: PREMIOS & TARJETA DE PUNTOS */}
             {activeTab === 'premios' && (
               <div className="space-y-4">
-                {/* Visual Loyalty Card */}
-                <div
-                  className={`p-5 rounded-3xl border shadow-sm space-y-3.5 ${
-                    isLightTheme
-                      ? 'bg-white border-zinc-200/90'
-                      : 'bg-neutral-950 border-neutral-800'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/30">
-                      <Star className="w-3 h-3 fill-current" />
-                      <span>{pointsConfig.cardTitle}</span>
-                    </span>
-                    <span className="text-sm font-black text-amber-500">
-                      {currentCustomer ? `${currentCustomer.points || 0} Puntos` : '0 Puntos'}
-                    </span>
-                  </div>
-
-                  <p
-                    className={`text-xs ${
-                      isLightTheme ? 'text-zinc-600' : 'text-neutral-400'
+                {/* Visual Loyalty Card (Only if active and not paused) */}
+                {isCardActive && (
+                  <div
+                    className={`relative overflow-hidden p-5 rounded-3xl border shadow-sm space-y-3.5 ${
+                      isLightTheme
+                        ? 'bg-white border-zinc-200/90'
+                        : 'bg-neutral-950 border-neutral-800'
                     }`}
                   >
-                    {pointsConfig.cardSubtitle} Cada compra en la tienda virtual suma{' '}
-                    <strong>+{pointsConfig.pointsPerPurchase} punto</strong>.
-                  </p>
+                    {pointsConfig.cardBgImage && (
+                      <div
+                        className="absolute inset-0 bg-cover bg-center opacity-20 pointer-events-none"
+                        style={{ backgroundImage: `url(${pointsConfig.cardBgImage})` }}
+                      />
+                    )}
+                    <div className="relative z-10 flex items-center justify-between gap-3">
+                      <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                        {pointsConfig.customIconUrl ? (
+                          <img src={pointsConfig.customIconUrl} alt="Ícono" className="w-3.5 h-3.5 object-contain" />
+                        ) : (
+                          <Star className="w-3 h-3 fill-current" />
+                        )}
+                        <span>{pointsConfig.cardTitle}</span>
+                      </span>
+                      <span className="text-sm font-black text-amber-500">
+                        {currentCustomer ? `${currentCustomer.points || 0} Puntos` : '0 Puntos'}
+                      </span>
+                    </div>
 
-                  {/* Stamp Grid */}
-                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 pt-1">
-                    {Array.from({ length: pointsConfig.stampsPerCardGoal }).map((_, idx) => {
-                      const isStamped = (currentCustomer?.points || 0) > idx;
-                      return (
-                        <div
-                          key={idx}
-                          data-auto-contrast={isStamped && autoButtonContrast ? 'true' : 'false'}
-                          className={`h-11 rounded-2xl flex flex-col items-center justify-center font-black text-xs transition-all border ${
-                            isStamped
-                              ? 'store-btn-solid border-transparent shadow-xs'
-                              : isLightTheme
-                              ? 'bg-zinc-100 border-zinc-200 text-zinc-400'
-                              : 'bg-neutral-900 border-neutral-800 text-neutral-600'
-                          }`}
-                        >
-                          <Star
-                            className={`w-3.5 h-3.5 ${
-                              isStamped ? 'fill-current' : 'opacity-40'
-                            }`}
-                          />
-                          <span className="text-[9px] mt-0.5 font-mono">#{idx + 1}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {!currentCustomer && (
-                    <div
-                      className={`p-3 rounded-2xl border text-xs flex items-center justify-between gap-3 ${
-                        isLightTheme
-                          ? 'bg-zinc-50 border-zinc-200'
-                          : 'bg-neutral-900/80 border-neutral-800'
+                    <p
+                      className={`relative z-10 text-xs ${
+                        isLightTheme ? 'text-zinc-600' : 'text-neutral-400'
                       }`}
                     >
-                      <span className={isLightTheme ? 'text-zinc-600' : 'text-neutral-400'}>
-                        Inicia sesión para acumular tus puntos en cada pedido.
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onClose();
-                          if (onOpenProfile) onOpenProfile();
-                        }}
-                        data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                        className="store-btn-solid px-3.5 py-1.5 rounded-xl text-xs font-black whitespace-nowrap shrink-0 shadow-xs"
-                      >
-                        Ingresar
-                      </button>
+                      {pointsConfig.cardSubtitle} Cada compra en la tienda virtual suma{' '}
+                      <strong>+{pointsConfig.pointsPerPurchase} punto</strong>.
+                    </p>
+
+                    {/* Stamp Grid */}
+                    <div className="relative z-10 grid grid-cols-4 sm:grid-cols-8 gap-2 pt-1">
+                      {Array.from({ length: pointsConfig.stampsPerCardGoal }).map((_, idx) => {
+                        const isStamped = (currentCustomer?.points || 0) > idx;
+                        return (
+                          <div
+                            key={idx}
+                            data-auto-contrast={isStamped && autoButtonContrast ? 'true' : 'false'}
+                            className={`h-11 rounded-2xl flex flex-col items-center justify-center font-black text-xs transition-all border ${
+                              isStamped
+                                ? 'store-btn-solid border-transparent shadow-xs'
+                                : isLightTheme
+                                ? 'bg-zinc-100 border-zinc-200 text-zinc-400'
+                                : 'bg-neutral-900 border-neutral-800 text-neutral-600'
+                            }`}
+                          >
+                            {isStamped && pointsConfig.customIconUrl ? (
+                              <img src={pointsConfig.customIconUrl} alt="Sello" className="w-4 h-4 object-contain" />
+                            ) : (
+                              <Star
+                                className={`w-3.5 h-3.5 ${
+                                  isStamped ? 'fill-current' : 'opacity-40'
+                                }`}
+                              />
+                            )}
+                            <span className="text-[9px] mt-0.5 font-mono">#{idx + 1}</span>
+                          </div>
+                        );
+                      })}
                     </div>
-                  )}
-                </div>
+
+                    {!currentCustomer && (
+                      <div
+                        className={`relative z-10 p-3 rounded-2xl border text-xs flex items-center justify-between gap-3 ${
+                          isLightTheme
+                            ? 'bg-zinc-50 border-zinc-200'
+                            : 'bg-neutral-900/80 border-neutral-800'
+                        }`}
+                      >
+                        <span className={isLightTheme ? 'text-zinc-600' : 'text-neutral-400'}>
+                          Inicia sesión para acumular tus puntos en cada pedido.
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            if (onOpenProfile) onOpenProfile();
+                          }}
+                          data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+                          className="store-btn-solid px-3.5 py-1.5 rounded-xl text-xs font-black whitespace-nowrap shrink-0 shadow-xs"
+                        >
+                          Ingresar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Redeemable Rewards Cards */}
                 <div className="space-y-2.5">
@@ -309,7 +340,7 @@ export const StoreBenefitsDrawer: React.FC<StoreBenefitsDrawerProps> = ({
             )}
 
             {/* TAB 2: JUEGOS INTERACTIVOS (RULETA & PUZZLE) */}
-            {activeTab === 'juegos' && (
+            {isGamesActive && activeTab === 'juegos' && (
               <StoreInteractiveGames
                 isLightTheme={isLightTheme}
                 accentColor={accentColor}

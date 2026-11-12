@@ -1,12 +1,14 @@
-import React, { useState, useId } from 'react';
+import React, { useState, useId, useRef, useEffect } from 'react';
 import { Tenant, CompanyInfo, TenantCustomization } from '../../types/settings';
 import { OrderItem, PaymentMethod } from '../../types/catalog';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
 import { useStoreCustomer } from '../../context/StoreCustomerContext';
 import { useBenefits } from '../../context/BenefitsContext';
+import { PointReward } from '../../types/benefits';
 import { useSettings } from '../../context/SettingsContext';
 import { lookupPersonByDni } from '../../utils/dniLookup';
-import { isRealCulqiPublicKey, openOfficialCulqiCheckout } from '../../utils/culqiCheckout';
+import { lookupRucFacturalo, lookupDniFacturalo, emitInvoiceFacturalo } from '../../utils/facturaloApi';
+import { isRealCulqiPublicKey, openOfficialCulqiCheckout, resolveCulqiPublicKey } from '../../utils/culqiCheckout';
 import {
   ArrowLeft,
   ShieldCheck,
@@ -23,12 +25,18 @@ import {
   AlertTriangle,
   Sparkles,
   Tag,
+  Gift,
   User,
   Phone,
   Mail,
+  Lock,
+  Eye,
+  EyeOff,
   ChevronRight,
   ShoppingBag,
-  ExternalLink
+  ExternalLink,
+  X,
+  Search,
 } from 'lucide-react';
 
 interface StoreCheckoutPageProps {
@@ -73,17 +81,70 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
   isLightTheme = true,
 }) => {
   const { createOrder } = useOrderCatalog();
-  const { currentCustomer, awardCustomerPoints } = useStoreCustomer();
-  const { coupons, pointsConfig, registerCouponUsage } = useBenefits();
+  const {
+    currentCustomer,
+    registerCustomer,
+    loginCustomer,
+    awardCustomerPoints,
+    redeemCustomerPoints,
+  } = useStoreCustomer();
+  const {
+    coupons,
+    pointsConfig,
+    rewards,
+    redeemReward,
+    registerCouponUsage,
+  } = useBenefits();
   const { dispatchToast, openNoticeModal } = useSettings();
 
   const accentColor = customization.primaryColor || '#e11d48';
+
+  const headerLogoUrl =
+    customization.storeHeaderLogo?.trim() ||
+    (isLightTheme ? customization.logoLight : customization.logoDark)?.trim() ||
+    customization.logoLight?.trim() ||
+    customization.logoDark?.trim() ||
+    '';
 
   // Customer Contact Fields
   const [customerName, setCustomerName] = useState(currentCustomer?.fullName || '');
   const [customerPhone, setCustomerPhone] = useState(currentCustomer?.phone || '');
   const [customerEmail, setCustomerEmail] = useState(currentCustomer?.email || '');
   const [isLookingUpDni, setIsLookingUpDni] = useState(false);
+  const [isLookingUpRuc, setIsLookingUpRuc] = useState(false);
+
+  // Quick Auth Modal State
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalTab, setAuthModalTab] = useState<'signup' | 'login'>('signup');
+  const [authName, setAuthName] = useState('');
+  const [authPhone, setAuthPhone] = useState('');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authDni, setAuthDni] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [showAuthPwd, setShowAuthPwd] = useState(false);
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
+
+  const authDialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = authDialogRef.current;
+    if (!dialog) return;
+    if (isAuthModalOpen) {
+      if (!dialog.open) dialog.showModal();
+    } else if (dialog.open) {
+      dialog.close();
+    }
+  }, [isAuthModalOpen]);
+
+  // Synchronize with active customer
+  useEffect(() => {
+    if (currentCustomer) {
+      if (!customerName) setCustomerName(currentCustomer.fullName || '');
+      if (!customerPhone) setCustomerPhone(currentCustomer.phone || '');
+      if (!customerEmail) setCustomerEmail(currentCustomer.email || '');
+      if (!invoiceDocument && currentCustomer.dni) setInvoiceDocument(currentCustomer.dni);
+    }
+  }, [currentCustomer]);
 
   // Delivery Specifics
   const [deliveryReference, setDeliveryReference] = useState('');
@@ -101,21 +162,24 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
   const [invoiceBusinessName, setInvoiceBusinessName] = useState('');
   const [invoiceFiscalAddress, setInvoiceFiscalAddress] = useState('');
 
-  // Coupon Code
+  // Coupon & Rewards
   const [couponCodeInput, setCouponCodeInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountSoles: number } | null>(null);
+  const [appliedReward, setAppliedReward] = useState<PointReward | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Calculate discounts
-  const discountSoles = appliedCoupon ? appliedCoupon.discountSoles : 0;
+  const couponDiscountSoles = appliedCoupon ? appliedCoupon.discountSoles : 0;
+  const rewardDiscountSoles = appliedReward ? appliedReward.discountValue : 0;
+  const discountSoles = couponDiscountSoles + rewardDiscountSoles;
   const payableTotal = Math.max(0, cartSubtotal + (deliveryType === 'delivery' ? resolvedDeliveryFee : 0) - discountSoles);
 
-  // RENIEC / DNI Lookup helper
+  // RENIEC / DNI Lookup helper (integrado con docs.facturalo.pe)
   const handleDniLookup = async () => {
     const clean = invoiceDocument.replace(/\D/g, '');
     if (clean.length !== 8) {
-      dispatchToast('DNI Inválido', 'Ingresa 8 dígitos para consultar RENIEC.', 'warning');
+      dispatchToast('DNI Inválido', 'Ingresa 8 dígitos para consultar RENIEC / Factúralo.', 'warning');
       return;
     }
     setIsLookingUpDni(true);
@@ -128,9 +192,78 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
         dispatchToast('No Encontrado', 'No se obtuvo respuesta de RENIEC. Ingresa tu nombre manualmente.', 'info');
       }
     } catch {
-      dispatchToast('Error de Conexión', 'No se pudo consultar RENIEC.', 'warning');
+      dispatchToast('Error de Conexión', 'No se pudo consultar RENIEC / Factúralo.', 'warning');
     } finally {
       setIsLookingUpDni(false);
+    }
+  };
+
+  // Facturalo / SUNAT RUC Lookup helper
+  const handleRucLookup = async () => {
+    const clean = invoiceDocument.replace(/\D/g, '');
+    if (clean.length !== 11) {
+      dispatchToast('RUC Inválido', 'Ingresa 11 dígitos para consultar SUNAT.', 'warning');
+      return;
+    }
+    setIsLookingUpRuc(true);
+    try {
+      const res = await lookupRucFacturalo(clean);
+      if (res && res.success && res.razonSocial) {
+        setInvoiceBusinessName(res.razonSocial);
+        if (res.direccion) setInvoiceFiscalAddress(res.direccion);
+        dispatchToast('RUC Verificado', `Razón Social: ${res.razonSocial} (${res.estado} - ${res.condicion})`, 'success');
+      } else {
+        dispatchToast('No Encontrado', 'No se obtuvo respuesta de SUNAT / Factúralo. Ingresa los datos manualmente.', 'info');
+      }
+    } catch {
+      dispatchToast('Error de Conexión', 'No se pudo consultar el servicio RUC.', 'warning');
+    } finally {
+      setIsLookingUpRuc(false);
+    }
+  };
+
+  const handleQuickAuthSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmittingAuth(true);
+
+    if (authModalTab === 'signup') {
+      if (!authName.trim() || !authPhone.trim() || !authEmail.trim() || !authPassword.trim()) {
+        dispatchToast('Campos requeridos', 'Por favor completa todos los campos del registro.', 'warning');
+        setIsSubmittingAuth(false);
+        return;
+      }
+      const res = registerCustomer({
+        fullName: authName.trim(),
+        phone: authPhone.trim(),
+        email: authEmail.trim(),
+        dni: authDni.trim() || undefined,
+        password: authPassword.trim(),
+      });
+      setIsSubmittingAuth(false);
+      if (res.ok) {
+        setCustomerName(authName.trim());
+        setCustomerPhone(authPhone.trim());
+        setCustomerEmail(authEmail.trim());
+        if (authDni.trim()) setInvoiceDocument(authDni.trim());
+        setIsAuthModalOpen(false);
+        dispatchToast('¡Bienvenido!', 'Tu cuenta ha sido creada exitosamente. Ya puedes confirmar tu pedido.', 'success');
+      } else {
+        dispatchToast('Error al registrar', res.error || 'No se pudo crear la cuenta.', 'error');
+      }
+    } else {
+      if (!authEmail.trim() || !authPassword.trim()) {
+        dispatchToast('Campos requeridos', 'Ingresa tu correo/teléfono y tu contraseña.', 'warning');
+        setIsSubmittingAuth(false);
+        return;
+      }
+      const res = loginCustomer(authEmail.trim(), authPassword.trim());
+      setIsSubmittingAuth(false);
+      if (res.ok) {
+        setIsAuthModalOpen(false);
+        dispatchToast('Sesión Iniciada', 'Has ingresado correctamente. Procediendo con tu pedido.', 'success');
+      } else {
+        dispatchToast('Acceso Inválido', res.error || 'Credenciales incorrectas.', 'error');
+      }
     }
   };
 
@@ -157,6 +290,13 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
   // Order submission
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!currentCustomer) {
+      setAuthModalTab('signup');
+      setIsAuthModalOpen(true);
+      dispatchToast('Registro Requerido', 'Debes crear tu cuenta o iniciar sesión antes de confirmar el pedido.', 'warning');
+      return;
+    }
 
     if (!customerName.trim() || !customerPhone.trim()) {
       dispatchToast('Datos Requeridos', 'Ingresa tu nombre y celular para confirmar el pedido.', 'warning');
@@ -228,7 +368,10 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
     }
 
     const willEarnPoints =
-      Boolean(currentCustomer) && pointsConfig.enabled && cartSubtotal >= pointsConfig.minPurchaseAmountForPoint
+      Boolean(currentCustomer) &&
+      pointsConfig.enabled &&
+      pointsConfig.status !== 'paused' &&
+      cartSubtotal >= pointsConfig.minPurchaseAmountForPoint
         ? pointsConfig.pointsPerPurchase
         : 0;
 
@@ -250,6 +393,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
       invoiceBusinessName: invoiceType === 'factura_ruc' && invoiceBusinessName.trim() ? invoiceBusinessName.trim() : undefined,
       invoiceFiscalAddress: invoiceType === 'factura_ruc' && invoiceFiscalAddress.trim() ? invoiceFiscalAddress.trim() : undefined,
       couponCode: appliedCoupon?.code,
+      rewardRedeemedTitle: appliedReward ? appliedReward.title : undefined,
       pointsEarned: willEarnPoints > 0 ? willEarnPoints : undefined,
       items: cartItems,
       subtotal: cartSubtotal,
@@ -261,6 +405,11 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
 
     if (appliedCoupon) {
       registerCouponUsage(appliedCoupon.code);
+    }
+
+    if (appliedReward && currentCustomer) {
+      redeemCustomerPoints(appliedReward.pointsCost, appliedReward.title, newOrder.orderNumber);
+      redeemReward(appliedReward.id, customerName, customerPhone, newOrder.orderNumber);
     }
 
     if (willEarnPoints > 0) {
@@ -296,11 +445,19 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
           </button>
 
           {/* Brand Logo & Title */}
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-red-600 to-rose-700 flex flex-col items-center justify-center text-white shrink-0 shadow-sm">
-              <span className="text-[7px] font-black leading-tight">PIZZA</span>
-              <span className="text-[5px] font-bold tracking-tighter opacity-90">KHALESSI</span>
-            </div>
+          <div className="flex items-center gap-3">
+            {headerLogoUrl ? (
+              <img
+                src={headerLogoUrl}
+                alt={companyInfo.commercialName || customization.appName || 'Logo'}
+                className="h-8 sm:h-9 w-auto max-w-[140px] sm:max-w-[180px] object-contain"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-red-600 to-rose-700 flex flex-col items-center justify-center text-white shrink-0 shadow-sm">
+                <span className="text-[7px] font-black leading-tight">PIZZA</span>
+                <span className="text-[5px] font-bold tracking-tighter opacity-90">KHALESSI</span>
+              </div>
+            )}
             <span className="font-black text-sm sm:text-base tracking-tight hidden sm:inline">
               Finalizar Pedido
             </span>
@@ -316,6 +473,105 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
 
       {/* Main Content: 2-Column Responsive Layout */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
+        {/* Customer Authentication Warning / Greeting Banner */}
+        {!currentCustomer ? (
+          <div className="mb-6 p-4 sm:p-5 rounded-3xl border-2 border-amber-300 dark:border-amber-600/40 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/20 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+                <User className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-black text-sm sm:text-base text-zinc-950 dark:text-white">
+                  ¡Regístrate para realizar tu pedido!
+                </h3>
+                <p className="text-xs text-zinc-600 dark:text-zinc-300 mt-0.5">
+                  Es obligatorio contar con una cuenta para enviar tu orden a cocina, acumular puntos y hacer seguimiento en tiempo real.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setAuthModalTab('signup');
+                setIsAuthModalOpen(true);
+              }}
+              className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-black text-white shadow-md transition-all whitespace-nowrap shrink-0 hover:opacity-95 active:scale-95"
+              style={{ backgroundColor: accentColor }}
+            >
+              Crear Cuenta / Iniciar Sesión
+            </button>
+          </div>
+        ) : (
+          <div className="mb-6 p-3.5 px-4 rounded-2xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/50 dark:bg-emerald-950/20 flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>Pedido asociado a: <strong>{currentCustomer.fullName}</strong> ({currentCustomer.phone})</span>
+            </div>
+            <span className="font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 px-2.5 py-0.5 rounded-full text-[11px]">
+              ⭐ {currentCustomer.points || 0} Puntos
+            </span>
+          </div>
+        )}
+
+        {currentCustomer && pointsConfig.enabled && pointsConfig.status !== 'paused' && (currentCustomer.points || 0) > 0 && rewards.filter((r) => r.isActive && r.pointsCost <= (currentCustomer.points || 0)).length > 0 && (
+          <div className="mb-6 p-4 rounded-2xl border border-amber-300 dark:border-amber-700/60 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 shadow-sm">
+            <div className="flex items-center justify-between gap-2 mb-2.5">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span className="text-xs font-black uppercase text-amber-950 dark:text-amber-200">
+                  Premios Disponibles para Canjear en este Pedido ({currentCustomer.points || 0} pts)
+                </span>
+              </div>
+              {appliedReward && (
+                <button
+                  type="button"
+                  onClick={() => setAppliedReward(null)}
+                  className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline"
+                >
+                  Quitar Canje
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+              {rewards
+                .filter((r) => r.isActive && r.pointsCost <= (currentCustomer.points || 0))
+                .map((reward) => {
+                  const isSelected = appliedReward?.id === reward.id;
+                  return (
+                    <button
+                      key={reward.id}
+                      type="button"
+                      onClick={() => setAppliedReward(isSelected ? null : reward)}
+                      className={`p-2.5 rounded-xl border text-left transition-all flex items-center justify-between gap-2 ${
+                        isSelected
+                          ? 'border-amber-500 bg-amber-100/70 dark:bg-amber-900/50 ring-2 ring-amber-500/30'
+                          : 'border-amber-200 dark:border-amber-800/40 bg-white dark:bg-zinc-900 hover:border-amber-400'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-zinc-900 dark:text-white truncate">
+                          {reward.badgeIcon} {reward.title}
+                        </p>
+                        <p className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold">
+                          -S/ {reward.discountValue.toFixed(2)} · Cuesta {reward.pointsCost} pts
+                        </p>
+                      </div>
+                      <span
+                        className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase whitespace-nowrap shrink-0 ${
+                          isSelected
+                            ? 'bg-amber-500 text-zinc-950'
+                            : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
+                        }`}
+                      >
+                        {isSelected ? 'Aplicado' : 'Canjear'}
+                      </span>
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left Column (8 cols): Step by step easy checkout */}
           <div className="lg:col-span-7 space-y-6">
@@ -631,28 +887,38 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
                       type="button"
                       onClick={handleDniLookup}
                       disabled={isLookingUpDni}
-                      className="px-3 py-2 text-xs font-bold rounded-xl bg-zinc-800 text-white hover:bg-zinc-700 whitespace-nowrap shrink-0"
+                      className="px-3 py-2 text-xs font-bold rounded-xl bg-zinc-800 text-white hover:bg-zinc-700 whitespace-nowrap shrink-0 disabled:opacity-50"
                     >
-                      {isLookingUpDni ? 'Buscando...' : 'Consultar RENIEC'}
+                      {isLookingUpDni ? 'Buscando...' : 'Consultar DNI (Factúralo / RENIEC)'}
                     </button>
                   </div>
                 )}
 
                 {invoiceType === 'factura_ruc' && (
                   <div className="pt-2 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        maxLength={11}
+                        placeholder="RUC (11 dígitos)"
+                        value={invoiceDocument}
+                        onChange={e => setInvoiceDocument(e.target.value)}
+                        className={`flex-1 px-3.5 py-2 text-xs font-mono rounded-xl border focus:outline-none focus:ring-2 focus:ring-rose-500/20 ${
+                          isLightTheme ? 'bg-zinc-50 border-zinc-200' : 'bg-neutral-950 border-neutral-800'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRucLookup}
+                        disabled={isLookingUpRuc}
+                        className="px-3 py-2 text-xs font-bold rounded-xl bg-zinc-800 text-white hover:bg-zinc-700 whitespace-nowrap shrink-0 disabled:opacity-50"
+                      >
+                        {isLookingUpRuc ? 'Buscando...' : 'Consultar RUC SUNAT'}
+                      </button>
+                    </div>
                     <input
                       type="text"
-                      maxLength={11}
-                      placeholder="RUC (11 dígitos)"
-                      value={invoiceDocument}
-                      onChange={e => setInvoiceDocument(e.target.value)}
-                      className={`w-full px-3.5 py-2 text-xs font-mono rounded-xl border focus:outline-none focus:ring-2 focus:ring-rose-500/20 ${
-                        isLightTheme ? 'bg-zinc-50 border-zinc-200' : 'bg-neutral-950 border-neutral-800'
-                      }`}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Razón Social"
+                      placeholder="Razón Social (autocompletado por Factúralo / SUNAT)"
                       value={invoiceBusinessName}
                       onChange={e => setInvoiceBusinessName(e.target.value)}
                       className={`w-full px-3.5 py-2 text-xs rounded-xl border focus:outline-none focus:ring-2 focus:ring-rose-500/20 ${
@@ -661,7 +927,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
                     />
                     <input
                       type="text"
-                      placeholder="Dirección Fiscal"
+                      placeholder="Dirección Fiscal (autocompletada por Factúralo)"
                       value={invoiceFiscalAddress}
                       onChange={e => setInvoiceFiscalAddress(e.target.value)}
                       className={`w-full px-3.5 py-2 text-xs rounded-xl border focus:outline-none focus:ring-2 focus:ring-rose-500/20 ${
@@ -762,10 +1028,16 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
                   <span>S/ {cartSubtotal.toFixed(2)}</span>
                 </div>
 
-                {discountSoles > 0 && (
+                {appliedCoupon && (
                   <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-bold">
-                    <span>Descuento aplicado</span>
-                    <span>- S/ {discountSoles.toFixed(2)}</span>
+                    <span>Cupón {appliedCoupon.code}</span>
+                    <span>- S/ {couponDiscountSoles.toFixed(2)}</span>
+                  </div>
+                )}
+                {appliedReward && (
+                  <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-bold">
+                    <span>Premio: {appliedReward.title}</span>
+                    <span>- S/ {rewardDiscountSoles.toFixed(2)}</span>
                   </div>
                 )}
 
@@ -806,6 +1078,181 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
           </div>
         </form>
       </main>
+
+      {/* Quick Customer Authentication Dialog */}
+      <dialog
+        ref={authDialogRef}
+        onClose={() => {
+          if (authDialogRef.current) authDialogRef.current.returnValue = '';
+          setIsAuthModalOpen(false);
+        }}
+        className="max-w-md w-full"
+      >
+        {isAuthModalOpen && (
+          <div className="saas-card !rounded-3xl p-6 space-y-5 shadow-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+            <div className="flex items-start justify-between gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-3">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">
+                  PIZZA KHALESSI • ACCESO OBLIGATORIO
+                </span>
+                <h3 className="text-lg font-black text-zinc-950 dark:text-white mt-0.5">
+                  {authModalTab === 'signup' ? 'Crea tu cuenta de cliente' : 'Inicia sesión'}
+                </h3>
+                <p className="text-xs text-zinc-500">
+                  {authModalTab === 'signup'
+                    ? 'Regístrate para despachar tu pedido y acumular puntos.'
+                    : 'Ingresa tus datos para continuar con tu orden.'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAuthModalOpen(false)}
+                className="p-1.5 rounded-xl text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Subtabs switcher */}
+            <div className="grid grid-cols-2 p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800/80">
+              <button
+                type="button"
+                onClick={() => setAuthModalTab('signup')}
+                className={`py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  authModalTab === 'signup'
+                    ? 'bg-white dark:bg-zinc-700 text-zinc-950 dark:text-white shadow-sm'
+                    : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900'
+                }`}
+              >
+                Crear Cuenta
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthModalTab('login')}
+                className={`py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  authModalTab === 'login'
+                    ? 'bg-white dark:bg-zinc-700 text-zinc-950 dark:text-white shadow-sm'
+                    : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900'
+                }`}
+              >
+                Ya tengo cuenta
+              </button>
+            </div>
+
+            <form onSubmit={handleQuickAuthSubmit} className="space-y-3.5">
+              {authModalTab === 'signup' && (
+                <>
+                  <div>
+                    <label className="block text-[11px] font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                      Nombres y Apellidos *
+                    </label>
+                    <div className="relative">
+                      <User className="w-4 h-4 absolute left-3 top-3 text-zinc-400" />
+                      <input
+                        type="text"
+                        required
+                        value={authName}
+                        onChange={e => setAuthName(e.target.value)}
+                        placeholder="Ej. Juan Pérez"
+                        className="w-full pl-9 pr-3 py-2 text-xs rounded-xl saas-input font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[11px] font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                        Teléfono / WhatsApp *
+                      </label>
+                      <div className="relative">
+                        <Phone className="w-4 h-4 absolute left-3 top-3 text-zinc-400" />
+                        <input
+                          type="tel"
+                          required
+                          value={authPhone}
+                          onChange={e => setAuthPhone(e.target.value)}
+                          placeholder="987 654 321"
+                          className="w-full pl-9 pr-3 py-2 text-xs rounded-xl saas-input font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                        DNI (Opcional)
+                      </label>
+                      <input
+                        type="text"
+                        maxLength={8}
+                        value={authDni}
+                        onChange={e => setAuthDni(e.target.value)}
+                        placeholder="8 dígitos"
+                        className="w-full px-3 py-2 text-xs rounded-xl saas-input font-mono"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div>
+                <label className="block text-[11px] font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                  Correo Electrónico {authModalTab === 'login' && 'o Teléfono'} *
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 absolute left-3 top-3 text-zinc-400" />
+                  <input
+                    type={authModalTab === 'signup' ? 'email' : 'text'}
+                    required
+                    value={authEmail}
+                    onChange={e => setAuthEmail(e.target.value)}
+                    placeholder="tu-correo@ejemplo.com"
+                    className="w-full pl-9 pr-3 py-2 text-xs rounded-xl saas-input"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                  Contraseña *
+                </label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 absolute left-3 top-3 text-zinc-400" />
+                  <input
+                    type={showAuthPwd ? 'text' : 'password'}
+                    required
+                    value={authPassword}
+                    onChange={e => setAuthPassword(e.target.value)}
+                    placeholder="Mínimo 4 caracteres"
+                    className="w-full pl-9 pr-10 py-2 text-xs rounded-xl saas-input font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAuthPwd(!showAuthPwd)}
+                    className="absolute right-3 top-2.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                  >
+                    {showAuthPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isSubmittingAuth}
+                  className="w-full py-3 px-4 rounded-xl text-white font-black text-xs sm:text-sm shadow-md transition-all whitespace-nowrap shrink-0 hover:opacity-95 disabled:opacity-50"
+                  style={{ backgroundColor: accentColor }}
+                >
+                  {isSubmittingAuth
+                    ? 'Procesando...'
+                    : authModalTab === 'signup'
+                    ? 'Crear Cuenta y Continuar Pedido'
+                    : 'Ingresar y Continuar Pedido'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </dialog>
     </div>
   );
 };

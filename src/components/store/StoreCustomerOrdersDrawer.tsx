@@ -22,7 +22,9 @@ import {
   CreditCard,
   Smartphone,
   Banknote,
+  Camera,
 } from 'lucide-react';
+import { ImageLightboxModal } from '../common/ImageLightboxModal';
 
 interface StoreCustomerOrdersDrawerProps {
   isOpen: boolean;
@@ -93,6 +95,22 @@ export const StoreCustomerOrdersDrawer: React.FC<StoreCustomerOrdersDrawerProps>
   const [filter, setFilter] = useState<OrdersFilter>('activos');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(initialOrderId);
   const [nowTimestamp, setNowTimestamp] = useState<number>(() => new Date().getTime());
+
+  const [lightboxState, setLightboxState] = useState<{
+    isOpen: boolean;
+    imageUrl: string | null;
+    title: string;
+    subtitle?: string;
+    metadata?: {
+      capturedAt?: string;
+      operatorOrDriver?: string;
+      stageLabel?: string;
+    };
+  }>({
+    isOpen: false,
+    imageUrl: null,
+    title: '',
+  });
 
   useEffect(() => {
     if (isOpen && initialOrderId) {
@@ -575,6 +593,107 @@ export const StoreCustomerOrdersDrawer: React.FC<StoreCustomerOrdersDrawerProps>
                   </div>
                 </div>
 
+                {/* Evidencia de Despacho y Entrega para el Cliente */}
+                {(selectedOrder.pickupProofPhoto || selectedOrder.deliveryProofPhoto) && (
+                  <div
+                    className={`p-4 rounded-2xl border space-y-3 ${
+                      isLightTheme
+                        ? 'bg-white border-zinc-200/90 text-zinc-900 shadow-xs'
+                        : 'bg-neutral-950 border-neutral-800 text-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
+                        <Camera className="w-4 h-4" style={{ color: accentColor }} />
+                        Evidencias de tu Pedido
+                      </span>
+                      {selectedOrder.assignedDriverName && (
+                        <span className="text-[11px] text-zinc-500">
+                          Repartidor: {selectedOrder.assignedDriverName}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {selectedOrder.pickupProofPhoto && (
+                        <div className="space-y-1.5">
+                          <span className="text-[11px] font-bold text-amber-500 block">
+                            ✓ Salida de Pizzería
+                          </span>
+                          <div
+                            onClick={() =>
+                              setLightboxState({
+                                isOpen: true,
+                                imageUrl: selectedOrder.pickupProofPhoto!,
+                                title: `Foto de Salida · Pedido ${selectedOrder.orderNumber}`,
+                                subtitle: 'Tu pedido recién horneado y empacado saliendo a tu dirección.',
+                                metadata: {
+                                  stageLabel: 'Salida de Pizzería',
+                                  operatorOrDriver: selectedOrder.pickupProofDriverName || selectedOrder.assignedDriverName,
+                                  capturedAt: selectedOrder.pickupProofAt,
+                                },
+                              })
+                            }
+                            className="relative rounded-xl overflow-hidden aspect-video border border-zinc-200 dark:border-neutral-800 cursor-pointer group bg-black/10"
+                          >
+                            <img
+                              src={selectedOrder.pickupProofPhoto}
+                              alt="Foto salida"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
+                              Ver Foto
+                            </div>
+                          </div>
+                          {selectedOrder.pickupProofAt && (
+                            <span className="text-[10px] text-zinc-400 block">
+                              Hora: {new Date(selectedOrder.pickupProofAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {selectedOrder.deliveryProofPhoto && (
+                        <div className="space-y-1.5">
+                          <span className="text-[11px] font-bold text-emerald-500 block">
+                            ✓ Entrega en Destino
+                          </span>
+                          <div
+                            onClick={() =>
+                              setLightboxState({
+                                isOpen: true,
+                                imageUrl: selectedOrder.deliveryProofPhoto!,
+                                title: `Foto de Entrega · Pedido ${selectedOrder.orderNumber}`,
+                                subtitle: 'Constancia fotográfica de entrega en tu domicilio.',
+                                metadata: {
+                                  stageLabel: 'Entrega Realizada',
+                                  operatorOrDriver: selectedOrder.deliveryProofDriverName || selectedOrder.assignedDriverName,
+                                  capturedAt: selectedOrder.deliveryProofAt,
+                                },
+                              })
+                            }
+                            className="relative rounded-xl overflow-hidden aspect-video border border-zinc-200 dark:border-neutral-800 cursor-pointer group bg-black/10"
+                          >
+                            <img
+                              src={selectedOrder.deliveryProofPhoto}
+                              alt="Foto entrega"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
+                              Ver Foto
+                            </div>
+                          </div>
+                          {selectedOrder.deliveryProofAt && (
+                            <span className="text-[10px] text-zinc-400 block">
+                              Hora: {new Date(selectedOrder.deliveryProofAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Itemized Products Breakdown */}
                 <div
                   className={`p-4 rounded-2xl border space-y-3 ${
@@ -955,6 +1074,16 @@ export const StoreCustomerOrdersDrawer: React.FC<StoreCustomerOrdersDrawerProps>
           </div>
         </div>
       )}
+
+      {/* Lightbox para Visualización de Fotos de Entrega / Salida */}
+      <ImageLightboxModal
+        isOpen={lightboxState.isOpen}
+        onClose={() => setLightboxState(prev => ({ ...prev, isOpen: false, imageUrl: null }))}
+        imageUrl={lightboxState.imageUrl}
+        title={lightboxState.title}
+        subtitle={lightboxState.subtitle}
+        metadata={lightboxState.metadata}
+      />
     </dialog>
   );
 };

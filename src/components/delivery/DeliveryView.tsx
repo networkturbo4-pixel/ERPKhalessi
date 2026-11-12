@@ -3,6 +3,8 @@ import { Order, PaymentMethod } from '../../types/catalog';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useRBAC } from '../../context/RBACContext';
+import { ProofPhotoCaptureModal } from './ProofPhotoCaptureModal';
+import { ImageLightboxModal } from '../common/ImageLightboxModal';
 import {
   Bike,
   MapPin,
@@ -18,16 +20,48 @@ import {
   CreditCard,
   User,
   Compass,
+  Camera,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 type MobileDeliveryTab = 'listo' | 'en_ruta' | 'cocina' | 'entregado';
 
 export const DeliveryView: React.FC = () => {
   const { orders, updateOrderStatus } = useOrderCatalog();
-  const { activeTenant, branchScope, setBranchScope, tenants, openNoticeModal } = useSettings();
+  const { activeTenant, branchScope, setBranchScope, tenants, openNoticeModal, dispatchToast } = useSettings();
   const { currentUser } = useRBAC();
   const [mobileTab, setMobileTab] = useState<MobileDeliveryTab>('listo');
   const [, setTick] = useState(0);
+
+  // Modal de evidencia fotográfica (pickup y delivery)
+  const [photoModalState, setPhotoModalState] = useState<{
+    isOpen: boolean;
+    order: Order | null;
+    stage: 'pickup' | 'delivery';
+    title: string;
+  }>({
+    isOpen: false,
+    order: null,
+    stage: 'pickup',
+    title: '',
+  });
+
+  // Visor Lightbox para ver evidencias
+  const [lightboxState, setLightboxState] = useState<{
+    isOpen: boolean;
+    imageUrl: string | null;
+    title: string;
+    subtitle?: string;
+    metadata?: {
+      capturedAt?: string;
+      operatorOrDriver?: string;
+      stageLabel?: string;
+    };
+  }>({
+    isOpen: false,
+    imageUrl: null,
+    title: '',
+  });
 
   useEffect(() => {
     const timer = setInterval(() => setTick((t) => t + 1), 15000);
@@ -109,29 +143,62 @@ export const DeliveryView: React.FC = () => {
     );
   };
 
-  const handleTakeOrder = (order: Order) => {
-    updateOrderStatus(order.id, 'en_ruta', {
-      assignedDriverId: currentUser.id,
-      assignedDriverName: currentUser.name,
+  // Iniciar toma de pedido con evidencia obligatoria de recojo en tienda
+  const handleOpenPickupEvidence = (order: Order) => {
+    setPhotoModalState({
+      isOpen: true,
+      order,
+      stage: 'pickup',
+      title: 'Evidencia de Salida de Tienda',
     });
   };
 
-  const handleConfirmDelivery = (order: Order) => {
-    if (order.paymentStatus === 'pendiente') {
-      openNoticeModal({
-        title: `Confirmar Cobro y Entrega (${order.orderNumber})`,
-        message: `¿Confirmas que entregaste el pedido a ${order.customerName} y cobraste S/ ${order.total.toFixed(2)}?`,
-        tone: 'info',
-        confirmLabel: 'Confirmar Cobro y Entrega',
-        cancelLabel: 'Cancelar',
-        onConfirm: () => {
-          updateOrderStatus(order.id, 'entregado', { paymentStatus: 'pagado' });
-        },
-      });
-      return;
-    }
+  // Iniciar entrega con evidencia obligatoria de entrega al cliente
+  const handleOpenDeliveryEvidence = (order: Order) => {
+    setPhotoModalState({
+      isOpen: true,
+      order,
+      stage: 'delivery',
+      title: 'Evidencia de Entrega al Cliente',
+    });
+  };
 
-    updateOrderStatus(order.id, 'entregado', { paymentStatus: 'pagado' });
+  const handleConfirmPhotoEvidence = (photoBase64: string, authorizerOrDriver: string) => {
+    const targetOrder = photoModalState.order;
+    if (!targetOrder) return;
+
+    const nowIso = new Date().toISOString();
+    const stage = photoModalState.stage;
+
+    if (stage === 'pickup') {
+      updateOrderStatus(targetOrder.id, 'en_ruta', {
+        assignedDriverId: currentUser.id,
+        assignedDriverName: currentUser.name,
+        pickupProofPhoto: photoBase64,
+        pickupProofAt: nowIso,
+        pickupProofDriverName: currentUser.name,
+        deliveryAuthorizedBy: authorizerOrDriver || currentUser.name,
+        dispatchedAt: nowIso,
+      });
+      dispatchToast(
+        'Salida Registrada con Foto',
+        `Orden ${targetOrder.orderNumber} en ruta con evidencia optimizada.`,
+        'success'
+      );
+    } else {
+      updateOrderStatus(targetOrder.id, 'entregado', {
+        paymentStatus: 'pagado',
+        deliveryProofPhoto: photoBase64,
+        deliveryProofAt: nowIso,
+        deliveryProofDriverName: currentUser.name,
+        deliveredAt: nowIso,
+      });
+      dispatchToast(
+        'Entrega Completada',
+        `Orden ${targetOrder.orderNumber} entregada y archivada con foto de conformidad.`,
+        'success'
+      );
+    }
   };
 
   const renderDeliveryCard = (order: Order) => {
@@ -290,26 +357,77 @@ export const DeliveryView: React.FC = () => {
           </div>
         )}
 
+        {/* Evidencias fotográficas registradas */}
+        {(order.pickupProofPhoto || order.deliveryProofPhoto) && (
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+            {order.pickupProofPhoto && (
+              <button
+                type="button"
+                onClick={() =>
+                  setLightboxState({
+                    isOpen: true,
+                    imageUrl: order.pickupProofPhoto!,
+                    title: `Foto Salida de Tienda · ${order.orderNumber}`,
+                    subtitle: `Motorizado: ${order.pickupProofDriverName || order.assignedDriverName || 'Asignado'}`,
+                    metadata: {
+                      stageLabel: 'Salida de Tienda (Pickup)',
+                      operatorOrDriver: order.pickupProofDriverName || order.assignedDriverName || order.deliveryAuthorizedBy,
+                      capturedAt: order.pickupProofAt,
+                    },
+                  })
+                }
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-800 dark:text-amber-300 transition-colors whitespace-nowrap shrink-0"
+              >
+                <Camera className="w-3 h-3 text-amber-500" />
+                <span>Foto Salida</span>
+              </button>
+            )}
+
+            {order.deliveryProofPhoto && (
+              <button
+                type="button"
+                onClick={() =>
+                  setLightboxState({
+                    isOpen: true,
+                    imageUrl: order.deliveryProofPhoto!,
+                    title: `Foto Entrega Conforme · ${order.orderNumber}`,
+                    subtitle: `Destino: ${order.deliveryAddress || 'Domicilio del Cliente'}`,
+                    metadata: {
+                      stageLabel: 'Entrega Final al Cliente',
+                      operatorOrDriver: order.deliveryProofDriverName || order.assignedDriverName,
+                      capturedAt: order.deliveryProofAt,
+                    },
+                  })
+                }
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 transition-colors whitespace-nowrap shrink-0"
+              >
+                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                <span>Foto Entrega</span>
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Primary Stage Transition Buttons */}
         {order.status === 'listo' && (
           <button
             type="button"
-            onClick={() => handleTakeOrder(order)}
+            onClick={() => handleOpenPickupEvidence(order)}
             className="w-full min-h-[48px] px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-zinc-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98] whitespace-nowrap shrink-0"
           >
-            <Bike className="w-4 h-4 shrink-0" />
-            <span>Tomar Pedido e Iniciar Ruta 🛵</span>
+            <Camera className="w-4 h-4 shrink-0" />
+            <span>Tomar Foto de Salida e Iniciar Ruta</span>
           </button>
         )}
 
         {order.status === 'en_ruta' && (
           <button
             type="button"
-            onClick={() => handleConfirmDelivery(order)}
+            onClick={() => handleOpenDeliveryEvidence(order)}
             className="w-full min-h-[48px] px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition-all active:scale-[0.98] whitespace-nowrap shrink-0"
           >
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-            <span>Confirmar Entrega al Cliente ✅</span>
+            <Camera className="w-4 h-4 shrink-0" />
+            <span>Tomar Foto de Entrega y Finalizar</span>
           </button>
         )}
 
@@ -469,6 +587,28 @@ export const DeliveryView: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Modal de Captura Obligatoria de Foto (Salida / Entrega) */}
+      <ProofPhotoCaptureModal
+        isOpen={photoModalState.isOpen}
+        onClose={() => setPhotoModalState(prev => ({ ...prev, isOpen: false }))}
+        title={photoModalState.title}
+        stage={photoModalState.stage}
+        orderNumber={photoModalState.order?.orderNumber || ''}
+        customerName={photoModalState.order?.customerName}
+        deliveryAddress={photoModalState.order?.deliveryAddress}
+        onConfirm={handleConfirmPhotoEvidence}
+      />
+
+      {/* Lightbox para Visualización de Evidencias */}
+      <ImageLightboxModal
+        isOpen={lightboxState.isOpen}
+        onClose={() => setLightboxState(prev => ({ ...prev, isOpen: false, imageUrl: null }))}
+        imageUrl={lightboxState.imageUrl}
+        title={lightboxState.title}
+        subtitle={lightboxState.subtitle}
+        metadata={lightboxState.metadata}
+      />
     </div>
   );
 };

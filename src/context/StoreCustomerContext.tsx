@@ -185,6 +185,16 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
     [activeTenant.id, upsertCustomer]
   );
 
+  // Sincronización proactiva de cuentas existentes con el CRM de pedidos/POS
+  const hasSyncedAccountsRef = useRef(false);
+  useEffect(() => {
+    if (hasSyncedAccountsRef.current || accounts.length === 0) return;
+    hasSyncedAccountsRef.current = true;
+    for (const acc of accounts) {
+      syncAccountToErpCrm(acc);
+    }
+  }, [accounts, syncAccountToErpCrm]);
+
   const registerCustomer = useCallback(
     (data: RegisterPayload): { ok: boolean; error?: string } => {
       const emailClean = data.email.trim().toLowerCase();
@@ -209,6 +219,31 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
       }
 
       const now = new Date().toISOString();
+      let awardOnRegister = true;
+      try {
+        const rawBenefits = localStorage.getItem('kh_erp_benefits_v1');
+        if (rawBenefits) {
+          const parsedB = JSON.parse(rawBenefits);
+          if (parsedB.pointsConfig && typeof parsedB.pointsConfig.awardPointOnRegister === 'boolean') {
+            awardOnRegister = parsedB.pointsConfig.awardPointOnRegister;
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      const initialPoints = awardOnRegister ? 1 : 0;
+      const initialHistory = awardOnRegister
+        ? [
+            {
+              id: `pt-init-${Date.now()}`,
+              date: now,
+              delta: 1,
+              reason: 'Bono de Bienvenida Club Khalessi',
+            },
+          ]
+        : [];
+
       const newAccount: StoreCustomerAccount = {
         id: `cust-acc-${Date.now()}`,
         fullName: data.fullName.trim(),
@@ -219,15 +254,8 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
         addresses: [],
         paymentMethods: [],
         orderIds: [...guestOrderIds],
-        points: 1,
-        pointsHistory: [
-          {
-            id: `pt-init-${Date.now()}`,
-            date: now,
-            delta: 1,
-            reason: 'Bono de Bienvenida Club Khalessi',
-          },
-        ],
+        points: initialPoints,
+        pointsHistory: initialHistory,
         createdAt: now,
         updatedAt: now,
       };
@@ -329,6 +357,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
       };
 
       if (currentCustomer) {
+        let updatedAcc: StoreCustomerAccount | null = null;
         setAccounts(prev =>
           prev.map(a => {
             if (a.id !== currentCustomer.id) return a;
@@ -344,10 +373,13 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
               addresses: nextList,
               updatedAt: new Date().toISOString(),
             };
-            syncAccountToErpCrm(nextAcc);
+            updatedAcc = nextAcc;
             return nextAcc;
           })
         );
+        if (updatedAcc) {
+          syncAccountToErpCrm(updatedAcc);
+        }
         dispatchToast('Dirección Guardada', 'Se añadió a tus direcciones frecuentes.', 'success');
       }
       return created;
@@ -376,6 +408,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
   const setDefaultCustomerAddress = useCallback(
     (addressId: string) => {
       if (!currentCustomer) return;
+      let updatedAcc: StoreCustomerAccount | null = null;
       setAccounts(prev =>
         prev.map(a => {
           if (a.id !== currentCustomer.id) return a;
@@ -388,10 +421,13 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
             addresses: nextAddresses,
             updatedAt: new Date().toISOString(),
           };
-          syncAccountToErpCrm(nextAcc);
+          updatedAcc = nextAcc;
           return nextAcc;
         })
       );
+      if (updatedAcc) {
+        syncAccountToErpCrm(updatedAcc);
+      }
     },
     [currentCustomer, syncAccountToErpCrm]
   );
@@ -491,6 +527,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
     (pointsDelta: number, reason: string, orderNumber?: string) => {
       if (!currentCustomer || pointsDelta <= 0) return;
       const now = new Date().toISOString();
+      let updatedAcc: StoreCustomerAccount | null = null;
       setAccounts(prev =>
         prev.map(a => {
           if (a.id !== currentCustomer.id) return a;
@@ -510,10 +547,13 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
             ],
             updatedAt: now,
           };
-          syncAccountToErpCrm(updated);
+          updatedAcc = updated;
           return updated;
         })
       );
+      if (updatedAcc) {
+        syncAccountToErpCrm(updatedAcc);
+      }
     },
     [currentCustomer, syncAccountToErpCrm]
   );
@@ -523,6 +563,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
       if (!currentCustomer || pointsCost <= 0) return false;
       if ((currentCustomer.points || 0) < pointsCost) return false;
       const now = new Date().toISOString();
+      let updatedAcc: StoreCustomerAccount | null = null;
       setAccounts(prev =>
         prev.map(a => {
           if (a.id !== currentCustomer.id) return a;
@@ -542,10 +583,13 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
             ],
             updatedAt: now,
           };
-          syncAccountToErpCrm(updated);
+          updatedAcc = updated;
           return updated;
         })
       );
+      if (updatedAcc) {
+        syncAccountToErpCrm(updatedAcc);
+      }
       return true;
     },
     [currentCustomer, syncAccountToErpCrm]
@@ -555,6 +599,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
     (accountId: string, delta: number, reason: string) => {
       if (delta === 0) return;
       const now = new Date().toISOString();
+      let updatedAcc: StoreCustomerAccount | null = null;
       setAccounts(prev =>
         prev.map(a => {
           if (a.id !== accountId) return a;
@@ -573,10 +618,13 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
             ],
             updatedAt: now,
           };
-          syncAccountToErpCrm(updated);
+          updatedAcc = updated;
           return updated;
         })
       );
+      if (updatedAcc) {
+        syncAccountToErpCrm(updatedAcc);
+      }
     },
     [syncAccountToErpCrm]
   );

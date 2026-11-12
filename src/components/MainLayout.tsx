@@ -7,6 +7,7 @@ import { ToastContainer } from './common/ToastContainer';
 import { UnsavedChangesModal } from './common/UnsavedChangesModal';
 import { SystemNoticeModal } from './common/SystemNoticeModal';
 import { ModuleWorkspaceSkeleton } from './common/AppSurfaceSkeleton';
+import { PermissionGate } from './common/PermissionGate';
 
 const loadDashboardView = () =>
   import('./dashboard/DashboardView').then(m => ({ default: m.DashboardView }));
@@ -34,6 +35,8 @@ const loadPublicEmployeePortal = () =>
   import('./hr/PublicEmployeePortal').then(m => ({ default: m.PublicEmployeePortal }));
 const loadThermalTicketBuilderModal = () =>
   import('./pos/ThermalTicketBuilderModal').then(m => ({ default: m.ThermalTicketBuilderModal }));
+const loadInventoryModuleView = () =>
+  import('./inventory/InventoryModuleView').then(m => ({ default: m.InventoryModuleView }));
 
 const DashboardView = lazy(loadDashboardView);
 const SettingsView = lazy(loadSettingsView);
@@ -48,6 +51,7 @@ const ProductCatalogView = lazy(loadProductCatalogView);
 const KioskSelfServiceView = lazy(loadKioskSelfServiceView);
 const PublicEmployeePortal = lazy(loadPublicEmployeePortal);
 const ThermalTicketBuilderModal = lazy(loadThermalTicketBuilderModal);
+const InventoryModuleView = lazy(loadInventoryModuleView);
 
 import {
   LayoutDashboard,
@@ -78,6 +82,7 @@ import {
   Receipt,
   Gift,
   Smartphone,
+  Boxes,
 } from 'lucide-react';
 
 export type MainModuleId =
@@ -90,6 +95,7 @@ export type MainModuleId =
   | 'clients'
   | 'benefits'
   | 'products'
+  | 'inventory'
   | 'hr'
   | 'settings';
 
@@ -136,7 +142,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
       const saved = localStorage.getItem('kh_active_main_module') as MainModuleId;
       if (saved && [
         'pos', 'kitchen', 'delivery', 'orders', 'catalog', 'tables',
-        'kiosk', 'benefits', 'hr', 'crm', 'store_builder', 'settings', 'dashboard'
+        'kiosk', 'benefits', 'hr', 'crm', 'store_builder', 'settings', 'dashboard', 'inventory'
       ].includes(saved)) {
         return saved;
       }
@@ -349,44 +355,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
             </div>
           </div>
 
-          {/* Center: Tabs (Carta de Productos | Plano de Mesas) - Only for POS Cashier */}
-          {isCashierRole && (
-            <nav aria-label="Navegación del POS" className="flex items-center gap-1 p-1 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/80 shrink-0">
-              <button
-                type="button"
-                onClick={() => setStationPosTab('carta')}
-                className={`min-h-[36px] sm:min-h-[38px] px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-                  stationPosTab === 'carta'
-                    ? 'bg-amber-500 text-zinc-950 shadow-xs'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                }`}
-              >
-                <Pizza className="w-3.5 h-3.5 shrink-0" />
-                <span className="md:hidden">Carta</span>
-                <span className="hidden md:inline">Carta de Productos</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setStationPosTab('mesas')}
-                className={`min-h-[36px] sm:min-h-[38px] px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-                  stationPosTab === 'mesas'
-                    ? 'bg-amber-500 text-zinc-950 shadow-xs'
-                    : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-                }`}
-              >
-                <Store className="w-3.5 h-3.5 shrink-0" />
-                <span className="md:hidden">Mesas</span>
-                <span className="hidden md:inline">Plano de Mesas</span>
-                {occupiedTablesCount > 0 && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[9px] font-black ${
-                    stationPosTab === 'mesas' ? 'bg-zinc-950 text-amber-400' : 'bg-amber-500 text-zinc-950'
-                  }`}>
-                    {occupiedTablesCount}<span className="hidden sm:inline"> ocup.</span>
-                  </span>
-                )}
-              </button>
-            </nav>
-          )}
+
 
           {/* Right: Operator Popover Dropdown (Miguel Mendoza) */}
           <div className="flex items-center gap-2.5 shrink-0" ref={stationUserMenuRef}>
@@ -1090,6 +1059,35 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
               )}
             </button>
 
+            {/* Inventario & Recetas Button */}
+            <PermissionGate permission="inventory:view" hideInsteadOfBanner>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveMainModule('inventory');
+                  setMobileMenuOpen(false);
+                }}
+                className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-all ${
+                  sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
+                } ${
+                  activeMainModule === 'inventory'
+                    ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
+                    : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
+                }`}
+                title="Inventario, Recetas y Etiquetas"
+              >
+                <Boxes
+                  className="h-4 w-4 shrink-0 transition-colors"
+                  style={activeMainModule === 'inventory' ? { color: customization.primaryColor } : undefined}
+                />
+                {(!sidebarCollapsed || mobileMenuOpen) && (
+                  <div className="flex items-center justify-between flex-1 min-w-0">
+                    <span className="truncate">Inventario & Recetas</span>
+                  </div>
+                )}
+              </button>
+            </PermissionGate>
+
             {/* Clientes CRM Button */}
             <button
               type="button"
@@ -1423,6 +1421,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 <BenefitsModuleView />
               ) : activeMainModule === 'products' ? (
                 <ProductCatalogView />
+              ) : activeMainModule === 'inventory' ? (
+                <InventoryModuleView />
               ) : (
                 <SettingsView />
               )}
@@ -1431,22 +1431,23 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
         </main>
       </div>
 
-      {/* FLOATING SAAS CHECKPOINT BAR */}
+      {/* FLOATING SAAS CHECKPOINT BAR (Fully Responsive for Mobile, Tablet & Desktop) */}
       {isDirty && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 pl-4 pr-2 py-2 rounded-full bg-zinc-900/95 dark:bg-zinc-100/95 text-white dark:text-zinc-900 shadow-2xl ring-1 ring-white/10 dark:ring-zinc-900/10 backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-200">
-          <span className="flex items-center gap-2 text-xs font-medium whitespace-nowrap">
+        <div className="fixed bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-1.5rem)] sm:w-auto max-w-xl flex items-center justify-between sm:justify-start gap-2 sm:gap-3 px-3.5 py-2 sm:pl-4 sm:pr-2 sm:py-2 rounded-2xl sm:rounded-full bg-zinc-900/95 dark:bg-zinc-100/95 text-white dark:text-zinc-900 shadow-2xl ring-1 ring-white/10 dark:ring-zinc-900/10 backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <span className="flex items-center gap-2 text-xs font-medium truncate min-w-0">
             <span
-              className="h-2 w-2 rounded-full animate-pulse"
+              className="h-2 w-2 rounded-full animate-pulse shrink-0"
               style={{ backgroundColor: customization.primaryColor }}
             />
-            Cambios aplicados (Auto-guardados en sesión)
+            <span className="hidden sm:inline whitespace-nowrap">Cambios aplicados (Auto-guardados en sesión)</span>
+            <span className="sm:hidden font-bold truncate">Cambios pendientes</span>
           </span>
 
-          <div className="flex items-center gap-1.5 pl-2 border-l border-zinc-700 dark:border-zinc-300">
+          <div className="flex items-center gap-1.5 sm:pl-2 sm:border-l sm:border-zinc-700 dark:sm:border-zinc-300 ml-auto sm:ml-0 shrink-0">
             <button
               type="button"
               onClick={discardUnsavedChanges}
-              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-zinc-300 dark:text-zinc-600 hover:text-white dark:hover:text-zinc-950 rounded-full transition-colors whitespace-nowrap"
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-zinc-300 dark:text-zinc-600 hover:text-white dark:hover:text-zinc-950 rounded-full transition-colors whitespace-nowrap shrink-0"
             >
               <RotateCcw className="h-3 w-3" />
               Revertir
@@ -1455,7 +1456,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
               type="button"
               onClick={saveAllSettings}
               disabled={isSaving}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white rounded-full shadow-sm transition-transform active:scale-95 disabled:opacity-50 whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white rounded-full shadow-sm transition-transform active:scale-95 disabled:opacity-50 whitespace-nowrap shrink-0"
               style={{ backgroundColor: customization.primaryColor }}
             >
               <Save className="h-3.5 w-3.5" />

@@ -179,6 +179,9 @@ export interface Customer {
   whatsapp: string;
   address: string;
   reference: string;
+  latitude?: number;
+  longitude?: number;
+  distanceKm?: number;
   loyaltyPoints?: number;
   tenantId: string;
   createdAt: string;
@@ -221,6 +224,13 @@ export interface Order {
   assignedDriverName?: string;
   dispatchedAt?: string;
   deliveredAt?: string;
+  pickupProofPhoto?: string;
+  pickupProofAt?: string;
+  pickupProofDriverName?: string;
+  deliveryProofPhoto?: string;
+  deliveryProofAt?: string;
+  deliveryProofDriverName?: string;
+  deliveryAuthorizedBy?: string;
   createdAt: string;
   updatedAt?: string;
   estimatedMinutes: number;

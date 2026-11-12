@@ -21,11 +21,19 @@ import {
   Share2,
   Search,
   Eye,
+  EyeOff,
   CheckCircle2,
   Clock,
   AlertTriangle,
   X,
   Globe,
+  Copy,
+  Check,
+  Info,
+  Layers,
+  Power,
+  ExternalLink,
+  ShieldCheck,
 } from 'lucide-react';
 
 export const CompanyTab: React.FC = () => {
@@ -33,6 +41,7 @@ export const CompanyTab: React.FC = () => {
     companyInfo,
     updateCompanyInfo,
     complaints,
+    addComplaint,
     updateComplaintStatus,
     deleteComplaint,
     openNoticeModal,
@@ -40,7 +49,9 @@ export const CompanyTab: React.FC = () => {
     isSaving,
     customization,
     activeTenant,
+    tenants,
     branchScope,
+    dispatchToast,
   } = useSettings();
 
   const [activeSubTab, setActiveSubTab] = useState<'legal' | 'banks' | 'wallets' | 'complaints' | 'culqi'>('legal');
@@ -50,8 +61,30 @@ export const CompanyTab: React.FC = () => {
   const [responseDraft, setResponseDraft] = useState('');
   const [statusDraft, setStatusDraft] = useState<ComplaintStatus>('pendiente');
 
+  // New Complaint Dialog State
+  const [isAddingComplaint, setIsAddingComplaint] = useState(false);
+  const [newConsumerName, setNewConsumerName] = useState('');
+  const [newDocType, setNewDocType] = useState<'DNI' | 'CE' | 'RUC' | 'Pasaporte'>('DNI');
+  const [newDocNum, setNewDocNum] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newAddress, setNewAddress] = useState('');
+  const [newBranchId, setNewBranchId] = useState(activeTenant.id);
+  const [newGoodType, setNewGoodType] = useState<'producto' | 'servicio'>('producto');
+  const [newGoodDesc, setNewGoodDesc] = useState('');
+  const [newClaimAmount, setNewClaimAmount] = useState('0');
+  const [newClaimType, setNewClaimType] = useState<'reclamo' | 'queja'>('reclamo');
+  const [newDetail, setNewDetail] = useState('');
+  const [newRequest, setNewRequest] = useState('');
+
+  // Culqi Show/Hide Password & Copy Webhook states
+  const [showTestSecret, setShowTestSecret] = useState(false);
+  const [showLiveSecret, setShowLiveSecret] = useState(false);
+  const [copiedWebhook, setCopiedWebhook] = useState(false);
+
   const complaintDialogRef = useRef<HTMLDialogElement>(null);
   const complaintDialogTitleId = useId();
+  const addComplaintDialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
     const dialog = complaintDialogRef.current;
@@ -65,6 +98,16 @@ export const CompanyTab: React.FC = () => {
     }
   }, [selectedComplaint]);
 
+  useEffect(() => {
+    const dialog = addComplaintDialogRef.current;
+    if (!dialog) return;
+    if (isAddingComplaint) {
+      if (!dialog.open) dialog.showModal();
+    } else if (dialog.open) {
+      dialog.close();
+    }
+  }, [isAddingComplaint]);
+
   const handleUpdateSocial = (key: keyof SocialLinks, value: string) => {
     updateCompanyInfo({
       socialLinks: {
@@ -75,45 +118,59 @@ export const CompanyTab: React.FC = () => {
   };
 
   const handleAddBank = () => {
+    const currentList = Array.isArray(companyInfo.bankAccounts) ? companyInfo.bankAccounts : [];
     const newBank: BankAccount = {
       id: `bank-${Date.now()}`,
-      bankName: 'Interbank',
+      bankName: 'Banco de Crédito del Perú (BCP)',
       accountType: 'corriente',
-      accountNumber: '200-300123456-0',
-      cci: '003-200-003001234560-12',
+      accountNumber: '',
+      cci: '',
       currency: 'PEN (S/)',
-      holderName: companyInfo.legalName,
+      holderName: companyInfo.legalName || 'KHALESSI PIZZA FOODS S.A.C.',
     };
-    updateCompanyInfo({ bankAccounts: [...companyInfo.bankAccounts, newBank] });
+    const next = [...currentList, newBank];
+    updateCompanyInfo({ bankAccounts: next });
+    dispatchToast('Cuenta Agregada', 'Se añadió una nueva cuenta bancaria. Completa los números de cuenta.', 'success');
   };
 
   const handleUpdateBank = (id: string, partial: Partial<BankAccount>) => {
-    const updated = companyInfo.bankAccounts.map(b => (b.id === id ? { ...b, ...partial } : b));
+    const currentList = Array.isArray(companyInfo.bankAccounts) ? companyInfo.bankAccounts : [];
+    const updated = currentList.map(b => (b.id === id ? { ...b, ...partial } : b));
     updateCompanyInfo({ bankAccounts: updated });
   };
 
   const handleDeleteBank = (id: string) => {
-    updateCompanyInfo({ bankAccounts: companyInfo.bankAccounts.filter(b => b.id !== id) });
+    const currentList = Array.isArray(companyInfo.bankAccounts) ? companyInfo.bankAccounts : [];
+    const updated = currentList.filter(b => b.id !== id);
+    updateCompanyInfo({ bankAccounts: updated });
+    dispatchToast('Cuenta Eliminada', 'La cuenta bancaria fue removida exitosamente.', 'info');
   };
 
   const handleAddWallet = () => {
+    const currentList = Array.isArray(companyInfo.wallets) ? companyInfo.wallets : [];
     const newWallet: DigitalWallet = {
       id: `wallet-${Date.now()}`,
       provider: 'yape',
-      holderName: companyInfo.commercialName,
+      holderName: companyInfo.commercialName || 'Khalessi Pizza',
       phone: '999 888 777',
-      qrImageUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=YAPE-NUEVO-LOCAL',
+      qrImageUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=YAPE-KHALESSI-PIZZA',
     };
-    updateCompanyInfo({ wallets: [...companyInfo.wallets, newWallet] });
+    const next = [...currentList, newWallet];
+    updateCompanyInfo({ wallets: next });
+    dispatchToast('Billetera Agregada', 'Nueva billetera registrada. Puedes subir la imagen del QR.', 'success');
   };
 
   const handleUpdateWallet = (id: string, partial: Partial<DigitalWallet>) => {
-    const updated = companyInfo.wallets.map(w => (w.id === id ? { ...w, ...partial } : w));
+    const currentList = Array.isArray(companyInfo.wallets) ? companyInfo.wallets : [];
+    const updated = currentList.map(w => (w.id === id ? { ...w, ...partial } : w));
     updateCompanyInfo({ wallets: updated });
   };
 
   const handleDeleteWallet = (id: string) => {
-    updateCompanyInfo({ wallets: companyInfo.wallets.filter(w => w.id !== id) });
+    const currentList = Array.isArray(companyInfo.wallets) ? companyInfo.wallets : [];
+    const updated = currentList.filter(w => w.id !== id);
+    updateCompanyInfo({ wallets: updated });
+    dispatchToast('Billetera Eliminada', 'La billetera móvil fue removida.', 'info');
   };
 
   const handleQrUpload = (e: React.ChangeEvent<HTMLInputElement>, walletId: string) => {
@@ -123,10 +180,59 @@ export const CompanyTab: React.FC = () => {
       reader.onload = event => {
         if (event.target?.result) {
           handleUpdateWallet(walletId, { qrImageUrl: event.target.result as string });
+          dispatchToast('Código QR Actualizado', 'Imagen QR cargada correctamente.', 'success');
         }
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleCreateManualComplaint = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newConsumerName.trim() || !newDocNum.trim() || !newDetail.trim()) {
+      dispatchToast('Campos requeridos', 'Por favor completa el nombre, documento y detalle.', 'warning');
+      return;
+    }
+    const branch = tenants.find(t => t.id === newBranchId) || activeTenant;
+    const created = addComplaint({
+      consumerName: newConsumerName.trim(),
+      documentType: newDocType,
+      documentNumber: newDocNum.trim(),
+      phone: newPhone.trim() || 'No especificado',
+      email: newEmail.trim() || 'No especificado',
+      address: newAddress.trim() || 'No especificado',
+      branchId: branch.id,
+      branchName: branch.name,
+      goodType: newGoodType,
+      goodDescription: newGoodDesc.trim() || 'Consumo en tienda o pedido online',
+      claimedAmount: parseFloat(newClaimAmount) || 0,
+      claimType: newClaimType,
+      detail: newDetail.trim(),
+      consumerRequest: newRequest.trim() || 'Atención y solución conforme a ley',
+      isMinor: false,
+    });
+    setIsAddingComplaint(false);
+    // Reset form
+    setNewConsumerName('');
+    setNewDocNum('');
+    setNewPhone('');
+    setNewEmail('');
+    setNewAddress('');
+    setNewGoodDesc('');
+    setNewClaimAmount('0');
+    setNewDetail('');
+    setNewRequest('');
+    dispatchToast('Hoja Registrada', `Se creó el registro ${created.ticketCode} exitosamente.`, 'success');
+  };
+
+  const handleCopyWebhookUrl = () => {
+    const webhookUrl =
+      companyInfo.culqiConfig?.webhookUrl ||
+      `${typeof window !== 'undefined' ? window.location.origin : 'https://pizzakhalessi.com'}/api/culqi/webhook`;
+    navigator.clipboard?.writeText(webhookUrl);
+    setCopiedWebhook(true);
+    dispatchToast('URL Copiada', 'Endpoint del Webhook copiado al portapapeles.', 'info');
+    setTimeout(() => setCopiedWebhook(false), 2500);
   };
 
   const filteredComplaints = useMemo(() => {
@@ -228,7 +334,7 @@ export const CompanyTab: React.FC = () => {
             }`}
           >
             <CreditCard className="h-3.5 w-3.5" />
-            2. Cuentas Bancarias ({companyInfo.bankAccounts.length})
+            2. Cuentas Bancarias ({(companyInfo.bankAccounts || []).length})
           </button>
           <button
             type="button"
@@ -240,7 +346,7 @@ export const CompanyTab: React.FC = () => {
             }`}
           >
             <QrCode className="h-3.5 w-3.5" />
-            3. Billeteras Digitales y QR ({companyInfo.wallets.length})
+            3. Billeteras Digitales y QR ({(companyInfo.wallets || []).length})
           </button>
           <button
             type="button"
@@ -517,71 +623,86 @@ export const CompanyTab: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {companyInfo.bankAccounts.map(bank => (
-                <div key={bank.id} className="p-4 saas-subcard space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <input
-                      type="text"
-                      value={bank.bankName}
-                      onChange={e => handleUpdateBank(bank.id, { bankName: e.target.value })}
-                      placeholder="Nombre del Banco"
-                      className="flex-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg saas-input"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteBank(bank.id)}
-                      className="p-1.5 text-rose-500 dark:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
-                      title="Eliminar cuenta"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <div>
-                      <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300 block mb-1">Tipo Cuenta</span>
-                      <select
-                        value={bank.accountType}
-                        onChange={e => handleUpdateBank(bank.id, { accountType: e.target.value as BankAccount['accountType'] })}
-                        className="w-full text-xs px-2.5 py-1.5 rounded-lg saas-input"
-                      >
-                        <option value="corriente">Corriente</option>
-                        <option value="ahorros">Ahorros</option>
-                        <option value="maestra">Maestra</option>
-                      </select>
-                    </div>
-                    <div>
-                      <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300 block mb-1">Moneda</span>
+              {(companyInfo.bankAccounts || []).length === 0 ? (
+                <div className="md:col-span-2 py-10 text-center rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-900/30 space-y-2">
+                  <CreditCard className="h-8 w-8 mx-auto text-zinc-400" />
+                  <p className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">No hay cuentas bancarias registradas aún</p>
+                  <button
+                    type="button"
+                    onClick={handleAddBank}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white rounded-lg shadow-sm"
+                    style={{ backgroundColor: customization.primaryColor }}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Agregar Primera Cuenta
+                  </button>
+                </div>
+              ) : (
+                (companyInfo.bankAccounts || []).map(bank => (
+                  <div key={bank.id} className="p-4 saas-subcard space-y-3">
+                    <div className="flex items-center justify-between gap-2">
                       <input
                         type="text"
-                        value={bank.currency}
-                        onChange={e => handleUpdateBank(bank.id, { currency: e.target.value })}
-                        className="w-full text-xs px-2.5 py-1.5 rounded-lg saas-input"
+                        value={bank.bankName}
+                        onChange={e => handleUpdateBank(bank.id, { bankName: e.target.value })}
+                        placeholder="Nombre del Banco"
+                        className="flex-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg saas-input"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteBank(bank.id)}
+                        className="p-1.5 text-rose-500 dark:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                        title="Eliminar cuenta"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div>
+                        <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300 block mb-1">Tipo Cuenta</span>
+                        <select
+                          value={bank.accountType}
+                          onChange={e => handleUpdateBank(bank.id, { accountType: e.target.value as BankAccount['accountType'] })}
+                          className="w-full text-xs px-2.5 py-1.5 rounded-lg saas-input"
+                        >
+                          <option value="corriente">Corriente</option>
+                          <option value="ahorros">Ahorros</option>
+                          <option value="maestra">Maestra</option>
+                        </select>
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300 block mb-1">Moneda</span>
+                        <input
+                          type="text"
+                          value={bank.currency}
+                          onChange={e => handleUpdateBank(bank.id, { currency: e.target.value })}
+                          className="w-full text-xs px-2.5 py-1.5 rounded-lg saas-input"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300 block mb-1">Número de Cuenta</span>
+                      <input
+                        type="text"
+                        value={bank.accountNumber}
+                        onChange={e => handleUpdateBank(bank.id, { accountNumber: e.target.value })}
+                        className="w-full text-xs px-2.5 py-1.5 rounded-lg saas-input font-mono"
+                      />
+                    </div>
+
+                    <div>
+                      <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300 block mb-1">Código Interbancario (CCI)</span>
+                      <input
+                        type="text"
+                        value={bank.cci || ''}
+                        onChange={e => handleUpdateBank(bank.id, { cci: e.target.value })}
+                        className="w-full text-xs px-2.5 py-1.5 rounded-lg saas-input font-mono"
                       />
                     </div>
                   </div>
-
-                  <div>
-                    <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300 block mb-1">Número de Cuenta</span>
-                    <input
-                      type="text"
-                      value={bank.accountNumber}
-                      onChange={e => handleUpdateBank(bank.id, { accountNumber: e.target.value })}
-                      className="w-full text-xs px-2.5 py-1.5 rounded-lg saas-input font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300 block mb-1">Código Interbancario (CCI)</span>
-                    <input
-                      type="text"
-                      value={bank.cci || ''}
-                      onChange={e => handleUpdateBank(bank.id, { cci: e.target.value })}
-                      className="w-full text-xs px-2.5 py-1.5 rounded-lg saas-input font-mono"
-                    />
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         )}
@@ -608,76 +729,91 @@ export const CompanyTab: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {companyInfo.wallets.map(wallet => (
-                <div
-                  key={wallet.id}
-                  className="p-5 saas-subcard flex flex-col sm:flex-row gap-5"
-                >
-                  <div className="flex flex-col items-center gap-2 shrink-0">
-                    <div className="h-32 w-32 bg-white rounded-xl p-2 border border-zinc-200 shadow-sm flex items-center justify-center overflow-hidden">
-                      {wallet.qrImageUrl ? (
-                        <img src={wallet.qrImageUrl} alt="QR Code" className="h-full w-full object-contain" />
-                      ) : (
-                        <QrCode className="h-12 w-12 text-zinc-400" />
-                      )}
-                    </div>
-                    <label className="cursor-pointer text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1">
-                      <Upload className="h-3 w-3" /> Subir QR
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={e => handleQrUpload(e, wallet.id)}
-                      />
-                    </label>
-                  </div>
-
-                  <div className="flex-1 space-y-3 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <select
-                        value={wallet.provider}
-                        onChange={e => handleUpdateWallet(wallet.id, { provider: e.target.value as DigitalWallet['provider'] })}
-                        className="text-xs font-bold px-2.5 py-1.5 rounded-lg saas-input uppercase"
-                      >
-                        <option value="yape">YAPE (BCP)</option>
-                        <option value="plin">PLIN (Interbank/BBVA)</option>
-                        <option value="other">OTRA BILLETERA</option>
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteWallet(wallet.id)}
-                        className="text-rose-500 dark:text-rose-400 hover:bg-rose-500/10 p-1.5 rounded-lg transition-colors"
-                        title="Eliminar billetera"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+              {(companyInfo.wallets || []).length === 0 ? (
+                <div className="md:col-span-2 py-10 text-center rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-900/30 space-y-2">
+                  <QrCode className="h-8 w-8 mx-auto text-zinc-400" />
+                  <p className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">No hay billeteras digitales configuradas</p>
+                  <button
+                    type="button"
+                    onClick={handleAddWallet}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white rounded-lg shadow-sm"
+                    style={{ backgroundColor: customization.primaryColor }}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Agregar Primera Billetera
+                  </button>
+                </div>
+              ) : (
+                (companyInfo.wallets || []).map(wallet => (
+                  <div
+                    key={wallet.id}
+                    className="p-5 saas-subcard flex flex-col sm:flex-row gap-5"
+                  >
+                    <div className="flex flex-col items-center gap-2 shrink-0">
+                      <div className="h-32 w-32 bg-white rounded-xl p-2 border border-zinc-200 shadow-sm flex items-center justify-center overflow-hidden">
+                        {wallet.qrImageUrl ? (
+                          <img src={wallet.qrImageUrl} alt="QR Code" className="h-full w-full object-contain" />
+                        ) : (
+                          <QrCode className="h-12 w-12 text-zinc-400" />
+                        )}
+                      </div>
+                      <label className="cursor-pointer text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1">
+                        <Upload className="h-3 w-3" /> Subir QR
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={e => handleQrUpload(e, wallet.id)}
+                        />
+                      </label>
                     </div>
 
-                    <div>
-                      <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300 block mb-1">Número Celular Asociado</span>
-                      <div className="relative flex items-center">
-                        <Smartphone className="absolute left-2.5 h-3.5 w-3.5 text-zinc-400" />
+                    <div className="flex-1 space-y-3 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <select
+                          value={wallet.provider}
+                          onChange={e => handleUpdateWallet(wallet.id, { provider: e.target.value as DigitalWallet['provider'] })}
+                          className="text-xs font-bold px-2.5 py-1.5 rounded-lg saas-input uppercase"
+                        >
+                          <option value="yape">YAPE (BCP)</option>
+                          <option value="plin">PLIN (Interbank/BBVA)</option>
+                          <option value="other">OTRA BILLETERA</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteWallet(wallet.id)}
+                          className="text-rose-500 dark:text-rose-400 hover:bg-rose-500/10 p-1.5 rounded-lg transition-colors"
+                          title="Eliminar billetera"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+
+                      <div>
+                        <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300 block mb-1">Número Celular Asociado</span>
+                        <div className="relative flex items-center">
+                          <Smartphone className="absolute left-2.5 h-3.5 w-3.5 text-zinc-400" />
+                          <input
+                            type="text"
+                            value={wallet.phone}
+                            onChange={e => handleUpdateWallet(wallet.id, { phone: e.target.value })}
+                            className="w-full pl-8 pr-2.5 py-1.5 text-xs rounded-lg saas-input font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300 block mb-1">Titular visible en App</span>
                         <input
                           type="text"
-                          value={wallet.phone}
-                          onChange={e => handleUpdateWallet(wallet.id, { phone: e.target.value })}
-                          className="w-full pl-8 pr-2.5 py-1.5 text-xs rounded-lg saas-input font-mono"
+                          value={wallet.holderName}
+                          onChange={e => handleUpdateWallet(wallet.id, { holderName: e.target.value })}
+                          className="w-full text-xs px-2.5 py-1.5 rounded-lg saas-input"
                         />
                       </div>
                     </div>
-
-                    <div>
-                      <span className="text-[11px] font-medium text-zinc-600 dark:text-zinc-300 block mb-1">Titular visible en App</span>
-                      <input
-                        type="text"
-                        value={wallet.holderName}
-                        onChange={e => handleUpdateWallet(wallet.id, { holderName: e.target.value })}
-                        className="w-full text-xs px-2.5 py-1.5 rounded-lg saas-input"
-                      />
-                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         )}
@@ -733,30 +869,40 @@ export const CompanyTab: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {(['all', 'pendiente', 'en_proceso', 'atendido'] as const).map(st => {
-                    const labels = {
-                      all: 'Todos',
-                      pendiente: 'Pendientes',
-                      en_proceso: 'En Proceso',
-                      atendido: 'Atendidos',
-                    };
-                    const active = complaintFilter === st;
-                    return (
-                      <button
-                        key={st}
-                        type="button"
-                        onClick={() => setComplaintFilter(st)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
-                          active
-                            ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
-                            : 'saas-subcard text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white'
-                        }`}
-                      >
-                        {labels[st]}
-                      </button>
-                    );
-                  })}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingComplaint(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm transition-all whitespace-nowrap shrink-0 hover:opacity-90"
+                    style={{ backgroundColor: customization.primaryColor }}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Nueva Hoja de Reclamación
+                  </button>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {(['all', 'pendiente', 'en_proceso', 'atendido'] as const).map(st => {
+                      const labels = {
+                        all: 'Todos',
+                        pendiente: 'Pendientes',
+                        en_proceso: 'En Proceso',
+                        atendido: 'Atendidos',
+                      };
+                      const active = complaintFilter === st;
+                      return (
+                        <button
+                          key={st}
+                          type="button"
+                          onClick={() => setComplaintFilter(st)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
+                            active
+                              ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
+                              : 'saas-subcard text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white'
+                          }`}
+                        >
+                          {labels[st]}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -881,109 +1027,354 @@ export const CompanyTab: React.FC = () => {
           </div>
         )}
 
-        {/* Tab 5: Pasarela Culqi Checkout v4 */}
+        {/* Tab 5: Pasarela Culqi Checkout v4 & API v2 */}
         {activeSubTab === 'culqi' && (
-          <div className="saas-card p-6 space-y-5">
+          <div className="saas-card p-6 space-y-6">
+            {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-zinc-200 dark:border-zinc-800">
-              <div>
-                <h3 className="text-base font-black text-zinc-950 dark:text-white flex items-center gap-2">
-                  <CreditCard className="h-5 w-5 text-emerald-500" />
-                  Integración Pasarela Culqi Checkout v4 (Tarjetas & Yape)
-                </h3>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-                  Configura tu llave pública (`pk_test_...` o `pk_live_...`) para procesar pagos online en el Checkout de la Tienda Virtual.
-                </p>
+              <div className="flex items-start gap-3">
+                <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 shrink-0">
+                  <CreditCard className="h-6 w-6" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-base font-black text-zinc-950 dark:text-white">
+                      Pasarela de Pagos Culqi (Checkout v4 & API v2)
+                    </h3>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                      Tarjetas · Yape · PagoEfectivo
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
+                    Acepta pagos instantáneos con tarjetas de crédito y débito (Visa, Mastercard, Amex, Diners), Yape y billeteras móviles
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
-                onClick={() =>
-                  updateCompanyInfo({
-                    culqiConfig: {
-                      ...(companyInfo.culqiConfig || {
-                        enabled: true,
-                        environment: 'test',
-                        publicKey: 'pk_test_demo_khalessi_v4',
-                        yapeEnabled: true,
-                        billeteraEnabled: true,
-                        allowCashFallback: true,
-                      }),
-                      enabled: !(companyInfo.culqiConfig?.enabled ?? true),
-                    },
-                  })
-                }
-                className={`px-4 py-2 rounded-xl text-xs font-black whitespace-nowrap shrink-0 ${
-                  companyInfo.culqiConfig?.enabled ?? true
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
-                }`}
+                onClick={saveAllSettings}
+                disabled={isSaving}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white rounded-xl shadow-sm transition-all whitespace-nowrap shrink-0 hover:opacity-95"
+                style={{ backgroundColor: customization.primaryColor }}
               >
-                {(companyInfo.culqiConfig?.enabled ?? true) ? 'Culqi Activo en Tienda' : 'Pasarela Desactivada'}
+                <Save className="h-3.5 w-3.5" />
+                {isSaving ? 'Guardando...' : 'Guardar Pasarela'}
               </button>
             </div>
 
+            {/* Information Alert Banner */}
+            <div className="p-4 rounded-2xl border border-rose-200 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-950/20 flex items-start gap-3">
+              <div className="p-1.5 rounded-lg bg-rose-500 text-white shrink-0 mt-0.5">
+                <Info className="h-4 w-4" />
+              </div>
+              <div className="space-y-1.5 text-xs text-zinc-700 dark:text-zinc-300">
+                <h4 className="font-bold text-zinc-950 dark:text-white">
+                  ¿Cómo funciona la integración oficial con Culqi Checkout v4?
+                </h4>
+                <p>
+                  Tu tienda abre el modal oficial seguro de <strong className="text-rose-600 dark:text-rose-400 underline">Culqi Checkout v4</strong> para tokenizar la tarjeta o código Yape del cliente en el navegador y procesar el cargo en tiempo real vía <span className="font-mono text-[11px] bg-white dark:bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-200 dark:border-zinc-800">https://api.culqi.com/v2/charges</span>. El pedido se registra y envía a cocina únicamente cuando el cargo es aprobado.
+                </p>
+                <p className="text-[11px] text-zinc-600 dark:text-zinc-400 font-medium flex items-center gap-1">
+                  <span>🔑 Obtén tus llaves en tu CulqiPanel:</span>
+                  <a
+                    href="https://panel.culqi.com"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-bold text-rose-600 dark:text-rose-400 hover:underline inline-flex items-center gap-0.5"
+                  >
+                    panel.culqi.com &gt; Desarrollo &gt; API Keys <ExternalLink className="h-3 w-3" />
+                  </a>
+                </p>
+              </div>
+            </div>
+
+            {/* Row 1: Activar Pasarela & Entorno Activo */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
-                  Entorno de Operación
+              {/* Box 1: Activar Pasarela Culqi */}
+              <div className="p-4 rounded-2xl saas-subcard flex items-center justify-between gap-4">
+                <div>
+                  <h4 className="text-xs font-bold text-zinc-950 dark:text-white flex items-center gap-1.5">
+                    <Power className={`h-4 w-4 ${(companyInfo.culqiConfig?.enabled ?? true) ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-400'}`} />
+                    Activar Pasarela Culqi
+                  </h4>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    Habilita los cobros con Culqi en el checkout web de todas tus tiendas.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={companyInfo.culqiConfig?.enabled ?? true}
+                    onChange={e =>
+                      updateCompanyInfo({
+                        culqiConfig: {
+                          ...(companyInfo.culqiConfig || {
+                            enabled: true,
+                            environment: 'test',
+                            publicKey: 'pk_test_demo_khalessi_v4',
+                            yapeEnabled: true,
+                            billeteraEnabled: true,
+                            allowCashFallback: true,
+                          }),
+                          enabled: e.target.checked,
+                        },
+                      })
+                    }
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600" />
                 </label>
+              </div>
+
+              {/* Box 2: Entorno Activo (Modo) */}
+              <div className="p-4 rounded-2xl saas-subcard space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-zinc-950 dark:text-white flex items-center gap-1.5">
+                    <span className={`w-2.5 h-2.5 rounded-full ${companyInfo.culqiConfig?.environment === 'live' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                    Entorno Activo (Modo)
+                  </h4>
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase">
+                    {companyInfo.culqiConfig?.environment === 'live' ? 'Producción' : 'Sandbox'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  Selecciona si operarás con tarjetas de prueba o cobros reales.
+                </p>
                 <select
                   value={companyInfo.culqiConfig?.environment || 'test'}
                   onChange={e =>
                     updateCompanyInfo({
                       culqiConfig: {
-                        ...(companyInfo.culqiConfig!),
+                        ...(companyInfo.culqiConfig || {
+                          enabled: true,
+                          environment: 'test',
+                          publicKey: 'pk_test_demo_khalessi_v4',
+                          yapeEnabled: true,
+                          billeteraEnabled: true,
+                          allowCashFallback: true,
+                        }),
                         environment: e.target.value as 'test' | 'live',
                       },
                     })
                   }
-                  className="w-full px-3.5 py-2.5 rounded-xl saas-input text-xs sm:text-sm font-bold"
+                  className="w-full px-3 py-2 rounded-xl saas-input text-xs font-bold"
                 >
-                  <option value="test">Integración / Pruebas (Sandbox pk_test_)</option>
-                  <option value="live">Producción Real (pk_live_)</option>
+                  <option value="test">⚡ Modo Prueba / Integración (pk_test_... / sk_test_...)</option>
+                  <option value="live">🟢 Modo Producción Real (pk_live_... / sk_live_...)</option>
                 </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
-                  Llave Pública Culqi (Public Key)
-                </label>
-                <input
-                  type="text"
-                  value={companyInfo.culqiConfig?.publicKey || ''}
-                  onChange={e =>
-                    updateCompanyInfo({
-                      culqiConfig: {
-                        ...(companyInfo.culqiConfig!),
-                        publicKey: e.target.value,
-                      },
-                    })
-                  }
-                  placeholder="pk_test_xxxxxxxxxxxxxxxx"
-                  className="w-full px-3.5 py-2.5 rounded-xl saas-input text-xs sm:text-sm font-mono"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
-                  Endpoint Backend para Cargos Automáticos (Opcional — API /api/culqi/charge)
-                </label>
-                <input
-                  type="url"
-                  value={companyInfo.culqiConfig?.backendChargeEndpoint || ''}
-                  onChange={e =>
-                    updateCompanyInfo({
-                      culqiConfig: {
-                        ...(companyInfo.culqiConfig!),
-                        backendChargeEndpoint: e.target.value,
-                      },
-                    })
-                  }
-                  placeholder="https://api.tudominio.com/culqi/charge (Déjalo vacío en modo demostración)"
-                  className="w-full px-3.5 py-2.5 rounded-xl saas-input text-xs sm:text-sm font-mono"
-                />
               </div>
             </div>
 
+            {/* Row 2: Multipagos Asíncronos */}
+            <div className="p-4 rounded-2xl saas-subcard flex items-center justify-between gap-4">
+              <div>
+                <h4 className="text-xs font-bold text-zinc-950 dark:text-white flex items-center gap-1.5">
+                  <Layers className="h-4 w-4 text-sky-500" />
+                  Habilitar Multipagos Asíncronos (PagoEfectivo / Banca Móvil / Cuotéalo - API Orders)
+                </h4>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                  Tarjetas y Yape funcionan de inmediato sin activar esta opción. Actívala solo si tu cuenta Culqi tiene habilitada la creación de Órdenes (/v2/orders).
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                <input
+                  type="checkbox"
+                  checked={companyInfo.culqiConfig?.multipayEnabled ?? false}
+                  onChange={e =>
+                    updateCompanyInfo({
+                      culqiConfig: {
+                        ...(companyInfo.culqiConfig!),
+                        multipayEnabled: e.target.checked,
+                      },
+                    })
+                  }
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-zinc-200 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600" />
+              </label>
+            </div>
+
+            {/* Row 3: Claves de Modo Prueba (Integración / Sandbox) */}
+            <div className="p-5 rounded-2xl border-2 border-amber-300/80 dark:border-amber-600/40 bg-amber-50/30 dark:bg-amber-950/15 space-y-4">
+              <div className="flex items-center justify-between border-b border-amber-200/60 dark:border-amber-800/50 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <h4 className="text-xs font-black uppercase tracking-wider text-amber-900 dark:text-amber-200">
+                    Claves de Modo Prueba (Integración / Sandbox)
+                  </h4>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-200/60 text-amber-900 dark:bg-amber-900/50 dark:text-amber-200">
+                  Sin dinero real
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-800 dark:text-zinc-200 mb-1">
+                    Llave Pública de Prueba (Public Key) *
+                  </label>
+                  <input
+                    type="text"
+                    value={companyInfo.culqiConfig?.testPublicKey || companyInfo.culqiConfig?.publicKey || ''}
+                    onChange={e => {
+                      const val = e.target.value.trim();
+                      updateCompanyInfo({
+                        culqiConfig: {
+                          ...(companyInfo.culqiConfig!),
+                          testPublicKey: val,
+                          publicKey: companyInfo.culqiConfig?.environment === 'test' ? val : (companyInfo.culqiConfig?.publicKey || val),
+                        },
+                      });
+                    }}
+                    placeholder="pk_test_xxxxxxxxxxxxxxxx"
+                    className="w-full px-3.5 py-2.5 rounded-xl saas-input text-xs font-mono bg-white dark:bg-zinc-900"
+                  />
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 block">
+                    Empieza con pk_test_. Se usa en el navegador para abrir Culqi Checkout v4.
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-800 dark:text-zinc-200 mb-1">
+                    Llave Secreta de Prueba (Secret Key) *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showTestSecret ? 'text' : 'password'}
+                      value={companyInfo.culqiConfig?.testSecretKey || companyInfo.culqiConfig?.secretKey || ''}
+                      onChange={e =>
+                        updateCompanyInfo({
+                          culqiConfig: {
+                            ...(companyInfo.culqiConfig!),
+                            testSecretKey: e.target.value.trim(),
+                            secretKey: e.target.value.trim(),
+                          },
+                        })
+                      }
+                      placeholder="sk_test_xxxxxxxxxxxxxxxx"
+                      className="w-full pl-3.5 pr-10 py-2.5 rounded-xl saas-input text-xs font-mono bg-white dark:bg-zinc-900"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowTestSecret(!showTestSecret)}
+                      className="absolute right-3 top-2.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                      aria-label="Ver clave secreta de prueba"
+                    >
+                      {showTestSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 block">
+                    Empieza con sk_test_. Se usa en el servidor PHP para procesar cargos.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Row 4: Claves de Modo Producción (Live) */}
+            <div className="p-5 rounded-2xl border-2 border-emerald-300/80 dark:border-emerald-600/40 bg-emerald-50/30 dark:bg-emerald-950/15 space-y-4">
+              <div className="flex items-center justify-between border-b border-emerald-200/60 dark:border-emerald-800/50 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <h4 className="text-xs font-black uppercase tracking-wider text-emerald-900 dark:text-emerald-200">
+                    Claves de Modo Producción (Live)
+                  </h4>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-200/60 text-emerald-900 dark:bg-emerald-900/50 dark:text-emerald-200">
+                  Cobros Reales
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-zinc-800 dark:text-zinc-200 mb-1">
+                    Llave Pública de Producción (Public Key) *
+                  </label>
+                  <input
+                    type="text"
+                    value={companyInfo.culqiConfig?.livePublicKey || ''}
+                    onChange={e => {
+                      const val = e.target.value.trim();
+                      updateCompanyInfo({
+                        culqiConfig: {
+                          ...(companyInfo.culqiConfig!),
+                          livePublicKey: val,
+                          publicKey: companyInfo.culqiConfig?.environment === 'live' ? val : (companyInfo.culqiConfig?.publicKey || val),
+                        },
+                      });
+                    }}
+                    placeholder="pk_live_xxxxxxxxxxxxxxxx"
+                    className="w-full px-3.5 py-2.5 rounded-xl saas-input text-xs font-mono bg-white dark:bg-zinc-900"
+                  />
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 block">
+                    Empieza con pk_live_. Abre el Checkout oficial para cobros reales.
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-zinc-800 dark:text-zinc-200 mb-1">
+                    Llave Secreta de Producción (Secret Key) *
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showLiveSecret ? 'text' : 'password'}
+                      value={companyInfo.culqiConfig?.liveSecretKey || ''}
+                      onChange={e =>
+                        updateCompanyInfo({
+                          culqiConfig: {
+                            ...(companyInfo.culqiConfig!),
+                            liveSecretKey: e.target.value.trim(),
+                          },
+                        })
+                      }
+                      placeholder="sk_live_xxxxxxxxxxxxxxxx"
+                      className="w-full pl-3.5 pr-10 py-2.5 rounded-xl saas-input text-xs font-mono bg-white dark:bg-zinc-900"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowLiveSecret(!showLiveSecret)}
+                      className="absolute right-3 top-2.5 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                      aria-label="Ver clave secreta de producción"
+                    >
+                      {showLiveSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 block">
+                    Empieza con sk_live_. Procesa los cargos reales en tu cuenta Culqi.
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Row 5: Endpoint de Webhook para Culqi */}
+            <div className="p-4 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/60 space-y-2">
+              <h4 className="text-xs font-bold text-zinc-900 dark:text-white flex items-center gap-1.5">
+                <span>📡 Endpoint de Webhook para Culqi</span>
+              </h4>
+              <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                Si utilizas pagos asíncronos (Multipagos / PagoEfectivo), registra esta URL en tu <strong>CulqiPanel &gt; Eventos &gt; Webhooks</strong> con el evento <code className="bg-zinc-200 dark:bg-zinc-800 px-1 py-0.5 rounded text-[10px]">order.status.changed</code> y <code className="bg-zinc-200 dark:bg-zinc-800 px-1 py-0.5 rounded text-[10px]">charge.creation.succeeded</code>:
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={
+                    companyInfo.culqiConfig?.webhookUrl ||
+                    `${typeof window !== 'undefined' ? window.location.origin : 'https://pizzakhalessi.com'}/api/culqi/webhook`
+                  }
+                  className="flex-1 px-3.5 py-2 rounded-xl text-xs font-mono bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 select-all"
+                />
+                <button
+                  type="button"
+                  onClick={handleCopyWebhookUrl}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 hover:opacity-90 shrink-0 transition-all whitespace-nowrap"
+                >
+                  {copiedWebhook ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copiedWebhook ? 'Copiado' : 'Copiar'}
+                </button>
+              </div>
+            </div>
+
+            {/* Additional toggles: Yape, Plin & Cash fallback */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
               <label className="flex items-center gap-2.5 p-3 rounded-xl saas-subcard cursor-pointer text-xs font-bold">
                 <input
@@ -997,7 +1388,7 @@ export const CompanyTab: React.FC = () => {
                       },
                     })
                   }
-                  className="rounded accent-emerald-500"
+                  className="rounded accent-rose-600"
                 />
                 <span>Habilitar Yape en Culqi</span>
               </label>
@@ -1014,7 +1405,7 @@ export const CompanyTab: React.FC = () => {
                       },
                     })
                   }
-                  className="rounded accent-emerald-500"
+                  className="rounded accent-rose-600"
                 />
                 <span>Habilitar Plin / Billeteras</span>
               </label>
@@ -1031,7 +1422,7 @@ export const CompanyTab: React.FC = () => {
                       },
                     })
                   }
-                  className="rounded accent-emerald-500"
+                  className="rounded accent-rose-600"
                 />
                 <span>Permitir Contraentrega Efectivo</span>
               </label>
@@ -1178,6 +1569,239 @@ export const CompanyTab: React.FC = () => {
                 style={{ backgroundColor: customization.primaryColor }}
               >
                 Guardar Estado y Respuesta
+              </button>
+            </div>
+          </form>
+        )}
+      </dialog>
+
+      {/* Native <dialog> for Registering a New Hoja de Reclamación Virtual */}
+      <dialog
+        ref={addComplaintDialogRef}
+        onClose={() => {
+          if (addComplaintDialogRef.current) addComplaintDialogRef.current.returnValue = '';
+          setIsAddingComplaint(false);
+        }}
+        className="max-w-2xl"
+      >
+        {isAddingComplaint && (
+          <form
+            onSubmit={handleCreateManualComplaint}
+            className="saas-card !rounded-3xl p-6 space-y-4 shadow-2xl border border-zinc-200 dark:border-zinc-700 max-h-[88vh] overflow-y-auto"
+          >
+            <div className="flex items-start justify-between gap-4 pb-3 border-b border-zinc-200 dark:border-zinc-800">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                  ADMINISTRACIÓN • LIBRO DE RECLAMACIONES VIRTUAL
+                </span>
+                <h3 className="text-lg font-black text-zinc-950 dark:text-white mt-0.5">
+                  Nueva Hoja de Reclamación / Queja
+                </h3>
+                <p className="text-xs text-zinc-500">
+                  Registra un reclamo recibido presencialmente, por teléfono o correo oficial para seguimiento INDECOPI.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddingComplaint(false)}
+                aria-label="Cerrar modal de reclamación"
+                className="p-1.5 rounded-xl text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Consumer details */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                1. Datos del Consumidor
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
+                    Nombres y Apellidos *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newConsumerName}
+                    onChange={e => setNewConsumerName(e.target.value)}
+                    placeholder="Ej. Rodrigo Mendoza Salazar"
+                    className="w-full px-3 py-2 rounded-xl text-xs saas-input font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
+                    Tipo y Número de Documento *
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={newDocType}
+                      onChange={e => setNewDocType(e.target.value as any)}
+                      className="w-24 px-2 py-2 rounded-xl text-xs saas-input font-bold"
+                    >
+                      <option value="DNI">DNI</option>
+                      <option value="CE">C.E.</option>
+                      <option value="RUC">RUC</option>
+                      <option value="Pasaporte">Pasap.</option>
+                    </select>
+                    <input
+                      type="text"
+                      required
+                      value={newDocNum}
+                      onChange={e => setNewDocNum(e.target.value)}
+                      placeholder="Número de documento"
+                      className="flex-1 px-3 py-2 rounded-xl text-xs saas-input font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
+                    Teléfono Celular / WhatsApp
+                  </label>
+                  <input
+                    type="tel"
+                    value={newPhone}
+                    onChange={e => setNewPhone(e.target.value)}
+                    placeholder="Ej. 987 654 321"
+                    className="w-full px-3 py-2 rounded-xl text-xs saas-input font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
+                    Correo Electrónico
+                  </label>
+                  <input
+                    type="email"
+                    value={newEmail}
+                    onChange={e => setNewEmail(e.target.value)}
+                    placeholder="correo@ejemplo.com"
+                    className="w-full px-3 py-2 rounded-xl text-xs saas-input"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
+                    Domicilio del Consumidor
+                  </label>
+                  <input
+                    type="text"
+                    value={newAddress}
+                    onChange={e => setNewAddress(e.target.value)}
+                    placeholder="Av. / Calle / Distrito"
+                    className="w-full px-3 py-2 rounded-xl text-xs saas-input"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Claim details */}
+            <div className="space-y-3 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                2. Detalle del Bien y la Reclamación
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
+                    Establecimiento / Sede *
+                  </label>
+                  <select
+                    value={newBranchId}
+                    onChange={e => setNewBranchId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl text-xs saas-input font-semibold"
+                  >
+                    {tenants.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
+                    Tipo de Hoja *
+                  </label>
+                  <select
+                    value={newClaimType}
+                    onChange={e => setNewClaimType(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-xl text-xs saas-input font-bold"
+                  >
+                    <option value="reclamo">Reclamo (Disconformidad de producto)</option>
+                    <option value="queja">Queja (Malestar en la atención)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
+                    Monto Reclamado (S/)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.10"
+                    value={newClaimAmount}
+                    onChange={e => setNewClaimAmount(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl text-xs saas-input font-mono"
+                  />
+                </div>
+
+                <div className="sm:col-span-3">
+                  <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
+                    Descripción del Producto o Servicio Contratado
+                  </label>
+                  <input
+                    type="text"
+                    value={newGoodDesc}
+                    onChange={e => setNewGoodDesc(e.target.value)}
+                    placeholder="Ej. Pizza Familiar Carnívora Napolitana + Bebida"
+                    className="w-full px-3 py-2 rounded-xl text-xs saas-input"
+                  />
+                </div>
+
+                <div className="sm:col-span-3">
+                  <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
+                    Detalle del Reclamo / Queja *
+                  </label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={newDetail}
+                    onChange={e => setNewDetail(e.target.value)}
+                    placeholder="Describe los hechos ocurridos..."
+                    className="w-full px-3 py-2 rounded-xl text-xs saas-input"
+                  />
+                </div>
+
+                <div className="sm:col-span-3">
+                  <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
+                    Pedido Concreto del Consumidor
+                  </label>
+                  <input
+                    type="text"
+                    value={newRequest}
+                    onChange={e => setNewRequest(e.target.value)}
+                    placeholder="Ej. Reposición del producto o devolución"
+                    className="w-full px-3 py-2 rounded-xl text-xs saas-input"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-200 dark:border-zinc-800">
+              <button
+                type="button"
+                onClick={() => setIsAddingComplaint(false)}
+                className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold saas-btn-secondary whitespace-nowrap shrink-0"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white shadow-sm whitespace-nowrap shrink-0 hover:opacity-95"
+                style={{ backgroundColor: customization.primaryColor }}
+              >
+                Crear Hoja de Reclamación
               </button>
             </div>
           </form>

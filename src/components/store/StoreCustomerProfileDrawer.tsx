@@ -69,13 +69,22 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
 
   const { openNoticeModal, dispatchToast } = useSettings();
   const { pointsConfig, rewards } = useBenefits();
+  const isCardActive = pointsConfig.enabled && pointsConfig.status !== 'paused';
 
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const expHintId = useId();
 
   const [authTab, setAuthTab] = useState<AuthTab>('login');
-  const [profileSection, setProfileSection] = useState<ProfileSection>('puntos');
+  const [profileSection, setProfileSection] = useState<ProfileSection>(() =>
+    pointsConfig.enabled && pointsConfig.status !== 'paused' ? 'puntos' : 'datos'
+  );
+
+  useEffect(() => {
+    if (!isCardActive && profileSection === 'puntos') {
+      setProfileSection('datos');
+    }
+  }, [isCardActive, profileSection]);
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Sign-in form state
@@ -721,9 +730,9 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                   </button>
                 </div>
 
-                {/* 4 Profile Sub-Tabs (Tarjeta Puntos + Mis Datos + Direcciones + Pagos) */}
+                {/* Profile Sub-Tabs */}
                 <div
-                  className={`grid grid-cols-4 gap-1 p-1 rounded-2xl border ${
+                  className={`grid ${isCardActive ? 'grid-cols-4' : 'grid-cols-3'} gap-1 p-1 rounded-2xl border ${
                     isLightTheme
                       ? 'bg-zinc-200/80 border-zinc-200'
                       : 'bg-neutral-950 border-neutral-800'
@@ -731,7 +740,7 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                 >
                   {(
                     [
-                      ['puntos', `Puntos (${currentCustomer.points || 0})`],
+                      ...(isCardActive ? [['puntos', `Puntos (${currentCustomer.points || 0})`]] : []),
                       ['datos', 'Datos'],
                       ['direcciones', `Direc. (${currentCustomer.addresses.length})`],
                       ['pagos', `Pagos (${currentCustomer.paymentMethods.length})`],
@@ -742,7 +751,7 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                       <button
                         key={secId}
                         type="button"
-                        onClick={() => setProfileSection(secId)}
+                        onClick={() => setProfileSection(secId as ProfileSection)}
                         data-auto-contrast={active && autoButtonContrast ? 'true' : 'false'}
                         className={`py-2 px-1.5 rounded-xl text-[11px] font-black transition-all whitespace-nowrap shrink-0 truncate ${
                           active
@@ -759,22 +768,32 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                 </div>
 
                 {/* SECTION 0: TARJETA DE PUNTOS Y PREMIOS */}
-                {profileSection === 'puntos' && (
+                {isCardActive && profileSection === 'puntos' && (
                   <div className="space-y-4">
                     <div
-                      className={`p-5 rounded-3xl border shadow-sm space-y-4 ${
+                      className={`relative overflow-hidden p-5 rounded-3xl border shadow-sm space-y-4 ${
                         isLightTheme
                           ? 'bg-white border-zinc-200/90'
                           : 'bg-neutral-950 border-neutral-800'
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-2">
+                      {pointsConfig.cardBgImage && (
+                        <div
+                          className="absolute inset-0 bg-cover bg-center opacity-20 pointer-events-none"
+                          style={{ backgroundImage: `url(${pointsConfig.cardBgImage})` }}
+                        />
+                      )}
+                      <div className="relative z-10 flex items-start justify-between gap-2">
                         <div>
                           <span
                             data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                            className="store-btn-solid inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-xs"
+                            className="store-btn-solid inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider shadow-xs"
                           >
-                            <Star className="w-3 h-3 fill-current" />
+                            {pointsConfig.customIconUrl ? (
+                              <img src={pointsConfig.customIconUrl} alt="Ícono" className="w-3.5 h-3.5 object-contain" />
+                            ) : (
+                              <Star className="w-3 h-3 fill-current" />
+                            )}
                             <span>Club Fidelidad</span>
                           </span>
                           <h3
@@ -803,7 +822,7 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                       </div>
 
                       {/* Stamp Grid */}
-                      <div className="grid grid-cols-4 gap-2">
+                      <div className="relative z-10 grid grid-cols-4 gap-2">
                         {Array.from({ length: pointsConfig.stampsPerCardGoal }).map((_, idx) => {
                           const userPts = currentCustomer.points || 0;
                           const filledCount =
@@ -823,14 +842,22 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                                   : 'bg-neutral-900 border-neutral-800 text-neutral-500'
                               }`}
                             >
-                              {stamped ? <Star className="w-4 h-4 fill-current" /> : `#${idx + 1}`}
+                              {stamped ? (
+                                pointsConfig.customIconUrl ? (
+                                  <img src={pointsConfig.customIconUrl} alt="Sello" className="w-4 h-4 object-contain" />
+                                ) : (
+                                  <Star className="w-4 h-4 fill-current" />
+                                )
+                              ) : (
+                                `#${idx + 1}`
+                              )}
                             </div>
                           );
                         })}
                       </div>
 
                       <div
-                        className={`text-[11px] pt-2 border-t flex items-center justify-between ${
+                        className={`relative z-10 text-[11px] pt-2 border-t flex items-center justify-between ${
                           isLightTheme ? 'border-zinc-200 text-zinc-500' : 'border-neutral-800 text-neutral-400'
                         }`}
                       >

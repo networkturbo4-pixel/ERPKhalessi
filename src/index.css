@@ -94,6 +94,12 @@ dialog:modal {
   width: 100%;
 }
 
+dialog:modal.modal-wide,
+dialog:modal.thermal-builder-dialog {
+  max-width: min(96vw, 1380px) !important;
+  width: min(96vw, 1380px) !important;
+}
+
 dialog::backdrop {
   overflow: hidden;
   overscroll-behavior: contain;

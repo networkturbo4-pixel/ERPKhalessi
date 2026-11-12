@@ -316,49 +316,7 @@ export const KitchenKDSView: React.FC = () => {
 
   return (
     <div className="max-w-[1600px] mx-auto w-full space-y-4 touch-surface">
-      {/* KDS Header with High Contrast & Real-Time Sync Telemetry */}
-      <div className="p-3.5 sm:p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-base sm:text-lg font-black text-zinc-950 dark:text-white flex items-center gap-2">
-            <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-amber-500 shrink-0" />
-            <span>Cocina & Horno KDS</span>
-          </h2>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Sincronización instantánea POS ↔ Cocina ↔ Delivery · Sede:{' '}
-            <strong className="text-zinc-800 dark:text-zinc-200">
-              {branchScope === 'consolidated' ? 'Consolidado Corporativo' : activeTenant.name}
-            </strong>
-          </p>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          {otherBranchesActiveCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setBranchScope('consolidated')}
-              className="min-h-[36px] flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 text-zinc-950 text-xs font-black shadow-xs hover:bg-amber-400 transition-colors whitespace-nowrap shrink-0"
-            >
-              <Globe2 className="w-3.5 h-3.5 shrink-0" />
-              <span>+{otherBranchesActiveCount} en otras sedes · Ver todas</span>
-            </button>
-          )}
-
-          {inRouteCount > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-700 dark:text-orange-300 text-xs font-bold whitespace-nowrap shrink-0">
-              <Bike className="w-3.5 h-3.5" />
-              <span>{inRouteCount} en ruta delivery</span>
-            </div>
-          )}
-
-          <div
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-800 dark:text-emerald-300 font-bold whitespace-nowrap shrink-0"
-            title={`Último pulso: ${new Date(lastRealtimeSyncAt).toLocaleTimeString()}`}
-          >
-            <Radio className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
-            <span>Tiempo Real Activo</span>
-          </div>
-        </div>
-      </div>
 
       {/* Mobile Stage Tabs (Hidden on Desktop md+, tactile 48px height on mobile) */}
       <div className="grid grid-cols-3 gap-2 md:hidden p-1.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm">
