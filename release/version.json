@@ -1,5 +1,5 @@
 {
-  "buildId": "20261112035453",
-  "builtAt": "2026-11-12T03:54:53.503Z",
-  "message": "feat: optimizacion tiempo real, autocuracion base64, mapa Leaflet y foto por sucursal"
+  "buildId": "20261112035731",
+  "builtAt": "2026-11-12T03:57:31.065Z",
+  "message": "fix(system-update): robustecer descompresion con scandir y fallback de raiz"
 }

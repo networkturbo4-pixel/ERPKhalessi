@@ -49,6 +49,7 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
   const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>(currentDeliveryType);
   const [selectedTenantId, setSelectedTenantId] = useState<string>(activeTenantId);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeMobileTab, setActiveMobileTab] = useState<'list' | 'map'>('list');
   const [customerCoords, setCustomerCoords] = useState<[number, number]>(DEFAULT_CUSTOMER_COORDS);
   const [customerAddress, setCustomerAddress] = useState<string>('Av. Universitaria con Belaunde, Comas');
   const [isLocating, setIsLocating] = useState(false);
@@ -220,10 +221,44 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
           </button>
         </div>
 
+        {/* Content Body: Responsive Tab Switcher on Mobile (< lg) */}
+        <div className="lg:hidden flex items-center border-b border-zinc-200 dark:border-neutral-800 bg-zinc-50 dark:bg-neutral-900/60 p-1.5 px-3">
+          <div className="grid grid-cols-2 gap-1 w-full max-w-sm mx-auto">
+            <button
+              type="button"
+              onClick={() => setActiveMobileTab('list')}
+              className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                activeMobileTab === 'list'
+                  ? 'bg-white dark:bg-neutral-800 text-rose-600 dark:text-rose-400 shadow-sm'
+                  : 'text-zinc-500 dark:text-neutral-400'
+              }`}
+            >
+              <Store className="w-3.5 h-3.5" />
+              <span>Lista de Locales ({tenants.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveMobileTab('map')}
+              className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                activeMobileTab === 'map'
+                  ? 'bg-white dark:bg-neutral-800 text-rose-600 dark:text-rose-400 shadow-sm'
+                  : 'text-zinc-500 dark:text-neutral-400'
+              }`}
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>Ver en Mapa</span>
+            </button>
+          </div>
+        </div>
+
         {/* Content Body: Left List + Right Map */}
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
           {/* Left Column: Switcher + Search + Store Cards List */}
-          <div className="w-full lg:w-[46%] p-4 sm:p-5 flex flex-col gap-3.5 overflow-y-auto custom-scrollbar border-b lg:border-b-0 lg:border-r border-zinc-200 dark:border-neutral-800">
+          <div
+            className={`w-full lg:w-[44%] p-3 sm:p-5 flex flex-col gap-3 overflow-y-auto custom-scrollbar border-b lg:border-b-0 lg:border-r border-zinc-200 dark:border-neutral-800 ${
+              activeMobileTab === 'map' ? 'hidden lg:flex' : 'flex'
+            }`}
+          >
             {/* Delivery vs Pickup Switcher */}
             <div className={`p-1 rounded-2xl border grid grid-cols-2 gap-1.5 ${isLightTheme ? 'bg-zinc-100 border-zinc-200' : 'bg-neutral-950 border-neutral-800'}`}>
               <button
@@ -392,8 +427,12 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
             </div>
           </div>
 
-          {/* Right Column: Ultra-Detail Mapbox Map or Interactive Vector Map */}
-          <div className="flex-1 relative flex flex-col min-h-[460px] bg-zinc-100 dark:bg-neutral-950 overflow-hidden">
+          {/* Right Column: Interactive Map (Desktop always visible, Mobile in "map" tab) */}
+          <div
+            className={`flex-1 relative flex flex-col min-h-[350px] sm:min-h-[440px] bg-zinc-100 dark:bg-neutral-950 overflow-hidden ${
+              activeMobileTab === 'list' ? 'hidden lg:flex' : 'flex'
+            }`}
+          >
             <LeafletStoreMap
               tenants={tenants}
               selectedTenantId={selectedTenantId}
@@ -414,8 +453,8 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
             </div>
 
             {/* Bottom Floating Card: Selected Store + Actions */}
-            <div className="absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-4 z-10 p-3 sm:p-4 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md shadow-2xl border border-zinc-200/80 dark:border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
+            <div className="absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-4 z-10 p-3 sm:p-4 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md shadow-2xl border border-zinc-200/80 dark:border-neutral-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="w-11 h-11 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 shadow-sm">
                   {activeTenant.operations?.imageUrl ? (
                     <img
@@ -436,30 +475,30 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                     </div>
                   )}
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <h4 className="font-black text-sm text-zinc-950 dark:text-white truncate">
                     {activeTenant.name.replace('Khalessi Pizza - ', '')}
                   </h4>
                   <p className="text-xs text-zinc-500 dark:text-neutral-400 truncate">
                     {activeTenant.operations?.address || 'Lima, Perú'}
                   </p>
-                  <div className="flex items-center gap-2 mt-1 text-[11px] font-bold">
-                    <span className="text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                  <div className="flex items-center gap-2.5 mt-1 text-[11px] font-bold flex-wrap">
+                    <span className="text-blue-600 dark:text-blue-400 flex items-center gap-1 shrink-0">
                       🚗 {routeInfo.durationMin} min ({routeInfo.distanceKm} km)
                     </span>
-                    <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                    <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 shrink-0">
                       🛵 Envío Gratis
                     </span>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 pt-1 md:pt-0 border-t md:border-t-0 border-zinc-100 dark:border-neutral-800/80">
                 <a
                   href={`https://www.google.com/maps/dir/?api=1&destination=${activeTenant.operations?.latitude || -11.93605},${activeTenant.operations?.longitude || -77.05432}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-neutral-700 text-xs font-bold text-zinc-700 dark:text-neutral-300 hover:bg-zinc-100 dark:hover:bg-neutral-800 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                  className="flex-1 md:flex-initial justify-center px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-neutral-700 text-xs font-bold text-zinc-700 dark:text-neutral-300 hover:bg-zinc-100 dark:hover:bg-neutral-800 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0"
                 >
                   <Navigation className="w-3.5 h-3.5 text-zinc-500" />
                   <span>Cómo llegar</span>
@@ -467,7 +506,7 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                 <button
                   type="button"
                   onClick={handleConfirmStore}
-                  className="px-5 py-2.5 rounded-xl text-white font-black text-xs sm:text-sm shadow-lg hover:opacity-95 active:scale-[0.98] transition-all flex items-center gap-2 whitespace-nowrap shrink-0"
+                  className="flex-1 md:flex-initial justify-center px-5 py-2.5 rounded-xl text-white font-black text-xs sm:text-sm shadow-lg hover:opacity-95 active:scale-[0.98] transition-all flex items-center gap-2 whitespace-nowrap shrink-0"
                   style={{ backgroundColor: accentColor }}
                 >
                   <span>Seleccionar tienda</span>
