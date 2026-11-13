@@ -43,6 +43,7 @@ interface OrderCatalogContextType {
   deleteOrder: (orderId: string) => void;
   // Customers CRM
   upsertCustomer: (customerData: Omit<Customer, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }, silent?: boolean) => Customer;
+  adjustCustomerPoints: (customerId: string, delta: number) => void;
   deleteCustomer: (customerId: string) => void;
   // Floor Tables Builder
   getTablesForTenant: (tenantId: string) => RestaurantTable[];
@@ -706,7 +707,28 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
           if (raw) setTables(JSON.parse(raw));
         } else if (entity === 'customers') {
           const raw = localStorage.getItem(STORAGE_KEYS.customers);
-          if (raw) setCustomers(JSON.parse(raw));
+          if (raw) {
+            const parsed: Customer[] = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              setCustomers((prev) => {
+                const byId = new Map<string, Customer>(prev.map((c) => [c.id, c]));
+                for (const incoming of parsed) {
+                  if (!incoming?.id) continue;
+                  const existing = byId.get(incoming.id);
+                  if (!existing) {
+                    byId.set(incoming.id, incoming);
+                  } else {
+                    const prevTs = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+                    const nextTs = new Date(incoming.updatedAt || incoming.createdAt || 0).getTime();
+                    if (nextTs >= prevTs) {
+                      byId.set(incoming.id, incoming);
+                    }
+                  }
+                }
+                return Array.from(byId.values());
+              });
+            }
+          }
         } else if (entity === 'products') {
           const raw = localStorage.getItem(STORAGE_KEYS.products);
           if (raw !== null) setProducts(JSON.parse(raw));
@@ -928,6 +950,21 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const deleteCustomer = (customerId: string) => {
     persistAndSyncCustomers((prev) => prev.filter((c) => c.id !== customerId));
     dispatchToast('Cliente Eliminado', 'El registro fue retirado de la cartera CRM.', 'info');
+  };
+
+  const adjustCustomerPoints = (customerId: string, delta: number) => {
+    const now = new Date().toISOString();
+    persistAndSyncCustomers((prev) =>
+      prev.map((c) =>
+        c.id === customerId
+          ? {
+              ...c,
+              loyaltyPoints: Math.max(0, (c.loyaltyPoints || 0) + delta),
+              updatedAt: now,
+            }
+          : c
+      )
+    );
   };
 
   // Floor Tables operations
@@ -1307,6 +1344,7 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
         markOrderPaid,
         deleteOrder,
         upsertCustomer,
+        adjustCustomerPoints,
         deleteCustomer,
         getTablesForTenant,
         addTable,

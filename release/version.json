@@ -1,8 +1,8 @@
 {
-  "buildId": "20261113004355",
-  "builtAt": "2026-11-13T00:43:55.165Z",
-  "commitSha": "105c341",
-  "message": "fix(devops): parallel curl_multi downloads in system-update.php to prevent 502 Bad Gateway timeout",
+  "buildId": "20261113004848",
+  "builtAt": "2026-11-13T00:48:48.753Z",
+  "commitSha": "8475322",
+  "message": "fix(devops): stop infinite GitHub check loop in SystemUpdateTab and memoize dispatchToast",
   "totalFiles": 74,
-  "manifestSha256": "da6033b4812197328fac51bfbb3ee89d79ade008e65f65f80a34ea33749563a7"
+  "manifestSha256": "ced129af561782b2b698f1d13d3bc857bcc8131fe7804a7e27ac32f4b8f6af32"
 }

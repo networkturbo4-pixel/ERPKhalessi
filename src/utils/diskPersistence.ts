@@ -597,6 +597,8 @@ export async function initDiskPersistence(): Promise<void> {
   };
 
   const fetchSingleKeyFromServer = async (key: string) => {
+    if ((inFlightWrites.get(key) || 0) > 0 || failedSyncValues.has(key)) return;
+    if (key !== 'kh_orders_list' && (lastLocalWriteAt.get(key) || 0) >= Date.now() - 2500) return;
     lastHash = '';
     try {
       const res = await fetch(`/api/storage/${encodeURIComponent(key)}?t=${Date.now()}`, {

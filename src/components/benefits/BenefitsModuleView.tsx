@@ -56,7 +56,7 @@ export const BenefitsModuleView: React.FC = () => {
     deleteReward,
   } = useBenefits();
   const { allCustomerAccounts, adjustAccountPointsById } = useStoreCustomer();
-  const { customers, orders, upsertCustomer } = useOrderCatalog();
+  const { customers, orders, adjustCustomerPoints } = useOrderCatalog();
   const { activeTenant, branchScope, companyInfo, updateCompanyInfo, dispatchToast, openNoticeModal } = useSettings();
 
   const [activeTab, setActiveTab] = useState<BenefitsTab>('coupons');
@@ -200,14 +200,7 @@ export const BenefitsModuleView: React.FC = () => {
     if (item.storeAccountId) {
       adjustAccountPointsById(item.storeAccountId, delta, reason);
     } else if (item.crmCustomer) {
-      const nextPoints = Math.max(0, (item.crmCustomer.loyaltyPoints || 0) + delta);
-      upsertCustomer(
-        {
-          ...item.crmCustomer,
-          loyaltyPoints: nextPoints,
-        },
-        true
-      );
+      adjustCustomerPoints(item.crmCustomer.id, delta);
     }
 
     dispatchToast(
