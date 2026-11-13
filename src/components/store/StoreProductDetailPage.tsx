@@ -259,7 +259,72 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
   const unitPrice = basePrice + subOptionsDelta + extrasTotal;
   const totalPrice = unitPrice * quantity;
 
+  const selectionValidation = useMemo(() => {
+    if (isHalfAndHalf && (!firstHalfPizza || !secondHalfPizza)) {
+      return { valid: false, reason: 'Elige las 2 mitades de tu pizza' };
+    }
+
+    for (const group of product.subOptions || []) {
+      if (group.enabled === false || !group.choices || group.choices.length === 0) continue;
+
+      const multiCount = group.choices.reduce(
+        (sum, c) => sum + (c.isMultiple ? subOptionQuantities[c.id] || 0 : 0),
+        0
+      );
+      const singleCount = group.choices.some(
+        c => !c.isMultiple && selectedSubOptions[group.id] === c.id
+      )
+        ? 1
+        : 0;
+      const groupTotal = multiCount + singleCount;
+
+      if (group.required && groupTotal === 0) {
+        return { valid: false, reason: `Elige una opción en "${group.name}"` };
+      }
+
+      if (group.maxSelection && group.maxSelection > 0 && groupTotal > group.maxSelection) {
+        return {
+          valid: false,
+          reason: `Máximo ${group.maxSelection} opciones en "${group.name}"`,
+        };
+      }
+
+      for (const choice of group.choices) {
+        const isChoiceActive = choice.isMultiple
+          ? (subOptionQuantities[choice.id] || 0) > 0
+          : selectedSubOptions[group.id] === choice.id;
+
+        if (!isChoiceActive || !choice.nestedChoices || choice.nestedChoices.length === 0) {
+          continue;
+        }
+
+        const subLimit = choice.subExtrasLimit && choice.subExtrasLimit > 0 ? choice.subExtrasLimit : 0;
+        if (subLimit > 0) {
+          const requiredCount = Math.min(subLimit, choice.nestedChoices.length);
+          const nestedCount = (selectedNestedChoices[choice.id] || []).length;
+          if (nestedCount !== requiredCount) {
+            return {
+              valid: false,
+              reason: `Elige ${requiredCount} sub-opciones en "${choice.name}" (${nestedCount}/${requiredCount})`,
+            };
+          }
+        }
+      }
+    }
+
+    return { valid: true, reason: '' };
+  }, [
+    firstHalfPizza,
+    isHalfAndHalf,
+    product.subOptions,
+    secondHalfPizza,
+    selectedNestedChoices,
+    selectedSubOptions,
+    subOptionQuantities,
+  ]);
+
   const handleAdd = () => {
+    if (!selectionValidation.valid) return;
     const subOptionsList: CartSubOptionSelection[] = [];
     (product.subOptions || []).forEach(group => {
       if (group.enabled === false) return;
@@ -1496,61 +1561,106 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
                               </div>
 
                               {/* Nested choices drawer if this choice is selected */}
-                              {isSelected && choice.nestedChoices && choice.nestedChoices.length > 0 && (
-                                <div
-                                  className={`ml-4 sm:ml-8 p-3 rounded-2xl border-2 border-dashed space-y-2 ${
-                                    isLightTheme
-                                      ? 'border-rose-300 bg-rose-50/60'
-                                      : 'border-rose-900/40 bg-rose-950/20'
-                                  }`}
-                                >
-                                  <span
-                                    className={`text-[11px] font-black uppercase tracking-wider block ${
-                                      isLightTheme ? 'text-rose-700' : 'text-rose-400'
+                              {isSelected && choice.nestedChoices && choice.nestedChoices.length > 0 && (() => {
+                                const curNestedIds = selectedNestedChoices[choice.id] || [];
+                                const maxSubLimit =
+                                  choice.subExtrasLimit && choice.subExtrasLimit > 0
+                                    ? choice.subExtrasLimit
+                                    : null;
+                                const requiredSubCount =
+                                  maxSubLimit !== null
+                                    ? Math.min(maxSubLimit, choice.nestedChoices.length)
+                                    : null;
+                                const isSubLimitReached =
+                                  maxSubLimit !== null && curNestedIds.length >= maxSubLimit;
+
+                                return (
+                                  <div
+                                    className={`ml-4 sm:ml-8 p-3 rounded-2xl border-2 border-dashed space-y-2 ${
+                                      isLightTheme
+                                        ? 'border-rose-300 bg-rose-50/60'
+                                        : 'border-rose-900/40 bg-rose-950/20'
                                     }`}
                                   >
-                                    Sub-opciones Disponibles:
-                                  </span>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    {choice.nestedChoices.map(nest => {
-                                      const isNestSelected = (selectedNestedChoices[choice.id] || []).includes(nest.id);
-                                      return (
-                                        <button
-                                          key={nest.id}
-                                          type="button"
-                                          onClick={() => {
-                                            setSelectedNestedChoices(prev => {
-                                              const cur = prev[choice.id] || [];
-                                              if (nest.isMultiple) {
-                                                const next = cur.includes(nest.id)
-                                                  ? cur.filter(id => id !== nest.id)
-                                                  : [...cur, nest.id].slice(0, nest.maxQty || 99);
-                                                return { ...prev, [choice.id]: next };
-                                              } else {
-                                                return { ...prev, [choice.id]: cur.includes(nest.id) ? [] : [nest.id] };
-                                              }
-                                            });
-                                          }}
-                                          className={`p-2.5 rounded-xl border text-left flex items-center justify-between gap-2 text-xs transition-colors ${
-                                            isNestSelected
-                                              ? isLightTheme
-                                                ? 'border-red-500 bg-white text-red-600 font-bold shadow-xs'
-                                                : 'border-red-500 bg-neutral-900 text-red-400 font-bold shadow-xs'
-                                              : isLightTheme
-                                              ? 'border-zinc-200 bg-white text-zinc-800'
-                                              : 'border-neutral-800 bg-neutral-900 text-neutral-300'
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span
+                                        className={`text-[11px] font-black uppercase tracking-wider block ${
+                                          isLightTheme ? 'text-rose-700' : 'text-rose-400'
+                                        }`}
+                                      >
+                                        Sub-opciones Disponibles:
+                                      </span>
+                                      {requiredSubCount !== null && (
+                                        <span
+                                          className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                            curNestedIds.length === requiredSubCount
+                                              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                                              : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
                                           }`}
                                         >
-                                          <span>{nest.name}</span>
-                                          {nest.priceDelta > 0 && !nest.hidePrice && (
-                                            <span className="font-bold text-red-600">+S/{nest.priceDelta.toFixed(2)}</span>
-                                          )}
-                                        </button>
-                                      );
-                                    })}
+                                          Elige {requiredSubCount} ({curNestedIds.length}/{requiredSubCount})
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                      {choice.nestedChoices.map(nest => {
+                                        const isNestSelected = curNestedIds.includes(nest.id);
+                                        const isNestDisabled = !isNestSelected && isSubLimitReached;
+                                        return (
+                                          <button
+                                            key={nest.id}
+                                            type="button"
+                                            disabled={isNestDisabled}
+                                            onClick={() => {
+                                              setSelectedNestedChoices(prev => {
+                                                const cur = prev[choice.id] || [];
+                                                if (cur.includes(nest.id)) {
+                                                  return {
+                                                    ...prev,
+                                                    [choice.id]: cur.filter(id => id !== nest.id),
+                                                  };
+                                                }
+                                                if (maxSubLimit !== null && cur.length >= maxSubLimit) {
+                                                  return prev;
+                                                }
+                                                if (nest.isMultiple || (maxSubLimit !== null && maxSubLimit > 1)) {
+                                                  const cap =
+                                                    maxSubLimit !== null
+                                                      ? maxSubLimit
+                                                      : nest.maxQty && nest.maxQty > 0
+                                                      ? nest.maxQty
+                                                      : 99;
+                                                  if (cur.length >= cap) return prev;
+                                                  return { ...prev, [choice.id]: [...cur, nest.id] };
+                                                }
+                                                return { ...prev, [choice.id]: [nest.id] };
+                                              });
+                                            }}
+                                            className={`p-2.5 rounded-xl border text-left flex items-center justify-between gap-2 text-xs transition-colors ${
+                                              isNestSelected
+                                                ? isLightTheme
+                                                  ? 'border-red-500 bg-white text-red-600 font-bold shadow-xs'
+                                                  : 'border-red-500 bg-neutral-900 text-red-400 font-bold shadow-xs'
+                                                : isNestDisabled
+                                                ? isLightTheme
+                                                  ? 'border-zinc-200 bg-zinc-100/70 text-zinc-400 opacity-45 cursor-not-allowed'
+                                                  : 'border-neutral-800 bg-neutral-950 text-neutral-600 opacity-45 cursor-not-allowed'
+                                                : isLightTheme
+                                                ? 'border-zinc-200 bg-white text-zinc-800 hover:border-zinc-300'
+                                                : 'border-neutral-800 bg-neutral-900 text-neutral-300 hover:border-neutral-700'
+                                            }`}
+                                          >
+                                            <span>{nest.name}</span>
+                                            {nest.priceDelta > 0 && !nest.hidePrice && (
+                                              <span className="font-bold text-red-600">+S/{nest.priceDelta.toFixed(2)}</span>
+                                            )}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
                                   </div>
-                                </div>
-                              )}
+                                );
+                              })()}
                             </div>
                           );
                         })}
@@ -1841,11 +1951,15 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
           {/* Solid App Button with Configured Button & Contrast Colors */}
           <button
             type="button"
+            disabled={!selectionValidation.valid}
+            title={!selectionValidation.valid ? selectionValidation.reason : undefined}
             onClick={handleAdd}
             data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-            className="store-btn-solid flex-1 min-w-0 py-3 sm:py-3.5 px-3.5 sm:px-5 rounded-2xl font-black text-xs sm:text-base shadow-md active:scale-[0.98] transition-transform flex items-center justify-between gap-2 whitespace-nowrap"
+            className="store-btn-solid flex-1 min-w-0 py-3 sm:py-3.5 px-3.5 sm:px-5 rounded-2xl font-black text-xs sm:text-base shadow-md active:scale-[0.98] transition-all flex items-center justify-between gap-2 whitespace-nowrap disabled:opacity-45 disabled:cursor-not-allowed disabled:active:scale-100"
           >
-            <span className="truncate">Agregar al Pedido</span>
+            <span className="truncate">
+              {selectionValidation.valid ? 'Agregar al Pedido' : selectionValidation.reason}
+            </span>
             <span className="shrink-0 px-2 sm:px-2.5 py-0.5 rounded-lg bg-black/15 font-black text-xs sm:text-sm">
               S/&nbsp;{totalPrice.toFixed(2)}
             </span>

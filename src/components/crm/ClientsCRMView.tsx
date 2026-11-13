@@ -174,7 +174,7 @@ export const ClientsCRMView: React.FC = () => {
   const handleDeleteCustomer = (customer: Customer) => {
     openNoticeModal({
       title: '¿Eliminar Cliente del CRM?',
-      message: `Se retirará la ficha de "${customer.fullName}" de la cartera de clientes. Sus pedidos históricos conservarán su respaldo.`,
+      message: `Se eliminará la ficha de "${customer.fullName}" de la cartera de clientes junto con todo su historial de pedidos asociados.`,
       tone: 'danger',
       confirmLabel: 'Eliminar Cliente',
       cancelLabel: 'Cancelar',

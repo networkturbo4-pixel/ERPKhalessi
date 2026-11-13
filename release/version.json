@@ -1,8 +1,8 @@
 {
-  "buildId": "20261113030259",
-  "builtAt": "2026-11-13T03:02:59.196Z",
-  "commitSha": "8a4c683",
-  "message": "feat: geofencing polygons, PWA + OG share cards, dine-in tables & split bill, IndexedDB offline queue",
+  "buildId": "20261113033550",
+  "builtAt": "2026-11-13T03:35:50.771Z",
+  "commitSha": "fbed0f4",
+  "message": "chore(release): build production release 20261113030259",
   "totalFiles": 85,
-  "manifestSha256": "3ced9dc713d3ecabf824497bf1037473a013ecedde588f596d05cbfc8bf5e312"
+  "manifestSha256": "961ece6040d7b768e1ae551867cc3fa796cb0abb3a67189b9eeff744e437c069"
 }

@@ -54,7 +54,7 @@ try {
         }
 
         if ($icon !== '') {
-            if (preg_match('/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/s', $icon, $matches)) {
+            if (preg_match('/^data:(image\/[a-zA-Z0-9.+-]+)(?:;charset=[^;,]+)?;base64,(.+)$/s', $icon, $matches)) {
                 $mime = $matches[1];
                 $binary = base64_decode($matches[2], true);
                 if ($binary !== false && strlen($binary) > 0) {
@@ -63,7 +63,16 @@ try {
                     echo $binary;
                     exit();
                 }
-            } elseif (preg_match('/^https?:\/\//i', $icon)) {
+            } elseif (preg_match('/^data:(image\/[a-zA-Z0-9.+-]+)(?:;charset=[^;,]+)?,(.+)$/s', $icon, $matches)) {
+                $mime = $matches[1];
+                $rawBody = rawurldecode($matches[2]);
+                if ($rawBody !== '') {
+                    header('Content-Type: ' . $mime);
+                    header('Content-Length: ' . strlen($rawBody));
+                    echo $rawBody;
+                    exit();
+                }
+            } elseif (preg_match('/^(https?:\/\/|\/)/i', $icon)) {
                 header('Location: ' . $icon, true, 302);
                 exit();
             }

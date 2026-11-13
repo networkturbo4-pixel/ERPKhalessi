@@ -87,12 +87,20 @@ export async function showOrderStatusNotification(params: {
   title: string;
   body: string;
   url?: string;
+  icon?: string;
 }): Promise<void> {
   if (typeof window === 'undefined' || !('Notification' in window)) return;
   if (Notification.permission !== 'granted') return;
 
   const tag = `khalessi-order-${params.orderNumber}`;
   const targetUrl = params.url || '/?view=orders';
+  let storedFavicon = '';
+  try {
+    storedFavicon = localStorage.getItem('kh_brand_favicon_v1') || '';
+  } catch {
+    storedFavicon = '';
+  }
+  const resolvedIcon = params.icon || storedFavicon || '/api/favicon.php';
 
   if (swRegistration?.active) {
     swRegistration.active.postMessage({
@@ -101,6 +109,7 @@ export async function showOrderStatusNotification(params: {
       body: params.body,
       tag,
       url: targetUrl,
+      icon: resolvedIcon,
     });
     return;
   }
@@ -110,8 +119,8 @@ export async function showOrderStatusNotification(params: {
     if (reg) {
       await reg.showNotification(params.title, {
         body: params.body,
-        icon: '/api/favicon.php',
-        badge: '/favicon.svg',
+        icon: resolvedIcon,
+        badge: resolvedIcon,
         tag,
         data: { url: targetUrl },
       });
@@ -124,7 +133,7 @@ export async function showOrderStatusNotification(params: {
   try {
     new Notification(params.title, {
       body: params.body,
-      icon: '/api/favicon.php',
+      icon: resolvedIcon,
       tag,
     });
   } catch {

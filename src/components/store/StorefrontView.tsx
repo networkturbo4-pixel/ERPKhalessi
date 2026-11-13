@@ -252,14 +252,26 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
       if (lastStatus && lastStatus !== order.status && statusLabels[order.status]) {
         void showOrderStatusNotification({
           orderNumber: order.orderNumber,
-          title: `Pedido #${order.orderNumber} — Pizza Khalessi`,
+          title: `Pedido #${String(order.orderNumber).replace(/^#/, '')} — Pizza Khalessi`,
           body: statusLabels[order.status],
           url: '/?view=orders',
+          icon:
+            customization.favicon ||
+            customization.storeHeaderLogo ||
+            customization.logoDark ||
+            customization.logoLight ||
+            '/api/favicon.php',
         });
       }
       prev.set(order.id, order.status);
     });
-  }, [customerOrders]);
+  }, [
+    customerOrders,
+    customization.favicon,
+    customization.storeHeaderLogo,
+    customization.logoDark,
+    customization.logoLight,
+  ]);
 
   useEffect(() => {
     const onResize = () => setWindowViewport(detectWindowViewport());

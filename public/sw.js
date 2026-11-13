@@ -1,4 +1,4 @@
-const CACHE_NAME = 'khalessi-pwa-v1';
+const CACHE_NAME = 'khalessi-pwa-v2';
 const CORE_ASSETS = ['/', '/manifest.webmanifest', '/api/favicon.php'];
 
 self.addEventListener('install', (event) => {
@@ -87,8 +87,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(payload.title, {
       body: payload.body,
-      icon: '/api/favicon.php',
-      badge: '/favicon.svg',
+      icon: payload.icon || '/api/favicon.php',
+      badge: payload.icon || '/api/favicon.php',
       tag: payload.tag,
       data: { url: payload.url || '/' },
       renotify: true,
@@ -100,11 +100,12 @@ self.addEventListener('push', (event) => {
 self.addEventListener('message', (event) => {
   const data = event.data;
   if (!data || data.type !== 'SHOW_LOCAL_NOTIFICATION') return;
+  const resolvedIcon = data.icon || '/api/favicon.php';
   event.waitUntil(
     self.registration.showNotification(data.title || 'Pizza Khalessi', {
       body: data.body || '',
-      icon: '/api/favicon.php',
-      badge: '/favicon.svg',
+      icon: resolvedIcon,
+      badge: resolvedIcon,
       tag: data.tag || 'khalessi-order-status',
       data: { url: data.url || '/' },
       renotify: true,

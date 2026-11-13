@@ -154,6 +154,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
       if (e.key === ACCOUNTS_KEY) setAccounts(loadAccounts());
       if (e.key === ACTIVE_ACCOUNT_ID_KEY) setActiveCustomerId(loadActiveCustomerId());
       if (e.key === GUEST_ORDER_IDS_KEY) setGuestOrderIds(loadGuestOrderIds());
+      if (e.key === OWN_ORDERS_SNAPSHOT_KEY) setOwnSnapshots(loadOwnSnapshots());
     };
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
@@ -326,7 +327,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
         password: hashedPassword,
         addresses: [],
         paymentMethods: [],
-        orderIds: [...guestOrderIds],
+        orderIds: [],
         points: initialPoints,
         pointsHistory: initialHistory,
         createdAt: now,
@@ -338,6 +339,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
 
       setAccounts(prev => [newAccount, ...prev]);
       setActiveCustomerId(newAccount.id);
+      setGuestOrderIds([]);
       dispatchToast(
         '¡Bienvenido a Khalessi!',
         `Tu cuenta de cliente ha sido creada, ${newAccount.fullName.split(' ')[0]}.`,
@@ -345,7 +347,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
       );
       return { ok: true };
     },
-    [accounts, dispatchToast, guestOrderIds, syncAccountToErpCrm]
+    [accounts, dispatchToast, syncAccountToErpCrm]
   );
 
   const loginCustomer = useCallback(
@@ -371,17 +373,14 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
       const needsHashUpgrade = !isHashedPassword(candidate.password);
       const upgradedHash = needsHashUpgrade ? await hashPassword(password) : null;
 
-      // Attach any guest orders made on this browser right before signing in and upgrade legacy plaintext hash
-      if (guestOrderIds.length > 0 || upgradedHash) {
+      // Upgrade legacy plaintext hash if needed
+      if (upgradedHash) {
         setAccounts(prev =>
           prev.map(a =>
             a.id === candidate.id
               ? {
                   ...a,
-                  ...(upgradedHash ? { password: upgradedHash } : {}),
-                  ...(guestOrderIds.length > 0
-                    ? { orderIds: Array.from(new Set([...a.orderIds, ...guestOrderIds])) }
-                    : {}),
+                  password: upgradedHash,
                 }
               : a
           )
@@ -396,7 +395,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
       );
       return { ok: true };
     },
-    [accounts, dispatchToast, guestOrderIds]
+    [accounts, dispatchToast]
   );
 
   const logoutCustomer = useCallback(() => {
@@ -590,7 +589,6 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const recordStoreOrder = useCallback(
     (orderId: string) => {
-      setGuestOrderIds(prev => (prev.includes(orderId) ? prev : [orderId, ...prev]));
       if (currentCustomer) {
         setAccounts(prev =>
           prev.map(a =>
@@ -599,7 +597,9 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
               : a
           )
         );
+        return;
       }
+      setGuestOrderIds(prev => (prev.includes(orderId) ? prev : [orderId, ...prev]));
     },
     [currentCustomer]
   );
@@ -689,7 +689,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
   const liveCustomerOrders = useMemo(() => {
     if (currentCustomer) {
       const custPhoneDigits = normalizeDigits(currentCustomer.phone);
-      const custEmail = currentCustomer.email.toLowerCase();
+      const custEmail = currentCustomer.email.trim().toLowerCase();
       const idSet = new Set(currentCustomer.orderIds);
 
       return orders.filter(o => {
@@ -697,7 +697,9 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
         if (currentCustomer.crmCustomerId && o.customerId === currentCustomer.crmCustomerId) {
           return true;
         }
-        if (o.customerEmail && o.customerEmail.toLowerCase() === custEmail) return true;
+        if (custEmail && o.customerEmail && o.customerEmail.trim().toLowerCase() === custEmail) {
+          return true;
+        }
         if (
           custPhoneDigits.length >= 7 &&
           o.customerPhone &&
@@ -744,7 +746,9 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const customerOrders = useMemo(() => {
     const liveIds = new Set(liveCustomerOrders.map(o => o.id));
-    const ownIds = new Set<string>([...guestOrderIds, ...(currentCustomer?.orderIds || [])]);
+    const ownIds = currentCustomer
+      ? new Set<string>(currentCustomer.orderIds)
+      : new Set<string>(guestOrderIds);
     const missing = ownSnapshots.filter(o => ownIds.has(o.id) && !liveIds.has(o.id));
     if (missing.length === 0) return liveCustomerOrders;
     return [...liveCustomerOrders, ...missing].sort((a, b) =>

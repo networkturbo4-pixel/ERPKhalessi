@@ -513,65 +513,6 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
           </div>
         )}
 
-        {currentCustomer && pointsConfig.enabled && pointsConfig.status !== 'paused' && (currentCustomer.points || 0) > 0 && rewards.filter((r) => r.isActive && r.pointsCost <= (currentCustomer.points || 0)).length > 0 && (
-          <div className="mb-6 p-4 rounded-2xl border border-amber-300 dark:border-amber-700/60 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 shadow-sm">
-            <div className="flex items-center justify-between gap-2 mb-2.5">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                <span className="text-xs font-black uppercase text-amber-950 dark:text-amber-200">
-                  Premios Disponibles para Canjear en este Pedido ({currentCustomer.points || 0} pts)
-                </span>
-              </div>
-              {appliedReward && (
-                <button
-                  type="button"
-                  onClick={() => setAppliedReward(null)}
-                  className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline"
-                >
-                  Quitar Canje
-                </button>
-              )}
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-              {rewards
-                .filter((r) => r.isActive && r.pointsCost <= (currentCustomer.points || 0))
-                .map((reward) => {
-                  const isSelected = appliedReward?.id === reward.id;
-                  return (
-                    <button
-                      key={reward.id}
-                      type="button"
-                      onClick={() => setAppliedReward(isSelected ? null : reward)}
-                      className={`p-2.5 rounded-xl border text-left transition-all flex items-center justify-between gap-2 ${
-                        isSelected
-                          ? 'border-amber-500 bg-amber-100/70 dark:bg-amber-900/50 ring-2 ring-amber-500/30'
-                          : 'border-amber-200 dark:border-amber-800/40 bg-white dark:bg-zinc-900 hover:border-amber-400'
-                      }`}
-                    >
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-zinc-900 dark:text-white truncate">
-                          {reward.badgeIcon} {reward.title}
-                        </p>
-                        <p className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold">
-                          -S/ {reward.discountValue.toFixed(2)} · Cuesta {reward.pointsCost} pts
-                        </p>
-                      </div>
-                      <span
-                        className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase whitespace-nowrap shrink-0 ${
-                          isSelected
-                            ? 'bg-amber-500 text-zinc-950'
-                            : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
-                        }`}
-                      >
-                        {isSelected ? 'Aplicado' : 'Canjear'}
-                      </span>
-                    </button>
-                  );
-                })}
-            </div>
-          </div>
-        )}
-
         <form onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left Column (8 cols): Step by step easy checkout */}
           <div className="lg:col-span-7 space-y-6">
@@ -998,6 +939,70 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
                   </div>
                 ))}
               </div>
+
+              {/* Available Rewards in Summary */}
+              {currentCustomer &&
+                pointsConfig.enabled &&
+                pointsConfig.status !== 'paused' &&
+                (currentCustomer.points || 0) > 0 &&
+                rewards.filter((r) => r.isActive && r.pointsCost <= (currentCustomer.points || 0)).length > 0 && (
+                  <div className="mb-4 p-3.5 rounded-2xl border border-amber-300 dark:border-amber-700/60 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 shadow-xs">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span className="text-[11px] font-black uppercase text-amber-950 dark:text-amber-200 leading-tight">
+                          Premios para Canjear ({currentCustomer.points || 0} pts)
+                        </span>
+                      </div>
+                      {appliedReward && (
+                        <button
+                          type="button"
+                          onClick={() => setAppliedReward(null)}
+                          className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline whitespace-nowrap shrink-0"
+                        >
+                          Quitar
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 gap-2">
+                      {rewards
+                        .filter((r) => r.isActive && r.pointsCost <= (currentCustomer.points || 0))
+                        .map((reward) => {
+                          const isSelected = appliedReward?.id === reward.id;
+                          return (
+                            <button
+                              key={reward.id}
+                              type="button"
+                              onClick={() => setAppliedReward(isSelected ? null : reward)}
+                              className={`p-2.5 rounded-xl border text-left transition-all flex items-center justify-between gap-2 ${
+                                isSelected
+                                  ? 'border-amber-500 bg-amber-100/70 dark:bg-amber-900/50 ring-2 ring-amber-500/30'
+                                  : 'border-amber-200 dark:border-amber-800/40 bg-white dark:bg-zinc-900 hover:border-amber-400'
+                              }`}
+                            >
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-zinc-900 dark:text-white truncate">
+                                  {reward.badgeIcon} {reward.title}
+                                </p>
+                                <p className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold">
+                                  -S/ {reward.discountValue.toFixed(2)} · Cuesta {reward.pointsCost} pts
+                                </p>
+                              </div>
+                              <span
+                                className={`text-[10px] font-black px-2 py-1 rounded-lg uppercase whitespace-nowrap shrink-0 ${
+                                  isSelected
+                                    ? 'bg-amber-500 text-zinc-950'
+                                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
+                                }`}
+                              >
+                                {isSelected ? 'Aplicado' : 'Canjear'}
+                              </span>
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
 
               {/* Coupon Input */}
               <div className="pb-4 border-b border-zinc-200 dark:border-neutral-800 mb-4">

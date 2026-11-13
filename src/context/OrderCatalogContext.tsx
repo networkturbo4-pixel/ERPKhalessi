@@ -973,18 +973,55 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const deleteCustomer = (customerId: string) => {
     const target = customers.find((c) => c.id === customerId);
+    const targetEmail = (target?.email || '').trim().toLowerCase();
+    const targetPhone = (target?.whatsapp || '').replace(/\D/g, '').slice(-9);
+    const targetDni = (target?.dni || '').replace(/\D/g, '');
+
     persistAndSyncCustomers((prev) => prev.filter((c) => c.id !== customerId));
 
-    // También eliminar la cuenta vinculada en Tienda Virtual para permitir re-registro y cerrar sesiones activas
+    // Eliminar también todo el historial de pedidos asociados al cliente
+    const deletedOrderIds = new Set<string>();
+    const matchesCustomerOrder = (o: Order): boolean => {
+      if (o.customerId === customerId) return true;
+      if (targetEmail && o.customerEmail && o.customerEmail.trim().toLowerCase() === targetEmail) {
+        return true;
+      }
+      if (
+        targetPhone.length >= 7 &&
+        o.customerPhone &&
+        o.customerPhone.replace(/\D/g, '').slice(-9) === targetPhone
+      ) {
+        return true;
+      }
+      if (targetDni.length >= 8 && o.customerDni && o.customerDni.replace(/\D/g, '') === targetDni) {
+        return true;
+      }
+      return false;
+    };
+
+    for (const o of orders) {
+      if (matchesCustomerOrder(o)) {
+        deletedOrderIds.add(o.id);
+      }
+    }
+
+    if (deletedOrderIds.size > 0) {
+      for (const orderId of deletedOrderIds) {
+        void fetch(`/api/orders.php?id=${encodeURIComponent(orderId)}`, {
+          method: 'DELETE',
+          headers: { ...getAuthHeaders() },
+        }).catch(() => {});
+      }
+      persistAndSyncOrders((prev) => prev.filter((o) => !deletedOrderIds.has(o.id)));
+    }
+
+    // También eliminar la cuenta vinculada en Tienda Virtual y sus respaldos locales para permitir re-registro y cerrar sesiones activas
     try {
       const STORE_ACCOUNTS_KEY = 'kh_store_customer_accounts_v1';
       const rawAccounts = localStorage.getItem(STORE_ACCOUNTS_KEY);
       if (rawAccounts) {
         const parsed = JSON.parse(rawAccounts);
         if (Array.isArray(parsed)) {
-          const targetEmail = (target?.email || '').trim().toLowerCase();
-          const targetPhone = (target?.whatsapp || '').replace(/\D/g, '').slice(-9);
-          const targetDni = (target?.dni || '').replace(/\D/g, '');
           const filtered = parsed.filter((acc: any) => {
             if (!acc || typeof acc !== 'object') return false;
             if (acc.crmCustomerId && acc.crmCustomerId === customerId) return false;
@@ -1005,11 +1042,53 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
           }
         }
       }
+
+      if (deletedOrderIds.size > 0) {
+        const GUEST_IDS_KEY = 'kh_store_device_order_ids_v1';
+        const rawGuestIds = localStorage.getItem(GUEST_IDS_KEY);
+        if (rawGuestIds) {
+          const parsedIds = JSON.parse(rawGuestIds);
+          if (Array.isArray(parsedIds)) {
+            const nextIds = parsedIds.filter((id) => !deletedOrderIds.has(String(id)));
+            if (nextIds.length !== parsedIds.length) {
+              const nextIdsStr = JSON.stringify(nextIds);
+              localStorage.setItem(GUEST_IDS_KEY, nextIdsStr);
+              window.dispatchEvent(
+                new StorageEvent('storage', { key: GUEST_IDS_KEY, newValue: nextIdsStr })
+              );
+            }
+          }
+        }
+
+        const OWN_ORDERS_KEY = 'kh_store_device_orders_v1';
+        const rawSnapshots = localStorage.getItem(OWN_ORDERS_KEY);
+        if (rawSnapshots) {
+          const parsedSnapshots = JSON.parse(rawSnapshots);
+          if (Array.isArray(parsedSnapshots)) {
+            const nextSnaps = parsedSnapshots.filter(
+              (o: any) => o && !deletedOrderIds.has(String(o.id))
+            );
+            if (nextSnaps.length !== parsedSnapshots.length) {
+              const nextSnapsStr = JSON.stringify(nextSnaps);
+              localStorage.setItem(OWN_ORDERS_KEY, nextSnapsStr);
+              window.dispatchEvent(
+                new StorageEvent('storage', { key: OWN_ORDERS_KEY, newValue: nextSnapsStr })
+              );
+            }
+          }
+        }
+      }
     } catch {
       // ignore
     }
 
-    dispatchToast('Cliente Eliminado', 'El registro fue retirado de la cartera CRM.', 'info');
+    dispatchToast(
+      'Cliente Eliminado',
+      deletedOrderIds.size > 0
+        ? `El registro y sus ${deletedOrderIds.size} pedido(s) históricos fueron eliminados.`
+        : 'El registro fue retirado de la cartera CRM.',
+      'info'
+    );
   };
 
   const adjustCustomerPoints = (customerId: string, delta: number) => {
