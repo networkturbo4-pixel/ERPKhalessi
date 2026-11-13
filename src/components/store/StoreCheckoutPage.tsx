@@ -61,6 +61,8 @@ interface StoreCheckoutPageProps {
   customization: TenantCustomization;
   companyInfo: CompanyInfo;
   isLightTheme?: boolean;
+  initialRewardId?: string | null;
+  initialCouponCode?: string | null;
 }
 
 export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
@@ -79,6 +81,8 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
   customization,
   companyInfo,
   isLightTheme = true,
+  initialRewardId = null,
+  initialCouponCode = null,
 }) => {
   const { createOrder } = useOrderCatalog();
   const {
@@ -87,6 +91,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
     loginCustomer,
     awardCustomerPoints,
     redeemCustomerPoints,
+    recordStoreOrder,
   } = useStoreCustomer();
   const {
     coupons,
@@ -94,6 +99,8 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
     rewards,
     redeemReward,
     registerCouponUsage,
+    calculateRewardDiscount,
+    validateCoupon,
   } = useBenefits();
   const { dispatchToast, openNoticeModal } = useSettings();
 
@@ -163,17 +170,30 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
   const [invoiceFiscalAddress, setInvoiceFiscalAddress] = useState('');
 
   // Coupon & Rewards
-  const [couponCodeInput, setCouponCodeInput] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountSoles: number } | null>(null);
-  const [appliedReward, setAppliedReward] = useState<PointReward | null>(null);
+  const [couponCodeInput, setCouponCodeInput] = useState(initialCouponCode || '');
+  const [appliedCoupon, setAppliedCoupon] = useState<{ code: string; discountSoles: number } | null>(() => {
+    if (!initialCouponCode) return null;
+    const res = validateCoupon(initialCouponCode, cartSubtotal);
+    return res.valid && res.coupon ? { code: res.coupon.code, discountSoles: res.discountAmount } : null;
+  });
+  const [appliedReward, setAppliedReward] = useState<PointReward | null>(() => {
+    if (!initialRewardId || !currentCustomer) return null;
+    const found = rewards.find((r) => r.id === initialRewardId && r.isActive);
+    return found && (currentCustomer.points || 0) >= found.pointsCost ? found : null;
+  });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Calculate discounts
   const couponDiscountSoles = appliedCoupon ? appliedCoupon.discountSoles : 0;
-  const rewardDiscountSoles = appliedReward ? appliedReward.discountValue : 0;
-  const discountSoles = couponDiscountSoles + rewardDiscountSoles;
-  const payableTotal = Math.max(0, cartSubtotal + (deliveryType === 'delivery' ? resolvedDeliveryFee : 0) - discountSoles);
+  const rewardDiscountSoles = appliedReward
+    ? calculateRewardDiscount(appliedReward, Math.max(0, cartSubtotal - couponDiscountSoles))
+    : 0;
+  const discountSoles = Number(Math.min(cartSubtotal, couponDiscountSoles + rewardDiscountSoles).toFixed(2));
+  const payableTotal = Math.max(
+    0,
+    Number((cartSubtotal + (deliveryType === 'delivery' ? resolvedDeliveryFee : 0) - discountSoles).toFixed(2))
+  );
 
   // RENIEC / DNI Lookup helper (integrado con docs.facturalo.pe)
   const handleDniLookup = async () => {
@@ -403,13 +423,21 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
       estimatedMinutes: deliveryType === 'delivery' ? 35 : 20,
     });
 
+    recordStoreOrder(newOrder.id);
+
     if (appliedCoupon) {
       registerCouponUsage(appliedCoupon.code);
     }
 
     if (appliedReward && currentCustomer) {
-      redeemCustomerPoints(appliedReward.pointsCost, appliedReward.title, newOrder.orderNumber);
-      redeemReward(appliedReward.id, customerName, customerPhone, newOrder.orderNumber);
+      const redeemedOk = redeemCustomerPoints(
+        appliedReward.pointsCost,
+        appliedReward.title,
+        newOrder.orderNumber
+      );
+      if (redeemedOk) {
+        redeemReward(appliedReward.id, customerName, customerPhone, newOrder.orderNumber);
+      }
     }
 
     if (willEarnPoints > 0) {

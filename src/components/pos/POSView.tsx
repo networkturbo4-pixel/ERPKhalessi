@@ -110,7 +110,7 @@ export const POSView: React.FC<POSViewProps> = ({
     updateCustomization,
   } = useSettings();
   const { currentUser } = useRBAC();
-  const { rewards, redeemReward, pointsConfig } = useBenefits();
+  const { rewards, redeemReward, pointsConfig, calculateRewardDiscount } = useBenefits();
   const { allCustomerAccounts, adjustAccountPointsById } = useStoreCustomer();
   const accounts = allCustomerAccounts;
 
@@ -401,7 +401,7 @@ export const POSView: React.FC<POSViewProps> = ({
     tariff: activeBranchTariff,
   });
   const deliveryExtra = channel === 'pos-delivery' && ticketItems.length > 0 ? dynamicDelivery.feeSoles : 0;
-  const rewardDiscount = appliedReward ? Math.min(subtotal, appliedReward.discountValue) : 0;
+  const rewardDiscount = appliedReward ? calculateRewardDiscount(appliedReward, subtotal) : 0;
   const total = Math.max(0, subtotal + deliveryExtra - rewardDiscount);
   const totalUnits = ticketItems.reduce((acc, item) => acc + item.quantity, 0);
 
@@ -950,7 +950,7 @@ export const POSView: React.FC<POSViewProps> = ({
                 {appliedReward ? (
                   <div className="p-1.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold flex items-center justify-between">
                     <span className="truncate">🎁 {appliedReward.title}</span>
-                    <span className="shrink-0 font-mono">-S/ {appliedReward.discountValue.toFixed(2)}</span>
+                    <span className="shrink-0 font-mono">-S/ {rewardDiscount.toFixed(2)}</span>
                   </div>
                 ) : (
                   (() => {

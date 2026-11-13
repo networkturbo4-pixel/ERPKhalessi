@@ -1167,8 +1167,13 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
           onOpenLocationModal={() => setIsLocationModalOpen(true)}
           onOrderConfirmed={orderData => {
             setIsCheckoutPageOpen(false);
+            setSelectedRewardId(null);
+            setAppliedCouponCode(null);
+            setCouponInput('');
             setOrderConfirmed(orderData);
           }}
+          initialRewardId={selectedRewardId}
+          initialCouponCode={appliedCouponCode}
           onOpenCulqiSandbox={() => setIsCulqiSandboxOpen(true)}
           customization={customization}
           companyInfo={companyInfo}

@@ -1,8 +1,8 @@
 {
-  "buildId": "20261113033550",
-  "builtAt": "2026-11-13T03:35:50.771Z",
-  "commitSha": "fbed0f4",
-  "message": "chore(release): build production release 20261113030259",
+  "buildId": "20261113034255",
+  "builtAt": "2026-11-13T03:42:55.869Z",
+  "commitSha": "bd11b0c",
+  "message": "fix: favicon notifications, isolated customer orders, cascade delete, subExtrasLimit validation & checkout rewards summary",
   "totalFiles": 85,
-  "manifestSha256": "961ece6040d7b768e1ae551867cc3fa796cb0abb3a67189b9eeff744e437c069"
+  "manifestSha256": "c8ffdd4469436ab282dfca2c5a7ded0445e38688bff7f10560b0be4672dd23c3"
 }

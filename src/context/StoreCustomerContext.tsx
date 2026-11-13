@@ -117,6 +117,8 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
   const { activeTenant, dispatchToast, openNoticeModal } = useSettings();
 
   const [accounts, setAccounts] = useState<StoreCustomerAccount[]>(loadAccounts);
+  const accountsRef = useRef<StoreCustomerAccount[]>(accounts);
+  accountsRef.current = accounts;
   const [activeCustomerId, setActiveCustomerId] = useState<string | null>(loadActiveCustomerId);
   const [guestOrderIds, setGuestOrderIds] = useState<string[]>(loadGuestOrderIds);
 
@@ -589,28 +591,36 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const recordStoreOrder = useCallback(
     (orderId: string) => {
-      if (currentCustomer) {
-        setAccounts(prev =>
-          prev.map(a =>
-            a.id === currentCustomer.id && !a.orderIds.includes(orderId)
-              ? { ...a, orderIds: [orderId, ...a.orderIds], updatedAt: new Date().toISOString() }
-              : a
-          )
-        );
+      if (activeCustomerId) {
+        const current = accountsRef.current.find(a => a.id === activeCustomerId);
+        if (current && !current.orderIds.includes(orderId)) {
+          const updated: StoreCustomerAccount = {
+            ...current,
+            orderIds: [orderId, ...current.orderIds],
+            updatedAt: new Date().toISOString(),
+          };
+          const nextAccounts = accountsRef.current.map(a =>
+            a.id === activeCustomerId ? updated : a
+          );
+          accountsRef.current = nextAccounts;
+          setAccounts(nextAccounts);
+        }
         return;
       }
       setGuestOrderIds(prev => (prev.includes(orderId) ? prev : [orderId, ...prev]));
     },
-    [currentCustomer]
+    [activeCustomerId]
   );
 
   const awardCustomerPoints = useCallback(
     (pointsDelta: number, reason: string, orderNumber?: string) => {
-      if (!currentCustomer || pointsDelta <= 0) return;
+      if (!activeCustomerId || pointsDelta <= 0) return;
+      const latest = accountsRef.current.find(a => a.id === activeCustomerId);
+      if (!latest) return;
       const now = new Date().toISOString();
-      const nextPoints = Math.max(0, (currentCustomer.points || 0) + pointsDelta);
+      const nextPoints = Math.max(0, (latest.points || 0) + pointsDelta);
       const updated: StoreCustomerAccount = {
-        ...currentCustomer,
+        ...latest,
         points: nextPoints,
         pointsHistory: [
           {
@@ -620,24 +630,27 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
             reason,
             orderNumber,
           },
-          ...(currentCustomer.pointsHistory || []),
+          ...(latest.pointsHistory || []),
         ],
         updatedAt: now,
       };
-      setAccounts(prev => prev.map(a => (a.id === currentCustomer.id ? updated : a)));
+      const nextAccounts = accountsRef.current.map(a => (a.id === activeCustomerId ? updated : a));
+      accountsRef.current = nextAccounts;
+      setAccounts(nextAccounts);
       syncAccountToErpCrm(updated);
     },
-    [currentCustomer, syncAccountToErpCrm]
+    [activeCustomerId, syncAccountToErpCrm]
   );
 
   const redeemCustomerPoints = useCallback(
     (pointsCost: number, rewardTitle: string, orderNumber?: string): boolean => {
-      if (!currentCustomer || pointsCost <= 0) return false;
-      if ((currentCustomer.points || 0) < pointsCost) return false;
+      if (!activeCustomerId || pointsCost <= 0) return false;
+      const latest = accountsRef.current.find(a => a.id === activeCustomerId);
+      if (!latest || (latest.points || 0) < pointsCost) return false;
       const now = new Date().toISOString();
-      const nextPoints = Math.max(0, (currentCustomer.points || 0) - pointsCost);
+      const nextPoints = Math.max(0, (latest.points || 0) - pointsCost);
       const updated: StoreCustomerAccount = {
-        ...currentCustomer,
+        ...latest,
         points: nextPoints,
         pointsHistory: [
           {
@@ -647,21 +660,23 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
             reason: `Canje Premio: ${rewardTitle}`,
             orderNumber,
           },
-          ...(currentCustomer.pointsHistory || []),
+          ...(latest.pointsHistory || []),
         ],
         updatedAt: now,
       };
-      setAccounts(prev => prev.map(a => (a.id === currentCustomer.id ? updated : a)));
+      const nextAccounts = accountsRef.current.map(a => (a.id === activeCustomerId ? updated : a));
+      accountsRef.current = nextAccounts;
+      setAccounts(nextAccounts);
       syncAccountToErpCrm(updated);
       return true;
     },
-    [currentCustomer, syncAccountToErpCrm]
+    [activeCustomerId, syncAccountToErpCrm]
   );
 
   const adjustAccountPointsById = useCallback(
     (accountId: string, delta: number, reason: string) => {
       if (delta === 0) return;
-      const target = accounts.find(a => a.id === accountId);
+      const target = accountsRef.current.find(a => a.id === accountId);
       if (!target) return;
       const now = new Date().toISOString();
       const nextPoints = Math.max(0, (target.points || 0) + delta);
@@ -679,10 +694,12 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
         ],
         updatedAt: now,
       };
-      setAccounts(prev => prev.map(a => (a.id === accountId ? updated : a)));
+      const nextAccounts = accountsRef.current.map(a => (a.id === accountId ? updated : a));
+      accountsRef.current = nextAccounts;
+      setAccounts(nextAccounts);
       syncAccountToErpCrm(updated);
     },
-    [accounts, syncAccountToErpCrm]
+    [syncAccountToErpCrm]
   );
 
   // Live Real-Time Customer Orders matched from OrderCatalogContext.orders
