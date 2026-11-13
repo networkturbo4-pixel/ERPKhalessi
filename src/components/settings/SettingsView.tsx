@@ -11,6 +11,9 @@ const IdentityTab = lazy(() =>
 const AppearanceTab = lazy(() =>
   import('../tabs/AppearanceTab').then(m => ({ default: m.AppearanceTab }))
 );
+const SeasonalThemesTab = lazy(() =>
+  import('../tabs/SeasonalThemesTab').then(m => ({ default: m.SeasonalThemesTab }))
+);
 const DialogsTab = lazy(() =>
   import('../tabs/DialogsTab').then(m => ({ default: m.DialogsTab }))
 );
@@ -56,7 +59,8 @@ import {
   Bot,
   Terminal,
   Search,
-  Lock
+  Lock,
+  PartyPopper
 } from 'lucide-react';
 
 export interface TabItem {
@@ -71,6 +75,7 @@ export interface TabItem {
 export const SETTINGS_TABS: TabItem[] = [
   { id: 'identity', label: 'Identidad y Marca', category: 'Marca y Diseño', icon: Sparkles, requiredPermission: 'settings:manage' },
   { id: 'appearance', label: 'Design System', category: 'Marca y Diseño', icon: Palette, requiredPermission: 'settings:manage' },
+  { id: 'seasonal-themes', label: 'Temáticas & Campañas', category: 'Marca y Diseño', icon: PartyPopper, badge: 'Nuevo', requiredPermission: 'settings:manage' },
   { id: 'dialogs', label: 'Toasts 3D y Modales', category: 'Experiencia', icon: Bell, requiredPermission: 'settings:manage' },
   { id: 'login', label: 'Pantalla de Login', category: 'Experiencia', icon: LogIn, requiredPermission: 'settings:manage' },
   { id: 'company', label: 'Datos Fiscales y QR', category: 'Empresa, Sedes y RBAC', icon: Building2, requiredPermission: 'settings:manage' },
@@ -104,6 +109,7 @@ export const SettingsView: React.FC = () => {
     switch (activeTab) {
       case 'identity': return <IdentityTab />;
       case 'appearance': return <AppearanceTab />;
+      case 'seasonal-themes': return <SeasonalThemesTab />;
       case 'dialogs': return <DialogsTab />;
       case 'login': return <LoginTab />;
       case 'company': return <CompanyTab />;

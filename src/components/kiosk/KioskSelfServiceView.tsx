@@ -15,6 +15,7 @@ import { isRealCulqiPublicKey, openOfficialCulqiCheckout } from '../../utils/cul
 import { StoreCulqiSandboxDialog } from '../store/StoreCulqiSandboxDialog';
 import { ToastContainer } from '../common/ToastContainer';
 import { SystemNoticeModal } from '../common/SystemNoticeModal';
+import { SeasonalOverlay } from '../common/SeasonalOverlay';
 import {
   UtensilsCrossed,
   ShoppingBag,
@@ -669,6 +670,7 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
     >
       {!embeddedInAdmin && <ToastContainer />}
       {!embeddedInAdmin && <SystemNoticeModal />}
+      <SeasonalOverlay surface="kiosk" />
 
       {/* ADMIN SIMULATOR TOP BAR (Only visible when testing inside ERP MainLayout) */}
       {embeddedInAdmin && (

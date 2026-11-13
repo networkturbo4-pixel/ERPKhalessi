@@ -6,6 +6,7 @@ import { useOrderCatalog } from '../context/OrderCatalogContext';
 import { ToastContainer } from './common/ToastContainer';
 import { UnsavedChangesModal } from './common/UnsavedChangesModal';
 import { SystemNoticeModal } from './common/SystemNoticeModal';
+import { SeasonalOverlay } from './common/SeasonalOverlay';
 import { ModuleWorkspaceSkeleton } from './common/AppSurfaceSkeleton';
 import { PermissionGate } from './common/PermissionGate';
 import { MediaGalleryModal } from './media/MediaGalleryModal';
@@ -1558,6 +1559,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
       <ToastContainer />
       <UnsavedChangesModal />
       <SystemNoticeModal />
+      <SeasonalOverlay surface="erp" />
 
       {/* MODAL NATIVO <dialog> PARA EDITAR PERFIL DESDE LA CARD DEL SIDEBAR */}
       <dialog

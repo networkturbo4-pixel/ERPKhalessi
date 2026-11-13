@@ -16,6 +16,26 @@ export interface WelcomeSlide {
   imageUrl: string;
 }
 
+export type SeasonalThemeId =
+  | 'christmas'
+  | 'valentine'
+  | 'summer'
+  | 'halloween'
+  | 'patriotic';
+
+export type SeasonalIntensity = 'subtle' | 'medium' | 'festive';
+
+export type SeasonalScope = 'storefront' | 'storefront_kiosk' | 'all';
+
+export interface SeasonalThemeConfig {
+  enabled: boolean;
+  theme: SeasonalThemeId;
+  intensity: SeasonalIntensity;
+  scope: SeasonalScope;
+  showBanner: boolean;
+  bannerText?: string;
+}
+
 export interface TenantCustomization {
   appName: string;
   slogan?: string;
@@ -54,6 +74,7 @@ export interface TenantCustomization {
     buttonColor: string;
     slides: WelcomeSlide[];
   };
+  seasonalTheme: SeasonalThemeConfig;
 }
 
 export interface BankAccount {
@@ -382,6 +403,7 @@ export interface ConsistencyReport {
 export type TabId =
   | 'identity'
   | 'appearance'
+  | 'seasonal-themes'
   | 'dialogs'
   | 'login'
   | 'company'

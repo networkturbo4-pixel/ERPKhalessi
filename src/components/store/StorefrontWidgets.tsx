@@ -142,6 +142,7 @@ interface ProgressiveStoreImageProps {
   className?: string;
   isLightTheme?: boolean;
   lazyLoad?: boolean;
+  fetchPriority?: 'high' | 'low';
   width?: number;
   height?: number;
 }
@@ -152,6 +153,7 @@ const ProgressiveStoreImage: React.FC<ProgressiveStoreImageProps> = ({
   className = '',
   isLightTheme = false,
   lazyLoad = true,
+  fetchPriority,
   width,
   height,
 }) => {
@@ -184,6 +186,7 @@ const ProgressiveStoreImage: React.FC<ProgressiveStoreImageProps> = ({
         width={width}
         height={height}
         loading={lazyLoad ? 'lazy' : 'eager'}
+        {...(fetchPriority ? { fetchPriority } : {})}
         decoding="async"
         onLoad={() => setLoaded(true)}
         onError={() => setLoaded(true)}
@@ -540,13 +543,14 @@ export const StoreSliderWidget: React.FC<StoreSliderWidgetProps> = ({
                         className="absolute inset-0 w-full h-full object-cover"
                       />
                     ) : (
-                      <img
+                      <ProgressiveStoreImage
                         src={imgSrc}
                         alt={slide.headline || `Slide ${idx + 1}`}
                         width={1200}
                         height={resolvedHeight}
-                        loading="lazy"
-                        decoding="async"
+                        isLightTheme={isLightTheme}
+                        lazyLoad={true}
+                        fetchPriority="low"
                         className="absolute inset-0 w-full h-full object-cover"
                       />
                     )}
@@ -1225,7 +1229,7 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
       : '';
 
   const renderCard = (product: Product, cardIdx = 0) => {
-    const shouldLazyLoadImg = !isAboveFold || cardIdx >= 4;
+    const shouldLazyLoadImg = !isAboveFold || cardIdx >= 8;
     const lowestPrice =
       product.hasSizes && product.sizes.length > 0
         ? Math.min(...product.sizes.filter(s => s.enabled).map(s => s.price))

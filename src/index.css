@@ -650,3 +650,75 @@ dialog.store-responsive-drawer {
     }
   }
 }
+
+/* ==========================================================================
+   SEASONAL CAMPAIGN OVERLAY ANIMATIONS (Navidad, San Valentín, Verano, etc.)
+   ========================================================================== */
+@keyframes kh-seasonal-fall {
+  0% {
+    transform: translate3d(0, -10vh, 0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: var(--kh-p-opacity, 0.85);
+  }
+  85% {
+    opacity: var(--kh-p-opacity, 0.85);
+  }
+  100% {
+    transform: translate3d(var(--kh-p-sway, 24px), 108vh, 0) rotate(var(--kh-p-rot, 180deg));
+    opacity: 0;
+  }
+}
+
+@keyframes kh-seasonal-float-up {
+  0% {
+    transform: translate3d(0, 108vh, 0) scale(0.85);
+    opacity: 0;
+  }
+  12% {
+    opacity: var(--kh-p-opacity, 0.82);
+  }
+  85% {
+    opacity: var(--kh-p-opacity, 0.82);
+  }
+  100% {
+    transform: translate3d(var(--kh-p-sway, -22px), -12vh, 0) scale(1.1);
+    opacity: 0;
+  }
+}
+
+@keyframes kh-seasonal-twinkle {
+  0%, 100% {
+    transform: scale(0.75) rotate(0deg);
+    opacity: 0.25;
+  }
+  50% {
+    transform: scale(1.2) rotate(22deg);
+    opacity: var(--kh-p-opacity, 0.9);
+  }
+}
+
+.kh-particle-fall {
+  animation: kh-seasonal-fall var(--kh-p-dur, 10s) linear var(--kh-p-delay, 0s) infinite;
+  will-change: transform, opacity;
+}
+
+.kh-particle-float {
+  animation: kh-seasonal-float-up var(--kh-p-dur, 11s) ease-in-out var(--kh-p-delay, 0s) infinite;
+  will-change: transform, opacity;
+}
+
+.kh-particle-twinkle {
+  animation: kh-seasonal-twinkle var(--kh-p-dur, 4.5s) ease-in-out var(--kh-p-delay, 0s) infinite;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kh-particle-fall,
+  .kh-particle-float,
+  .kh-particle-twinkle {
+    animation: none !important;
+    opacity: 0.35;
+  }
+}

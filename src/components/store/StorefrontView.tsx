@@ -13,6 +13,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { useStoreBuilder } from '../../context/StoreBuilderContext';
 import { useStoreCustomer } from '../../context/StoreCustomerContext';
 import { useBenefits } from '../../context/BenefitsContext';
+import { SeasonalOverlay } from '../common/SeasonalOverlay';
 import {
   calculateDynamicDeliveryFee,
   isRealCulqiPublicKey,
@@ -1684,6 +1685,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
 
   return (
     <div style={storeThemeVars} className="min-h-dvh flex flex-col bg-[#0b0c10]">
+      <SeasonalOverlay surface="storefront" />
       <ToastContainer />
       <SystemNoticeModal />
 

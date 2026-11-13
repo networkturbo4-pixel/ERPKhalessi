@@ -162,6 +162,8 @@ interface StorageSsePayload {
 
 let interceptorInstalled = false;
 let persistenceStarted = false;
+let initialReconcileCompleted = false;
+let settingsHasUnhydratedSensitiveFields = false;
 
 let originalGetItemFn: ((key: string) => string | null) | null = null;
 let originalSetItemFn: ((key: string, value: string) => void) | null = null;
@@ -482,6 +484,9 @@ export function installStorageInterceptor(): void {
     const prev = memoryMirror.get(key);
     if (prev === value) return;
 
+    const hadPriorValue =
+      memoryMirror.has(key) || (originalGetItemFn ? originalGetItemFn(key) !== null : false);
+
     memoryMirror.set(key, value);
     if (key === SETTINGS_KEY) {
       cacheBrandSplashAssets(value);
@@ -520,6 +525,14 @@ export function installStorageInterceptor(): void {
     }
 
     if (isSharedKey(key)) {
+      // Nunca sobreescribir el servidor con defaults de montaje antes de hidratar,
+      // ni con usuarios/credenciales de respaldo cuando settings solo se hidrató en modo público.
+      if (!initialReconcileCompleted && !hadPriorValue && !PUBLIC_WRITABLE_KEYS.has(key)) {
+        return;
+      }
+      if (key === SETTINGS_KEY && settingsHasUnhydratedSensitiveFields) {
+        return;
+      }
       enqueueServerSync(key, { action: 'set', value });
     }
   };
@@ -553,9 +566,16 @@ export async function initDiskPersistence(): Promise<void> {
   const mergePublicSettings = (remoteJson: string): string => {
     try {
       const remote = JSON.parse(remoteJson);
-      if (!remote || !remote.__public) return remoteJson;
+      if (!remote || !remote.__public) {
+        settingsHasUnhydratedSensitiveFields = false;
+        return remoteJson;
+      }
       delete remote.__public;
       const local = JSON.parse(memoryMirror.get(SETTINGS_KEY) ?? originalGetItemFn?.(SETTINGS_KEY) ?? '{}');
+      const localHasUsers = Array.isArray(local?.users) && local.users.length > 0 && !settingsHasUnhydratedSensitiveFields;
+      if (!localHasUsers) {
+        settingsHasUnhydratedSensitiveFields = true;
+      }
       const merged = { ...local, ...remote };
       for (const k of ['activeTenantId', 'branchScope', 'activeTab']) {
         if (local[k] !== undefined) merged[k] = local[k];
@@ -566,9 +586,10 @@ export async function initDiskPersistence(): Promise<void> {
     }
   };
 
-  const reconcileFromServer = async (emitEvents: boolean) => {
+  const reconcileFromServer = async (emitEvents: boolean, forceKeys?: Set<string>) => {
     if (failedSyncValues.size > 0) {
       for (const [key, pendingOp] of Array.from(failedSyncValues.entries())) {
+        if (key === SETTINGS_KEY && settingsHasUnhydratedSensitiveFields) continue;
         if ((inFlightWrites.get(key) || 0) === 0) {
           enqueueServerSync(key, pendingOp);
         }
@@ -591,12 +612,22 @@ export async function initDiskPersistence(): Promise<void> {
 
         if ((inFlightWrites.get(key) || 0) > 0) continue;
         if (failedSyncValues.has(key)) continue;
-        if (key !== 'kh_orders_list' && (lastLocalWriteAt.get(key) || 0) >= fetchStartedAt - 2500) continue;
+        const isForced = forceKeys?.has(key) ?? false;
+        if (
+          initialReconcileCompleted &&
+          !isForced &&
+          key !== 'kh_orders_list' &&
+          (lastLocalWriteAt.get(key) || 0) >= fetchStartedAt - 2500
+        ) {
+          continue;
+        }
 
         applyRemoteUpdate(key, value, emitEvents);
       }
     } catch {
       // Fallback fluido a caché local
+    } finally {
+      initialReconcileCompleted = true;
     }
   };
 
@@ -626,11 +657,24 @@ export async function initDiskPersistence(): Promise<void> {
 
   onServerAuthenticated = () => {
     lastHash = '';
+    const forceKeys = new Set<string>([
+      SETTINGS_KEY,
+      RBAC_KEY,
+      'khalessi_erp_hr_v1',
+      'khalessi_erp_audit_v1',
+    ]);
+    for (const k of forceKeys) {
+      failedSyncValues.delete(k);
+    }
     void (async () => {
       try {
         const res = await fetch('/api/storage', { cache: 'no-store', headers: getAuthHeaders() });
         const onServer: Record<string, string> =
           res.ok && (res.headers.get('content-type') || '').includes('json') ? await res.json() : {};
+        if (onServer[SETTINGS_KEY] === undefined) {
+          settingsHasUnhydratedSensitiveFields = false;
+        }
+        await reconcileFromServer(true, forceKeys);
         for (const key of SERVER_SYNC_KEYS) {
           // Nunca sobreescribir pedidos con una caché local vieja al autenticar: el servidor los fusiona
           if (key === 'kh_orders_list') continue;
@@ -639,7 +683,6 @@ export async function initDiskPersistence(): Promise<void> {
             enqueueServerSync(key, { action: 'set', value: local });
           }
         }
-        await reconcileFromServer(true);
       } catch {
         // modo local
       }

@@ -1,8 +1,8 @@
 {
-  "buildId": "20261113162316",
-  "builtAt": "2026-11-13T16:23:16.058Z",
-  "commitSha": "a63b473",
-  "message": "chore(release): build 20261113154528 - move Galería de Medios and Páginas above Configuración in sidebar",
-  "totalFiles": 85,
-  "manifestSha256": "b7f69922d21962e2ba79c2ad5ee77bdc51220ce126acbaae9dca5f79ba6774aa"
+  "buildId": "20261113235234",
+  "builtAt": "2026-11-13T23:52:34.361Z",
+  "commitSha": "86ed9f1",
+  "message": "chore(release): build 20261113162316 - default login to Dashboard and widen branch parameters modal",
+  "totalFiles": 87,
+  "manifestSha256": "ff5ff611d008db92d354bb60c15c71d564d884cd3370a3a364a3ffd784c2b488"
 }

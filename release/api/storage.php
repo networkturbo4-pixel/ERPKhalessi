@@ -349,6 +349,33 @@ if ($method === 'POST' || $method === 'DELETE') {
         }
     }
 
+    // Protección de ajustes sensibles: jamás sobreescribir usuarios/credenciales existentes con un payload público o vacío
+    if ($key === KH_SETTINGS_KEY) {
+        $existingSettingsRaw = kvGet($pdo, KH_SETTINGS_KEY);
+        $existingSettings = $existingSettingsRaw ? json_decode($existingSettingsRaw, true) : null;
+        $incomingSettings = is_array($input['data']) ? $input['data'] : json_decode($data, true);
+        if (is_array($existingSettings) && is_array($incomingSettings)) {
+            $isPublicPayload = !empty($incomingSettings['__public']);
+            unset($incomingSettings['__public']);
+            $existingUsers = isset($existingSettings['users']) && is_array($existingSettings['users']) ? $existingSettings['users'] : [];
+            $incomingUsers = isset($incomingSettings['users']) && is_array($incomingSettings['users']) ? $incomingSettings['users'] : [];
+            if (count($existingUsers) > 0 && ($isPublicPayload || count($incomingUsers) === 0)) {
+                $incomingSettings['users'] = $existingUsers;
+            }
+            if ($isPublicPayload || !isset($incomingSettings['driveConfig'])) {
+                if (isset($existingSettings['driveConfig'])) {
+                    $incomingSettings['driveConfig'] = $existingSettings['driveConfig'];
+                }
+            }
+            if ($isPublicPayload || !isset($incomingSettings['geminiConfig'])) {
+                if (isset($existingSettings['geminiConfig'])) {
+                    $incomingSettings['geminiConfig'] = $existingSettings['geminiConfig'];
+                }
+            }
+            $data = json_encode($incomingSettings, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+    }
+
     $data = ($key === 'kh_orders_list') ? sanitizeOrdersJson($data) : externalizeJson($data);
     kvSet($pdo, $key, $data);
 

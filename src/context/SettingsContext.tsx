@@ -77,6 +77,14 @@ export const DEFAULT_CUSTOMIZATION: TenantCustomization = {
       },
     ],
   },
+  seasonalTheme: {
+    enabled: false,
+    theme: 'christmas',
+    intensity: 'medium',
+    scope: 'storefront',
+    showBanner: true,
+    bannerText: '',
+  },
 };
 
 const DEFAULT_COMPANY_INFO: CompanyInfo = {
@@ -570,6 +578,10 @@ function normalizeLoadedState(raw: string | null): PersistedSnapshot | null {
       loginConfig: {
         ...DEFAULT_CUSTOMIZATION.loginConfig,
         ...(parsed.customization?.loginConfig || {}),
+      },
+      seasonalTheme: {
+        ...DEFAULT_CUSTOMIZATION.seasonalTheme,
+        ...(parsed.customization?.seasonalTheme || {}),
       },
     };
 
