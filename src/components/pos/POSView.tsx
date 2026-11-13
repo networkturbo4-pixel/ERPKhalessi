@@ -1141,7 +1141,7 @@ export const POSView: React.FC<POSViewProps> = ({
                     )}
                     {item.extras && item.extras.length > 0 && (
                       <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-                        + {item.extras.map((e) => e.name).join(', ')}
+                        + {item.extras.map((e) => (e.quantity > 1 ? `${e.quantity}x ${e.name}` : e.name)).join(', ')}
                       </div>
                     )}
                     {item.notes && (
@@ -1216,7 +1216,7 @@ export const POSView: React.FC<POSViewProps> = ({
 
                     {item.extras.length > 0 && (
                       <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
-                        + {item.extras.map((e) => e.name).join(', ')}
+                        + {item.extras.map((e) => (e.quantity > 1 ? `${e.quantity}x ${e.name}` : e.name)).join(', ')}
                       </div>
                     )}
 
