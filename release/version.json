@@ -1,8 +1,8 @@
 {
-  "buildId": "20261113022821",
-  "builtAt": "2026-11-13T02:28:21.875Z",
-  "commitSha": "9d03d2e",
-  "message": "fix(store-auth): improve error contrast, cascade CRM delete to storefront accounts & auto-logout deleted users",
-  "totalFiles": 80,
-  "manifestSha256": "b5649c256b90fc07bbf51468f075a0c2dec382c61b10e09c27af514fc93c0c48"
+  "buildId": "20261113030259",
+  "builtAt": "2026-11-13T03:02:59.196Z",
+  "commitSha": "8a4c683",
+  "message": "feat: geofencing polygons, PWA + OG share cards, dine-in tables & split bill, IndexedDB offline queue",
+  "totalFiles": 85,
+  "manifestSha256": "3ced9dc713d3ecabf824497bf1037473a013ecedde588f596d05cbfc8bf5e312"
 }

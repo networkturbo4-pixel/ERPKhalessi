@@ -1,0 +1,39 @@
+{
+  "id": "/",
+  "name": "Pizza Khalessi — Tienda & Delivery",
+  "short_name": "Khalessi",
+  "description": "Pizzas artesanales recién horneadas, combos y seguimiento de pedidos en vivo.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#e11d48",
+  "background_color": "#09090b",
+  "lang": "es-PE",
+  "icons": [
+    {
+      "src": "/api/favicon.php?size=192",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "/api/favicon.php?size=512",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Ver Carta",
+      "short_name": "Carta",
+      "description": "Explora nuestras pizzas y promociones",
+      "url": "/?view=menu"
+    },
+    {
+      "name": "Mis Pedidos",
+      "short_name": "Pedidos",
+      "description": "Revisa el estado de tu pedido en vivo",
+      "url": "/?view=orders"
+    }
+  ]
+}
