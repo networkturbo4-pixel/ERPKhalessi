@@ -91,6 +91,77 @@ function fetchRemoteData(string $url, int $timeout = 60): ?string {
 }
 
 /**
+ * Descarga múltiples URLs en paralelo usando curl_multi_init para evitar timeouts 502 en cPanel/LiteSpeed.
+ * @param array<int, array{url:string, key:string}> $requests
+ * @return array<string, ?string>
+ */
+function fetchRemoteBatch(array $requests, int $concurrency = 12, int $timeout = 30): array {
+    $results = [];
+    if (empty($requests)) return $results;
+
+    if (!function_exists('curl_multi_init') || !function_exists('curl_init')) {
+        foreach ($requests as $req) {
+            $results[$req['key']] = fetchRemoteData($req['url'], $timeout);
+        }
+        return $results;
+    }
+
+    $chunks = array_chunk($requests, max(1, $concurrency));
+    $cbBase = time() . mt_rand(100, 999);
+
+    foreach ($chunks as $chunk) {
+        $mh = curl_multi_init();
+        $handles = [];
+        foreach ($chunk as $idx => $req) {
+            $u = $req['url'] . (strpos($req['url'], '?') === false ? '?' : '&') . '_cb=' . $cbBase . '_' . $idx;
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $u);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'Khalessi-ERP-Updater/2.0');
+            curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 12);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Cache-Control: no-cache, no-store',
+                'Pragma: no-cache',
+                'Accept: */*',
+            ]);
+            curl_multi_add_handle($mh, $ch);
+            $handles[$req['key']] = ['ch' => $ch, 'url' => $req['url']];
+        }
+
+        $running = null;
+        do {
+            $mrc = curl_multi_exec($mh, $running);
+            if ($running > 0) {
+                curl_multi_select($mh, 0.2);
+            }
+        } while ($running > 0 && $mrc === CURLM_OK);
+
+        foreach ($handles as $key => $info) {
+            $ch = $info['ch'];
+            $httpCode = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $data = curl_multi_getcontent($ch);
+            curl_multi_remove_handle($mh, $ch);
+            curl_close($ch);
+
+            if ($httpCode >= 200 && $httpCode < 300 && is_string($data) && strlen($data) > 0) {
+                $results[$key] = $data;
+            } else {
+                // Reintento individual (incluye fallback SSL sin verificación si el CA local de cPanel está vencido)
+                $results[$key] = fetchRemoteData($info['url'], $timeout);
+            }
+        }
+        curl_multi_close($mh);
+    }
+
+    return $results;
+}
+
+/**
  * Comprueba de forma infalible si un directorio tiene permisos de escritura en Windows y Linux.
  */
 function checkDirectoryWritable(string $dir): bool {
@@ -461,18 +532,26 @@ switch ($action) {
                 ], 500);
             }
 
-            // 3. Descargar archivos nuevos/modificados y verificar integridad SHA-256
+            // 3. Descargar archivos nuevos/modificados en paralelo y verificar integridad SHA-256
             $rawBase = "https://raw.githubusercontent.com/$repo/$branch/release/";
             $deferredEntries = []; // index.html se aplica al final para transición atómica
             $updatedCount = 0;
 
+            $batchRequests = [];
             foreach ($toDownload as $item) {
                 $relPath = $item['path'];
-                // Codificar cada segmento de la ruta para URL
                 $encodedPath = implode('/', array_map('rawurlencode', explode('/', $relPath)));
-                $fileUrl = $rawBase . $encodedPath;
+                $batchRequests[] = [
+                    'key' => $relPath,
+                    'url' => $rawBase . $encodedPath,
+                ];
+            }
 
-                $data = fetchRemoteData($fileUrl, 45);
+            $downloadedMap = fetchRemoteBatch($batchRequests, 12, 30);
+
+            foreach ($toDownload as $item) {
+                $relPath = $item['path'];
+                $data = $downloadedMap[$relPath] ?? null;
                 if ($data === null) {
                     if ($stageDir) recursiveDeleteDir($stageDir);
                     sendResponse([

@@ -1,8 +1,8 @@
 {
-  "buildId": "20261113003042",
-  "builtAt": "2026-11-13T00:30:42.527Z",
-  "commitSha": "b220d4e",
-  "message": "feat(benefits): granular card colors, configurable point amounts, live CRM->storefront point sync & branch-synced customer counters",
+  "buildId": "20261113003803",
+  "builtAt": "2026-11-13T00:38:03.781Z",
+  "commitSha": "e7a3692",
+  "message": "fix(storage): sync kh_store_customer_accounts_v1 across server/SSE and eliminate 404 console spam",
   "totalFiles": 74,
-  "manifestSha256": "c3148ff56afd749ea46f9b4fa6836baadf148d8cdcc222c0c4d9e9b22d08657b"
+  "manifestSha256": "c9acaadb11f102c0051465a84440978f43b59543e9c2a29fa4a26fd9fe6c34e5"
 }

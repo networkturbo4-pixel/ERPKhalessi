@@ -193,7 +193,9 @@ export const SystemUpdateTab: React.FC = () => {
 
       const type = response.headers.get('content-type') || '';
       if (!type.includes('json')) {
-        throw new Error('Respuesta inesperada del servidor al ejecutar /api/system-update.php.');
+        throw new Error(
+          `El servidor devolvió HTTP ${response.status} al ejecutar /api/system-update.php (posible timeout del proxy).`
+        );
       }
 
       const res = await response.json();
