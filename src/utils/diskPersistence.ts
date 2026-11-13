@@ -71,6 +71,7 @@ const TOKEN_KEY = 'erp_api_token';
 
 const rejectedPins = new Set<string>();
 let authInFlight: Promise<boolean> | null = null;
+let authBackoffUntil = 0;
 
 export function getServerToken(): string {
   try {
@@ -106,6 +107,7 @@ function isErpAdminSurface(): boolean {
 export async function authenticateServer(pin: string, force = false): Promise<boolean> {
   const cleanPin = (pin || '').replace(/\D/g, '');
   if (![4, 6, 8].includes(cleanPin.length)) return false;
+  if (Date.now() < authBackoffUntil) return false;
   if (!force && rejectedPins.has(cleanPin)) return false;
   if (!force && getServerToken()) return true;
 
@@ -118,6 +120,12 @@ export async function authenticateServer(pin: string, force = false): Promise<bo
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin: cleanPin }),
       });
+      if (res.status === 429) {
+        const retryAfter = parseInt(res.headers.get('Retry-After') || '60', 10);
+        const waitSec = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60;
+        authBackoffUntil = Date.now() + waitSec * 1000;
+        return false;
+      }
       if (!(res.headers.get('content-type') || '').includes('json')) {
         return false;
       }
@@ -132,6 +140,7 @@ export async function authenticateServer(pin: string, force = false): Promise<bo
         rejectedPins.add(cleanPin);
         return false;
       }
+      authBackoffUntil = 0;
       rejectedPins.delete(cleanPin);
       localStorage.setItem(TOKEN_KEY, JSON.stringify({ token: body.token, expires: body.expires }));
       onServerAuthenticated?.();

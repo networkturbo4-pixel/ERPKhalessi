@@ -1,8 +1,8 @@
 {
-  "buildId": "20261113235234",
-  "builtAt": "2026-11-13T23:52:34.361Z",
-  "commitSha": "86ed9f1",
-  "message": "chore(release): build 20261113162316 - default login to Dashboard and widen branch parameters modal",
+  "buildId": "20261113235816",
+  "builtAt": "2026-11-13T23:58:16.422Z",
+  "commitSha": "692f22f",
+  "message": "fix(storefront,sync): preload hero LCP on first visit and protect production users/settings from default overwrites",
   "totalFiles": 87,
-  "manifestSha256": "ff5ff611d008db92d354bb60c15c71d564d884cd3370a3a364a3ffd784c2b488"
+  "manifestSha256": "36f25037c9d5bd0e1fd65c052d326cd0b023a780ccfe14c5f449a7bb76287254"
 }
