@@ -137,6 +137,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
   const { todayRecords, getEmployeeProfile, updateEmployeeProfile } = useHR();
   const { orders, customers } = useOrderCatalog();
 
+  const visibleCustomersCount = React.useMemo(() => {
+    if (branchScope === 'consolidated') return customers.length;
+    return customers.filter(c => !c.tenantId || c.tenantId === activeTenant.id).length;
+  }, [customers, branchScope, activeTenant.id]);
+
   // Live "ventas de hoy" per branch computed from real orders (updates in real time via SSE, no stale mock numbers)
   const liveSalesByTenant = React.useMemo(() => {
     const startOfToday = new Date();
@@ -898,7 +903,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 <div className="flex items-center justify-between flex-1 min-w-0">
                   <span className="truncate">Clientes</span>
                   <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold">
-                    {customers.length}
+                    {visibleCustomersCount}
                   </span>
                 </div>
               )}

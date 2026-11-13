@@ -83,6 +83,13 @@ export const LoyaltyCardView: React.FC<LoyaltyCardViewProps> = ({
   const bgColor = config.cardBgColor || preset.bgColor;
   const accentColor = config.cardAccentColor || preset.accentColor;
   const textColor = config.cardTextColor || preset.textColor;
+  const titleColor = config.cardTitleColor || textColor;
+  const isLightCard = isLightHex(bgColor);
+  const secondaryTextColor = isLightCard ? 'rgba(24, 24, 27, 0.72)' : 'rgba(255, 255, 255, 0.76)';
+  const subtitleColor = config.cardSubtitleColor || secondaryTextColor;
+  const badgeBgColor = config.cardBadgeBgColor || accentColor;
+  const badgeTextColor = config.cardBadgeTextColor || getContrastText(badgeBgColor);
+  const counterColor = config.cardCounterColor || accentColor;
   const overlayOpacity =
     typeof config.cardBgOverlayOpacity === 'number' ? config.cardBgOverlayOpacity : preset.overlayOpacity;
 
@@ -91,11 +98,8 @@ export const LoyaltyCardView: React.FC<LoyaltyCardViewProps> = ({
 
   const goal = Math.max(1, config.stampsPerCardGoal || 8);
   const displayPoints = Math.max(0, points || 0);
-  const filledStamps = displayPoints > 0 ? displayPoints % goal || goal : 0;
-  const activeCount = Math.min(displayPoints, filledStamps);
+  const activeCount = Math.min(goal, displayPoints);
 
-  const isLightCard = isLightHex(bgColor);
-  const secondaryTextColor = isLightCard ? 'rgba(24, 24, 27, 0.72)' : 'rgba(255, 255, 255, 0.76)';
   const emptyStampBg = isLightCard ? 'rgba(24, 24, 27, 0.06)' : 'rgba(255, 255, 255, 0.08)';
   const emptyStampBorder = isLightCard ? 'rgba(24, 24, 27, 0.14)' : 'rgba(255, 255, 255, 0.16)';
   const dividerColor = isLightCard ? 'rgba(24, 24, 27, 0.12)' : 'rgba(255, 255, 255, 0.14)';
@@ -188,11 +192,11 @@ export const LoyaltyCardView: React.FC<LoyaltyCardViewProps> = ({
             <span
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider shadow-xs"
               style={{
-                backgroundColor: accentColor,
-                color: accentTextColor,
+                backgroundColor: badgeBgColor,
+                color: badgeTextColor,
               }}
             >
-              {renderCardIcon(badgeIconPx, accentTextColor)}
+              {renderCardIcon(badgeIconPx, badgeTextColor)}
               <span>Tarjeta Digital</span>
             </span>
 
@@ -209,21 +213,21 @@ export const LoyaltyCardView: React.FC<LoyaltyCardViewProps> = ({
             )}
           </div>
 
-          <h3 className="text-lg sm:text-xl font-black tracking-tight pt-1 leading-tight" style={{ color: textColor }}>
+          <h3 className="text-lg sm:text-xl font-black tracking-tight pt-1 leading-tight" style={{ color: titleColor }}>
             {config.cardTitle || 'Tarjeta de Puntos'}
           </h3>
-          <p className="text-xs leading-relaxed line-clamp-2" style={{ color: secondaryTextColor }}>
+          <p className="text-xs leading-relaxed line-clamp-2" style={{ color: subtitleColor }}>
             {config.cardSubtitle}
           </p>
         </div>
 
         <div className="text-right shrink-0">
-          <div className="text-2xl font-black leading-none tabular-nums" style={{ color: accentColor }}>
+          <div className="text-2xl font-black leading-none tabular-nums" style={{ color: counterColor }}>
             {displayPoints} / {goal}
           </div>
           <div
             className="text-[10px] uppercase font-bold tracking-wider mt-1"
-            style={{ color: secondaryTextColor }}
+            style={{ color: subtitleColor }}
           >
             Puntos Sellados
           </div>
@@ -299,17 +303,17 @@ export const LoyaltyCardView: React.FC<LoyaltyCardViewProps> = ({
       <div
         className="relative z-10 text-[11px] flex items-center justify-between gap-2 pt-3 flex-wrap"
         style={{
-          color: secondaryTextColor,
+          color: subtitleColor,
           borderTop: `1px solid ${dividerColor}`,
         }}
       >
         <span>
           {config.awardPointPerOrder !== false
-            ? `✓ +${config.pointsPerPurchase || 1} pto por pedido`
+            ? `✓ +${config.pointsPerPurchase || 1} ${(config.pointsPerPurchase || 1) === 1 ? 'pto' : 'pts'} por pedido`
             : 'Bonificación manual'}
-          {config.awardPointOnRegister ? ' · +1 bienvenida' : ''}
+          {config.awardPointOnRegister ? ` · +${config.welcomePointsAmount || 1} bienvenida` : ''}
         </span>
-        <span className="font-black" style={{ color: accentColor }}>
+        <span className="font-black" style={{ color: counterColor }}>
           {rewardsCount > 0 ? `${rewardsCount} premios disponibles` : 'Canjéalos en el checkout'}
         </span>
       </div>

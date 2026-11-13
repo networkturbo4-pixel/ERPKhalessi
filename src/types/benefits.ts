@@ -33,10 +33,16 @@ export interface PointsProgramConfig {
   cardBgColor?: string;
   cardAccentColor?: string;
   cardTextColor?: string;
+  cardTitleColor?: string;
+  cardSubtitleColor?: string;
+  cardBadgeBgColor?: string;
+  cardBadgeTextColor?: string;
+  cardCounterColor?: string;
   cardBgOverlayOpacity?: number; // Opacidad del velo sobre la imagen (0 - 90)
   recommendedDimensionsNote?: string; // "1000 x 600 px (proporción 5:3 / tarjeta estándar)"
-  awardPointPerOrder: boolean; // +1 punto al realizar una nueva orden
-  awardPointOnRegister: boolean; // +1 punto al registrarse por primera vez
+  awardPointPerOrder: boolean; // +N puntos al realizar una nueva orden
+  awardPointOnRegister: boolean; // +N puntos al registrarse por primera vez
+  welcomePointsAmount?: number; // Cantidad de puntos de bienvenida al registrarse
   pointsPerPurchase: number;
   minPurchaseAmountForPoint: number;
   stampsPerCardGoal: number;

@@ -57,7 +57,7 @@ export const BenefitsModuleView: React.FC = () => {
   } = useBenefits();
   const { allCustomerAccounts, adjustAccountPointsById } = useStoreCustomer();
   const { customers, orders, upsertCustomer } = useOrderCatalog();
-  const { companyInfo, updateCompanyInfo, dispatchToast, openNoticeModal } = useSettings();
+  const { activeTenant, branchScope, companyInfo, updateCompanyInfo, dispatchToast, openNoticeModal } = useSettings();
 
   const [activeTab, setActiveTab] = useState<BenefitsTab>('coupons');
   const [customerSearch, setCustomerSearch] = useState('');
@@ -84,6 +84,10 @@ export const BenefitsModuleView: React.FC = () => {
     const matchedDnis = new Set<string>();
 
     const normPhone = (p?: string) => (p || '').replace(/\D/g, '').slice(-9);
+    const branchCustomers =
+      branchScope === 'consolidated'
+        ? customers
+        : customers.filter(c => !c.tenantId || c.tenantId === activeTenant.id);
 
     for (const acc of allCustomerAccounts) {
       const emailClean = (acc.email || '').trim().toLowerCase();
@@ -98,6 +102,14 @@ export const BenefitsModuleView: React.FC = () => {
           (dniClean.length >= 8 && c.dni === dniClean)
       );
 
+      if (
+        branchScope !== 'consolidated' &&
+        crmMatch?.tenantId &&
+        crmMatch.tenantId !== activeTenant.id
+      ) {
+        continue;
+      }
+
       if (crmMatch) matchedCrmIds.add(crmMatch.id);
       if (emailClean) matchedEmails.add(emailClean);
       if (phoneDigits.length >= 7) matchedPhones.add(phoneDigits);
@@ -111,6 +123,13 @@ export const BenefitsModuleView: React.FC = () => {
           (phoneDigits.length >= 7 && normPhone(o.customerPhone) === phoneDigits)
       ).length;
 
+      const resolvedPoints =
+        crmMatch &&
+        typeof crmMatch.loyaltyPoints === 'number' &&
+        new Date(crmMatch.updatedAt || 0).getTime() >= new Date(acc.updatedAt || 0).getTime()
+          ? crmMatch.loyaltyPoints
+          : acc.points ?? crmMatch?.loyaltyPoints ?? 0;
+
       list.push({
         key: `acc-${acc.id}`,
         storeAccountId: acc.id,
@@ -119,13 +138,13 @@ export const BenefitsModuleView: React.FC = () => {
         phone: acc.phone || crmMatch?.whatsapp || 'Sin teléfono',
         email: acc.email || crmMatch?.email || 'Sin correo',
         dni: acc.dni || crmMatch?.dni,
-        points: acc.points ?? crmMatch?.loyaltyPoints ?? 0,
+        points: resolvedPoints,
         ordersCount,
         source: 'store',
       });
     }
 
-    for (const c of customers) {
+    for (const c of branchCustomers) {
       if (matchedCrmIds.has(c.id)) continue;
       const emailClean = (c.email || '').trim().toLowerCase();
       const phoneDigits = normPhone(c.whatsapp);
@@ -157,7 +176,7 @@ export const BenefitsModuleView: React.FC = () => {
     }
 
     return list;
-  }, [allCustomerAccounts, customers, orders]);
+  }, [allCustomerAccounts, customers, orders, branchScope, activeTenant.id]);
 
   const filteredPointCustomers = useMemo(() => {
     const q = customerSearch.trim().toLowerCase();
@@ -573,48 +592,113 @@ export const BenefitsModuleView: React.FC = () => {
                 </span>
 
                 <div className="space-y-2.5">
-                  {/* Switch 1: +1 punto por nuevo pedido */}
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-                    <div>
-                      <span className="text-xs font-bold text-zinc-900 dark:text-white block">
-                        +1 Punto por Cada Nuevo Pedido
-                      </span>
-                      <span className="text-[11px] text-zinc-500">
-                        Suma 1 punto al completar y confirmar la compra en la tienda
-                      </span>
+                  {/* Switch 1: Puntos por cada nuevo pedido + cantidad configurable */}
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-2.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <span className="text-xs font-bold text-zinc-900 dark:text-white block">
+                          +{pointsConfig.pointsPerPurchase || 1}{' '}
+                          {(pointsConfig.pointsPerPurchase || 1) === 1 ? 'Punto' : 'Puntos'} por Cada Nuevo Pedido
+                        </span>
+                        <span className="text-[11px] text-zinc-500">
+                          Suma puntos automáticamente al completar y confirmar la compra en la tienda
+                        </span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={pointsConfig.awardPointPerOrder !== false}
+                          onChange={(e) => updatePointsConfig({ awardPointPerOrder: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-zinc-300 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500" />
+                      </label>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={pointsConfig.awardPointPerOrder !== false}
-                        onChange={(e) => updatePointsConfig({ awardPointPerOrder: e.target.checked })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-9 h-5 bg-zinc-300 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500" />
-                    </label>
+
+                    {pointsConfig.awardPointPerOrder !== false && (
+                      <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">
+                            Puntos a Acumular
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={100}
+                            value={pointsConfig.pointsPerPurchase || 1}
+                            onChange={(e) =>
+                              updatePointsConfig({
+                                pointsPerPurchase: Math.max(1, Math.min(100, Number(e.target.value) || 1)),
+                              })
+                            }
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-xs font-black text-zinc-900 dark:text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-zinc-500 uppercase mb-1">
+                            Compra Mínima (S/)
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            step="1"
+                            value={pointsConfig.minPurchaseAmountForPoint ?? 0}
+                            onChange={(e) =>
+                              updatePointsConfig({
+                                minPurchaseAmountForPoint: Math.max(0, Number(e.target.value) || 0),
+                              })
+                            }
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-xs font-black text-zinc-900 dark:text-white"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Switch 2: +1 punto al registrarse por primera vez */}
-                  <div className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-                    <div>
-                      <span className="text-xs font-bold text-zinc-900 dark:text-white block">
-                        +1 Punto al Registrarse por Primera Vez
-                      </span>
-                      <span className="text-[11px] text-zinc-500">
-                        {pointsConfig.awardPointOnRegister
-                          ? 'Activado: el nuevo usuario recibe 1 punto de bienvenida'
-                          : 'Desactivado: el usuario comienza con 0 puntos'}
-                      </span>
+                  {/* Switch 2: Puntos de bienvenida al registrarse + cantidad configurable */}
+                  <div className="p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-2.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <span className="text-xs font-bold text-zinc-900 dark:text-white block">
+                          +{pointsConfig.welcomePointsAmount || 1}{' '}
+                          {(pointsConfig.welcomePointsAmount || 1) === 1 ? 'Punto' : 'Puntos'} al Registrarse por Primera Vez
+                        </span>
+                        <span className="text-[11px] text-zinc-500">
+                          {pointsConfig.awardPointOnRegister
+                            ? `Activado: el nuevo usuario recibe ${pointsConfig.welcomePointsAmount || 1} ${(pointsConfig.welcomePointsAmount || 1) === 1 ? 'punto' : 'puntos'} de bienvenida`
+                            : 'Desactivado: el usuario comienza con 0 puntos'}
+                        </span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(pointsConfig.awardPointOnRegister)}
+                          onChange={(e) => updatePointsConfig({ awardPointOnRegister: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-9 h-5 bg-zinc-300 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500" />
+                      </label>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(pointsConfig.awardPointOnRegister)}
-                        onChange={(e) => updatePointsConfig({ awardPointOnRegister: e.target.checked })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-9 h-5 bg-zinc-300 peer-focus:outline-none rounded-full peer dark:bg-zinc-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500" />
-                    </label>
+
+                    {pointsConfig.awardPointOnRegister && (
+                      <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-3">
+                        <label className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400">
+                          Cantidad de puntos de bienvenida:
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={100}
+                          value={pointsConfig.welcomePointsAmount || 1}
+                          onChange={(e) =>
+                            updatePointsConfig({
+                              welcomePointsAmount: Math.max(1, Math.min(100, Number(e.target.value) || 1)),
+                            })
+                          }
+                          className="w-24 px-2.5 py-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-xs font-black text-zinc-900 dark:text-white text-center"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -756,6 +840,11 @@ export const BenefitsModuleView: React.FC = () => {
                               cardBgColor: preset.bgColor,
                               cardAccentColor: preset.accentColor,
                               cardTextColor: preset.textColor,
+                              cardTitleColor: preset.textColor,
+                              cardSubtitleColor: undefined,
+                              cardBadgeBgColor: preset.accentColor,
+                              cardBadgeTextColor: undefined,
+                              cardCounterColor: preset.accentColor,
                               cardBgOverlayOpacity: preset.overlayOpacity,
                             })
                           }
@@ -783,51 +872,65 @@ export const BenefitsModuleView: React.FC = () => {
                 </div>
 
                 {/* Colores Personalizados */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <label className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 cursor-pointer">
-                    <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Fondo Tarjeta</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-mono text-zinc-400 uppercase">
-                        {pointsConfig.cardBgColor || '#18181b'}
-                      </span>
-                      <input
-                        type="color"
-                        value={pointsConfig.cardBgColor || '#18181b'}
-                        onChange={e => updatePointsConfig({ cardBgColor: e.target.value })}
-                        className="w-7 h-7 rounded-lg border-0 p-0 bg-transparent cursor-pointer"
-                      />
-                    </div>
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
+                    Colores de Tarjeta, Badge, Sellos y Textos
                   </label>
-
-                  <label className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 cursor-pointer">
-                    <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Color Sellos</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-mono text-zinc-400 uppercase">
-                        {pointsConfig.cardAccentColor || '#f59e0b'}
-                      </span>
-                      <input
-                        type="color"
-                        value={pointsConfig.cardAccentColor || '#f59e0b'}
-                        onChange={e => updatePointsConfig({ cardAccentColor: e.target.value })}
-                        className="w-7 h-7 rounded-lg border-0 p-0 bg-transparent cursor-pointer"
-                      />
-                    </div>
-                  </label>
-
-                  <label className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 cursor-pointer">
-                    <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Color Texto</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-mono text-zinc-400 uppercase">
-                        {pointsConfig.cardTextColor || '#ffffff'}
-                      </span>
-                      <input
-                        type="color"
-                        value={pointsConfig.cardTextColor || '#ffffff'}
-                        onChange={e => updatePointsConfig({ cardTextColor: e.target.value })}
-                        className="w-7 h-7 rounded-lg border-0 p-0 bg-transparent cursor-pointer"
-                      />
-                    </div>
-                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                    {[
+                      {
+                        label: 'Fondo Tarjeta',
+                        val: pointsConfig.cardBgColor || '#18181b',
+                        onChange: (v: string) => updatePointsConfig({ cardBgColor: v }),
+                      },
+                      {
+                        label: 'Color Sellos',
+                        val: pointsConfig.cardAccentColor || '#f59e0b',
+                        onChange: (v: string) => updatePointsConfig({ cardAccentColor: v }),
+                      },
+                      {
+                        label: 'Fondo Badge',
+                        val: pointsConfig.cardBadgeBgColor || pointsConfig.cardAccentColor || '#f59e0b',
+                        onChange: (v: string) => updatePointsConfig({ cardBadgeBgColor: v }),
+                      },
+                      {
+                        label: 'Letra Badge',
+                        val: pointsConfig.cardBadgeTextColor || '#18181b',
+                        onChange: (v: string) => updatePointsConfig({ cardBadgeTextColor: v }),
+                      },
+                      {
+                        label: 'Número Sellos',
+                        val: pointsConfig.cardCounterColor || pointsConfig.cardAccentColor || '#f59e0b',
+                        onChange: (v: string) => updatePointsConfig({ cardCounterColor: v }),
+                      },
+                      {
+                        label: 'Color Título',
+                        val: pointsConfig.cardTitleColor || pointsConfig.cardTextColor || '#ffffff',
+                        onChange: (v: string) => updatePointsConfig({ cardTitleColor: v }),
+                      },
+                      {
+                        label: 'Color Párrafo',
+                        val: pointsConfig.cardSubtitleColor || '#d4d4d8',
+                        onChange: (v: string) => updatePointsConfig({ cardSubtitleColor: v }),
+                      },
+                    ].map(c => (
+                      <label
+                        key={c.label}
+                        className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 cursor-pointer"
+                      >
+                        <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 truncate">{c.label}</span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] font-mono text-zinc-400 uppercase">{c.val}</span>
+                          <input
+                            type="color"
+                            value={c.val}
+                            onChange={e => c.onChange(e.target.value)}
+                            className="w-6 h-6 rounded-md border-0 p-0 bg-transparent cursor-pointer"
+                          />
+                        </div>
+                      </label>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Estilo de Sellos y Puntos */}

@@ -112,7 +112,7 @@ interface StoreCustomerContextType {
 const StoreCustomerContext = createContext<StoreCustomerContextType | undefined>(undefined);
 
 export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { orders, upsertCustomer } = useOrderCatalog();
+  const { orders, customers, upsertCustomer } = useOrderCatalog();
   const { activeTenant, dispatchToast } = useSettings();
 
   const [accounts, setAccounts] = useState<StoreCustomerAccount[]>(loadAccounts);
@@ -185,15 +185,51 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
     [activeTenant.id, upsertCustomer]
   );
 
-  // Sincronización proactiva de cuentas existentes con el CRM de pedidos/POS
+  // Sincronización bidireccional segura entre cuentas de Tienda Virtual y CRM/MySQL (sin pisar puntos más recientes)
   const hasSyncedAccountsRef = useRef(false);
   useEffect(() => {
-    if (hasSyncedAccountsRef.current || accounts.length === 0) return;
+    if (accounts.length === 0) return;
+
+    let changed = false;
+    const nextAccounts = accounts.map(acc => {
+      const emailClean = (acc.email || '').trim().toLowerCase();
+      const phoneDigits = normalizeDigits(acc.phone || '');
+      const dniClean = (acc.dni || '').replace(/\D/g, '');
+
+      const crmMatch = customers.find(
+        c =>
+          (acc.crmCustomerId && c.id === acc.crmCustomerId) ||
+          (emailClean && c.email?.trim().toLowerCase() === emailClean) ||
+          (phoneDigits.length >= 7 && normalizeDigits(c.whatsapp || '') === phoneDigits) ||
+          (dniClean.length >= 8 && c.dni === dniClean)
+      );
+
+      if (crmMatch && typeof crmMatch.loyaltyPoints === 'number') {
+        const crmTime = new Date(crmMatch.updatedAt || 0).getTime();
+        const accTime = new Date(acc.updatedAt || 0).getTime();
+        if (crmTime > accTime && crmMatch.loyaltyPoints !== acc.points) {
+          changed = true;
+          return {
+            ...acc,
+            crmCustomerId: crmMatch.id,
+            points: crmMatch.loyaltyPoints,
+            updatedAt: crmMatch.updatedAt,
+          };
+        }
+      }
+
+      if (!hasSyncedAccountsRef.current && (!crmMatch || new Date(acc.updatedAt || 0).getTime() > new Date(crmMatch.updatedAt || 0).getTime())) {
+        syncAccountToErpCrm(acc);
+      }
+
+      return acc;
+    });
+
     hasSyncedAccountsRef.current = true;
-    for (const acc of accounts) {
-      syncAccountToErpCrm(acc);
+    if (changed) {
+      setAccounts(nextAccounts);
     }
-  }, [accounts, syncAccountToErpCrm]);
+  }, [accounts, customers, syncAccountToErpCrm]);
 
   const registerCustomer = useCallback(
     (data: RegisterPayload): { ok: boolean; error?: string } => {
@@ -220,25 +256,31 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
 
       const now = new Date().toISOString();
       let awardOnRegister = true;
+      let welcomeAmount = 1;
       try {
         const rawBenefits = localStorage.getItem('kh_erp_benefits_v1');
         if (rawBenefits) {
           const parsedB = JSON.parse(rawBenefits);
-          if (parsedB.pointsConfig && typeof parsedB.pointsConfig.awardPointOnRegister === 'boolean') {
-            awardOnRegister = parsedB.pointsConfig.awardPointOnRegister;
+          if (parsedB.pointsConfig) {
+            if (typeof parsedB.pointsConfig.awardPointOnRegister === 'boolean') {
+              awardOnRegister = parsedB.pointsConfig.awardPointOnRegister;
+            }
+            if (typeof parsedB.pointsConfig.welcomePointsAmount === 'number' && parsedB.pointsConfig.welcomePointsAmount > 0) {
+              welcomeAmount = Math.round(parsedB.pointsConfig.welcomePointsAmount);
+            }
           }
         }
       } catch {
         // ignore
       }
 
-      const initialPoints = awardOnRegister ? 1 : 0;
+      const initialPoints = awardOnRegister ? welcomeAmount : 0;
       const initialHistory = awardOnRegister
         ? [
             {
               id: `pt-init-${Date.now()}`,
               date: now,
-              delta: 1,
+              delta: welcomeAmount,
               reason: 'Bono de Bienvenida Club Khalessi',
             },
           ]
@@ -527,33 +569,24 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
     (pointsDelta: number, reason: string, orderNumber?: string) => {
       if (!currentCustomer || pointsDelta <= 0) return;
       const now = new Date().toISOString();
-      let updatedAcc: StoreCustomerAccount | null = null;
-      setAccounts(prev =>
-        prev.map(a => {
-          if (a.id !== currentCustomer.id) return a;
-          const nextPoints = Math.max(0, (a.points || 0) + pointsDelta);
-          const updated: StoreCustomerAccount = {
-            ...a,
-            points: nextPoints,
-            pointsHistory: [
-              {
-                id: `pt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-                date: now,
-                delta: pointsDelta,
-                reason,
-                orderNumber,
-              },
-              ...(a.pointsHistory || []),
-            ],
-            updatedAt: now,
-          };
-          updatedAcc = updated;
-          return updated;
-        })
-      );
-      if (updatedAcc) {
-        syncAccountToErpCrm(updatedAcc);
-      }
+      const nextPoints = Math.max(0, (currentCustomer.points || 0) + pointsDelta);
+      const updated: StoreCustomerAccount = {
+        ...currentCustomer,
+        points: nextPoints,
+        pointsHistory: [
+          {
+            id: `pt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            date: now,
+            delta: pointsDelta,
+            reason,
+            orderNumber,
+          },
+          ...(currentCustomer.pointsHistory || []),
+        ],
+        updatedAt: now,
+      };
+      setAccounts(prev => prev.map(a => (a.id === currentCustomer.id ? updated : a)));
+      syncAccountToErpCrm(updated);
     },
     [currentCustomer, syncAccountToErpCrm]
   );
@@ -563,33 +596,24 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
       if (!currentCustomer || pointsCost <= 0) return false;
       if ((currentCustomer.points || 0) < pointsCost) return false;
       const now = new Date().toISOString();
-      let updatedAcc: StoreCustomerAccount | null = null;
-      setAccounts(prev =>
-        prev.map(a => {
-          if (a.id !== currentCustomer.id) return a;
-          const nextPoints = Math.max(0, (a.points || 0) - pointsCost);
-          const updated: StoreCustomerAccount = {
-            ...a,
-            points: nextPoints,
-            pointsHistory: [
-              {
-                id: `pt-red-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-                date: now,
-                delta: -pointsCost,
-                reason: `Canje Premio: ${rewardTitle}`,
-                orderNumber,
-              },
-              ...(a.pointsHistory || []),
-            ],
-            updatedAt: now,
-          };
-          updatedAcc = updated;
-          return updated;
-        })
-      );
-      if (updatedAcc) {
-        syncAccountToErpCrm(updatedAcc);
-      }
+      const nextPoints = Math.max(0, (currentCustomer.points || 0) - pointsCost);
+      const updated: StoreCustomerAccount = {
+        ...currentCustomer,
+        points: nextPoints,
+        pointsHistory: [
+          {
+            id: `pt-red-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            date: now,
+            delta: -pointsCost,
+            reason: `Canje Premio: ${rewardTitle}`,
+            orderNumber,
+          },
+          ...(currentCustomer.pointsHistory || []),
+        ],
+        updatedAt: now,
+      };
+      setAccounts(prev => prev.map(a => (a.id === currentCustomer.id ? updated : a)));
+      syncAccountToErpCrm(updated);
       return true;
     },
     [currentCustomer, syncAccountToErpCrm]
@@ -598,35 +622,28 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
   const adjustAccountPointsById = useCallback(
     (accountId: string, delta: number, reason: string) => {
       if (delta === 0) return;
+      const target = accounts.find(a => a.id === accountId);
+      if (!target) return;
       const now = new Date().toISOString();
-      let updatedAcc: StoreCustomerAccount | null = null;
-      setAccounts(prev =>
-        prev.map(a => {
-          if (a.id !== accountId) return a;
-          const nextPoints = Math.max(0, (a.points || 0) + delta);
-          const updated: StoreCustomerAccount = {
-            ...a,
-            points: nextPoints,
-            pointsHistory: [
-              {
-                id: `pt-adm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-                date: now,
-                delta,
-                reason,
-              },
-              ...(a.pointsHistory || []),
-            ],
-            updatedAt: now,
-          };
-          updatedAcc = updated;
-          return updated;
-        })
-      );
-      if (updatedAcc) {
-        syncAccountToErpCrm(updatedAcc);
-      }
+      const nextPoints = Math.max(0, (target.points || 0) + delta);
+      const updated: StoreCustomerAccount = {
+        ...target,
+        points: nextPoints,
+        pointsHistory: [
+          {
+            id: `pt-adm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            date: now,
+            delta,
+            reason,
+          },
+          ...(target.pointsHistory || []),
+        ],
+        updatedAt: now,
+      };
+      setAccounts(prev => prev.map(a => (a.id === accountId ? updated : a)));
+      syncAccountToErpCrm(updated);
     },
-    [syncAccountToErpCrm]
+    [accounts, syncAccountToErpCrm]
   );
 
   // Live Real-Time Customer Orders matched from OrderCatalogContext.orders

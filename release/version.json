@@ -1,8 +1,8 @@
 {
-  "buildId": "20261112235054",
-  "builtAt": "2026-11-12T23:50:54.342Z",
-  "commitSha": "4418de9",
-  "message": "fix(benefits): unify registered CRM and storefront customers in points view with search",
+  "buildId": "20261113001551",
+  "builtAt": "2026-11-13T00:15:51.817Z",
+  "commitSha": "8fdf296",
+  "message": "feat(benefits): shared LoyaltyCardView with full style, stamp, color & icon size customization",
   "totalFiles": 74,
-  "manifestSha256": "8ea8746239ade76227927e094c3d6770a5432a3ef03c85f9d669eab2241eeafc"
+  "manifestSha256": "043badb036f66b141501f25f1eca42de38799e1d69634b9c96048802931a53af"
 }

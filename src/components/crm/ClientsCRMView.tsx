@@ -91,7 +91,7 @@ export const ClientsCRMView: React.FC = () => {
   };
 
   const filteredCustomers = customers.filter((c) => {
-    if (branchFilter !== 'all' && c.tenantId !== branchFilter) return false;
+    if (branchFilter !== 'all' && c.tenantId && c.tenantId !== branchFilter) return false;
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
