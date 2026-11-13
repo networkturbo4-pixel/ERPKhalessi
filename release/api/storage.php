@@ -314,8 +314,8 @@ if ($method === 'POST' || $method === 'DELETE') {
         }
     }
 
-    // Fusión inteligente por ID para cartera de clientes CRM (`kh_customers_crm_v1`) y cuentas de Tienda (`kh_store_customer_accounts_v1`)
-    if ($key === 'kh_customers_crm_v1' || $key === 'kh_store_customer_accounts_v1') {
+    // Fusión inteligente por ID para cartera de clientes CRM (`kh_customers_crm_v1`) y cuentas de Tienda (`kh_store_customer_accounts_v1`) cuando entra desde Tienda
+    if (($key === 'kh_customers_crm_v1' || $key === 'kh_store_customer_accounts_v1') && $admin === null) {
         $existingRaw = kvGet($pdo, $key);
         $existing = $existingRaw ? json_decode($existingRaw, true) : [];
         $incoming = is_array($input['data']) ? $input['data'] : json_decode($data, true);

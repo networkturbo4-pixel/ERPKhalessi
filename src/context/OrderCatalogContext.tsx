@@ -948,7 +948,43 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const deleteCustomer = (customerId: string) => {
+    const target = customers.find((c) => c.id === customerId);
     persistAndSyncCustomers((prev) => prev.filter((c) => c.id !== customerId));
+
+    // También eliminar la cuenta vinculada en Tienda Virtual para permitir re-registro y cerrar sesiones activas
+    try {
+      const STORE_ACCOUNTS_KEY = 'kh_store_customer_accounts_v1';
+      const rawAccounts = localStorage.getItem(STORE_ACCOUNTS_KEY);
+      if (rawAccounts) {
+        const parsed = JSON.parse(rawAccounts);
+        if (Array.isArray(parsed)) {
+          const targetEmail = (target?.email || '').trim().toLowerCase();
+          const targetPhone = (target?.whatsapp || '').replace(/\D/g, '').slice(-9);
+          const targetDni = (target?.dni || '').replace(/\D/g, '');
+          const filtered = parsed.filter((acc: any) => {
+            if (!acc || typeof acc !== 'object') return false;
+            if (acc.crmCustomerId && acc.crmCustomerId === customerId) return false;
+            const accEmail = String(acc.email || '').trim().toLowerCase();
+            const accPhone = String(acc.phone || '').replace(/\D/g, '').slice(-9);
+            const accDni = String(acc.dni || '').replace(/\D/g, '');
+            if (targetEmail && accEmail === targetEmail) return false;
+            if (targetPhone.length >= 7 && accPhone === targetPhone) return false;
+            if (targetDni.length >= 8 && accDni === targetDni) return false;
+            return true;
+          });
+          if (filtered.length !== parsed.length) {
+            const nextStr = JSON.stringify(filtered);
+            localStorage.setItem(STORE_ACCOUNTS_KEY, nextStr);
+            window.dispatchEvent(
+              new StorageEvent('storage', { key: STORE_ACCOUNTS_KEY, newValue: nextStr })
+            );
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     dispatchToast('Cliente Eliminado', 'El registro fue retirado de la cartera CRM.', 'info');
   };
 

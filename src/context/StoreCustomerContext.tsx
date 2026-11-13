@@ -113,7 +113,7 @@ const StoreCustomerContext = createContext<StoreCustomerContextType | undefined>
 
 export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { orders, customers, upsertCustomer } = useOrderCatalog();
-  const { activeTenant, dispatchToast } = useSettings();
+  const { activeTenant, dispatchToast, openNoticeModal } = useSettings();
 
   const [accounts, setAccounts] = useState<StoreCustomerAccount[]>(loadAccounts);
   const [activeCustomerId, setActiveCustomerId] = useState<string | null>(loadActiveCustomerId);
@@ -162,6 +162,26 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
     () => accounts.find(a => a.id === activeCustomerId) || null,
     [accounts, activeCustomerId]
   );
+
+  // Si el administrador eliminó la cuenta activa, cerrar la sesión al instante y notificar al usuario
+  useEffect(() => {
+    if (!activeCustomerId) return;
+    const stillExists = accounts.some(a => a.id === activeCustomerId);
+    if (!stillExists) {
+      setActiveCustomerId(null);
+      dispatchToast(
+        'Usuario Eliminado',
+        'Tu cuenta fue eliminada por un administrador y se cerró la sesión.',
+        'error'
+      );
+      openNoticeModal({
+        title: 'Usuario Eliminado',
+        message: 'Tu cuenta fue eliminada por un administrador. Tu sesión se ha cerrado automáticamente.',
+        tone: 'danger',
+        confirmLabel: 'Entendido',
+      });
+    }
+  }, [accounts, activeCustomerId, dispatchToast, openNoticeModal]);
 
   const syncAccountToErpCrm = useCallback(
     (acc: StoreCustomerAccount): string => {
@@ -218,12 +238,20 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
 
-      if (!hasSyncedAccountsRef.current && (!crmMatch || new Date(acc.updatedAt || 0).getTime() > new Date(crmMatch.updatedAt || 0).getTime())) {
+      // Si ya estaba vinculado a un cliente CRM y fue eliminado en CRM, no resucitarlo; depurar cuenta local
+      if (acc.crmCustomerId && !crmMatch && (hasSyncedAccountsRef.current || customers.length > 0)) {
+        changed = true;
+        return null;
+      }
+
+      if (!hasSyncedAccountsRef.current && !acc.crmCustomerId && !crmMatch) {
+        syncAccountToErpCrm(acc);
+      } else if (!hasSyncedAccountsRef.current && crmMatch && new Date(acc.updatedAt || 0).getTime() > new Date(crmMatch.updatedAt || 0).getTime()) {
         syncAccountToErpCrm(acc);
       }
 
       return acc;
-    });
+    }).filter((a): a is StoreCustomerAccount => a !== null);
 
     hasSyncedAccountsRef.current = true;
     if (changed) {

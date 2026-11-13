@@ -408,7 +408,13 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                 </div>
 
                 {authError && (
-                  <div className="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/35 text-xs font-semibold text-rose-200">
+                  <div
+                    className={`p-3 rounded-2xl border text-xs font-bold ${
+                      isLightTheme
+                        ? 'bg-rose-50 border-rose-300 text-rose-800'
+                        : 'bg-rose-500/15 border-rose-500/35 text-rose-200'
+                    }`}
+                  >
                     {authError}
                   </div>
                 )}
