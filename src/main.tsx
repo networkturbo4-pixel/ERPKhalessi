@@ -3,9 +3,13 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App, { preloadInitialRouteChunk } from './App.tsx'
 import { installStorageInterceptor, initDiskPersistence } from './utils/diskPersistence'
+import { registerServiceWorker } from './utils/pwaManager'
 
 // 1. Conectar sincrónicamente el interceptor de almacenamiento ANTES de montar React
 installStorageInterceptor()
+
+// 2. Registrar Service Worker para PWA instalable y notificaciones
+void registerServiceWorker()
 
 // 2. Iniciar en paralelo la precarga del chunk de la vista activa para cero cascada de red
 preloadInitialRouteChunk()

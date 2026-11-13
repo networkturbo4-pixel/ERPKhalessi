@@ -16,6 +16,8 @@ import { useStoreCustomer } from '../../context/StoreCustomerContext';
 import { lookupPersonByDni } from '../../utils/dniLookup';
 import { ProductCustomizerModal } from '../common/ProductCustomizerModal';
 import { ThermalTicketBuilderModal } from './ThermalTicketBuilderModal';
+import { TableOperationsModal } from './TableOperationsModal';
+import { OfflineStatusBadge } from '../common/OfflineStatusBadge';
 import { CustomerAddressMapPicker } from './CustomerAddressMapPicker';
 import { calculateDynamicDeliveryFee } from '../../utils/culqiCheckout';
 import { printThermalTicket } from '../../utils/thermalPrinter';
@@ -94,6 +96,10 @@ export const POSView: React.FC<POSViewProps> = ({
     updateTable,
     deleteTable,
     moveTableOrder,
+    setTableBillRequested,
+    setTableReservation,
+    transferOrMergeTableOrder,
+    splitTableOrderByItems,
   } = useOrderCatalog();
   const {
     activeTenant,
@@ -111,6 +117,7 @@ export const POSView: React.FC<POSViewProps> = ({
   const [internalActiveTab, setInternalActiveTab] = useState<'carta' | 'mesas'>('carta');
   const activePosTab = propActiveTab ?? internalActiveTab;
   const setActivePosTab = propOnTabChange ?? setInternalActiveTab;
+  const [opsTableId, setOpsTableId] = useState<string | null>(null);
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -1428,8 +1435,9 @@ export const POSView: React.FC<POSViewProps> = ({
             </div>
           </div>
 
-          {/* Right: User / Operator Popover Menu */}
+          {/* Right: Offline-First Sync Badge + User / Operator Popover Menu */}
           <div className="flex items-center gap-2 justify-end">
+            <OfflineStatusBadge />
             <div className="relative" ref={userMenuRef}>
               <button
                 type="button"
@@ -1678,12 +1686,18 @@ export const POSView: React.FC<POSViewProps> = ({
                     ))}
                   </div>
 
-                  <div className="flex items-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <div className="flex items-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400 flex-wrap">
                     <span className="flex items-center gap-1.5">
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Disponible
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Ocupada / Cocina
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Ocupada
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" /> Cuenta Pedida
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-purple-500" /> Reservada
                     </span>
                     <span className="flex items-center gap-1.5">
                       <span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Lista p/ Servir
@@ -1698,13 +1712,18 @@ export const POSView: React.FC<POSViewProps> = ({
                     const activeOrder = activeSalonOrdersByTable.get(table.id);
                     const isReady = activeOrder?.status === 'listo';
                     const isOccupied = !!activeOrder;
+                    const isBillReq = Boolean(isOccupied && table.billRequested);
+                    const isReserved = Boolean(!isOccupied && table.reservation);
 
                     return (
                       <div
                         key={table.id}
                         onClick={() => {
                           setSelectedTableId(table.id);
-                          if (!activeOrder && !isTableBuilderMode) {
+                          if (isTableBuilderMode) return;
+                          if (activeOrder) {
+                            setOpsTableId(table.id);
+                          } else {
                             setActivePosTab('carta');
                             dispatchToast('Mesa Seleccionada', `${table.name} seleccionada. Elige los productos en la carta.`, 'info');
                           }
@@ -1715,7 +1734,10 @@ export const POSView: React.FC<POSViewProps> = ({
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
                             setSelectedTableId(table.id);
-                            if (!activeOrder && !isTableBuilderMode) {
+                            if (isTableBuilderMode) return;
+                            if (activeOrder) {
+                              setOpsTableId(table.id);
+                            } else {
                               setActivePosTab('carta');
                             }
                           }
@@ -1729,10 +1751,14 @@ export const POSView: React.FC<POSViewProps> = ({
                         } ${
                           isSelected
                             ? 'border-amber-500 bg-amber-500/15 ring-2 ring-amber-500/40 shadow-sm'
+                            : isBillReq
+                            ? 'border-indigo-500/70 bg-indigo-50/70 dark:bg-indigo-950/25 hover:border-indigo-500'
                             : isReady
                             ? 'border-blue-500/60 bg-blue-50/60 dark:bg-blue-950/25 hover:border-blue-500'
                             : isOccupied
                             ? 'border-amber-400/60 bg-amber-50/50 dark:bg-amber-950/20 hover:border-amber-500'
+                            : isReserved
+                            ? 'border-purple-400/70 bg-purple-50/60 dark:bg-purple-950/20 hover:border-purple-500'
                             : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-950/60 hover:border-zinc-300 dark:hover:border-zinc-700'
                         }`}
                       >
@@ -1817,15 +1843,38 @@ export const POSView: React.FC<POSViewProps> = ({
                               </button>
                             )}
                           </div>
+                        ) : isReserved && table.reservation ? (
+                          <div className="pt-2 mt-1.5 border-t border-purple-200/70 dark:border-purple-900/50 flex items-center justify-between gap-1 text-[10px]">
+                            <span className="font-bold text-purple-700 dark:text-purple-300 truncate">
+                              {table.reservation.time} · {table.reservation.customerName}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpsTableId(table.id);
+                              }}
+                              className="px-1.5 py-0.5 rounded bg-purple-600 text-white text-[9px] font-bold shrink-0"
+                            >
+                              Ver
+                            </button>
+                          </div>
                         ) : (
                           <div className="pt-2 mt-1.5 flex items-center justify-between text-[10px]">
                             <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                               Disponible
                             </span>
-                            {isSelected && (
-                              <CheckCircle2 className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />
-                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpsTableId(table.id);
+                              }}
+                              className="px-1.5 py-0.5 rounded border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-purple-500 hover:text-purple-600 text-[9px] font-bold"
+                            >
+                              Reservar
+                            </button>
                           </div>
                         )}
                       </div>
@@ -2432,6 +2481,70 @@ export const POSView: React.FC<POSViewProps> = ({
       <ThermalTicketBuilderModal
         isOpen={isThermalModalOpen}
         onClose={() => setIsThermalModalOpen(false)}
+      />
+
+      {/* Dine-In Table Operations: Split Bill, Transfer/Merge, Reservations & Courses */}
+      <TableOperationsModal
+        isOpen={!!opsTableId}
+        table={branchTables.find((t) => t.id === opsTableId) || null}
+        activeOrder={opsTableId ? activeSalonOrdersByTable.get(opsTableId) || null : null}
+        allBranchTables={branchTables}
+        occupiedTableIds={new Set(activeSalonOrdersByTable.keys())}
+        onClose={() => setOpsTableId(null)}
+        onAddRoundToTable={(tbl) => {
+          setSelectedTableId(tbl.id);
+          setChannel('pos-salon');
+          setActivePosTab('carta');
+          dispatchToast(
+            'Agregar Ronda',
+            `Selecciona productos en la carta para sumarlos a ${tbl.name}.`,
+            'info'
+          );
+        }}
+        onToggleBillRequested={(tbl, requested) => {
+          setTableBillRequested(tbl.id, requested);
+          dispatchToast(
+            requested ? 'Cuenta Pedida' : 'Cuenta Reabierta',
+            `${tbl.name} ${requested ? 'marcada como Cuenta Pedida.' : 'vuelve a estado Ocupada.'}`,
+            'info'
+          );
+        }}
+        onTransferOrMerge={(orderId, targetTable) => {
+          transferOrMergeTableOrder(orderId, targetTable);
+          setSelectedTableId(targetTable.id);
+        }}
+        onSplitByItems={(orderId, itemIds, method) => {
+          const res = splitTableOrderByItems(orderId, itemIds, method);
+          if (res.paidOrder) {
+            dispatchToast(
+              'Sub-cuenta Cobrada',
+              `Cobro parcial ${res.paidOrder.orderNumber} por S/ ${res.paidOrder.total.toFixed(2)} (${method}).`,
+              'success'
+            );
+          }
+        }}
+        onCollectFullTable={(order, method) => {
+          markOrderPaid(order.id);
+          updateOrderStatus(order.id, 'entregado', { paymentStatus: 'pagado' });
+          if (order.tableId) {
+            setTableBillRequested(order.tableId, false);
+          }
+          dispatchToast(
+            'Mesa Cobrada y Liberada',
+            `${order.tableNumber || 'Mesa'} cobrada por S/ ${order.total.toFixed(2)} (${method}).`,
+            'success'
+          );
+        }}
+        onSaveReservation={(tbl, reservation) => {
+          setTableReservation(tbl.id, reservation);
+          dispatchToast(
+            reservation ? 'Reserva Guardada' : 'Reserva Liberada',
+            reservation
+              ? `${tbl.name} reservada para ${reservation.customerName} a las ${reservation.time}.`
+              : `${tbl.name} vuelve a estar disponible.`,
+            'success'
+          );
+        }}
       />
     </div>
   );

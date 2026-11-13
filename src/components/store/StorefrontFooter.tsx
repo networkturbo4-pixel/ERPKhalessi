@@ -32,7 +32,13 @@ import {
   X,
   Send,
   Flame,
+  Download,
 } from 'lucide-react';
+import {
+  subscribePwaInstallAvailability,
+  promptPwaInstall,
+  isStandalonePwa,
+} from '../../utils/pwaManager';
 
 interface StorefrontFooterProps {
   footerTheme?: 'light' | 'dark';
@@ -46,6 +52,7 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme 
     activeTenant,
     addComplaint,
     dispatchToast,
+    openNoticeModal,
     customization,
   } = useSettings();
   const { orders } = useOrderCatalog();
@@ -58,6 +65,11 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme 
   const [hasOpenedJobModal, setHasOpenedJobModal] = useState(false);
   const [jobInitialQr, setJobInitialQr] = useState(false);
   const [infoModal, setInfoModal] = useState<'terms' | 'returns' | 'orders' | null>(null);
+  const [canInstallPwa, setCanInstallPwa] = useState(false);
+
+  useEffect(() => {
+    return subscribePwaInstallAvailability(setCanInstallPwa);
+  }, []);
 
   useEffect(() => {
     if (isJobModalOpen) {
@@ -668,6 +680,73 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme 
                   <QrCode className="h-4 w-4" />
                 </button>
               </div>
+
+              {/* Card 3: Instalar App Khalessi (PWA) */}
+              {!isStandalonePwa() && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (canInstallPwa) {
+                      const outcome = await promptPwaInstall();
+                      if (outcome === 'accepted') {
+                        dispatchToast('¡App instalada!', 'Ya puedes abrir Pizza Khalessi desde tu escritorio o pantalla de inicio.', 'success');
+                        return;
+                      }
+                    }
+                    openNoticeModal({
+                      title: 'Instalar App Khalessi',
+                      message:
+                        'Si tu navegador no abrió el cuadro automático: en Chrome/Edge haz clic en el menú (⋮) → "Guardar y compartir" → "Instalar página como app". En iPhone/Safari toca "Compartir" → "Añadir a pantalla de inicio".',
+                      tone: 'info',
+                    });
+                  }}
+                  className={`w-full p-4 rounded-2xl border text-left flex items-center justify-between gap-3 transition-colors group ${
+                    isLight
+                      ? 'bg-white border-zinc-200/90 hover:border-rose-500'
+                      : 'bg-[#12141B] border-zinc-800/90 hover:border-rose-500/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                        isLight
+                          ? 'bg-rose-50 border-rose-200 text-rose-600'
+                          : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                      }`}
+                    >
+                      <Download className="h-4.5 w-4.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <span
+                        className={`block text-[9px] font-bold uppercase tracking-wider ${
+                          isLight ? 'text-rose-600' : 'text-rose-400'
+                        }`}
+                      >
+                        APP WEB • INSTALACIÓN RÁPIDA
+                      </span>
+                      <span
+                        className={`block text-[13px] font-bold leading-tight ${
+                          isLight ? 'text-zinc-900' : 'text-white'
+                        }`}
+                      >
+                        Instalar App Khalessi
+                      </span>
+                      <span
+                        className={`block text-[11px] mt-0.5 ${
+                          isLight ? 'text-zinc-500' : 'text-zinc-400'
+                        }`}
+                      >
+                        Pide más rápido y sigue tu horno
+                      </span>
+                    </div>
+                  </div>
+                  <ChevronRight
+                    className={`h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5 ${
+                      isLight ? 'text-zinc-400 group-hover:text-zinc-700' : 'text-zinc-500 group-hover:text-zinc-300'
+                    }`}
+                  />
+                </button>
+              )}
             </div>
           </div>
 
@@ -687,24 +766,12 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme 
               . Todos los derechos reservados.
             </p>
 
-            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[11px] font-medium">
-              <span className="inline-flex items-center gap-1.5">
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500" />
-                Pagos Protegidos
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Lock className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500" />
-                SSL 256-Bit
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Receipt className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500" />
-                Comprobante Electrónico
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Headphones className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500" />
-                Soporte Oficial
-              </span>
-            </div>
+            <p className="text-center sm:text-right text-[11px] font-medium">
+              Desarrollado por{' '}
+              <strong className={isLight ? 'text-zinc-800 font-semibold' : 'text-zinc-200 font-semibold'}>
+                Cesar Mendoza - The Roma Agency Corporación SAC
+              </strong>
+            </p>
           </div>
         </div>
       </footer>

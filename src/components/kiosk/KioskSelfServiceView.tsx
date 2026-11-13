@@ -9,6 +9,7 @@ import {
   Order,
 } from '../../types/catalog';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
+import { OfflineStatusBadge } from '../common/OfflineStatusBadge';
 import { useSettings } from '../../context/SettingsContext';
 import { isRealCulqiPublicKey, openOfficialCulqiCheckout } from '../../utils/culqiCheckout';
 import { StoreCulqiSandboxDialog } from '../store/StoreCulqiSandboxDialog';
@@ -696,6 +697,7 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <OfflineStatusBadge />
             {/* Branch Selector for Kiosk */}
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-bold">
               <Store className="w-3.5 h-3.5 text-amber-500 shrink-0" />

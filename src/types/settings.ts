@@ -254,6 +254,7 @@ export interface BranchOperationalProfile {
   schedule: string;
   tablesCount: number;
   deliveryRadiusKm: number;
+  coveragePolygon?: [number, number][]; // [lng, lat][]
   deliveryTariff?: DeliveryTariffConfig;
   dailyGoalSoles: number;
   address: string;

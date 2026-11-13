@@ -7,10 +7,18 @@ import {
   Customer,
   RestaurantTable,
   TableShape,
+  TableReservation,
+  PaymentMethod,
 } from '../types/catalog';
 import { useSettings } from './SettingsContext';
 import { soundSynth } from '../utils/audio';
-import { getAuthHeaders } from '../utils/diskPersistence';
+import { getAuthHeaders, syncPendingOfflineQueue } from '../utils/diskPersistence';
+import {
+  OfflineSyncStatus,
+  subscribeOfflineStatus,
+  getOfflineStatusSnapshot,
+  enqueueOfflineOperation,
+} from '../utils/offlineQueue';
 
 interface OrderStatusPatch {
   assignedDriverId?: string;
@@ -52,6 +60,14 @@ interface OrderCatalogContextType {
   updateTable: (table: RestaurantTable) => void;
   deleteTable: (tableId: string) => void;
   moveTableOrder: (tableId: string, direction: 'prev' | 'next') => void;
+  setTableBillRequested: (tableId: string, requested: boolean) => void;
+  setTableReservation: (tableId: string, reservation: TableReservation | null) => void;
+  transferOrMergeTableOrder: (sourceOrderId: string, targetTable: RestaurantTable) => void;
+  splitTableOrderByItems: (
+    orderId: string,
+    selectedItemIds: string[],
+    paymentMethod: PaymentMethod
+  ) => { paidOrder: Order | null; remainingOrder: Order | null };
   // Online Store Cart
   cartItems: OrderItem[];
   addToCart: (item: OrderItem) => void;
@@ -61,6 +77,8 @@ interface OrderCatalogContextType {
   cartSubtotal: number;
   cartTotal: number;
   deliveryFee: number;
+  offlineStatus: OfflineSyncStatus;
+  syncOfflineQueueNow: () => Promise<number>;
 }
 
 const SEEDED_HALF_AND_HALF_PRODUCT: Product = {
@@ -520,6 +538,11 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const tabInstanceIdRef = useRef(`tab-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
   const broadcastRef = useRef<BroadcastChannel | null>(null);
   const [lastRealtimeSyncAt, setLastRealtimeSyncAt] = useState<string>(() => new Date().toISOString());
+  const [offlineStatus, setOfflineStatus] = useState<OfflineSyncStatus>(() => getOfflineStatusSnapshot());
+
+  useEffect(() => {
+    return subscribeOfflineStatus(setOfflineStatus);
+  }, []);
 
   // Products state (persisted from storage; respects deletions including pizza mitad y mitad)
   const [products, setProducts] = useState<Product[]>(() => {
@@ -1067,6 +1090,141 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
     });
   };
 
+  const setTableBillRequested = (tableId: string, requested: boolean) => {
+    persistAndSyncTables((prev) =>
+      prev.map((t) => (t.id === tableId ? { ...t, billRequested: requested } : t))
+    );
+  };
+
+  const setTableReservation = (tableId: string, reservation: TableReservation | null) => {
+    persistAndSyncTables((prev) =>
+      prev.map((t) => (t.id === tableId ? { ...t, reservation } : t))
+    );
+  };
+
+  const transferOrMergeTableOrder = (sourceOrderId: string, targetTable: RestaurantTable) => {
+    const sourceOrder = orders.find((o) => o.id === sourceOrderId);
+    if (!sourceOrder) return;
+    const nowIso = new Date().toISOString();
+
+    const targetActiveOrder = orders.find(
+      (o) =>
+        o.id !== sourceOrderId &&
+        o.tenantId === targetTable.tenantId &&
+        o.tableId === targetTable.id &&
+        o.status !== 'cancelado' &&
+        (o.status !== 'entregado' || o.paymentStatus === 'pendiente')
+    );
+
+    if (targetActiveOrder) {
+      persistAndSyncOrders((prev) =>
+        prev
+          .filter((o) => o.id !== sourceOrderId)
+          .map((o) => {
+            if (o.id !== targetActiveOrder.id) return o;
+            const mergedItems = [...o.items, ...sourceOrder.items];
+            const newSubtotal = Number(
+              mergedItems.reduce((acc, it) => acc + it.totalPrice, 0).toFixed(2)
+            );
+            const newTotal = Math.max(0, Number((newSubtotal + o.deliveryFee - o.discount).toFixed(2)));
+            return {
+              ...o,
+              items: mergedItems,
+              subtotal: newSubtotal,
+              total: newTotal,
+              updatedAt: nowIso,
+            };
+          })
+      );
+      dispatchToast(
+        'Mesas Unidas',
+        `La cuenta de ${sourceOrder.tableNumber || 'Mesa'} se fusionó con ${targetTable.name}.`,
+        'success'
+      );
+    } else {
+      persistAndSyncOrders((prev) =>
+        prev.map((o) =>
+          o.id === sourceOrderId
+            ? {
+                ...o,
+                tableId: targetTable.id,
+                tableNumber: targetTable.name,
+                updatedAt: nowIso,
+              }
+            : o
+        )
+      );
+      dispatchToast('Mesa Transferida', `Pedido movido a ${targetTable.name}.`, 'success');
+    }
+  };
+
+  const splitTableOrderByItems = (
+    orderId: string,
+    selectedItemIds: string[],
+    paymentMethod: PaymentMethod
+  ): { paidOrder: Order | null; remainingOrder: Order | null } => {
+    const source = orders.find((o) => o.id === orderId);
+    if (!source || selectedItemIds.length === 0) {
+      return { paidOrder: null, remainingOrder: null };
+    }
+
+    const selectedSet = new Set(selectedItemIds);
+    const paidItems = source.items.filter((i) => selectedSet.has(i.itemId));
+    const remainingItems = source.items.filter((i) => !selectedSet.has(i.itemId));
+    if (paidItems.length === 0) return { paidOrder: null, remainingOrder: source };
+
+    const nowIso = new Date().toISOString();
+
+    if (remainingItems.length === 0) {
+      const paidFull: Order = {
+        ...source,
+        paymentMethod,
+        paymentStatus: 'pagado',
+        status: 'entregado',
+        deliveredAt: nowIso,
+        updatedAt: nowIso,
+      };
+      persistAndSyncOrders((prev) => prev.map((o) => (o.id === orderId ? paidFull : o)));
+      if (source.tableId) setTableBillRequested(source.tableId, false);
+      return { paidOrder: paidFull, remainingOrder: null };
+    }
+
+    const paidSubtotal = Number(paidItems.reduce((acc, i) => acc + i.totalPrice, 0).toFixed(2));
+    const remSubtotal = Number(remainingItems.reduce((acc, i) => acc + i.totalPrice, 0).toFixed(2));
+
+    const paidOrder: Order = {
+      ...source,
+      id: `ord-split-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      orderNumber: `${source.orderNumber}-S`,
+      items: paidItems,
+      subtotal: paidSubtotal,
+      deliveryFee: 0,
+      discount: 0,
+      total: paidSubtotal,
+      paymentMethod,
+      paymentStatus: 'pagado',
+      status: 'entregado',
+      createdAt: nowIso,
+      deliveredAt: nowIso,
+      updatedAt: nowIso,
+    };
+
+    const remainingOrder: Order = {
+      ...source,
+      items: remainingItems,
+      subtotal: remSubtotal,
+      total: Math.max(0, Number((remSubtotal + source.deliveryFee - source.discount).toFixed(2))),
+      updatedAt: nowIso,
+    };
+
+    persistAndSyncOrders((prev) => [
+      paidOrder,
+      ...prev.map((o) => (o.id === orderId ? remainingOrder : o)),
+    ]);
+
+    return { paidOrder, remainingOrder };
+  };
+
   const createOrder = (orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'status'>): Order => {
     const maxNum = ordersRef.current.reduce((max, o) => {
       const num = parseInt(o.orderNumber.replace(/\D/g, ''), 10);
@@ -1148,6 +1306,20 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
       orderNumber: newOrder.orderNumber,
       orderStatus: 'recibido',
     });
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      void enqueueOfflineOperation({
+        id: `order:${newOrder.id}`,
+        type: 'order_create',
+        key: STORAGE_KEYS.orders,
+        payload: JSON.stringify({ orderId: newOrder.id, orderNumber: newOrder.orderNumber }),
+      });
+      dispatchToast(
+        'Modo Offline Activo',
+        `Pedido ${newOrder.orderNumber} guardado en IndexedDB. Se sincronizará al volver la red.`,
+        'warning'
+      );
+    }
 
     // Respaldo directo en tabla relacional MySQL (orders / order_items)
     // La difusión SSE ocurre automáticamente en diskPersistence al confirmar guardado en kv_storage
@@ -1389,6 +1561,10 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
         updateTable,
         deleteTable,
         moveTableOrder,
+        setTableBillRequested,
+        setTableReservation,
+        transferOrMergeTableOrder,
+        splitTableOrderByItems,
         cartItems,
         addToCart,
         removeFromCart,
@@ -1397,6 +1573,8 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
         cartSubtotal,
         cartTotal,
         deliveryFee,
+        offlineStatus,
+        syncOfflineQueueNow: syncPendingOfflineQueue,
       }}
     >
       {children}

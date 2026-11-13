@@ -42,6 +42,7 @@ export const LeafletStoreMap: React.FC<LeafletStoreMapProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const storeLayerRef = useRef<L.LayerGroup | null>(null);
+  const coverageLayerRef = useRef<L.LayerGroup | null>(null);
   const userMarkerRef = useRef<L.Marker | null>(null);
   const routeRef = useRef<L.Polyline | null>(null);
   const onSelectRef = useRef(onSelectTenant);
@@ -68,6 +69,7 @@ export const LeafletStoreMap: React.FC<LeafletStoreMapProps> = ({
     }).addTo(map);
     L.control.zoom({ position: 'topright' }).addTo(map);
 
+    coverageLayerRef.current = L.layerGroup().addTo(map);
     storeLayerRef.current = L.layerGroup().addTo(map);
 
     const userIcon = L.divIcon({
@@ -118,6 +120,7 @@ export const LeafletStoreMap: React.FC<LeafletStoreMapProps> = ({
       window.clearTimeout(t2);
       map.remove();
       mapRef.current = null;
+      coverageLayerRef.current = null;
       storeLayerRef.current = null;
       userMarkerRef.current = null;
       routeRef.current = null;
@@ -125,8 +128,33 @@ export const LeafletStoreMap: React.FC<LeafletStoreMapProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Pinches de tiendas
+  // Zonas de cobertura (polígonos o radios) y pinches de tiendas
   useEffect(() => {
+    const covLayer = coverageLayerRef.current;
+    if (covLayer) {
+      covLayer.clearLayers();
+      tenants.forEach(t => {
+        const selected = t.id === selectedTenantId;
+        const poly = t.operations?.coveragePolygon;
+        const style: L.PathOptions = {
+          color: selected ? accentColor : '#64748b',
+          weight: selected ? 2.5 : 1.5,
+          opacity: selected ? 0.85 : 0.45,
+          dashArray: selected ? undefined : '6 6',
+          fillColor: selected ? accentColor : '#94a3b8',
+          fillOpacity: selected ? 0.14 : 0.05,
+          interactive: false,
+        };
+        if (Array.isArray(poly) && poly.length >= 3) {
+          const latLngs: L.LatLngTuple[] = poly.map(([lng, lat]) => [lat, lng]);
+          L.polygon(latLngs, style).addTo(covLayer);
+        } else {
+          const radiusMeters = Math.max(0.5, t.operations?.deliveryRadiusKm || 5) * 1000;
+          L.circle(tenantLatLng(t), { ...style, radius: radiusMeters }).addTo(covLayer);
+        }
+      });
+    }
+
     const layer = storeLayerRef.current;
     if (!layer) return;
     layer.clearLayers();

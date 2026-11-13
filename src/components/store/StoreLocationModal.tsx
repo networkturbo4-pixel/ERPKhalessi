@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Tenant } from '../../types/settings';
+import { Tenant, DeliveryTariffConfig } from '../../types/settings';
 import { LeafletStoreMap } from './LeafletStoreMap';
+import { calculateDynamicDeliveryFee } from '../../utils/culqiCheckout';
+import { findBestBranchForPoint } from '../../utils/geofence';
 import {
   X,
   Bike,
@@ -25,11 +27,20 @@ interface StoreLocationModalProps {
   onClose: () => void;
   tenants: Tenant[];
   activeTenantId: string;
-  onSelectTenant: (tenantId: string, deliveryType: 'delivery' | 'pickup', address?: string) => void;
+  onSelectTenant: (
+    tenantId: string,
+    deliveryType: 'delivery' | 'pickup',
+    address?: string,
+    coords?: [number, number],
+    distanceKm?: number
+  ) => void;
   currentDeliveryType?: 'delivery' | 'pickup';
   accentColor?: string;
   isLightTheme?: boolean;
   storeFavicon?: string;
+  cartSubtotal?: number;
+  companyTariff?: DeliveryTariffConfig;
+  initialCustomerCoords?: [number, number] | null;
 }
 
 // Default customer coordinates in Comas / Lima Norte (Belaunde area)
@@ -45,20 +56,33 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
   accentColor = '#e11d48',
   isLightTheme = true,
   storeFavicon,
+  cartSubtotal = 0,
+  companyTariff,
+  initialCustomerCoords = null,
 }) => {
   const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>(currentDeliveryType);
   const [selectedTenantId, setSelectedTenantId] = useState<string>(activeTenantId);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeMobileTab, setActiveMobileTab] = useState<'list' | 'map'>('list');
-  const [customerCoords, setCustomerCoords] = useState<[number, number]>(DEFAULT_CUSTOMER_COORDS);
+  const [customerCoords, setCustomerCoords] = useState<[number, number]>(
+    initialCustomerCoords || DEFAULT_CUSTOMER_COORDS
+  );
   const [customerAddress, setCustomerAddress] = useState<string>('Av. Universitaria con Belaunde, Comas');
   const [isLocating, setIsLocating] = useState(false);
+  const [autoAssignedBranch, setAutoAssignedBranch] = useState<string | null>(null);
   const [routeInfo, setRouteInfo] = useState<{ durationMin: number; distanceKm: number }>({
     durationMin: 11,
     distanceKm: 3.8,
   });
 
   const [routeGeometry, setRouteGeometry] = useState<[number, number][] | null>(null);
+
+  // Sync initial tenant & coords when modal opens
+  useEffect(() => {
+    if (isOpen && initialCustomerCoords) {
+      setCustomerCoords(initialCustomerCoords);
+    }
+  }, [isOpen, initialCustomerCoords]);
 
   // Sync initial tenant
   useEffect(() => {
@@ -148,9 +172,48 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, selectedTenantId, customerCoords]);
 
-  const handleCustomerMove = (coords: [number, number]) => {
+  const coverageMatch = useMemo(
+    () => findBestBranchForPoint(customerCoords, tenants),
+    [customerCoords, tenants]
+  );
+
+  const selectedCoverage = coverageMatch.evaluations.get(selectedTenantId);
+  const isDeliveryBlocked = deliveryType === 'delivery' && !(selectedCoverage?.covered ?? false);
+
+  const selectedDeliveryCalc = useMemo(
+    () =>
+      calculateDynamicDeliveryFee({
+        orderMode: deliveryType,
+        distanceKm: routeInfo.distanceKm || selectedCoverage?.distanceKm || null,
+        branchMaxRadiusKm: activeTenant.operations?.deliveryRadiusKm || 6,
+        cartSubtotal,
+        tariff: activeTenant.operations?.deliveryTariff || companyTariff,
+      }),
+    [
+      activeTenant.operations?.deliveryRadiusKm,
+      activeTenant.operations?.deliveryTariff,
+      cartSubtotal,
+      companyTariff,
+      deliveryType,
+      routeInfo.distanceKm,
+      selectedCoverage?.distanceKm,
+    ]
+  );
+
+  const applyCustomerCoords = (coords: [number, number], addressLabel: string) => {
     setCustomerCoords(coords);
-    setCustomerAddress('Ubicación marcada en el mapa');
+    setCustomerAddress(addressLabel);
+    const match = findBestBranchForPoint(coords, tenants);
+    if (match.matchedTenant) {
+      setSelectedTenantId(match.matchedTenant.id);
+      setAutoAssignedBranch(match.matchedTenant.name.replace('Khalessi Pizza - ', ''));
+    } else {
+      setAutoAssignedBranch(null);
+    }
+  };
+
+  const handleCustomerMove = (coords: [number, number]) => {
+    applyCustomerCoords(coords, 'Ubicación marcada en el mapa');
   };
 
 
@@ -166,9 +229,7 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
       pos => {
         setIsLocating(false);
         const newCoords: [number, number] = [pos.coords.longitude, pos.coords.latitude];
-        setCustomerCoords(newCoords);
-        setCustomerAddress('Tu ubicación actual');
-
+        applyCustomerCoords(newCoords, 'Tu ubicación actual');
       },
       () => {
         setIsLocating(false);
@@ -180,7 +241,14 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
 
   // Confirm selection
   const handleConfirmStore = () => {
-    onSelectTenant(selectedTenantId, deliveryType, customerAddress);
+    if (isDeliveryBlocked) return;
+    onSelectTenant(
+      selectedTenantId,
+      deliveryType,
+      customerAddress,
+      customerCoords,
+      routeInfo.distanceKm
+    );
     onClose();
   };
 
@@ -316,16 +384,51 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
               </button>
             </div>
 
-            {/* Active Store Indicator */}
-            <div className={`p-2.5 rounded-xl border flex items-center justify-between text-xs ${isLightTheme ? 'bg-emerald-50/60 border-emerald-200 text-emerald-800' : 'bg-emerald-950/30 border-emerald-900 text-emerald-300'}`}>
-              <div className="flex items-center gap-1.5 font-bold truncate">
-                <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span className="truncate">Tienda activa: {activeTenant.name.replace('Khalessi Pizza - ', '')}</span>
+            {/* Active Store & Geofence Status Indicator */}
+            {isDeliveryBlocked ? (
+              <div className="p-3 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 text-xs space-y-2">
+                <div className="flex items-start gap-2 font-bold">
+                  <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                  <span>
+                    {coverageMatch.anyCovered
+                      ? 'Esta sede no cubre el punto marcado en el mapa.'
+                      : 'Tu ubicación está fuera de nuestra zona de reparto para Delivery.'}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {coverageMatch.anyCovered && coverageMatch.matchedTenant && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTenantId(coverageMatch.matchedTenant!.id)}
+                      className="px-2.5 py-1 rounded-lg bg-rose-600 text-white font-bold text-[11px] hover:bg-rose-700 transition-colors whitespace-nowrap shrink-0"
+                    >
+                      Usar sede con cobertura ({coverageMatch.matchedTenant.name.replace('Khalessi Pizza - ', '')})
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryType('pickup')}
+                    className="px-2.5 py-1 rounded-lg border border-rose-300 dark:border-rose-700 bg-white dark:bg-neutral-900 text-rose-700 dark:text-rose-300 font-bold text-[11px] hover:bg-rose-100 dark:hover:bg-rose-950 transition-colors whitespace-nowrap shrink-0"
+                  >
+                    Cambiar a Retiro en Local
+                  </button>
+                </div>
               </div>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-600 text-white shrink-0">
-                Seleccionada
-              </span>
-            </div>
+            ) : (
+              <div className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs ${isLightTheme ? 'bg-emerald-50/60 border-emerald-200 text-emerald-800' : 'bg-emerald-950/30 border-emerald-900 text-emerald-300'}`}>
+                <div className="flex items-center gap-1.5 font-bold truncate">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span className="truncate">
+                    {autoAssignedBranch && deliveryType === 'delivery'
+                      ? `Asignada por cobertura: ${activeTenant.name.replace('Khalessi Pizza - ', '')}`
+                      : `Tienda activa: ${activeTenant.name.replace('Khalessi Pizza - ', '')}`}
+                  </span>
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-600 text-white shrink-0">
+                  {deliveryType === 'pickup' ? 'Retiro' : selectedCoverage?.matchType === 'polygon' ? 'En Polígono' : 'En Radio'}
+                </span>
+              </div>
+            )}
 
             {/* Store Cards List */}
             <div className="space-y-2.5 flex-1">
@@ -335,6 +438,14 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                 const name = tenant.name.replace('Khalessi Pizza - ', '');
                 const address = tenant.operations?.address || 'Lima, Perú';
                 const isMain = tenant.id === 'tenant-belaunde' || tenant.id === 'tenant-1';
+                const cov = coverageMatch.evaluations.get(tenant.id);
+                const cardFee = calculateDynamicDeliveryFee({
+                  orderMode: deliveryType,
+                  distanceKm: cov?.distanceKm ?? null,
+                  branchMaxRadiusKm: tenant.operations?.deliveryRadiusKm || 6,
+                  cartSubtotal,
+                  tariff: tenant.operations?.deliveryTariff || companyTariff,
+                });
 
                 return (
                   <div
@@ -398,13 +509,27 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                             <Clock className="w-3 h-3" />
                             25 - 40 min
                           </span>
-                          <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50 flex items-center gap-1">
-                            <Bike className="w-3 h-3" />
-                            Envío Gratis
-                          </span>
-                          <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-600 dark:bg-neutral-800 dark:text-neutral-300">
-                            Lima
-                          </span>
+                          {deliveryType === 'pickup' ? (
+                            <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50 flex items-center gap-1">
+                              <Store className="w-3 h-3" />
+                              Retiro Gratis
+                            </span>
+                          ) : cov?.covered ? (
+                            <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50 flex items-center gap-1">
+                              <Bike className="w-3 h-3" />
+                              {cardFee.feeSoles === 0 ? 'Envío Gratis' : `Envío S/ ${cardFee.feeSoles.toFixed(2)}`}
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" />
+                              Fuera de cobertura
+                            </span>
+                          )}
+                          {cov && (
+                            <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-600 dark:bg-neutral-800 dark:text-neutral-300">
+                              {cov.distanceKm} km
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -487,9 +612,19 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                     <span className="text-blue-600 dark:text-blue-400 flex items-center gap-1 shrink-0">
                       🚗 {routeInfo.durationMin} min ({routeInfo.distanceKm} km)
                     </span>
-                    <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 shrink-0">
-                      🛵 Envío Gratis
-                    </span>
+                    {deliveryType === 'pickup' ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 shrink-0">
+                        🏪 Retiro Gratis
+                      </span>
+                    ) : isDeliveryBlocked ? (
+                      <span className="text-rose-600 dark:text-rose-400 flex items-center gap-1 shrink-0">
+                        ⚠️ Fuera de cobertura
+                      </span>
+                    ) : (
+                      <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 shrink-0">
+                        🛵 {selectedDeliveryCalc.feeSoles === 0 ? 'Envío Gratis' : `Envío S/ ${selectedDeliveryCalc.feeSoles.toFixed(2)}`}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -506,11 +641,14 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                 </a>
                 <button
                   type="button"
+                  disabled={isDeliveryBlocked}
                   onClick={handleConfirmStore}
-                  className="flex-1 md:flex-initial justify-center px-5 py-2.5 rounded-xl text-white font-black text-xs sm:text-sm shadow-lg hover:opacity-95 active:scale-[0.98] transition-all flex items-center gap-2 whitespace-nowrap shrink-0"
-                  style={{ backgroundColor: accentColor }}
+                  className={`flex-1 md:flex-initial justify-center px-5 py-2.5 rounded-xl text-white font-black text-xs sm:text-sm shadow-lg transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
+                    isDeliveryBlocked ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-95 active:scale-[0.98]'
+                  }`}
+                  style={{ backgroundColor: isDeliveryBlocked ? '#64748b' : accentColor }}
                 >
-                  <span>Seleccionar tienda</span>
+                  <span>{isDeliveryBlocked ? 'Fuera de cobertura' : 'Seleccionar tienda'}</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>

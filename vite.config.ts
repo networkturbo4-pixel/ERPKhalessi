@@ -58,6 +58,44 @@ function diskStoragePlugin(): Plugin {
       })
 
       server.middlewares.use(async (req, res, next) => {
+        // Servir dinámicamente el Favicon configurado en Identidad durante desarrollo (npm run dev)
+        if (req.url?.split('?')[0] === '/api/favicon.php' && req.method === 'GET') {
+          const fallbackSvg =
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#18181b"/><circle cx="32" cy="32" r="18" fill="none" stroke="#e11d48" stroke-width="4"/></svg>'
+          try {
+            const settingsFile = path.join(storageDir, 'khalessi_erp_settings_v3.json')
+            if (fs.existsSync(settingsFile)) {
+              const rawFile = JSON.parse(fs.readFileSync(settingsFile, 'utf-8'))
+              const rawValue = typeof rawFile?.value === 'string' ? JSON.parse(rawFile.value) : rawFile
+              const cust = rawValue?.customization
+              const iconSrc =
+                cust?.favicon || cust?.storeHeaderLogo || cust?.logoDark || cust?.logoLight || ''
+              if (typeof iconSrc === 'string' && iconSrc.startsWith('data:image/')) {
+                const match = iconSrc.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,(.+)$/)
+                if (match) {
+                  res.setHeader('Content-Type', match[1])
+                  res.setHeader('Cache-Control', 'no-cache')
+                  res.statusCode = 200
+                  res.end(Buffer.from(match[2], 'base64'))
+                  return
+                }
+              }
+              if (typeof iconSrc === 'string' && /^https?:\/\//i.test(iconSrc)) {
+                res.statusCode = 302
+                res.setHeader('Location', iconSrc)
+                res.end()
+                return
+              }
+            }
+          } catch {
+            // fallback SVG below
+          }
+          res.setHeader('Content-Type', 'image/svg+xml')
+          res.statusCode = 200
+          res.end(fallbackSvg)
+          return
+        }
+
         // Proxy para Factúralo PRO (resuelve bloqueo de CORS de api.facturalo.pe en el navegador)
         if (req.url?.startsWith('/api/facturalo-proxy')) {
           res.setHeader('Access-Control-Allow-Origin', '*')

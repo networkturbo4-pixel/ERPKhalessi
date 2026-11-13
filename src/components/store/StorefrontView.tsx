@@ -18,6 +18,11 @@ import {
   isRealCulqiPublicKey,
   openOfficialCulqiCheckout,
 } from '../../utils/culqiCheckout';
+import {
+  getNotificationPermissionState,
+  requestOrderNotifications,
+  showOrderStatusNotification,
+} from '../../utils/pwaManager';
 import { ToastContainer } from '../common/ToastContainer';
 import { SystemNoticeModal } from '../common/SystemNoticeModal';
 import { StorefrontSkeleton } from '../common/AppSurfaceSkeleton';
@@ -101,6 +106,7 @@ import {
   Clock,
   AlertTriangle,
   FileText,
+  Bell,
 } from 'lucide-react';
 
 interface StorefrontViewProps {
@@ -227,6 +233,33 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
   } = useBenefits();
 
   const [windowViewport, setWindowViewport] = useState<BuilderViewport>(detectWindowViewport);
+  const [pwaBannerDismissed, setPwaBannerDismissed] = useState(false);
+  const [notifPermission, setNotifPermission] = useState(() => getNotificationPermissionState());
+  const prevOrderStatusRef = useRef<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    const prev = prevOrderStatusRef.current;
+    const statusLabels: Record<string, string> = {
+      pendiente: 'Pedido recibido en tienda',
+      en_horno: '¡Tu pizza entró al horno!',
+      listo: 'Tu pedido está listo para entrega',
+      en_camino: 'El repartidor va en camino',
+      entregado: 'Pedido entregado. ¡Buen provecho!',
+    };
+
+    customerOrders.forEach((order) => {
+      const lastStatus = prev.get(order.id);
+      if (lastStatus && lastStatus !== order.status && statusLabels[order.status]) {
+        void showOrderStatusNotification({
+          orderNumber: order.orderNumber,
+          title: `Pedido #${order.orderNumber} — Pizza Khalessi`,
+          body: statusLabels[order.status],
+          url: '/?view=orders',
+        });
+      }
+      prev.set(order.id, order.status);
+    });
+  }, [customerOrders]);
 
   useEffect(() => {
     const onResize = () => setWindowViewport(detectWindowViewport());
@@ -1783,12 +1816,15 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
             onClose={() => setIsLocationModalOpen(false)}
             tenants={tenants}
             activeTenantId={activeTenant.id}
-            onSelectTenant={(tenantId, selectedDeliveryType, address) => {
+            onSelectTenant={(tenantId, selectedDeliveryType, address, coords) => {
               if (tenantId !== activeTenant.id) {
                 switchTenant(tenantId);
               }
               setDeliveryType(selectedDeliveryType);
               if (address) setDeliveryAddress(address);
+              if (coords) {
+                setUserCoords({ lat: coords[1], lng: coords[0] });
+              }
               dispatchToast(
                 'Sede y Cobertura Actualizadas',
                 `Sede activa: ${tenants.find(t => t.id === tenantId)?.name.replace('Khalessi Pizza - ', '') || 'Actualizada'} (${selectedDeliveryType === 'delivery' ? 'Envío a Domicilio' : 'Retiro en Tienda'})`,
@@ -1799,6 +1835,9 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
             accentColor={accentColor}
             isLightTheme={isLightTheme}
             storeFavicon={customization.favicon || customization.storeHeaderLogo}
+            cartSubtotal={cartSubtotal}
+            companyTariff={companyInfo.deliveryTariff}
+            initialCustomerCoords={userCoords ? [userCoords.lng, userCoords.lat] : null}
           />
         </Suspense>
       )}
@@ -3682,6 +3721,48 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
           </nav>
         </div>
       )}
+
+      {/* Active Order Push Notifications Prompt */}
+      {!pwaBannerDismissed &&
+        !isBuilderOpen &&
+        activeCustomerOrdersCount > 0 &&
+        notifPermission === 'default' && (
+          <div className="fixed bottom-20 lg:bottom-5 left-4 z-40 max-w-xs rounded-2xl border border-zinc-200 dark:border-neutral-800 bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md shadow-xl p-3 flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center shrink-0">
+              <Bell className="w-4 h-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-black text-zinc-900 dark:text-white truncate">
+                Avisos de tu pedido
+              </p>
+              <p className="text-[10px] text-zinc-500 dark:text-neutral-400 truncate">
+                Te avisamos cuando salga del horno
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                const perm = await requestOrderNotifications();
+                setNotifPermission(perm);
+                if (perm === 'granted') {
+                  dispatchToast('Notificaciones activadas', 'Te avisaremos cada cambio de tu pedido.', 'success');
+                }
+                setPwaBannerDismissed(true);
+              }}
+              className="px-2.5 py-1.5 rounded-xl bg-rose-600 text-white text-[11px] font-black hover:bg-rose-700 transition-colors whitespace-nowrap shrink-0"
+            >
+              Activar
+            </button>
+            <button
+              type="button"
+              aria-label="Cerrar aviso"
+              onClick={() => setPwaBannerDismissed(true)}
+              className="p-1 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-white"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
     </div>
   );
 };

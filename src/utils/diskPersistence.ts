@@ -1,3 +1,10 @@
+import {
+  enqueueOfflineOperation,
+  flushOfflineQueue,
+  initOfflineQueueListeners,
+  saveOfflineSnapshot,
+} from './offlineQueue';
+
 const CLIENT_ID = `cli-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 // Keys that belong strictly to the current browser/device session and must never overwrite other devices
@@ -413,6 +420,15 @@ function enqueueServerSync(
         }
       } catch {
         failedSyncValues.set(key, op);
+        if (op.action === 'set') {
+          void saveOfflineSnapshot(key, op.value);
+          void enqueueOfflineOperation({
+            id: `kv:${key}`,
+            type: 'storage_put',
+            key,
+            payload: op.value,
+          });
+        }
       } finally {
         const remaining = (inFlightWrites.get(key) || 1) - 1;
         if (remaining <= 0) {
@@ -522,10 +538,15 @@ export function installStorageInterceptor(): void {
   };
 }
 
+export function syncPendingOfflineQueue(): Promise<number> {
+  return flushOfflineQueue(getAuthHeaders, CLIENT_ID);
+}
+
 export async function initDiskPersistence(): Promise<void> {
   if (typeof window === 'undefined' || persistenceStarted) return;
   persistenceStarted = true;
   installStorageInterceptor();
+  initOfflineQueueListeners(getAuthHeaders, CLIENT_ID);
 
   let lastHash = '';
 

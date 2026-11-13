@@ -8,6 +8,8 @@ import {
   SubOptionChoice,
 } from '../../types/catalog';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
+import { toProductSlug } from '../../types/storeBuilder';
+import { shareStoreContent, updateDocumentShareMeta } from '../../utils/pwaManager';
 import {
   ArrowLeft,
   ChevronDown,
@@ -357,22 +359,33 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
     onBackToCatalog();
   };
 
+  const shareDisplayPrice = useMemo(() => {
+    if (product.hasSizes && Array.isArray(product.sizes) && product.sizes.length > 0) {
+      return product.sizes[0].price;
+    }
+    return product.basePrice || 0;
+  }, [product.hasSizes, product.sizes, product.basePrice]);
+
+  useEffect(() => {
+    const slug = toProductSlug(product.name);
+    const shareUrl = `${window.location.origin}/producto/${slug}`;
+    updateDocumentShareMeta({
+      title: `${product.name} — S/ ${shareDisplayPrice.toFixed(2)} | ${branchName}`,
+      description: product.description || `Pide ${product.name} en ${branchName}.`,
+      image: product.imageUrl || undefined,
+      url: shareUrl,
+      type: 'product',
+    });
+  }, [product.id, product.name, shareDisplayPrice, product.description, product.imageUrl, branchName]);
+
   const handleShareProduct = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: product.name,
-          text: `Pide ${product.name} en ${branchName}`,
-          url: window.location.href,
-        });
-        return;
-      } catch {
-        // user cancelled or share failed, ignore
-      }
-    }
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(window.location.href);
-    }
+    const slug = toProductSlug(product.name);
+    const shareUrl = `${window.location.origin}/producto/${slug}`;
+    await shareStoreContent({
+      title: `${product.name} — S/ ${shareDisplayPrice.toFixed(2)}`,
+      text: `Pide ${product.name} (S/ ${shareDisplayPrice.toFixed(2)}) en ${branchName}`,
+      url: shareUrl,
+    });
   };
 
   const categoryLabel = useMemo(() => {

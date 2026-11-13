@@ -3,6 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#e11d48" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta property="og:site_name" content="Pizza Khalessi" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Pizza Khalessi | Pizzas Artesanales & Delivery" />
+    <meta property="og:description" content="Pide en línea tus pizzas artesanales, combos y promociones con seguimiento en vivo." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/api/favicon.php" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pizza Khalessi | Plataforma Multisucursal</title>
@@ -26,25 +35,61 @@
   </head>
   <body class="bg-zinc-100 dark:bg-[#09090b]">
     <div id="root">
-      <div id="kh-brand-splash" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#09090b;transition:background 0.15s ease;">
-        <div id="kh-favicon-shell" style="position:relative;padding:7px;border-radius:26px;background:rgba(255,255,255,0.04);border:2px solid rgba(225,29,72,0.55);box-shadow:0 16px 38px -8px rgba(225,29,72,0.32),inset 0 0 0 1px rgba(255,255,255,0.12);display:flex;align-items:center;justify-content:center;animation:khFloat 1.6s infinite ease-in-out;">
-          <div id="kh-favicon-ring" style="position:absolute;inset:-6px;border-radius:31px;border:2px solid transparent;border-top-color:#e11d48;border-right-color:rgba(225,29,72,0.35);animation:khSpin 1.05s linear infinite;pointer-events:none;"></div>
+      <div
+        id="kh-brand-splash"
+        style="position:relative;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;background:#09090b;overflow:hidden;font-family:'Inter',system-ui,-apple-system,sans-serif;transition:background 0.15s ease;"
+      >
+        <div
+          id="kh-splash-glow"
+          style="position:absolute;width:340px;height:340px;border-radius:9999px;background:radial-gradient(circle, rgba(225,29,72,0.18) 0%, rgba(225,29,72,0) 70%);filter:blur(24px);pointer-events:none;animation:khPulseGlow 2.4s ease-in-out infinite;"
+        ></div>
+
+        <div
+          id="kh-favicon-shell"
+          style="position:relative;z-index:1;width:84px;height:84px;border-radius:24px;padding:6px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);box-shadow:0 20px 50px -12px rgba(0,0,0,0.55), 0 0 0 1px rgba(225,29,72,0.22);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(12px);"
+        >
           <img
             id="kh-splash-favicon"
             src="/api/favicon.php"
             alt="Logo"
-            style="width:74px;height:74px;border-radius:19px;object-fit:cover;display:block;border:2px solid rgba(255,255,255,0.28);background:#18181b;"
+            style="width:100%;height:100%;border-radius:18px;object-fit:cover;display:block;background:#18181b;"
           />
+        </div>
+
+        <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;">
+          <div
+            id="kh-splash-title"
+            style="font-size:15px;font-weight:800;letter-spacing:-0.02em;color:#f4f4f5;"
+          >
+            Pizza Khalessi
+          </div>
+
+          <div
+            id="kh-splash-track"
+            style="width:148px;height:3px;border-radius:9999px;background:rgba(255,255,255,0.1);overflow:hidden;position:relative;"
+          >
+            <div
+              id="kh-splash-bar"
+              style="position:absolute;inset-y:0;top:0;bottom:0;width:46%;border-radius:9999px;background:linear-gradient(90deg, transparent, #e11d48, transparent);animation:khSweep 1.25s cubic-bezier(0.4,0,0.2,1) infinite;"
+            ></div>
+          </div>
+
+          <div
+            id="kh-splash-sub"
+            style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#71717a;"
+          >
+            Cargando experiencia...
+          </div>
         </div>
       </div>
       <style>
-        @keyframes khSpin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
+        @keyframes khSweep {
+          0% { transform: translateX(-110%); }
+          100% { transform: translateX(240%); }
         }
-        @keyframes khFloat {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.035); }
+        @keyframes khPulseGlow {
+          0%, 100% { transform: scale(0.94); opacity: 0.75; }
+          50% { transform: scale(1.06); opacity: 1; }
         }
       </style>
       <script>
@@ -53,7 +98,8 @@
             var icon = localStorage.getItem('kh_brand_favicon_v1') || '';
             var primary = localStorage.getItem('kh_brand_primary_v1') || '';
             var theme = localStorage.getItem('kh_brand_theme_v1') || '';
-            if (!icon || !primary) {
+            var brandName = '';
+            if (!icon || !primary || !brandName) {
               var raw = localStorage.getItem('khalessi_erp_settings_v3');
               if (raw) {
                 var parsed = JSON.parse(raw);
@@ -62,6 +108,9 @@
                   icon = icon || c.favicon || c.storeHeaderLogo || c.logoDark || c.logoLight || '';
                   primary = primary || c.primaryColor || '';
                   theme = theme || c.themePreference || '';
+                }
+                if (parsed && parsed.companyInfo && parsed.companyInfo.commercialName) {
+                  brandName = parsed.companyInfo.commercialName;
                 }
               }
             }
@@ -109,29 +158,46 @@
 
             var splash = document.getElementById('kh-brand-splash');
             var shell = document.getElementById('kh-favicon-shell');
-            var ring = document.getElementById('kh-favicon-ring');
+            var glow = document.getElementById('kh-splash-glow');
+            var bar = document.getElementById('kh-splash-bar');
+            var track = document.getElementById('kh-splash-track');
+            var titleEl = document.getElementById('kh-splash-title');
+            var subEl = document.getElementById('kh-splash-sub');
             var img = document.getElementById('kh-splash-favicon');
+
+            if (titleEl && brandName) titleEl.textContent = brandName;
+            if (subEl) {
+              subEl.textContent = isAdmin
+                ? 'Iniciando Panel ERP...'
+                : isKiosk
+                ? 'Preparando Autoservicio...'
+                : 'Preparando la carta...';
+            }
 
             if (splash) {
               splash.style.background = surfaceBg;
               if (useLight) {
                 if (shell) {
                   shell.style.background = '#ffffff';
-                  shell.style.boxShadow = '0 18px 40px -10px rgba(15,23,42,0.16), inset 0 0 0 1px rgba(15,23,42,0.06)';
+                  shell.style.border = '1px solid rgba(15,23,42,0.08)';
+                  shell.style.boxShadow = '0 20px 45px -12px rgba(15,23,42,0.14), 0 0 0 1px rgba(15,23,42,0.04)';
                 }
-                if (img) {
-                  img.style.border = '2px solid rgba(15,23,42,0.12)';
-                  img.style.background = '#ffffff';
-                }
+                if (img) img.style.background = '#ffffff';
+                if (titleEl) titleEl.style.color = '#09090b';
+                if (track) track.style.background = 'rgba(15,23,42,0.08)';
+                if (subEl) subEl.style.color = '#64748b';
               }
             }
 
-            if (primary && /^#[0-9a-fA-F]{6}$/.test(primary)) {
-              if (shell) shell.style.borderColor = primary + '88';
-              if (ring) {
-                ring.style.borderTopColor = primary;
-                ring.style.borderRightColor = primary + '44';
-              }
+            var accent = primary && /^#[0-9a-fA-F]{6}$/.test(primary) ? primary : '#e11d48';
+            if (shell && !useLight) {
+              shell.style.boxShadow = '0 20px 50px -12px rgba(0,0,0,0.55), 0 0 0 1px ' + accent + '38';
+            }
+            if (glow) {
+              glow.style.background = 'radial-gradient(circle, ' + accent + '30 0%, rgba(0,0,0,0) 70%)';
+            }
+            if (bar) {
+              bar.style.background = 'linear-gradient(90deg, transparent, ' + accent + ', transparent)';
             }
 
             if (icon && img) {

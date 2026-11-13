@@ -161,6 +161,13 @@ export type InvoiceDocumentType = 'boleta_simple' | 'boleta_dni' | 'factura_ruc'
 
 export type TableShape = 'square' | 'round' | 'rect';
 
+export interface TableReservation {
+  customerName: string;
+  time: string;
+  guests: number;
+  notes?: string;
+}
+
 export interface RestaurantTable {
   id: string;
   tenantId: string;
@@ -169,6 +176,8 @@ export interface RestaurantTable {
   capacity: number;
   shape: TableShape;
   orderIndex: number;
+  billRequested?: boolean;
+  reservation?: TableReservation | null;
 }
 
 export interface Customer {

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useId } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { PermissionGate } from '../common/PermissionGate';
 import { BranchFormat, Tenant, BranchOperationalProfile } from '../../types/settings';
+import { buildRegularPolygonAroundPoint, GeoPoint } from '../../utils/geofence';
 import {
   Store,
   Plus,
@@ -95,6 +96,7 @@ export const TenantsTab: React.FC = () => {
     activeOvens: '1 Horno de Piedra Activo',
     salesTodaySoles: 3450,
     imageUrl: '',
+    coveragePolygonText: '',
   });
 
   // Estado para prueba interactiva de facturación por sucursal
@@ -218,6 +220,7 @@ export const TenantsTab: React.FC = () => {
       activeOvens: '1 Horno Napolitano Activo',
       salesTodaySoles: 0,
       imageUrl: '',
+      coveragePolygonText: '',
     });
     setIsModalOpen(true);
   };
@@ -258,6 +261,10 @@ export const TenantsTab: React.FC = () => {
       activeOvens: t.operations?.activeOvens || '1 Horno Activo',
       salesTodaySoles: t.operations?.salesTodaySoles ?? 0,
       imageUrl: t.operations?.imageUrl || '',
+      coveragePolygonText:
+        Array.isArray(t.operations?.coveragePolygon) && t.operations.coveragePolygon.length >= 3
+          ? JSON.stringify(t.operations.coveragePolygon)
+          : '',
     });
     setIsModalOpen(true);
   };
@@ -287,6 +294,28 @@ export const TenantsTab: React.FC = () => {
     const finalFactura = (form.billingSeriesFactura.trim() || 'F001').toUpperCase();
     const combinedBilling = `${finalBoleta} / ${finalFactura}`;
 
+    let parsedPolygon: GeoPoint[] | undefined;
+    if (form.coveragePolygonText.trim()) {
+      try {
+        const raw = JSON.parse(form.coveragePolygonText);
+        if (
+          Array.isArray(raw) &&
+          raw.length >= 3 &&
+          raw.every(
+            p =>
+              Array.isArray(p) &&
+              p.length >= 2 &&
+              Number.isFinite(Number(p[0])) &&
+              Number.isFinite(Number(p[1]))
+          )
+        ) {
+          parsedPolygon = raw.map(p => [Number(p[0]), Number(p[1])] as GeoPoint);
+        }
+      } catch {
+        // Ignorar JSON inválido y mantener sin polígono personalizado
+      }
+    }
+
     const updatedOperations: BranchOperationalProfile = {
       branchFormat: form.branchFormat,
       branchCode: form.branchCode.trim() || 'SUC-001',
@@ -296,6 +325,8 @@ export const TenantsTab: React.FC = () => {
       schedule: form.schedule.trim() || '12:00 PM – 11:30 PM',
       tablesCount: form.branchFormat === 'Dark Kitchen' ? 0 : Math.max(0, Number(form.tablesCount) || 0),
       deliveryRadiusKm: Math.max(0, Number(form.deliveryRadiusKm) || 0),
+      coveragePolygon: parsedPolygon,
+      deliveryTariff: baseOps?.deliveryTariff,
       dailyGoalSoles: numericGoal,
       address: form.address.trim() || `Local Comercial — ${branchShort}`,
       latitude: Number.isFinite(Number(form.latitude)) ? Number(form.latitude) : -12.1116,
@@ -807,10 +838,10 @@ export const TenantsTab: React.FC = () => {
           ref={dialogRef}
           aria-labelledby={modalTitleId}
           onClose={handleDialogClose}
-          className="bg-transparent p-2 sm:p-4 outline-none max-w-6xl w-[96vw] m-auto"
+          className="bg-transparent p-2 sm:p-4 outline-none w-[min(96vw,72rem)] max-w-none m-auto"
         >
           {isModalOpen && (
-            <div className="w-full bg-white dark:bg-[#18181c] rounded-3xl border border-zinc-200 dark:border-zinc-700 p-6 sm:p-8 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="w-full min-w-0 bg-white dark:bg-[#18181c] rounded-3xl border border-zinc-200 dark:border-zinc-700 p-6 sm:p-8 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
                 <div>
                   <h2 id={modalTitleId} className="text-base sm:text-lg font-black text-zinc-950 dark:text-white">
@@ -1186,6 +1217,49 @@ export const TenantsTab: React.FC = () => {
                           className="w-full px-2.5 py-2 text-xs rounded-xl saas-input font-mono"
                         />
                       </div>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/50 space-y-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <label className="text-[10px] font-bold uppercase text-zinc-700 dark:text-zinc-200">
+                          Geocerca Poligonal ([lng, lat][]) — Opcional
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const lat = Number(form.latitude) || -12.1116;
+                              const lng = Number(form.longitude) || -76.9912;
+                              const pts = buildRegularPolygonAroundPoint(
+                                lng,
+                                lat,
+                                Number(form.deliveryRadiusKm) || 5,
+                                8
+                              );
+                              setForm({ ...form, coveragePolygonText: JSON.stringify(pts) });
+                            }}
+                            className="px-2 py-1 rounded-lg text-[10px] font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors whitespace-nowrap shrink-0"
+                          >
+                            Generar desde radio
+                          </button>
+                          {form.coveragePolygonText.trim() && (
+                            <button
+                              type="button"
+                              onClick={() => setForm({ ...form, coveragePolygonText: '' })}
+                              className="px-2 py-1 rounded-lg text-[10px] font-bold border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors whitespace-nowrap shrink-0"
+                            >
+                              Usar solo radio
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <textarea
+                        rows={2}
+                        value={form.coveragePolygonText}
+                        onChange={e => setForm({ ...form, coveragePolygonText: e.target.value })}
+                        placeholder='[[-77.06,-11.92],[-77.04,-11.92],[-77.04,-11.95],[-77.06,-11.95]]'
+                        className="w-full px-2.5 py-1.5 text-[11px] rounded-lg saas-input font-mono"
+                      />
                     </div>
 
                     <div className="grid grid-cols-2 gap-2.5">
