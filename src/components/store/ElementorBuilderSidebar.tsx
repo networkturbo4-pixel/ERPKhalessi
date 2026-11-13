@@ -228,6 +228,7 @@ export const ElementorBuilderSidebar: React.FC = () => {
   } = useStoreBuilder();
 
   const { products } = useOrderCatalog();
+  const dynamicCategories = getStoreCategories().filter((c) => c.id !== 'todos');
   const { openNoticeModal, dispatchToast, customization, updateCustomization } = useSettings();
 
   const [rootTab, setRootTab] = useState<'widgets' | 'templates'>('widgets');
@@ -919,11 +920,11 @@ export const ElementorBuilderSidebar: React.FC = () => {
                         Sincronizada con Categoría Elegida
                       </option>
                       <option value="all">Todas las Categorías</option>
-                      <option value="pizzas">Pizzas Artesanales</option>
-                      <option value="combos">Promociones / Combos</option>
-                      <option value="entradas">Entradas & Alitas</option>
-                      <option value="bebidas">Bebidas Heladas</option>
-                      <option value="postres">Postres</option>
+                      {dynamicCategories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
 

@@ -10,6 +10,7 @@ import {
   Customer,
 } from '../../types/catalog';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
+import { getStoreCategories } from '../store/StorefrontWidgets';
 import { useSettings } from '../../context/SettingsContext';
 import { useRBAC } from '../../context/RBACContext';
 import { useStoreCustomer } from '../../context/StoreCustomerContext';
@@ -1901,13 +1902,7 @@ export const POSView: React.FC<POSViewProps> = ({
             </div>
 
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 shrink-0">
-              {[
-                { id: 'todos', label: 'Todos' },
-                { id: 'pizzas', label: '🍕 Pizzas' },
-                { id: 'combos', label: '🔥 Combos' },
-                { id: 'entradas', label: '🥖 Entradas' },
-                { id: 'bebidas', label: '🥤 Bebidas' },
-              ].map((cat) => (
+              {getStoreCategories().map((cat) => (
                 <button
                   key={cat.id}
                   type="button"
@@ -1918,7 +1913,7 @@ export const POSView: React.FC<POSViewProps> = ({
                       : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white'
                   }`}
                 >
-                  {cat.label}
+                  {cat.id === 'todos' ? 'Todos' : `${cat.icon} ${cat.label}`}
                 </button>
               ))}
             </div>

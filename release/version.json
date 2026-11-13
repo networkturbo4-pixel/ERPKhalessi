@@ -1,8 +1,8 @@
 {
-  "buildId": "20261113050248",
-  "builtAt": "2026-11-13T05:02:48.695Z",
-  "commitSha": "8f414b0",
-  "message": "fix(og): restore text/html Content-Type after config.php in product-og and page-og",
+  "buildId": "20261113055532",
+  "builtAt": "2026-11-13T05:55:32.507Z",
+  "commitSha": "9d36abb",
+  "message": "fix(store): support multi-select up to maxSelection in option groups and quantity buttons on multiple nested sub-options",
   "totalFiles": 85,
-  "manifestSha256": "f48ed38f711d6a94c0722b9f008a96a61b9a3c318ada97b45bb9d9b8e29e0533"
+  "manifestSha256": "1e2d5535342e2ed3f309e42e1edae772a449fb001b537582a441d3c38837a458"
 }
