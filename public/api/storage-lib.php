@@ -17,6 +17,7 @@ const KH_SYNC_KEYS = [
     'kh_floor_tables_v1',
     'kh_orders_list',
     'kh_customers_crm_v1',
+    'kh_store_customer_accounts_v1',
 ];
 
 // Claves que terminales operativas y tienda pueden LEER (ajustes siempre sanitizado sin claves ni PINs)
@@ -28,6 +29,7 @@ const KH_PUBLIC_READ_KEYS = [
     'kh_erp_benefits_v1',
     'kh_orders_list',
     'kh_customers_crm_v1',
+    'kh_store_customer_accounts_v1',
     'kh_floor_tables_v1',
     'khalessi_erp_complaints_v1',
 ];
@@ -36,6 +38,7 @@ const KH_PUBLIC_READ_KEYS = [
 const KH_PUBLIC_WRITE_KEYS = [
     'kh_orders_list',
     'kh_customers_crm_v1',
+    'kh_store_customer_accounts_v1',
     'kh_floor_tables_v1',
     'khalessi_erp_complaints_v1',
 ];

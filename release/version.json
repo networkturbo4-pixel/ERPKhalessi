@@ -1,8 +1,8 @@
 {
-  "buildId": "20261113001551",
-  "builtAt": "2026-11-13T00:15:51.817Z",
-  "commitSha": "8fdf296",
-  "message": "feat(benefits): shared LoyaltyCardView with full style, stamp, color & icon size customization",
+  "buildId": "20261113003042",
+  "builtAt": "2026-11-13T00:30:42.527Z",
+  "commitSha": "b220d4e",
+  "message": "feat(benefits): granular card colors, configurable point amounts, live CRM->storefront point sync & branch-synced customer counters",
   "totalFiles": 74,
-  "manifestSha256": "043badb036f66b141501f25f1eca42de38799e1d69634b9c96048802931a53af"
+  "manifestSha256": "c3148ff56afd749ea46f9b4fa6836baadf148d8cdcc222c0c4d9e9b22d08657b"
 }

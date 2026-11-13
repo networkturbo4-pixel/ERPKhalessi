@@ -30,12 +30,16 @@ const SERVER_SYNC_KEYS = [
   'kh_floor_tables_v1',
   'kh_orders_list',
   'kh_customers_crm_v1',
+  'kh_store_customer_accounts_v1',
 ];
 
-// Claves operativas de escritura libre (pedidos, clientes CRM, salón y libro de reclamaciones)
+const SERVER_SYNC_SET = new Set<string>(SERVER_SYNC_KEYS);
+
+// Claves operativas de escritura libre (pedidos, clientes CRM, cuentas de tienda, salón y libro de reclamaciones)
 const PUBLIC_WRITABLE_KEYS = new Set<string>([
   'kh_orders_list',
   'kh_customers_crm_v1',
+  'kh_store_customer_accounts_v1',
   'kh_floor_tables_v1',
   'khalessi_erp_complaints_v1',
 ]);
@@ -128,7 +132,7 @@ export async function authenticateServer(pin: string, force = false): Promise<bo
 }
 
 function isSharedKey(key: string): boolean {
-  return (key.startsWith('kh') || key.startsWith('khalessi')) && !DEVICE_LOCAL_KEYS.has(key);
+  return SERVER_SYNC_SET.has(key) && !DEVICE_LOCAL_KEYS.has(key);
 }
 
 interface StorageSsePayload {
@@ -375,6 +379,9 @@ function enqueueServerSync(
           const resJson = await res.json().catch(() => null);
           if (memoryMirror.get(key) === op.value) {
             failedSyncValues.delete(key);
+          }
+          if (resJson?.ignored) {
+            return;
           }
 
           // Si el servidor fusionó pedidos concurrentes, actualizar espejo local al instante
