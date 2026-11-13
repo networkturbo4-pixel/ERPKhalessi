@@ -838,7 +838,7 @@ export const TenantsTab: React.FC = () => {
           ref={dialogRef}
           aria-labelledby={modalTitleId}
           onClose={handleDialogClose}
-          className="bg-transparent p-2 sm:p-4 outline-none w-[min(96vw,72rem)] max-w-none m-auto"
+          className="modal-wide bg-transparent p-2 sm:p-4 outline-none m-auto"
         >
           {isModalOpen && (
             <div className="w-full min-w-0 bg-white dark:bg-[#18181c] rounded-3xl border border-zinc-200 dark:border-zinc-700 p-6 sm:p-8 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">

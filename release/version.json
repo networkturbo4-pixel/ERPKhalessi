@@ -1,8 +1,8 @@
 {
-  "buildId": "20261113154528",
-  "builtAt": "2026-11-13T15:45:28.582Z",
-  "commitSha": "03e6f86",
-  "message": "chore(release): build 20261113153319 with POS sub-extras and conditional logic",
+  "buildId": "20261113162316",
+  "builtAt": "2026-11-13T16:23:16.058Z",
+  "commitSha": "a63b473",
+  "message": "chore(release): build 20261113154528 - move Galería de Medios and Páginas above Configuración in sidebar",
   "totalFiles": 85,
-  "manifestSha256": "361e3fd60c631f99098861a69f731227aaafb53317d3a329e467a5aa2f364f5d"
+  "manifestSha256": "b7f69922d21962e2ba79c2ad5ee77bdc51220ce126acbaae9dca5f79ba6774aa"
 }

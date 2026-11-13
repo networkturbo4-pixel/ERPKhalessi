@@ -165,14 +165,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
       const saved = localStorage.getItem('kh_active_main_module') as MainModuleId;
       if (saved && [
         'pos', 'kitchen', 'delivery', 'orders', 'catalog', 'tables',
-        'kiosk', 'benefits', 'hr', 'crm', 'store_builder', 'settings', 'dashboard', 'inventory'
+        'kiosk', 'benefits', 'hr', 'crm', 'store_builder', 'settings', 'dashboard', 'inventory',
+        'products', 'clients', 'media', 'pages'
       ].includes(saved)) {
         return saved;
       }
     } catch {
       // fallback
     }
-    return 'pos';
+    return 'dashboard';
   });
 
   useEffect(() => {

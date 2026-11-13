@@ -1293,6 +1293,12 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       }
     }
 
+    try {
+      localStorage.setItem('kh_active_main_module', 'dashboard');
+    } catch {
+      // ignore
+    }
+
     setIsAuthenticated(true);
     void authenticateServer(updatedLoginUser.pin, true);
     logAuditEvent(
