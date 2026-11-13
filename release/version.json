@@ -1,8 +1,8 @@
 {
-  "buildId": "20261113055532",
-  "builtAt": "2026-11-13T05:55:32.507Z",
-  "commitSha": "9d36abb",
-  "message": "fix(store): support multi-select up to maxSelection in option groups and quantity buttons on multiple nested sub-options",
+  "buildId": "20261113153319",
+  "builtAt": "2026-11-13T15:33:19.680Z",
+  "commitSha": "5de0da0",
+  "message": "feat(pos): support sub-extras, conditional logic, and half-and-half combinations in POS customizer",
   "totalFiles": 85,
-  "manifestSha256": "1e2d5535342e2ed3f309e42e1edae772a449fb001b537582a441d3c38837a458"
+  "manifestSha256": "bd83a4f8a6b36ced231c3a3857def4cb95a0e4b7dddc93d93c8d236cf89e317e"
 }
