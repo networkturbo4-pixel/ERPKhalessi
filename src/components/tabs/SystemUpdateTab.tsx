@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { useRBAC } from '../../context/RBACContext';
 import { PermissionGate } from '../common/PermissionGate';
@@ -44,6 +44,8 @@ export const SystemUpdateTab: React.FC = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
   const [isBackingUp, setIsBackingUp] = useState(false);
+  const hasCheckedOnMountRef = useRef(false);
+  const isCheckingRef = useRef(false);
 
   const GITHUB_REPO = 'networkturbo4-pixel/ERPKhalessi';
   const log = useCallback((line: string) => {
@@ -62,6 +64,8 @@ export const SystemUpdateTab: React.FC = () => {
 
   const checkUpdatesFlow = useCallback(
     async (silent = false) => {
+      if (isCheckingRef.current) return;
+      isCheckingRef.current = true;
       setIsCheckingUpdate(true);
       if (!silent) {
         setUpdateAvailable(null);
@@ -144,8 +148,11 @@ export const SystemUpdateTab: React.FC = () => {
             );
           }
         } else {
-          log(`✅ Sistema sincronizado al 100% con GitHub (build ${localBuild}).`);
-          if (!silent) {
+          const syncedLine = `✅ Sistema sincronizado al 100% con GitHub (build ${localBuild}).`;
+          if (silent) {
+            setTerminalLogs([syncedLine]);
+          } else {
+            log(syncedLine);
             dispatchToast('Sistema al Día', 'Ya tienes instalada la última versión publicada.', 'success');
           }
         }
@@ -157,6 +164,7 @@ export const SystemUpdateTab: React.FC = () => {
           dispatchToast('Error al comprobar', 'No se pudo consultar GitHub. Revisa tu conexión.', 'error');
         }
       } finally {
+        isCheckingRef.current = false;
         setIsCheckingUpdate(false);
       }
     },
@@ -164,6 +172,8 @@ export const SystemUpdateTab: React.FC = () => {
   );
 
   useEffect(() => {
+    if (hasCheckedOnMountRef.current) return;
+    hasCheckedOnMountRef.current = true;
     void checkUpdatesFlow(true);
   }, [checkUpdatesFlow]);
 

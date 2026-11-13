@@ -1584,7 +1584,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     );
   }, [branchScope, tenants, activeTenant, companyInfo]);
 
-  const dispatchToast = (
+  const dispatchToast = React.useCallback((
     title: string,
     message: string,
     type: ToastItem['type'] = 'success',
@@ -1613,7 +1613,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         setToasts(prev => prev.filter(t => t.id !== id));
       }, 5200);
     }
-  };
+  }, [customization.toastAudioTheme]);
 
   const removeToast = (id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
