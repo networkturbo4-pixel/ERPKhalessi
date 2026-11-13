@@ -31,6 +31,7 @@ function toProductSlugSimple(string $name): string {
 try {
     require_once __DIR__ . '/config.php';
     require_once __DIR__ . '/storage-lib.php';
+    header('Content-Type: text/html; charset=UTF-8');
 
     $pdo = getDbConnection();
     kvInit($pdo);

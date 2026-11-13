@@ -1,8 +1,8 @@
 {
-  "buildId": "20261113043938",
-  "builtAt": "2026-11-13T04:39:38.374Z",
-  "commitSha": "6ee860a",
-  "message": "feat(catalog): 2-column responsive SPA product editor, template editing, and gallery picker for sub-options",
+  "buildId": "20261113045526",
+  "builtAt": "2026-11-13T04:55:26.154Z",
+  "commitSha": "9eed196",
+  "message": "chore(release): build 20261113043938 for OTA deployment",
   "totalFiles": 85,
   "files": [
     {
@@ -42,13 +42,13 @@
     },
     {
       "path": "api/page-og.php",
-      "sha256": "3cc251d8bd095048807576b5aa86f5773c70e408ebdfc457b807e69453c6125f",
-      "size": 3231
+      "sha256": "0a4744e06729450e0e57c1d8d27a1e0152cbfb27f614831c05e0d97f495cdba2",
+      "size": 3285
     },
     {
       "path": "api/product-og.php",
-      "sha256": "fffed8fe61140ae914fc52e7d2e2eb31179469667de9bd4c68a178ff61ee5d13",
-      "size": 3464
+      "sha256": "31710b7c15cc8e6f7851db1b8fd306e8f47f4a4f0d8da69bab1a9d6bad9b2a32",
+      "size": 3518
     },
     {
       "path": "api/products.php",

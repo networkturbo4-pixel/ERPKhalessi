@@ -1,8 +1,8 @@
 {
-  "buildId": "20261113043938",
-  "builtAt": "2026-11-13T04:39:38.374Z",
-  "commitSha": "6ee860a",
-  "message": "feat(catalog): 2-column responsive SPA product editor, template editing, and gallery picker for sub-options",
+  "buildId": "20261113045526",
+  "builtAt": "2026-11-13T04:55:26.154Z",
+  "commitSha": "9eed196",
+  "message": "chore(release): build 20261113043938 for OTA deployment",
   "totalFiles": 85,
-  "manifestSha256": "9b439b87b4c0027c6955a70cb6e2da565bc2ebf86ae128e836904e6137188890"
+  "manifestSha256": "ef6a26d918de97b39fcbe292b4cbdd2836e3ddbfb85bff5fb1af398d64e27670"
 }
