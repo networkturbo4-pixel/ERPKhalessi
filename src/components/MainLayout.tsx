@@ -997,6 +997,66 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
               )}
             </button>
 
+            {/* Galería de Medios & Fotos Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveMainModule('media');
+                setMobileMenuOpen(false);
+              }}
+              className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-all ${
+                sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
+              } ${
+                activeMainModule === 'media'
+                  ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
+              }`}
+              title="Galería de Medios & Fotos"
+            >
+              <FileImage
+                className="h-4 w-4 shrink-0 transition-colors"
+                style={activeMainModule === 'media' ? { color: customization.primaryColor } : undefined}
+              />
+              {(!sidebarCollapsed || mobileMenuOpen) && (
+                <div className="flex items-center justify-between flex-1 min-w-0">
+                  <span className="truncate">Galería de Medios</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-zinc-200/80 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+                    Fotos
+                  </span>
+                </div>
+              )}
+            </button>
+
+            {/* Páginas Personalizadas & Landing Pages Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveMainModule('pages');
+                setMobileMenuOpen(false);
+              }}
+              className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-all ${
+                sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
+              } ${
+                activeMainModule === 'pages'
+                  ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
+              }`}
+              title="Páginas Personalizadas & URLs Cortas"
+            >
+              <Layers
+                className="h-4 w-4 shrink-0 transition-colors"
+                style={activeMainModule === 'pages' ? { color: customization.primaryColor } : undefined}
+              />
+              {(!sidebarCollapsed || mobileMenuOpen) && (
+                <div className="flex items-center justify-between flex-1 min-w-0">
+                  <span className="truncate">Páginas</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-zinc-200/80 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+                    /p/
+                  </span>
+                </div>
+              )}
+            </button>
+
             <button
               type="button"
               onClick={() => {
@@ -1166,66 +1226,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                   <span className="truncate">Delivery & Ruta</span>
                   <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-orange-500/15 text-orange-600 dark:text-orange-400 font-bold">
                     {orders.filter((o) => o.status === 'listo' || o.status === 'en_ruta').length}
-                  </span>
-                </div>
-              )}
-            </button>
-
-            {/* Galería de Medios & Fotos Button */}
-            <button
-              type="button"
-              onClick={() => {
-                setActiveMainModule('media');
-                setMobileMenuOpen(false);
-              }}
-              className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-all ${
-                sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
-              } ${
-                activeMainModule === 'media'
-                  ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
-                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
-              }`}
-              title="Galería de Medios & Fotos"
-            >
-              <FileImage
-                className="h-4 w-4 shrink-0 transition-colors"
-                style={activeMainModule === 'media' ? { color: customization.primaryColor } : undefined}
-              />
-              {(!sidebarCollapsed || mobileMenuOpen) && (
-                <div className="flex items-center justify-between flex-1 min-w-0">
-                  <span className="truncate">Galería de Medios</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-zinc-200/80 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
-                    Fotos
-                  </span>
-                </div>
-              )}
-            </button>
-
-            {/* Páginas Personalizadas & Landing Pages Button */}
-            <button
-              type="button"
-              onClick={() => {
-                setActiveMainModule('pages');
-                setMobileMenuOpen(false);
-              }}
-              className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-all ${
-                sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
-              } ${
-                activeMainModule === 'pages'
-                  ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
-                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
-              }`}
-              title="Páginas Personalizadas & URLs Cortas"
-            >
-              <Layers
-                className="h-4 w-4 shrink-0 transition-colors"
-                style={activeMainModule === 'pages' ? { color: customization.primaryColor } : undefined}
-              />
-              {(!sidebarCollapsed || mobileMenuOpen) && (
-                <div className="flex items-center justify-between flex-1 min-w-0">
-                  <span className="truncate">Páginas</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-zinc-200/80 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
-                    /p/
                   </span>
                 </div>
               )}

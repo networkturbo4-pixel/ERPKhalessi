@@ -1,8 +1,8 @@
 {
-  "buildId": "20261113153319",
-  "builtAt": "2026-11-13T15:33:19.680Z",
-  "commitSha": "5de0da0",
-  "message": "feat(pos): support sub-extras, conditional logic, and half-and-half combinations in POS customizer",
+  "buildId": "20261113154528",
+  "builtAt": "2026-11-13T15:45:28.582Z",
+  "commitSha": "03e6f86",
+  "message": "chore(release): build 20261113153319 with POS sub-extras and conditional logic",
   "totalFiles": 85,
-  "manifestSha256": "bd83a4f8a6b36ced231c3a3857def4cb95a0e4b7dddc93d93c8d236cf89e317e"
+  "manifestSha256": "361e3fd60c631f99098861a69f731227aaafb53317d3a329e467a5aa2f364f5d"
 }
