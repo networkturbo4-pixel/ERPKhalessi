@@ -1,8 +1,8 @@
 {
-  "buildId": "20261113034255",
-  "builtAt": "2026-11-13T03:42:55.869Z",
-  "commitSha": "bd11b0c",
-  "message": "fix: favicon notifications, isolated customer orders, cascade delete, subExtrasLimit validation & checkout rewards summary",
+  "buildId": "20261113043938",
+  "builtAt": "2026-11-13T04:39:38.374Z",
+  "commitSha": "6ee860a",
+  "message": "feat(catalog): 2-column responsive SPA product editor, template editing, and gallery picker for sub-options",
   "totalFiles": 85,
-  "manifestSha256": "c8ffdd4469436ab282dfca2c5a7ded0445e38688bff7f10560b0be4672dd23c3"
+  "manifestSha256": "9b439b87b4c0027c6955a70cb6e2da565bc2ebf86ae128e836904e6137188890"
 }
