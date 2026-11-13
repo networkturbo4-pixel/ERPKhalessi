@@ -1,8 +1,8 @@
 {
-  "buildId": "20261113045526",
-  "builtAt": "2026-11-13T04:55:26.154Z",
-  "commitSha": "9eed196",
-  "message": "chore(release): build 20261113043938 for OTA deployment",
+  "buildId": "20261113050248",
+  "builtAt": "2026-11-13T05:02:48.695Z",
+  "commitSha": "8f414b0",
+  "message": "fix(og): restore text/html Content-Type after config.php in product-og and page-og",
   "totalFiles": 85,
-  "manifestSha256": "ef6a26d918de97b39fcbe292b4cbdd2836e3ddbfb85bff5fb1af398d64e27670"
+  "manifestSha256": "f48ed38f711d6a94c0722b9f008a96a61b9a3c318ada97b45bb9d9b8e29e0533"
 }

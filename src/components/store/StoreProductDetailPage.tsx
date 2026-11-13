@@ -6,6 +6,7 @@ import {
   CartSubOptionSelection,
   CartExtra,
   SubOptionChoice,
+  SubOptionGroup,
 } from '../../types/catalog';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
 import { toProductSlug } from '../../types/storeBuilder';
@@ -88,9 +89,26 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
     (product.subOptions || []).forEach(group => {
       if (group.enabled !== false && group.choices && group.choices.length > 0) {
         const hasMultiple = group.choices.some(c => c.isMultiple);
-        if (!hasMultiple) {
+        const isGroupMulti = Boolean(group.maxSelection && group.maxSelection > 1);
+        if (!hasMultiple && !isGroupMulti) {
           const def = group.choices.find(c => c.isDefault || c.isIncluded) || group.choices[0];
           if (def) initial[group.id] = def.id;
+        }
+      }
+    });
+    return initial;
+  });
+
+  const [selectedSubOptionsMulti, setSelectedSubOptionsMulti] = useState<Record<string, string[]>>(() => {
+    const initial: Record<string, string[]> = {};
+    (product.subOptions || []).forEach(group => {
+      if (group.enabled !== false && group.choices && group.choices.length > 0 && group.maxSelection && group.maxSelection > 1) {
+        const defaults = group.choices
+          .filter(c => !c.isMultiple && (c.isDefault || c.isIncluded))
+          .slice(0, group.maxSelection)
+          .map(c => c.id);
+        if (defaults.length > 0) {
+          initial[group.id] = defaults;
         }
       }
     });
@@ -114,6 +132,75 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
   });
 
   const [selectedNestedChoices, setSelectedNestedChoices] = useState<Record<string, string[]>>({});
+  const [nestedChoiceQuantities, setNestedChoiceQuantities] = useState<Record<string, number>>({});
+
+  const isSingleChoiceSelected = (group: SubOptionGroup, choiceId: string) => {
+    if (group.maxSelection && group.maxSelection > 1) {
+      return (selectedSubOptionsMulti[group.id] || []).includes(choiceId);
+    }
+    return selectedSubOptions[group.id] === choiceId;
+  };
+
+  const getGroupTotalSelected = (group: SubOptionGroup) => {
+    return (group.choices || []).reduce((sum, c) => {
+      if (c.isMultiple) return sum + (subOptionQuantities[c.id] || 0);
+      return sum + (isSingleChoiceSelected(group, c.id) ? 1 : 0);
+    }, 0);
+  };
+
+  const handleSelectSingleChoice = (group: SubOptionGroup, choiceId: string) => {
+    if (group.maxSelection && group.maxSelection > 1) {
+      const curList = selectedSubOptionsMulti[group.id] || [];
+      if (curList.includes(choiceId)) {
+        setSelectedSubOptionsMulti(prev => ({
+          ...prev,
+          [group.id]: curList.filter(id => id !== choiceId),
+        }));
+        return;
+      }
+      const curTotal = getGroupTotalSelected(group);
+      if (curTotal >= group.maxSelection) return;
+      setSelectedSubOptionsMulti(prev => ({
+        ...prev,
+        [group.id]: [...curList, choiceId],
+      }));
+      return;
+    }
+
+    setSelectedSubOptions(prev => ({
+      ...prev,
+      [group.id]: choiceId,
+    }));
+  };
+
+  const handleUpdateNestedQty = (
+    choice: SubOptionChoice,
+    nest: { id: string; maxQty?: number },
+    delta: number
+  ) => {
+    const key = `${choice.id}::${nest.id}`;
+    const curQty = nestedChoiceQuantities[key] || 0;
+    const nextQty = Math.max(0, curQty + delta);
+
+    if (delta > 0) {
+      const maxPerNest = nest.maxQty && nest.maxQty > 0 ? nest.maxQty : 99;
+      if (nextQty > maxPerNest) return;
+
+      if (choice.subExtrasLimit && choice.subExtrasLimit > 0) {
+        const curNestedIds = selectedNestedChoices[choice.id] || [];
+        const totalNested = (choice.nestedChoices || []).reduce((sum, n) => {
+          if (n.isMultiple) return sum + (nestedChoiceQuantities[`${choice.id}::${n.id}`] || 0);
+          return sum + (curNestedIds.includes(n.id) ? 1 : 0);
+        }, 0);
+        if (totalNested >= choice.subExtrasLimit) return;
+      }
+    }
+
+    setNestedChoiceQuantities(prev => ({
+      ...prev,
+      [key]: nextQty,
+    }));
+  };
 
   const handleUpdateChoiceQty = (
     groupId: string,
@@ -129,10 +216,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
       if (nextQty > maxPerChoice) return;
 
       if (group && group.maxSelection && group.maxSelection > 0) {
-        const curGroupTotal = (group.choices || []).reduce(
-          (sum, c) => sum + (c.isMultiple ? (subOptionQuantities[c.id] || 0) : 0),
-          0
-        );
+        const curGroupTotal = getGroupTotalSelected(group);
         if (curGroupTotal >= group.maxSelection) return;
       }
     }
@@ -226,7 +310,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
           }
         }
       } else {
-        if (selectedSubOptions[group.id] === choice.id) {
+        if (isSingleChoiceSelected(group, choice.id)) {
           isChoiceActive = true;
           if (!choice.hidePrice) {
             subOptionsDelta += choice.priceDelta || 0;
@@ -237,7 +321,12 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
       if (isChoiceActive) {
         const nestedSelected = selectedNestedChoices[choice.id] || [];
         (choice.nestedChoices || []).forEach(nest => {
-          if (nestedSelected.includes(nest.id) && !nest.hidePrice) {
+          if (nest.isMultiple) {
+            const nestQty = nestedChoiceQuantities[`${choice.id}::${nest.id}`] || 0;
+            if (nestQty > 0 && !nest.hidePrice) {
+              subOptionsDelta += nestQty * (nest.priceDelta || 0);
+            }
+          } else if (nestedSelected.includes(nest.id) && !nest.hidePrice) {
             subOptionsDelta += nest.priceDelta || 0;
           }
         });
@@ -267,16 +356,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
     for (const group of product.subOptions || []) {
       if (group.enabled === false || !group.choices || group.choices.length === 0) continue;
 
-      const multiCount = group.choices.reduce(
-        (sum, c) => sum + (c.isMultiple ? subOptionQuantities[c.id] || 0 : 0),
-        0
-      );
-      const singleCount = group.choices.some(
-        c => !c.isMultiple && selectedSubOptions[group.id] === c.id
-      )
-        ? 1
-        : 0;
-      const groupTotal = multiCount + singleCount;
+      const groupTotal = getGroupTotalSelected(group);
 
       if (group.required && groupTotal === 0) {
         return { valid: false, reason: `Elige una opción en "${group.name}"` };
@@ -292,7 +372,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
       for (const choice of group.choices) {
         const isChoiceActive = choice.isMultiple
           ? (subOptionQuantities[choice.id] || 0) > 0
-          : selectedSubOptions[group.id] === choice.id;
+          : isSingleChoiceSelected(group, choice.id);
 
         if (!isChoiceActive || !choice.nestedChoices || choice.nestedChoices.length === 0) {
           continue;
@@ -301,7 +381,11 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
         const subLimit = choice.subExtrasLimit && choice.subExtrasLimit > 0 ? choice.subExtrasLimit : 0;
         if (subLimit > 0) {
           const requiredCount = Math.min(subLimit, choice.nestedChoices.length);
-          const nestedCount = (selectedNestedChoices[choice.id] || []).length;
+          const curNestedIds = selectedNestedChoices[choice.id] || [];
+          const nestedCount = choice.nestedChoices.reduce((sum, n) => {
+            if (n.isMultiple) return sum + (nestedChoiceQuantities[`${choice.id}::${n.id}`] || 0);
+            return sum + (curNestedIds.includes(n.id) ? 1 : 0);
+          }, 0);
           if (nestedCount !== requiredCount) {
             return {
               valid: false,
@@ -316,10 +400,12 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
   }, [
     firstHalfPizza,
     isHalfAndHalf,
+    nestedChoiceQuantities,
     product.subOptions,
     secondHalfPizza,
     selectedNestedChoices,
     selectedSubOptions,
+    selectedSubOptionsMulti,
     subOptionQuantities,
   ]);
 
@@ -330,16 +416,35 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
       if (group.enabled === false) return;
 
       (group.choices || []).forEach(choice => {
+        const nestedSelected = selectedNestedChoices[choice.id] || [];
+        let nestedPriceDelta = 0;
+        const nestedNames: string[] = [];
+        (choice.nestedChoices || []).forEach(n => {
+          if (n.isMultiple) {
+            const nq = nestedChoiceQuantities[`${choice.id}::${n.id}`] || 0;
+            if (nq > 0) {
+              nestedNames.push(nq > 1 ? `${n.name} x${nq}` : n.name);
+              if (!n.hidePrice) nestedPriceDelta += nq * (n.priceDelta || 0);
+            }
+          } else if (nestedSelected.includes(n.id)) {
+            nestedNames.push(n.name);
+            if (!n.hidePrice) nestedPriceDelta += n.priceDelta || 0;
+          }
+        });
+
         if (choice.isMultiple) {
           const qty = subOptionQuantities[choice.id] || 0;
           if (qty > 0) {
             const freeQty = choice.freeQuantity || 0;
             const billableQty = Math.max(0, qty - freeQty);
-            const totalChoicePrice = billableQty * (choice.priceDelta || 0);
+            const totalChoicePrice = billableQty * (choice.priceDelta || 0) + nestedPriceDelta;
 
             let choiceName = choice.name;
             if (qty > 1) {
               choiceName += ` (x${qty})`;
+            }
+            if (nestedNames.length > 0) {
+              choiceName += ` (${nestedNames.join(', ')})`;
             }
 
             subOptionsList.push({
@@ -352,12 +457,8 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
             });
           }
         } else {
-          if (selectedSubOptions[group.id] === choice.id) {
+          if (isSingleChoiceSelected(group, choice.id)) {
             let fullChoiceName = choice.name;
-            const nestedSelected = selectedNestedChoices[choice.id] || [];
-            const nestedNames = (choice.nestedChoices || [])
-              .filter(n => nestedSelected.includes(n.id))
-              .map(n => n.name);
             if (nestedNames.length > 0) {
               fullChoiceName += ` (${nestedNames.join(', ')})`;
             }
@@ -367,7 +468,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
               groupName: group.name,
               choiceId: choice.id,
               choiceName: fullChoiceName,
-              priceDelta: choice.priceDelta || 0,
+              priceDelta: (choice.hidePrice ? 0 : (choice.priceDelta || 0)) + nestedPriceDelta,
               quantity: 1,
             });
           }
@@ -1137,10 +1238,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
                           >
                             {(() => {
                               const hasMultiple = (group.choices || []).some(c => c.isMultiple);
-                              const groupTotal = (group.choices || []).reduce(
-                                (sum, c) => sum + (c.isMultiple ? (subOptionQuantities[c.id] || 0) : (chosenId === c.id ? 1 : 0)),
-                                0
-                              );
+                              const groupTotal = getGroupTotalSelected(group);
                               if (group.maxSelection && group.maxSelection > 0) {
                                 return `${groupTotal} / ${group.maxSelection}`;
                               }
@@ -1168,12 +1266,10 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
                         {group.choices.map(choice => {
                           const isMultiple = !!choice.isMultiple;
                           const qty = isMultiple ? (subOptionQuantities[choice.id] || 0) : 0;
-                          const isSelected = isMultiple ? qty > 0 : chosenId === choice.id;
+                          const isSelected = isMultiple ? qty > 0 : isSingleChoiceSelected(group, choice.id);
                           const freeQty = choice.freeQuantity || 0;
-                          const groupTotal = (group.choices || []).reduce(
-                            (sum, c) => sum + (c.isMultiple ? (subOptionQuantities[c.id] || 0) : (chosenId === c.id ? 1 : 0)),
-                            0
-                          );
+                          const groupTotal = getGroupTotalSelected(group);
+                          const isGroupMulti = Boolean(group.maxSelection && group.maxSelection > 1);
                           const isAtMax = Boolean(
                             (choice.maxQuantity && choice.maxQuantity > 0 && qty >= choice.maxQuantity) ||
                             (group.maxSelection && group.maxSelection > 0 && groupTotal >= group.maxSelection)
@@ -1248,13 +1344,9 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
                                 ) : (
                                   <button
                                     type="button"
-                                    onClick={() =>
-                                      setSelectedSubOptions(prev => ({
-                                        ...prev,
-                                        [group.id]: choice.id,
-                                      }))
-                                    }
-                                    className="ml-1 text-[11px] font-bold text-red-600"
+                                    disabled={!isSelected && isGroupMulti && isAtMax}
+                                    onClick={() => handleSelectSingleChoice(group, choice.id)}
+                                    className="ml-1 text-[11px] font-bold text-red-600 disabled:opacity-35"
                                   >
                                     {isSelected ? '✓' : 'Elegir'}
                                   </button>
@@ -1370,20 +1462,16 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
                                   ) : (
                                     <button
                                       type="button"
-                                      onClick={() =>
-                                        setSelectedSubOptions(prev => ({
-                                          ...prev,
-                                          [group.id]: choice.id,
-                                        }))
-                                      }
-                                      className="ml-auto"
+                                      disabled={!isSelected && isGroupMulti && isAtMax}
+                                      onClick={() => handleSelectSingleChoice(group, choice.id)}
+                                      className="ml-auto disabled:opacity-35"
                                     >
                                       <div
-                                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                                        className={`w-4 h-4 ${isGroupMulti ? 'rounded-md' : 'rounded-full'} border-2 flex items-center justify-center ${
                                           isSelected ? 'border-red-600 bg-red-600' : 'border-zinc-300'
                                         }`}
                                       >
-                                        {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                                        {isSelected && (isGroupMulti ? <Check className="w-2.5 h-2.5 text-white" /> : <div className="w-1.5 h-1.5 rounded-full bg-white" />)}
                                       </div>
                                     </button>
                                   )}
@@ -1402,10 +1490,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
                                       handleUpdateChoiceQty(group.id, choice, 1);
                                     }
                                   } else {
-                                    setSelectedSubOptions(prev => ({
-                                      ...prev,
-                                      [group.id]: choice.id,
-                                    }));
+                                    handleSelectSingleChoice(group, choice.id);
                                   }
                                 }}
                                 style={{ touchAction: 'manipulation' }}
@@ -1542,9 +1627,11 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
                                 ) : (
                                   <div className="shrink-0 pl-2">
                                     <div
-                                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                                      className={`w-5 h-5 ${isGroupMulti ? 'rounded-md' : 'rounded-full'} border-2 flex items-center justify-center transition-all ${
                                         isSelected
-                                          ? isLightTheme
+                                          ? isGroupMulti
+                                            ? 'border-red-600 bg-red-600 shadow-xs'
+                                            : isLightTheme
                                             ? 'border-red-600 bg-white shadow-xs'
                                             : 'border-red-600 bg-neutral-900 shadow-xs'
                                           : isLightTheme
@@ -1552,9 +1639,12 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
                                           : 'border-neutral-600 bg-transparent'
                                       }`}
                                     >
-                                      {isSelected && (
-                                        <div className="w-2.5 h-2.5 rounded-full bg-red-600" />
-                                      )}
+                                      {isSelected &&
+                                        (isGroupMulti ? (
+                                          <Check className="w-3 h-3 text-white" />
+                                        ) : (
+                                          <div className="w-2.5 h-2.5 rounded-full bg-red-600" />
+                                        ))}
                                     </div>
                                   </div>
                                 )}
@@ -1571,8 +1661,12 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
                                   maxSubLimit !== null
                                     ? Math.min(maxSubLimit, choice.nestedChoices.length)
                                     : null;
+                                const totalNestedSelected = choice.nestedChoices.reduce((sum, n) => {
+                                  if (n.isMultiple) return sum + (nestedChoiceQuantities[`${choice.id}::${n.id}`] || 0);
+                                  return sum + (curNestedIds.includes(n.id) ? 1 : 0);
+                                }, 0);
                                 const isSubLimitReached =
-                                  maxSubLimit !== null && curNestedIds.length >= maxSubLimit;
+                                  maxSubLimit !== null && totalNestedSelected >= maxSubLimit;
 
                                 return (
                                   <div
@@ -1593,19 +1687,98 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
                                       {requiredSubCount !== null && (
                                         <span
                                           className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                                            curNestedIds.length === requiredSubCount
+                                            totalNestedSelected === requiredSubCount
                                               ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
                                               : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
                                           }`}
                                         >
-                                          Elige {requiredSubCount} ({curNestedIds.length}/{requiredSubCount})
+                                          Elige {requiredSubCount} ({totalNestedSelected}/{requiredSubCount})
                                         </span>
                                       )}
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                       {choice.nestedChoices.map(nest => {
-                                        const isNestSelected = curNestedIds.includes(nest.id);
-                                        const isNestDisabled = !isNestSelected && isSubLimitReached;
+                                        const isNestMultiple = !!nest.isMultiple;
+                                        const nestQty = isNestMultiple
+                                          ? (nestedChoiceQuantities[`${choice.id}::${nest.id}`] || 0)
+                                          : 0;
+                                        const isNestSelected = isNestMultiple
+                                          ? nestQty > 0
+                                          : curNestedIds.includes(nest.id);
+                                        const isNestAtMax = Boolean(
+                                          (nest.maxQty && nest.maxQty > 0 && nestQty >= nest.maxQty) ||
+                                          isSubLimitReached
+                                        );
+                                        const isNestDisabled = isNestMultiple
+                                          ? nestQty === 0 && isSubLimitReached
+                                          : !isNestSelected && isSubLimitReached;
+
+                                        if (isNestMultiple) {
+                                          return (
+                                            <div
+                                              key={nest.id}
+                                              onClick={() => {
+                                                if (nestQty === 0 && !isNestAtMax) {
+                                                  handleUpdateNestedQty(choice, nest, 1);
+                                                }
+                                              }}
+                                              className={`p-2.5 rounded-xl border text-left flex items-center justify-between gap-2 text-xs transition-colors cursor-pointer ${
+                                                isNestSelected
+                                                  ? isLightTheme
+                                                    ? 'border-red-500 bg-white text-red-600 font-bold shadow-xs'
+                                                    : 'border-red-500 bg-neutral-900 text-red-400 font-bold shadow-xs'
+                                                  : isNestDisabled
+                                                  ? isLightTheme
+                                                    ? 'border-zinc-200 bg-zinc-100/70 text-zinc-400 opacity-45 cursor-not-allowed'
+                                                    : 'border-neutral-800 bg-neutral-950 text-neutral-600 opacity-45 cursor-not-allowed'
+                                                  : isLightTheme
+                                                  ? 'border-zinc-200 bg-white text-zinc-800 hover:border-zinc-300'
+                                                  : 'border-neutral-800 bg-neutral-900 text-neutral-300 hover:border-neutral-700'
+                                              }`}
+                                            >
+                                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                {nest.imageUrl && (
+                                                  <img src={nest.imageUrl} alt={nest.name} className="w-7 h-7 rounded-lg object-cover shrink-0" />
+                                                )}
+                                                <div className="min-w-0">
+                                                  <span className="block truncate">{nest.name}</span>
+                                                  {nest.priceDelta > 0 && !nest.hidePrice && (
+                                                    <span className="font-bold text-red-600 text-[11px]">
+                                                      +S/{nest.priceDelta.toFixed(2)} c/u
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </div>
+
+                                              <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                                                <button
+                                                  type="button"
+                                                  disabled={nestQty <= 0}
+                                                  onClick={() => handleUpdateNestedQty(choice, nest, -1)}
+                                                  className={`w-6 h-6 rounded-lg border flex items-center justify-center font-black disabled:opacity-25 ${
+                                                    isLightTheme
+                                                      ? 'border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-800'
+                                                      : 'border-neutral-700 bg-neutral-800 hover:bg-neutral-700 text-white'
+                                                  }`}
+                                                >
+                                                  <Minus className="w-3 h-3" />
+                                                </button>
+                                                <span className={`w-5 text-center font-black text-xs ${isLightTheme ? 'text-zinc-950' : 'text-white'}`}>
+                                                  {nestQty}
+                                                </span>
+                                                <button
+                                                  type="button"
+                                                  disabled={isNestAtMax}
+                                                  onClick={() => handleUpdateNestedQty(choice, nest, 1)}
+                                                  className="w-6 h-6 rounded-lg bg-red-600 hover:bg-red-700 text-white flex items-center justify-center font-black disabled:opacity-25"
+                                                >
+                                                  <Plus className="w-3 h-3" />
+                                                </button>
+                                              </div>
+                                            </div>
+                                          );
+                                        }
+
                                         return (
                                           <button
                                             key={nest.id}
@@ -1620,17 +1793,10 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
                                                     [choice.id]: cur.filter(id => id !== nest.id),
                                                   };
                                                 }
-                                                if (maxSubLimit !== null && cur.length >= maxSubLimit) {
+                                                if (maxSubLimit !== null && totalNestedSelected >= maxSubLimit) {
                                                   return prev;
                                                 }
-                                                if (nest.isMultiple || (maxSubLimit !== null && maxSubLimit > 1)) {
-                                                  const cap =
-                                                    maxSubLimit !== null
-                                                      ? maxSubLimit
-                                                      : nest.maxQty && nest.maxQty > 0
-                                                      ? nest.maxQty
-                                                      : 99;
-                                                  if (cur.length >= cap) return prev;
+                                                if (maxSubLimit !== null && maxSubLimit > 1) {
                                                   return { ...prev, [choice.id]: [...cur, nest.id] };
                                                 }
                                                 return { ...prev, [choice.id]: [nest.id] };
@@ -1650,9 +1816,14 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
                                                 : 'border-neutral-800 bg-neutral-900 text-neutral-300 hover:border-neutral-700'
                                             }`}
                                           >
-                                            <span>{nest.name}</span>
+                                            <div className="flex items-center gap-2 min-w-0">
+                                              {nest.imageUrl && (
+                                                <img src={nest.imageUrl} alt={nest.name} className="w-6 h-6 rounded-md object-cover shrink-0" />
+                                              )}
+                                              <span className="truncate">{nest.name}</span>
+                                            </div>
                                             {nest.priceDelta > 0 && !nest.hidePrice && (
-                                              <span className="font-bold text-red-600">+S/{nest.priceDelta.toFixed(2)}</span>
+                                              <span className="font-bold text-red-600 shrink-0">+S/{nest.priceDelta.toFixed(2)}</span>
                                             )}
                                           </button>
                                         );
