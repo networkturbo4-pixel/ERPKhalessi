@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useId, Suspense, lazy } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
+import { useStoreBuilder } from '../../context/StoreBuilderContext';
 import { ComplaintGoodType, ComplaintType } from '../../types/settings';
 
 const LazyHRProvider = lazy(() =>
@@ -38,6 +39,7 @@ interface StorefrontFooterProps {
 }
 
 export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme = 'light' }) => {
+  const { customPages } = useStoreBuilder();
   const {
     companyInfo,
     tenants,
@@ -193,92 +195,102 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme 
       <footer
         className={`mt-14 border-t relative transition-colors ${
           isLight
-            ? 'bg-zinc-50/90 text-zinc-600 border-zinc-200/80 shadow-xs'
-            : 'bg-[#101116] text-zinc-400 border-zinc-800/80'
+            ? 'bg-[#F4F5F7] text-zinc-600 border-zinc-200/90'
+            : 'bg-[#090A0F] text-zinc-400 border-zinc-800/90'
         }`}
       >
-        {/* Top Solid Accent Line */}
-        <div
-          className="h-1 w-full"
-          style={{ backgroundColor: customization.primaryColor || '#e11d48' }}
-        />
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-8">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-8">
+          {/* App-Style Bento Grid */}
           <div className="kh-footer-grid">
-            {/* COLUMN 1: Brand Emblem & Fiscal Data from Configuración -> Datos Fiscales */}
-            <div className="kh-footer-col-3 space-y-4">
-              {/* Brand Emblem */}
-              <div className="inline-flex items-center gap-2.5">
+            {/* COLUMN 1: Brand & Fiscal Info Card */}
+            <div
+              className={`kh-footer-col-3 p-5 rounded-2xl border flex flex-col justify-between gap-5 ${
+                isLight
+                  ? 'bg-white border-zinc-200/90'
+                  : 'bg-[#12141B] border-zinc-800/90'
+              }`}
+            >
+              <div className="space-y-2.5">
                 {(customization.storeHeaderLogo || customization.logoDark || customization.logoLight) ? (
                   <img
                     src={customization.storeHeaderLogo || customization.logoDark || customization.logoLight}
                     alt={companyInfo.commercialName}
-                    className="h-11 max-w-[180px] object-contain drop-shadow-xs"
+                    className="h-9 max-w-[170px] object-contain"
                   />
                 ) : (
                   <div
-                    className="px-3.5 py-2 rounded-2xl text-white shadow-md flex items-center gap-2"
-                    style={{ backgroundColor: customization.primaryColor }}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-white"
+                    style={{ backgroundColor: customization.primaryColor || '#18181b' }}
                   >
-                    <Flame className="h-5 w-5 fill-amber-300 text-amber-200" />
+                    <Flame className="h-4 w-4 fill-amber-300 text-amber-200" />
                     <div className="leading-none">
-                      <span className="block text-[10px] font-black tracking-widest uppercase text-amber-200">
+                      <span className="block text-[9px] font-bold tracking-widest uppercase text-amber-200">
                         PIZZA
                       </span>
-                      <span className="block text-sm font-black tracking-tight uppercase">
+                      <span className="block text-sm font-extrabold tracking-tight uppercase">
                         {companyInfo.commercialName.replace(/pizza/gi, '').trim() || 'KHALESSI'}
                       </span>
                     </div>
                   </div>
                 )}
-              </div>
 
-              <ul className="space-y-2 text-xs font-medium">
-                <li className="flex items-center gap-2.5">
-                  <span
-                    className={`h-7 w-7 rounded-xl flex items-center justify-center shrink-0 border ${
-                      isLight
-                        ? 'bg-white border-zinc-200 text-zinc-700 shadow-2xs'
-                        : 'bg-zinc-900 border-zinc-800 text-zinc-300'
+                {companyInfo.legalName && (
+                  <p
+                    className={`text-xs font-semibold leading-snug ${
+                      isLight ? 'text-zinc-800' : 'text-zinc-200'
                     }`}
                   >
-                    <CreditCard className="h-3.5 w-3.5" />
-                  </span>
+                    {companyInfo.legalName}
+                  </p>
+                )}
+              </div>
+
+              <ul className="space-y-2.5 text-xs">
+                <li className="flex items-center gap-2.5">
+                  <CreditCard
+                    className={`h-3.5 w-3.5 shrink-0 ${
+                      isLight ? 'text-zinc-400' : 'text-zinc-500'
+                    }`}
+                  />
                   <span className="truncate">
-                    <strong className={isLight ? 'text-zinc-900' : 'text-white'}>RUC:</strong>{' '}
-                    <span className="font-mono">{companyInfo.taxId}</span>
+                    <span className={isLight ? 'text-zinc-500' : 'text-zinc-400'}>RUC </span>
+                    <span
+                      className={`font-mono font-semibold ${
+                        isLight ? 'text-zinc-900' : 'text-zinc-100'
+                      }`}
+                    >
+                      {companyInfo.taxId}
+                    </span>
                   </span>
                 </li>
 
                 <li className="flex items-start gap-2.5">
+                  <MapPin
+                    className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${
+                      isLight ? 'text-zinc-400' : 'text-zinc-500'
+                    }`}
+                  />
                   <span
-                    className={`h-7 w-7 rounded-xl flex items-center justify-center shrink-0 mt-0.5 border ${
-                      isLight
-                        ? 'bg-white border-zinc-200 text-zinc-700 shadow-2xs'
-                        : 'bg-zinc-900 border-zinc-800 text-zinc-300'
+                    className={`leading-relaxed ${
+                      isLight ? 'text-zinc-600' : 'text-zinc-300'
                     }`}
                   >
-                    <MapPin className="h-3.5 w-3.5" />
-                  </span>
-                  <span className="leading-snug pt-1 text-zinc-700 dark:text-zinc-300">
                     {companyInfo.address}
                   </span>
                 </li>
 
                 <li className="flex items-center gap-2.5">
-                  <span
-                    className={`h-7 w-7 rounded-xl flex items-center justify-center shrink-0 border ${
-                      isLight
-                        ? 'bg-white border-zinc-200 text-zinc-700 shadow-2xs'
-                        : 'bg-zinc-900 border-zinc-800 text-zinc-300'
+                  <Phone
+                    className={`h-3.5 w-3.5 shrink-0 ${
+                      isLight ? 'text-zinc-400' : 'text-zinc-500'
                     }`}
-                  >
-                    <Phone className="h-3.5 w-3.5" />
-                  </span>
+                  />
                   <a
                     href={`tel:${companyInfo.phone}`}
-                    className={`font-semibold hover:underline ${
-                      isLight ? 'text-zinc-800' : 'text-zinc-200'
+                    className={`font-medium transition-colors hover:underline ${
+                      isLight
+                        ? 'text-zinc-800 hover:text-zinc-950'
+                        : 'text-zinc-200 hover:text-white'
                     }`}
                   >
                     {companyInfo.phone}
@@ -286,19 +298,17 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme 
                 </li>
 
                 <li className="flex items-center gap-2.5">
-                  <span
-                    className={`h-7 w-7 rounded-xl flex items-center justify-center shrink-0 border ${
-                      isLight
-                        ? 'bg-white border-zinc-200 text-zinc-700 shadow-2xs'
-                        : 'bg-zinc-900 border-zinc-800 text-zinc-300'
+                  <Mail
+                    className={`h-3.5 w-3.5 shrink-0 ${
+                      isLight ? 'text-zinc-400' : 'text-zinc-500'
                     }`}
-                  >
-                    <Mail className="h-3.5 w-3.5" />
-                  </span>
+                  />
                   <a
                     href={`mailto:${companyInfo.email}`}
-                    className={`hover:underline truncate ${
-                      isLight ? 'text-zinc-800' : 'text-zinc-200'
+                    className={`truncate transition-colors hover:underline ${
+                      isLight
+                        ? 'text-zinc-800 hover:text-zinc-950'
+                        : 'text-zinc-200 hover:text-white'
                     }`}
                   >
                     {companyInfo.email}
@@ -307,273 +317,249 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme 
               </ul>
             </div>
 
-            {/* COLUMN 2: Atención al Cliente */}
-            <div className="kh-footer-col-3 space-y-4">
+            {/* COLUMN 2: Atención al Cliente (App-style list rows) */}
+            <div
+              className={`kh-footer-col-3 p-5 rounded-2xl border flex flex-col gap-3.5 ${
+                isLight
+                  ? 'bg-white border-zinc-200/90'
+                  : 'bg-[#12141B] border-zinc-800/90'
+              }`}
+            >
               <h4
-                className={`text-xs font-black uppercase tracking-wider ${
-                  isLight ? 'text-zinc-900' : 'text-white'
+                className={`text-[11px] font-bold uppercase tracking-[0.12em] ${
+                  isLight ? 'text-zinc-900' : 'text-zinc-100'
                 }`}
               >
                 Atención al Cliente
               </h4>
 
-              <ul className="space-y-1.5 text-xs font-semibold">
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setInfoModal('terms')}
-                    className={`w-full p-2 rounded-xl flex items-center gap-2.5 text-left transition-all ${
-                      isLight
-                        ? 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950'
-                        : 'text-zinc-300 hover:bg-zinc-900 hover:text-white'
-                    }`}
-                  >
-                    <span
-                      className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 border ${
-                        isLight
-                          ? 'bg-white border-zinc-200 text-zinc-700 shadow-2xs'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-300'
-                      }`}
-                    >
-                      <FileText className="h-3.5 w-3.5" />
-                    </span>
-                    <span className="truncate">Términos y Condiciones</span>
-                  </button>
-                </li>
-
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setInfoModal('returns')}
-                    className={`w-full p-2 rounded-xl flex items-center gap-2.5 text-left transition-all ${
-                      isLight
-                        ? 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950'
-                        : 'text-zinc-300 hover:bg-zinc-900 hover:text-white'
-                    }`}
-                  >
-                    <span
-                      className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 border ${
-                        isLight
-                          ? 'bg-white border-zinc-200 text-zinc-700 shadow-2xs'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-300'
-                      }`}
-                    >
-                      <ArrowLeftRight className="h-3.5 w-3.5" />
-                    </span>
-                    <span className="truncate">Cambios y Devoluciones</span>
-                  </button>
-                </li>
-
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setInfoModal('orders')}
-                    className={`w-full p-2 rounded-xl flex items-center gap-2.5 text-left transition-all ${
-                      isLight
-                        ? 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950'
-                        : 'text-zinc-300 hover:bg-zinc-900 hover:text-white'
-                    }`}
-                  >
-                    <span
-                      className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 border ${
-                        isLight
-                          ? 'bg-white border-zinc-200 text-zinc-700 shadow-2xs'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-300'
-                      }`}
-                    >
-                      <Receipt className="h-3.5 w-3.5" />
-                    </span>
-                    <span className="truncate">Mis Pedidos y Recibos</span>
-                  </button>
-                </li>
-
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => {
+              <ul className="space-y-1.5 text-[13px] font-medium">
+                {[
+                  {
+                    label: 'Términos y Condiciones',
+                    icon: FileText,
+                    onClick: () => setInfoModal('terms'),
+                  },
+                  {
+                    label: 'Cambios y Devoluciones',
+                    icon: ArrowLeftRight,
+                    onClick: () => setInfoModal('returns'),
+                  },
+                  {
+                    label: 'Mis Pedidos y Recibos',
+                    icon: Receipt,
+                    onClick: () => setInfoModal('orders'),
+                  },
+                  {
+                    label: 'Trabaja con Nosotros',
+                    icon: Briefcase,
+                    onClick: () => {
                       setJobInitialQr(false);
                       setIsJobModalOpen(true);
-                    }}
-                    className={`w-full p-2 rounded-xl flex items-center gap-2.5 text-left transition-all ${
-                      isLight
-                        ? 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950'
-                        : 'text-zinc-300 hover:bg-zinc-900 hover:text-white'
-                    }`}
-                  >
-                    <span
-                      className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 border ${
-                        isLight
-                          ? 'bg-white border-zinc-200 text-zinc-700 shadow-2xs'
-                          : 'bg-zinc-900 border-zinc-800 text-zinc-300'
-                      }`}
-                    >
-                      <Briefcase className="h-3.5 w-3.5" />
-                    </span>
-                    <span className="truncate">Trabaja con Nosotros</span>
-                  </button>
-                </li>
+                    },
+                  },
+                ].map(item => {
+                  const Icon = item.icon;
+                  return (
+                    <li key={item.label}>
+                      <button
+                        type="button"
+                        onClick={item.onClick}
+                        className={`w-full px-3 py-2.5 rounded-xl flex items-center justify-between gap-2.5 text-left transition-colors group ${
+                          isLight
+                            ? 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950'
+                            : 'text-zinc-300 hover:bg-zinc-800/70 hover:text-white'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2.5 min-w-0">
+                          <Icon
+                            className={`h-4 w-4 shrink-0 transition-colors ${
+                              isLight
+                                ? 'text-zinc-400 group-hover:text-zinc-800'
+                                : 'text-zinc-500 group-hover:text-zinc-200'
+                            }`}
+                          />
+                          <span className="truncate">{item.label}</span>
+                        </span>
+                        <ChevronRight
+                          className={`h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5 ${
+                            isLight ? 'text-zinc-300 group-hover:text-zinc-600' : 'text-zinc-600 group-hover:text-zinc-400'
+                          }`}
+                        />
+                      </button>
+                    </li>
+                  );
+                })}
+                {customPages
+                  .filter(p => p.status === 'published' && p.showInStoreFooter)
+                  .map(page => (
+                    <li key={page.id}>
+                      <a
+                        href={`/p/${page.slug}`}
+                        className={`w-full px-3 py-2.5 rounded-xl flex items-center justify-between gap-2.5 text-left transition-colors group ${
+                          isLight
+                            ? 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950'
+                            : 'text-zinc-300 hover:bg-zinc-800/70 hover:text-white'
+                        }`}
+                      >
+                        <span className="flex items-center gap-2.5 min-w-0">
+                          <FileText
+                            className={`h-4 w-4 shrink-0 transition-colors ${
+                              isLight
+                                ? 'text-zinc-400 group-hover:text-zinc-800'
+                                : 'text-zinc-500 group-hover:text-zinc-200'
+                            }`}
+                          />
+                          <span className="truncate">{page.navLabel?.trim() || page.title}</span>
+                        </span>
+                        <ChevronRight
+                          className={`h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5 ${
+                            isLight ? 'text-zinc-300 group-hover:text-zinc-600' : 'text-zinc-600 group-hover:text-zinc-400'
+                          }`}
+                        />
+                      </a>
+                    </li>
+                  ))}
               </ul>
             </div>
 
             {/* COLUMN 3: Métodos de Pago & Síguenos */}
-            <div className="kh-footer-col-3 space-y-5">
+            <div
+              className={`kh-footer-col-3 p-5 rounded-2xl border flex flex-col justify-between gap-5 ${
+                isLight
+                  ? 'bg-white border-zinc-200/90'
+                  : 'bg-[#12141B] border-zinc-800/90'
+              }`}
+            >
               <div className="space-y-3">
                 <h4
-                  className={`text-xs font-black uppercase tracking-wider ${
-                    isLight ? 'text-zinc-900' : 'text-white'
+                  className={`text-[11px] font-bold uppercase tracking-[0.12em] ${
+                    isLight ? 'text-zinc-900' : 'text-zinc-100'
                   }`}
                 >
                   Métodos de Pago
                 </h4>
 
-                <div className="flex flex-wrap gap-1.5">
-                  <span
-                    className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black tracking-wide border shadow-2xs ${
-                      isLight
-                        ? 'bg-white border-zinc-200 text-blue-900'
-                        : 'bg-zinc-900 border-zinc-800 text-blue-400'
-                    }`}
-                  >
-                    VISA
-                  </span>
-                  <span
-                    className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold border shadow-2xs ${
-                      isLight
-                        ? 'bg-white border-zinc-200 text-rose-700'
-                        : 'bg-zinc-900 border-zinc-800 text-rose-400'
-                    }`}
-                  >
-                    Mastercard
-                  </span>
-                  <span
-                    className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold border shadow-2xs ${
-                      isLight
-                        ? 'bg-white border-zinc-200 text-purple-700'
-                        : 'bg-zinc-900 border-zinc-800 text-purple-300'
-                    }`}
-                  >
-                    Yape
-                  </span>
-                  <span
-                    className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold border shadow-2xs ${
-                      isLight
-                        ? 'bg-white border-zinc-200 text-cyan-700'
-                        : 'bg-zinc-900 border-zinc-800 text-cyan-300'
-                    }`}
-                  >
-                    Plin
-                  </span>
-                  <span
-                    className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold border shadow-2xs ${
-                      isLight
-                        ? 'bg-white border-zinc-200 text-emerald-700'
-                        : 'bg-zinc-900 border-zinc-800 text-emerald-400'
-                    }`}
-                  >
-                    Efectivo
-                  </span>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: 'VISA', accent: isLight ? 'bg-blue-700' : 'bg-blue-400' },
+                    { label: 'Mastercard', accent: isLight ? 'bg-rose-600' : 'bg-rose-400' },
+                    { label: 'Yape', accent: isLight ? 'bg-purple-700' : 'bg-purple-400' },
+                    { label: 'Plin', accent: isLight ? 'bg-cyan-600' : 'bg-cyan-400' },
+                    { label: 'Efectivo', accent: isLight ? 'bg-emerald-600' : 'bg-emerald-400' },
+                  ].map(method => (
+                    <span
+                      key={method.label}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold border ${
+                        isLight
+                          ? 'bg-[#F8F9FA] border-zinc-200 text-zinc-800'
+                          : 'bg-zinc-900 border-zinc-800 text-zinc-200'
+                      }`}
+                    >
+                      <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${method.accent}`} />
+                      {method.label}
+                    </span>
+                  ))}
                 </div>
               </div>
 
-              <div className="space-y-2.5">
-                <h4
-                  className={`text-xs font-black uppercase tracking-wider ${
-                    isLight ? 'text-zinc-900' : 'text-white'
-                  }`}
-                >
-                  Síguenos
-                </h4>
+              {(social.facebook || social.instagram || social.tiktok || social.whatsapp) && (
+                <div className="space-y-3">
+                  <h4
+                    className={`text-[11px] font-bold uppercase tracking-[0.12em] ${
+                      isLight ? 'text-zinc-900' : 'text-zinc-100'
+                    }`}
+                  >
+                    Comunidad
+                  </h4>
 
-                <div className="flex items-center gap-2">
-                  {social.facebook && (
-                    <a
-                      href={social.facebook}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label="Visitar Facebook oficial"
-                      className={`h-9 w-9 rounded-xl border flex items-center justify-center transition-all font-black text-sm ${
-                        isLight
-                          ? 'bg-white border-zinc-200 text-blue-600 hover:bg-zinc-100 shadow-2xs'
-                          : 'bg-zinc-900 border-zinc-800 text-blue-400 hover:bg-zinc-800'
-                      }`}
-                    >
-                      f
-                    </a>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {social.facebook && (
+                      <a
+                        href={social.facebook}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label="Visitar Facebook oficial"
+                        className={`h-10 w-10 rounded-xl border flex items-center justify-center transition-colors ${
+                          isLight
+                            ? 'bg-[#F8F9FA] border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:text-zinc-950'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-white'
+                        }`}
+                      >
+                        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M13.5 22v-8.2h2.75l.41-3.2H13.5V8.56c0-.93.26-1.56 1.59-1.56h1.7V4.14A22.7 22.7 0 0 0 14.32 4c-2.45 0-4.12 1.5-4.12 4.24v2.36H7.44v3.2h2.76V22h3.3z" />
+                        </svg>
+                      </a>
+                    )}
 
-                  {social.instagram && (
-                    <a
-                      href={social.instagram}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label="Visitar Instagram oficial"
-                      className={`h-9 w-9 rounded-xl border flex items-center justify-center transition-all ${
-                        isLight
-                          ? 'bg-white border-zinc-200 text-pink-600 hover:bg-zinc-100 shadow-2xs'
-                          : 'bg-zinc-900 border-zinc-800 text-pink-400 hover:bg-zinc-800'
-                      }`}
-                    >
-                      <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
-                        <path d="M12 2.2c3.2 0 3.6 0 4.9.1 1.2.1 1.8.2 2.2.4.6.2 1 .5 1.4.9.4.4.7.8.9 1.4.2.4.4 1.1.4 2.2.1 1.3.1 1.6.1 4.8s0 3.6-.1 4.9c-.1 1.2-.2 1.8-.4 2.2-.2.6-.5 1-.9 1.4-.4.4-.8.7-1.4.9-.4.2-1.1.4-2.2.4-1.3.1-1.6.1-4.9.1s-3.6 0-4.9-.1c-1.2-.1-1.8-.2-2.2-.4a3.9 3.9 0 0 1-1.4-.9c-.4-.4-.7-.8-.9-1.4-.2-.4-.4-1.1-.4-2.2-.1-1.3-.1-1.6-.1-4.9s0-3.6.1-4.9c.1-1.2.2-1.8.4-2.2.2-.6.5-1 .9-1.4.4-.4.8-.7 1.4-.9.4-.2 1.1-.4 2.2-.4 1.3-.1 1.6-.1 4.9-.1M12 0C8.7 0 8.3 0 7.1.1c-1.3.1-2.2.3-3 .6-.8.3-1.5.7-2.2 1.4A6 6 0 0 0 .5 4.3c-.3.8-.5 1.7-.6 3C0 8.3 0 8.7 0 12s0 3.7.1 4.9c.1 1.3.3 2.2.6 3 .3.8.7 1.5 1.4 2.2.7.7 1.4 1.1 2.2 1.4.8.3 1.7.5 3 .6 1.2.1 1.6.1 4.9.1s3.7 0 4.9-.1c1.3-.1 2.2-.3 3-.6.8-.3 1.5-.7 2.2-1.4.7-.7 1.1-1.4 1.4-2.2.3-.8.5-1.7.6-3 .1-1.2.1-1.6.1-4.9s0-3.7-.1-4.9c-.1-1.3-.3-2.2-.6-3a6 6 0 0 0-1.4-2.2A6 6 0 0 0 19.8.7c-.8-.3-1.7-.5-3-.6C15.7 0 15.3 0 12 0zm0 5.8a6.2 6.2 0 1 0 0 12.4 6.2 6.2 0 0 0 0-12.4zm0 10.2a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.4-11.8a1.4 1.4 0 1 0 0 2.9 1.4 1.4 0 0 0 0-2.9z" />
-                      </svg>
-                    </a>
-                  )}
+                    {social.instagram && (
+                      <a
+                        href={social.instagram}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label="Visitar Instagram oficial"
+                        className={`h-10 w-10 rounded-xl border flex items-center justify-center transition-colors ${
+                          isLight
+                            ? 'bg-[#F8F9FA] border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:text-zinc-950'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-white'
+                        }`}
+                      >
+                        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M12 2.2c3.2 0 3.6 0 4.9.1 1.2.1 1.8.2 2.2.4.6.2 1 .5 1.4.9.4.4.7.8.9 1.4.2.4.4 1.1.4 2.2.1 1.3.1 1.6.1 4.8s0 3.6-.1 4.9c-.1 1.2-.2 1.8-.4 2.2-.2.6-.5 1-.9 1.4-.4.4-.8.7-1.4.9-.4.2-1.1.4-2.2.4-1.3.1-1.6.1-4.9.1s-3.6 0-4.9-.1c-1.2-.1-1.8-.2-2.2-.4a3.9 3.9 0 0 1-1.4-.9c-.4-.4-.7-.8-.9-1.4-.2-.4-.4-1.1-.4-2.2-.1-1.3-.1-1.6-.1-4.9s0-3.6.1-4.9c.1-1.2.2-1.8.4-2.2.2-.6.5-1 .9-1.4.4-.4.8-.7 1.4-.9.4-.2 1.1-.4 2.2-.4 1.3-.1 1.6-.1 4.9-.1M12 0C8.7 0 8.3 0 7.1.1c-1.3.1-2.2.3-3 .6-.8.3-1.5.7-2.2 1.4A6 6 0 0 0 .5 4.3c-.3.8-.5 1.7-.6 3C0 8.3 0 8.7 0 12s0 3.7.1 4.9c.1 1.3.3 2.2.6 3 .3.8.7 1.5 1.4 2.2.7.7 1.4 1.1 2.2 1.4.8.3 1.7.5 3 .6 1.2.1 1.6.1 4.9.1s3.7 0 4.9-.1c1.3-.1 2.2-.3 3-.6.8-.3 1.5-.7 2.2-1.4.7-.7 1.1-1.4 1.4-2.2.3-.8.5-1.7.6-3 .1-1.2.1-1.6.1-4.9s0-3.7-.1-4.9c-.1-1.3-.3-2.2-.6-3a6 6 0 0 0-1.4-2.2A6 6 0 0 0 19.8.7c-.8-.3-1.7-.5-3-.6C15.7 0 15.3 0 12 0zm0 5.8a6.2 6.2 0 1 0 0 12.4 6.2 6.2 0 0 0 0-12.4zm0 10.2a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.4-11.8a1.4 1.4 0 1 0 0 2.9 1.4 1.4 0 0 0 0-2.9z" />
+                        </svg>
+                      </a>
+                    )}
 
-                  {social.tiktok && (
-                    <a
-                      href={social.tiktok}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label="Visitar TikTok oficial"
-                      className={`h-9 w-9 rounded-xl border flex items-center justify-center transition-all ${
-                        isLight
-                          ? 'bg-white border-zinc-200 text-zinc-900 hover:bg-zinc-100 shadow-2xs'
-                          : 'bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800'
-                      }`}
-                    >
-                      <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
-                        <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
-                      </svg>
-                    </a>
-                  )}
+                    {social.tiktok && (
+                      <a
+                        href={social.tiktok}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label="Visitar TikTok oficial"
+                        className={`h-10 w-10 rounded-xl border flex items-center justify-center transition-colors ${
+                          isLight
+                            ? 'bg-[#F8F9FA] border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:text-zinc-950'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-white'
+                        }`}
+                      >
+                        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+                        </svg>
+                      </a>
+                    )}
 
-                  {social.whatsapp && (
-                    <a
-                      href={social.whatsapp}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label="Chatear por WhatsApp"
-                      className={`h-9 w-9 rounded-xl border flex items-center justify-center transition-all ${
-                        isLight
-                          ? 'bg-white border-zinc-200 text-emerald-600 hover:bg-zinc-100 shadow-2xs'
-                          : 'bg-zinc-900 border-zinc-800 text-emerald-400 hover:bg-zinc-800'
-                      }`}
-                    >
-                      <Phone className="h-4 w-4" />
-                    </a>
-                  )}
+                    {social.whatsapp && (
+                      <a
+                        href={social.whatsapp}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label="Chatear por WhatsApp"
+                        className={`h-10 w-10 rounded-xl border flex items-center justify-center transition-colors ${
+                          isLight
+                            ? 'bg-[#F8F9FA] border-zinc-200 text-zinc-600 hover:border-emerald-500 hover:text-emerald-700'
+                            : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:border-emerald-500 hover:text-emerald-400'
+                        }`}
+                      >
+                        <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2zm5.79 14.08c-.24.68-1.42 1.3-1.96 1.38-.5.08-1.14.11-1.84-.11-.43-.14-.98-.32-1.69-.63-2.97-1.28-4.91-4.27-5.06-4.47-.15-.2-1.21-1.61-1.21-3.07 0-1.46.76-2.18 1.03-2.48.27-.3.59-.37.79-.37.2 0 .4 0 .57.01.18.01.43-.07.67.51.24.59.84 2.05.91 2.2.08.15.13.32.02.52-.1.2-.15.32-.3.5-.15.17-.31.39-.45.52-.15.15-.3.31-.13.61.17.3.77 1.27 1.66 2.06 1.14 1.01 2.1 1.33 2.4 1.48.3.15.47.13.65-.08.17-.2.74-.86.94-1.16.2-.3.4-.25.67-.15.27.1 1.73.82 2.03.96.3.15.5.22.57.35.08.12.08.72-.16 1.4z" />
+                        </svg>
+                      </a>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* COLUMN 4: Defensa del Consumidor & Bolsa de Trabajo */}
-            <div className="kh-footer-col-3 space-y-3">
-              <h4
-                className={`text-xs font-black uppercase tracking-wider ${
-                  isLight ? 'text-zinc-900' : 'text-white'
-                }`}
-              >
-                Defensa del Consumidor
-              </h4>
-
+            <div className="kh-footer-col-3 flex flex-col gap-3">
               {/* Card 1: Libro de Reclamaciones (INDECOPI) */}
               <button
                 type="button"
                 onClick={() => setIsClaimOpen(true)}
-                className={`w-full p-3.5 rounded-2xl border text-left flex items-center justify-between gap-3 transition-all hover:shadow-md group ${
+                className={`w-full p-4 rounded-2xl border text-left flex items-center justify-between gap-3 transition-colors group flex-1 ${
                   isLight
-                    ? 'bg-white border-zinc-200/90 hover:border-amber-400/80 shadow-2xs'
-                    : 'bg-zinc-900/90 border-zinc-800 hover:border-amber-500/50'
+                    ? 'bg-white border-zinc-200/90 hover:border-amber-500'
+                    : 'bg-[#12141B] border-zinc-800/90 hover:border-amber-500/60'
                 }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -584,25 +570,37 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme 
                         : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
                     }`}
                   >
-                    <BookOpen className="h-5 w-5" />
+                    <BookOpen className="h-4.5 w-4.5" />
                   </div>
                   <div className="min-w-0">
-                    <span className="block text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                    <span
+                      className={`block text-[9px] font-bold uppercase tracking-wider ${
+                        isLight ? 'text-amber-700' : 'text-amber-400'
+                      }`}
+                    >
                       INDECOPI • LEY N° 29571
                     </span>
                     <span
-                      className={`block text-xs sm:text-sm font-extrabold truncate ${
+                      className={`block text-[13px] font-bold leading-tight ${
                         isLight ? 'text-zinc-900' : 'text-white'
                       }`}
                     >
                       Libro de Reclamaciones
                     </span>
-                    <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">
+                    <span
+                      className={`block text-[11px] mt-0.5 ${
+                        isLight ? 'text-zinc-500' : 'text-zinc-400'
+                      }`}
+                    >
                       Hoja de Reclamación Virtual
                     </span>
                   </div>
                 </div>
-                <ChevronRight className="h-4 w-4 text-zinc-400 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                <ChevronRight
+                  className={`h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5 ${
+                    isLight ? 'text-zinc-400 group-hover:text-zinc-700' : 'text-zinc-500 group-hover:text-zinc-300'
+                  }`}
+                />
               </button>
 
               {/* Card 2: Bolsa de Trabajo • QR */}
@@ -611,10 +609,10 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme 
                   setJobInitialQr(false);
                   setIsJobModalOpen(true);
                 }}
-                className={`w-full p-3.5 rounded-2xl border text-left flex items-center justify-between gap-3 cursor-pointer transition-all hover:shadow-md group ${
+                className={`w-full p-4 rounded-2xl border text-left flex items-center justify-between gap-3 cursor-pointer transition-colors group flex-1 ${
                   isLight
-                    ? 'bg-white border-zinc-200/90 hover:border-emerald-400/80 shadow-2xs'
-                    : 'bg-zinc-900/90 border-zinc-800 hover:border-emerald-500/50'
+                    ? 'bg-white border-zinc-200/90 hover:border-zinc-400'
+                    : 'bg-[#12141B] border-zinc-800/90 hover:border-zinc-700'
                 }`}
               >
                 <div className="flex items-center gap-3 min-w-0">
@@ -625,21 +623,29 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme 
                         : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                     }`}
                   >
-                    <User className="h-5 w-5" />
+                    <User className="h-4.5 w-4.5" />
                   </div>
                   <div className="min-w-0">
-                    <span className="block text-[9px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                    <span
+                      className={`block text-[9px] font-bold uppercase tracking-wider ${
+                        isLight ? 'text-emerald-700' : 'text-emerald-400'
+                      }`}
+                    >
                       BOLSA DE TRABAJO
                     </span>
                     <span
-                      className={`block text-xs sm:text-sm font-extrabold truncate ${
+                      className={`block text-[13px] font-bold leading-tight ${
                         isLight ? 'text-zinc-900' : 'text-white'
                       }`}
                     >
-                      ¡Trabaja con Nosotros!
+                      Trabaja con Nosotros
                     </span>
-                    <span className="block text-[10px] text-zinc-500 dark:text-zinc-400">
-                      Postula aquí o escanea el QR
+                    <span
+                      className={`block text-[11px] mt-0.5 ${
+                        isLight ? 'text-zinc-500' : 'text-zinc-400'
+                      }`}
+                    >
+                      Postula o escanea el QR
                     </span>
                   </div>
                 </div>
@@ -652,70 +658,50 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme 
                     setJobInitialQr(true);
                     setIsJobModalOpen(true);
                   }}
-                  className={`p-1.5 rounded-lg border transition-colors shrink-0 ${
+                  className={`p-2 rounded-xl border transition-colors shrink-0 ${
                     isLight
-                      ? 'border-zinc-200 text-zinc-600 hover:bg-zinc-100'
-                      : 'border-zinc-800 text-zinc-300 hover:bg-zinc-800'
+                      ? 'bg-[#F8F9FA] border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                      : 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white'
                   }`}
                   title="Ver QR para escanear"
                 >
                   <QrCode className="h-4 w-4" />
                 </button>
               </div>
-
-              {/* Security Badges */}
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <span
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                    isLight
-                      ? 'bg-white border-zinc-200 text-zinc-700 shadow-2xs'
-                      : 'bg-zinc-900 border-zinc-800 text-zinc-300'
-                  }`}
-                >
-                  <ShieldCheck className="h-3 w-3 text-emerald-500" />
-                  Compra 100% Segura
-                </span>
-                <span
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                    isLight
-                      ? 'bg-white border-zinc-200 text-zinc-700 shadow-2xs'
-                      : 'bg-zinc-900 border-zinc-800 text-zinc-300'
-                  }`}
-                >
-                  <Lock className="h-3 w-3 text-emerald-500" />
-                  SSL 256-Bit
-                </span>
-              </div>
             </div>
           </div>
 
           {/* Bottom Legal & Trust Strip */}
           <div
-            className={`mt-10 pt-5 border-t flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] ${
+            className={`mt-8 pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-4 text-xs ${
               isLight
-                ? 'border-zinc-200 text-zinc-500'
-                : 'border-zinc-800 text-zinc-500'
+                ? 'border-zinc-200/90 text-zinc-500'
+                : 'border-zinc-800/80 text-zinc-500'
             }`}
           >
-            <p>
+            <p className="text-center sm:text-left">
               © {new Date().getFullYear()}{' '}
-              <strong className={isLight ? 'text-zinc-800' : 'text-zinc-200'}>
+              <strong className={isLight ? 'text-zinc-800 font-semibold' : 'text-zinc-200 font-semibold'}>
                 {companyInfo.commercialName}
               </strong>
               . Todos los derechos reservados.
             </p>
 
-            <div className="flex flex-wrap items-center justify-center gap-4 font-semibold">
+            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[11px] font-medium">
               <span className="inline-flex items-center gap-1.5">
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500" />
                 Pagos Protegidos
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <Receipt className="h-3.5 w-3.5 text-emerald-500" />
+                <Lock className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500" />
+                SSL 256-Bit
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Receipt className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500" />
                 Comprobante Electrónico
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <Headphones className="h-3.5 w-3.5 text-emerald-500" />
+                <Headphones className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-500" />
                 Soporte Oficial
               </span>
             </div>

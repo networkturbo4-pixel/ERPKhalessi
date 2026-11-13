@@ -11,16 +11,24 @@ $fallbackSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rec
 if (file_exists(__DIR__ . '/config.local.php')) {
     require_once __DIR__ . '/config.local.php';
 }
+foreach (['DB_HOST', 'DB_USER', 'DB_PASS', 'DB_NAME', 'DB_CHARSET'] as $envKey) {
+    if (!defined($envKey)) {
+        $val = getenv($envKey);
+        if ($val !== false && $val !== '') {
+            define($envKey, $val);
+        }
+    }
+}
 defined('DB_HOST') || define('DB_HOST', 'localhost');
-defined('DB_USER') || define('DB_USER', 'pizzjkyq_erpkhale');
-defined('DB_PASS') || define('DB_PASS', 'Khalessi2026@');
-defined('DB_NAME') || define('DB_NAME', 'pizzjkyq_khalessierp');
 defined('DB_CHARSET') || define('DB_CHARSET', 'utf8mb4');
 
 header('Access-Control-Allow-Origin: *');
 header('Cache-Control: public, max-age=120');
 
 try {
+    if (!defined('DB_USER') || !defined('DB_PASS') || !defined('DB_NAME') || DB_USER === '' || DB_NAME === '') {
+        throw new RuntimeException('Missing DB config');
+    }
     $dsn = 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=' . DB_CHARSET;
     $pdo = new PDO($dsn, DB_USER, DB_PASS, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,

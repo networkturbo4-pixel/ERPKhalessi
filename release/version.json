@@ -1,8 +1,8 @@
 {
-  "buildId": "20261113005826",
-  "builtAt": "2026-11-13T00:58:26.362Z",
-  "commitSha": "99d0dac",
-  "message": "fix(crm-points): atomic adjustCustomerPoints, timestamp-safe CRM merge & SSE in-flight write guard",
-  "totalFiles": 74,
-  "manifestSha256": "7d8cca0d69378a2cf6c31c3fba80949016e19e1aba5b59b5b4c0fc4c7028d58c"
+  "buildId": "20261113022821",
+  "builtAt": "2026-11-13T02:28:21.875Z",
+  "commitSha": "9d03d2e",
+  "message": "fix(store-auth): improve error contrast, cascade CRM delete to storefront accounts & auto-logout deleted users",
+  "totalFiles": 80,
+  "manifestSha256": "b5649c256b90fc07bbf51468f075a0c2dec382c61b10e09c27af514fc93c0c48"
 }

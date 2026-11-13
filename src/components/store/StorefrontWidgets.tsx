@@ -6,18 +6,38 @@ import {
   ProductGridBlockConfig,
   SearchBarBlockConfig,
   PromoStripBlockConfig,
+  TextBlockConfig,
+  ParagraphBlockConfig,
+  VideoBlockConfig,
+  ImageBlockConfig,
+  ButtonBlockConfig,
+  ColumnsBlockConfig,
+  SpacerBlockConfig,
+  FaqBlockConfig,
+  CountdownBlockConfig,
+  LeadFormBlockConfig,
+  StoreBlock,
+  BlockShadowSize,
   BuilderViewport,
   StoreAnimationType,
 } from '../../types/storeBuilder';
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Search,
   Plus,
   Eye,
   Sparkles,
   CheckCircle2,
   ArrowRight,
+  ShoppingBag,
+  Phone,
+  ExternalLink,
+  Play,
+  ImageIcon,
+  Clock,
+  Send,
 } from 'lucide-react';
 
 export interface StoreCategoryDef {
@@ -2359,4 +2379,1150 @@ export const StorePromoStripWidget: React.FC<{
       </div>
     </div>
   );
+};
+
+// ============================================================================
+// 6. TEXT / HEADING WIDGET (100% Customizable & Responsive)
+// ============================================================================
+function pickVp<T>(vp: BuilderViewport, mobile: T, tablet: T, desktop: T): T {
+  if (vp === 'mobile') return mobile;
+  if (vp === 'tablet') return tablet;
+  return desktop;
+}
+
+const SHADOW_CLASS_MAP: Record<BlockShadowSize, string> = {
+  none: 'shadow-none',
+  sm: 'shadow-sm',
+  md: 'shadow-md',
+  lg: 'shadow-xl',
+};
+
+const ASPECT_RATIO_STYLE: Record<string, string> = {
+  auto: 'auto',
+  '16:9': '16 / 9',
+  '4:3': '4 / 3',
+  '1:1': '1 / 1',
+  '3:4': '3 / 4',
+  '9:16': '9 / 16',
+  '21:9': '21 / 9',
+};
+
+export const TextWidget: React.FC<{
+  block: TextBlockConfig;
+  viewport: BuilderViewport;
+  themeMode: 'dark' | 'light';
+  accentColor: string;
+}> = ({ block, viewport, themeMode, accentColor }) => {
+  const isLight = themeMode === 'light';
+  const fontSize = pickVp(viewport, block.fontSizeMobile, block.fontSizeTablet, block.fontSizeDesktop);
+  const align = pickVp(viewport, block.alignMobile, block.alignTablet, block.alignDesktop);
+  const maxWidth = pickVp(viewport, block.maxWidthMobile, block.maxWidthTablet, block.maxWidthDesktop);
+
+  const alignClass =
+    align === 'center' ? 'text-center mx-auto' : align === 'right' ? 'text-right ml-auto' : 'text-left mr-auto';
+  const trackingClass =
+    block.letterSpacing === 'tight'
+      ? 'tracking-tight'
+      : block.letterSpacing === 'wide'
+      ? 'tracking-wider'
+      : 'tracking-normal';
+  const leadingClass =
+    block.lineHeight === 'tight'
+      ? 'leading-tight'
+      : block.lineHeight === 'relaxed'
+      ? 'leading-relaxed'
+      : 'leading-snug';
+
+  const resolvedTextColor = block.textColor || (isLight ? '#09090b' : '#ffffff');
+  const resolvedAccent = block.accentColor || accentColor || '#e11d48';
+  const Tag = block.tag || 'h2';
+
+  return (
+    <div style={{ maxWidth }} className={`${alignClass} w-full transition-all`}>
+      <div
+        style={{
+          backgroundColor: block.bgColor || 'transparent',
+          borderColor: block.borderColor || 'transparent',
+          borderWidth: block.borderWidth > 0 ? `${block.borderWidth}px` : undefined,
+          borderStyle: block.borderWidth > 0 ? 'solid' : undefined,
+          borderRadius: `${block.borderRadiusPx}px`,
+          paddingLeft: block.paddingX ? `${block.paddingX}px` : undefined,
+          paddingRight: block.paddingX ? `${block.paddingX}px` : undefined,
+          paddingTop: block.paddingY ? `${block.paddingY}px` : undefined,
+          paddingBottom: block.paddingY ? `${block.paddingY}px` : undefined,
+          borderLeftWidth: block.accentPosition === 'left' ? '4px' : undefined,
+          borderLeftColor: block.accentPosition === 'left' ? resolvedAccent : undefined,
+          borderLeftStyle: block.accentPosition === 'left' ? 'solid' : undefined,
+        }}
+        className={block.accentPosition === 'left' ? 'pl-4' : ''}
+      >
+        {block.eyebrow && (
+          <span
+            style={{ color: resolvedAccent }}
+            className="inline-block text-[11px] font-bold uppercase tracking-[0.14em] mb-1.5"
+          >
+            {block.eyebrow}
+          </span>
+        )}
+        <Tag
+          style={{
+            fontSize: `${fontSize}px`,
+            fontWeight: block.fontWeight,
+            color: resolvedTextColor,
+          }}
+          className={`${trackingClass} ${leadingClass} whitespace-pre-line break-words`}
+        >
+          {block.text || 'Escribe tu título aquí'}
+        </Tag>
+        {block.accentPosition === 'bottom' && (
+          <div
+            style={{ backgroundColor: resolvedAccent }}
+            className={`h-1 w-14 rounded-full mt-2.5 ${
+              align === 'center' ? 'mx-auto' : align === 'right' ? 'ml-auto' : ''
+            }`}
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
+// 7. PARAGRAPH WIDGET (100% Customizable & Responsive)
+// ============================================================================
+export const ParagraphWidget: React.FC<{
+  block: ParagraphBlockConfig;
+  viewport: BuilderViewport;
+  themeMode: 'dark' | 'light';
+  accentColor: string;
+}> = ({ block, viewport, themeMode, accentColor }) => {
+  const isLight = themeMode === 'light';
+  const fontSize = pickVp(viewport, block.fontSizeMobile, block.fontSizeTablet, block.fontSizeDesktop);
+  const align = pickVp(viewport, block.alignMobile, block.alignTablet, block.alignDesktop);
+  const maxWidth = pickVp(viewport, block.maxWidthMobile, block.maxWidthTablet, block.maxWidthDesktop);
+
+  const alignClass =
+    align === 'center'
+      ? 'text-center mx-auto'
+      : align === 'right'
+      ? 'text-right ml-auto'
+      : align === 'justify'
+      ? 'text-justify mr-auto'
+      : 'text-left mr-auto';
+
+  const leadingClass =
+    block.lineHeight === 'snug'
+      ? 'leading-snug'
+      : block.lineHeight === 'loose'
+      ? 'leading-loose'
+      : 'leading-relaxed';
+
+  const resolvedTextColor = block.textColor || (isLight ? '#3f3f46' : '#d4d4d8');
+  const resolvedAccent = block.accentColor || accentColor || '#e11d48';
+
+  return (
+    <div style={{ maxWidth }} className={`${alignClass} w-full transition-all`}>
+      <div
+        style={{
+          backgroundColor: block.bgColor || 'transparent',
+          borderColor: block.borderColor || 'transparent',
+          borderWidth: block.borderWidth > 0 ? `${block.borderWidth}px` : undefined,
+          borderStyle: block.borderWidth > 0 ? 'solid' : undefined,
+          borderRadius: `${block.borderRadiusPx}px`,
+          paddingLeft: block.paddingX ? `${block.paddingX}px` : undefined,
+          paddingRight: block.paddingX ? `${block.paddingX}px` : undefined,
+          paddingTop: block.paddingY ? `${block.paddingY}px` : undefined,
+          paddingBottom: block.paddingY ? `${block.paddingY}px` : undefined,
+          borderLeftWidth: block.leftBorderAccent ? '3px' : undefined,
+          borderLeftColor: block.leftBorderAccent ? resolvedAccent : undefined,
+          borderLeftStyle: block.leftBorderAccent ? 'solid' : undefined,
+        }}
+        className={block.leftBorderAccent ? 'pl-4' : ''}
+      >
+        {block.leadText && (
+          <p
+            style={{
+              fontSize: `${Math.min(fontSize + 2, 26)}px`,
+              color: isLight ? '#18181b' : '#ffffff',
+            }}
+            className="font-bold mb-1.5"
+          >
+            {block.leadText}
+          </p>
+        )}
+        <p
+          style={{
+            fontSize: `${fontSize}px`,
+            fontWeight: block.fontWeight,
+            color: resolvedTextColor,
+          }}
+          className={`${leadingClass} whitespace-pre-line break-words`}
+        >
+          {block.text || 'Escribe el contenido del párrafo aquí.'}
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
+// 8. VIDEO WIDGET (YouTube / Vimeo / Direct MP4, Responsive)
+// ============================================================================
+function parseVideoSource(url: string): { kind: 'youtube' | 'vimeo' | 'direct' | 'empty'; src: string } {
+  const clean = (url || '').trim();
+  if (!clean) return { kind: 'empty', src: '' };
+
+  const ytMatch = clean.match(
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/
+  );
+  if (ytMatch?.[1]) {
+    return { kind: 'youtube', src: `https://www.youtube.com/embed/${ytMatch[1]}` };
+  }
+
+  const vimeoMatch = clean.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  if (vimeoMatch?.[1]) {
+    return { kind: 'vimeo', src: `https://player.vimeo.com/video/${vimeoMatch[1]}` };
+  }
+
+  return { kind: 'direct', src: clean };
+}
+
+export const VideoWidget: React.FC<{
+  block: VideoBlockConfig;
+  viewport: BuilderViewport;
+  themeMode: 'dark' | 'light';
+}> = ({ block, viewport, themeMode }) => {
+  const isLight = themeMode === 'light';
+  const width = pickVp(viewport, block.widthMobile, block.widthTablet, block.widthDesktop);
+  const heightPx = pickVp(viewport, block.heightMobile, block.heightTablet, block.heightDesktop);
+  const align = pickVp(viewport, block.alignMobile, block.alignTablet, block.alignDesktop);
+
+  const alignClass =
+    align === 'center' ? 'mx-auto' : align === 'right' ? 'ml-auto' : 'mr-auto';
+  const parsed = parseVideoSource(block.videoUrl);
+
+  const embedParams = new URLSearchParams();
+  if (block.autoplay) embedParams.set('autoplay', '1');
+  if (block.muted) embedParams.set('mute', '1');
+  if (block.loop) embedParams.set('loop', '1');
+  if (!block.controls) embedParams.set('controls', '0');
+  const queryStr = embedParams.toString();
+
+  return (
+    <div style={{ width }} className={`${alignClass} max-w-full space-y-2`}>
+      {block.title && (
+        <h3 className={`text-sm font-bold ${isLight ? 'text-zinc-900' : 'text-white'}`}>
+          {block.title}
+        </h3>
+      )}
+
+      <div
+        style={{
+          borderRadius: `${block.borderRadiusPx}px`,
+          borderColor: block.borderColor || (isLight ? '#e4e4e7' : '#27272a'),
+          borderWidth: `${block.borderWidth}px`,
+          borderStyle: block.borderWidth > 0 ? 'solid' : 'none',
+          aspectRatio: heightPx > 0 ? undefined : ASPECT_RATIO_STYLE[block.aspectRatio] || '16 / 9',
+          height: heightPx > 0 ? `${heightPx}px` : undefined,
+        }}
+        className={`w-full overflow-hidden bg-zinc-950 relative ${SHADOW_CLASS_MAP[block.shadow]}`}
+      >
+        {parsed.kind === 'empty' ? (
+          <div className="w-full h-full min-h-[180px] flex flex-col items-center justify-center gap-2 text-zinc-400 p-6">
+            <Play className="h-8 w-8 opacity-60" />
+            <span className="text-xs font-medium">Agrega una URL de YouTube, Vimeo o MP4</span>
+          </div>
+        ) : parsed.kind === 'youtube' || parsed.kind === 'vimeo' ? (
+          <iframe
+            src={`${parsed.src}${queryStr ? `?${queryStr}` : ''}`}
+            title={block.title || 'Video incrustado'}
+            className="w-full h-full border-0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        ) : (
+          <video
+            src={parsed.src}
+            poster={block.posterUrl || undefined}
+            autoPlay={block.autoplay}
+            muted={block.muted}
+            loop={block.loop}
+            controls={block.controls}
+            playsInline
+            className="w-full h-full object-cover"
+          />
+        )}
+      </div>
+
+      {block.caption && (
+        <p className={`text-xs ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>{block.caption}</p>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
+// 9. IMAGE WIDGET (100% Customizable & Responsive)
+// ============================================================================
+export const ImageWidget: React.FC<{
+  block: ImageBlockConfig;
+  viewport: BuilderViewport;
+  themeMode: 'dark' | 'light';
+  products: Product[];
+  onSelectProduct: (product: Product) => void;
+  onOpenLightbox?: (src: string, alt: string) => void;
+}> = ({ block, viewport, themeMode, products, onSelectProduct, onOpenLightbox }) => {
+  const isLight = themeMode === 'light';
+  const width = pickVp(viewport, block.widthMobile, block.widthTablet, block.widthDesktop);
+  const heightPx = pickVp(viewport, block.heightMobile, block.heightTablet, block.heightDesktop);
+  const align = pickVp(viewport, block.alignMobile, block.alignTablet, block.alignDesktop);
+
+  const resolvedSrc =
+    viewport === 'mobile' && block.srcMobile
+      ? block.srcMobile
+      : viewport === 'tablet' && block.srcTablet
+      ? block.srcTablet
+      : block.src;
+
+  const alignClass =
+    align === 'center' ? 'mx-auto' : align === 'right' ? 'ml-auto' : 'mr-auto';
+
+  const handleClick = () => {
+    if (block.actionType === 'product' && block.productId) {
+      const target = products.find(p => p.id === block.productId);
+      if (target) onSelectProduct(target);
+      return;
+    }
+    if (block.actionType === 'url' && block.linkUrl) {
+      if (block.openInNewTab) {
+        window.open(block.linkUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        window.location.href = block.linkUrl;
+      }
+      return;
+    }
+    if (block.actionType === 'lightbox' && resolvedSrc && onOpenLightbox) {
+      onOpenLightbox(resolvedSrc, block.alt || 'Imagen');
+    }
+  };
+
+  const isClickable = block.actionType !== 'none';
+
+  return (
+    <figure style={{ width }} className={`${alignClass} max-w-full space-y-2`}>
+      <div
+        onClick={isClickable ? handleClick : undefined}
+        style={{
+          borderRadius: `${block.borderRadiusPx}px`,
+          borderColor: block.borderColor || (isLight ? '#e4e4e7' : '#27272a'),
+          borderWidth: `${block.borderWidth}px`,
+          borderStyle: block.borderWidth > 0 ? 'solid' : 'none',
+          aspectRatio:
+            heightPx > 0 || block.aspectRatio === 'auto'
+              ? undefined
+              : ASPECT_RATIO_STYLE[block.aspectRatio],
+          height: heightPx > 0 ? `${heightPx}px` : undefined,
+        }}
+        className={`w-full overflow-hidden ${SHADOW_CLASS_MAP[block.shadow]} ${
+          isClickable ? 'cursor-pointer group' : ''
+        } ${isLight ? 'bg-zinc-100' : 'bg-zinc-900'}`}
+      >
+        {resolvedSrc ? (
+          <img
+            src={resolvedSrc}
+            alt={block.alt || 'Imagen'}
+            style={{ objectFit: block.objectFit || 'cover' }}
+            className={`w-full ${
+              heightPx > 0 || block.aspectRatio !== 'auto' ? 'h-full' : 'h-auto'
+            } ${isClickable ? 'group-hover:scale-[1.02] transition-transform duration-300' : ''}`}
+          />
+        ) : (
+          <div className="w-full min-h-[160px] flex flex-col items-center justify-center gap-2 text-zinc-400 p-6">
+            <ImageIcon className="h-8 w-8 opacity-60" />
+            <span className="text-xs font-medium">Selecciona o pega una imagen</span>
+          </div>
+        )}
+      </div>
+      {block.caption && (
+        <figcaption className={`text-xs ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>
+          {block.caption}
+        </figcaption>
+      )}
+    </figure>
+  );
+};
+
+// ============================================================================
+// 10. BUTTON WIDGET (100% Customizable & Responsive)
+// ============================================================================
+export const ButtonWidget: React.FC<{
+  block: ButtonBlockConfig;
+  viewport: BuilderViewport;
+  themeMode: 'dark' | 'light';
+  accentColor: string;
+  products: Product[];
+  onSelectProduct: (product: Product) => void;
+}> = ({ block, viewport, themeMode, accentColor, products, onSelectProduct }) => {
+  const isLight = themeMode === 'light';
+  const align = pickVp(viewport, block.alignMobile, block.alignTablet, block.alignDesktop);
+  const size = pickVp(viewport, block.sizeMobile, block.sizeTablet, block.sizeDesktop);
+
+  const wrapperAlignClass =
+    align === 'center'
+      ? 'justify-center'
+      : align === 'right'
+      ? 'justify-end'
+      : 'justify-start';
+
+  const sizeClasses: Record<'sm' | 'md' | 'lg' | 'xl', string> = {
+    sm: 'px-3.5 py-2 text-xs',
+    md: 'px-5 py-2.5 text-sm',
+    lg: 'px-6 py-3.5 text-sm',
+    xl: 'px-8 py-4 text-base',
+  };
+
+  const baseColor = block.bgColor || accentColor || '#e11d48';
+  const resolvedTextColor =
+    block.textColor ||
+    (block.variant === 'solid'
+      ? '#ffffff'
+      : block.variant === 'outline'
+      ? baseColor
+      : isLight
+      ? '#18181b'
+      : '#ffffff');
+
+  const buttonStyle: React.CSSProperties = {
+    borderRadius: `${block.borderRadiusPx}px`,
+    fontWeight: block.fontWeight,
+    color: resolvedTextColor,
+    backgroundColor:
+      block.variant === 'solid'
+        ? baseColor
+        : block.variant === 'soft'
+        ? isLight
+          ? '#f4f4f5'
+          : '#18181b'
+        : 'transparent',
+    borderColor: block.borderColor || (block.variant === 'outline' ? baseColor : 'transparent'),
+    borderWidth: block.variant === 'outline' || block.borderColor ? '1.5px' : '0px',
+    borderStyle: 'solid',
+  };
+
+  const renderIcon = () => {
+    const cls = 'h-4 w-4 shrink-0';
+    switch (block.icon) {
+      case 'arrow':
+        return <ArrowRight className={cls} />;
+      case 'cart':
+        return <ShoppingBag className={cls} />;
+      case 'phone':
+      case 'whatsapp':
+        return <Phone className={cls} />;
+      case 'external':
+        return <ExternalLink className={cls} />;
+      case 'sparkles':
+        return <Sparkles className={cls} />;
+      default:
+        return null;
+    }
+  };
+
+  const handleAction = () => {
+    if (block.actionType === 'scroll_top') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    if (block.actionType === 'product' && block.productId) {
+      const target = products.find(p => p.id === block.productId);
+      if (target) onSelectProduct(target);
+      return;
+    }
+    if (block.actionType === 'whatsapp') {
+      const digits = (block.whatsappNumber || '').replace(/\D/g, '');
+      const text = encodeURIComponent(block.whatsappMessage || '');
+      const waUrl = `https://wa.me/${digits}${text ? `?text=${text}` : ''}`;
+      window.open(waUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (block.actionType === 'url' && block.linkUrl) {
+      if (block.openInNewTab) {
+        window.open(block.linkUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        window.location.href = block.linkUrl;
+      }
+    }
+  };
+
+  return (
+    <div className={`w-full flex ${wrapperAlignClass}`}>
+      <button
+        type="button"
+        onClick={handleAction}
+        style={buttonStyle}
+        className={`inline-flex items-center justify-center gap-2.5 transition-all active:scale-[0.98] hover:opacity-95 ${
+          sizeClasses[size]
+        } ${align === 'full' ? 'w-full' : 'w-auto'} ${SHADOW_CLASS_MAP[block.shadow]}`}
+      >
+        <span className="flex flex-col items-center leading-tight">
+          <span>{block.label || 'Botón'}</span>
+          {block.sublabel && (
+            <span className="text-[10px] font-medium opacity-80">{block.sublabel}</span>
+          )}
+        </span>
+        {renderIcon()}
+      </button>
+    </div>
+  );
+};
+
+// ============================================================================
+// 11. SPACER & DIVIDER WIDGET
+// ============================================================================
+export const SpacerWidget: React.FC<{
+  block: SpacerBlockConfig;
+  viewport: BuilderViewport;
+  themeMode: 'dark' | 'light';
+}> = ({ block, viewport, themeMode }) => {
+  const isLight = themeMode === 'light';
+  const height = pickVp(viewport, block.heightMobile, block.heightTablet, block.heightDesktop);
+  const lineColor = block.dividerColor || (isLight ? '#e4e4e7' : '#27272a');
+
+  return (
+    <div
+      style={{ height: `${height}px` }}
+      className="w-full flex items-center justify-center"
+      aria-hidden="true"
+    >
+      {block.showDivider && (
+        <div
+          style={{
+            width: block.dividerWidth || '100%',
+            borderTopWidth: `${block.dividerThickness || 1}px`,
+            borderTopStyle: block.dividerStyle || 'solid',
+            borderTopColor: lineColor,
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
+// 12. FAQ ACCORDION WIDGET
+// ============================================================================
+export const FaqWidget: React.FC<{
+  block: FaqBlockConfig;
+  themeMode: 'dark' | 'light';
+  accentColor: string;
+}> = ({ block, themeMode, accentColor }) => {
+  const isLight = themeMode === 'light';
+  const [openIds, setOpenIds] = useState<string[]>(() =>
+    block.items[0] ? [block.items[0].id] : []
+  );
+  const resolvedAccent = block.accentColor || accentColor || '#e11d48';
+
+  const toggle = (id: string) => {
+    setOpenIds(prev => {
+      const exists = prev.includes(id);
+      if (block.allowMultipleOpen) {
+        return exists ? prev.filter(x => x !== id) : [...prev, id];
+      }
+      return exists ? [] : [id];
+    });
+  };
+
+  return (
+    <div className="w-full space-y-4">
+      {(block.title || block.subtitle) && (
+        <div className="space-y-1">
+          {block.title && (
+            <h3 className={`text-lg sm:text-xl font-extrabold ${isLight ? 'text-zinc-900' : 'text-white'}`}>
+              {block.title}
+            </h3>
+          )}
+          {block.subtitle && (
+            <p className={`text-xs sm:text-sm ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>
+              {block.subtitle}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className="space-y-2.5">
+        {block.items.map(item => {
+          const isOpen = openIds.includes(item.id);
+          return (
+            <div
+              key={item.id}
+              style={{
+                borderRadius: `${block.borderRadiusPx}px`,
+                borderColor: isOpen ? resolvedAccent : isLight ? '#e4e4e7' : '#27272a',
+              }}
+              className={`border transition-colors overflow-hidden ${
+                isLight ? 'bg-white' : 'bg-[#12141B]'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => toggle(item.id)}
+                className="w-full px-4 py-3.5 text-left flex items-center justify-between gap-3"
+              >
+                <span className={`text-sm font-bold ${isLight ? 'text-zinc-900' : 'text-white'}`}>
+                  {item.question}
+                </span>
+                <ChevronDown
+                  style={isOpen ? { color: resolvedAccent } : undefined}
+                  className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
+                    isOpen ? 'rotate-180' : 'text-zinc-400'
+                  }`}
+                />
+              </button>
+              {isOpen && (
+                <div
+                  className={`px-4 pb-4 pt-0 text-xs sm:text-sm leading-relaxed ${
+                    isLight ? 'text-zinc-600' : 'text-zinc-300'
+                  }`}
+                >
+                  {item.answer}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
+// 13. COUNTDOWN TIMER WIDGET
+// ============================================================================
+export const CountdownWidget: React.FC<{
+  block: CountdownBlockConfig;
+  viewport: BuilderViewport;
+  themeMode: 'dark' | 'light';
+  accentColor: string;
+  onCtaClick?: () => void;
+}> = ({ block, viewport, themeMode, accentColor, onCtaClick }) => {
+  const isLight = themeMode === 'light';
+  const align = pickVp(viewport, block.alignMobile, block.alignTablet, block.alignDesktop);
+  const resolvedAccent = block.accentColor || accentColor || '#e11d48';
+  const resolvedBg = block.bgColor || (isLight ? '#f4f4f5' : '#12141B');
+  const resolvedText = block.textColor || (isLight ? '#09090b' : '#ffffff');
+
+  const computeRemaining = () => {
+    const targetMs = new Date(block.targetDateIso).getTime();
+    const diff = Math.max(0, (Number.isNaN(targetMs) ? 0 : targetMs) - Date.now());
+    return {
+      total: diff,
+      days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+      hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
+      minutes: Math.floor((diff / (1000 * 60)) % 60),
+      seconds: Math.floor((diff / 1000) % 60),
+    };
+  };
+
+  const [timeLeft, setTimeLeft] = useState(computeRemaining);
+
+  useEffect(() => {
+    setTimeLeft(computeRemaining());
+    const id = window.setInterval(() => setTimeLeft(computeRemaining()), 1000);
+    return () => window.clearInterval(id);
+  }, [block.targetDateIso]);
+
+  const alignClass =
+    align === 'center' ? 'text-center items-center' : align === 'right' ? 'text-right items-end' : 'text-left items-start';
+
+  return (
+    <div
+      style={{
+        backgroundColor: resolvedBg,
+        color: resolvedText,
+        borderRadius: `${block.borderRadiusPx}px`,
+      }}
+      className={`w-full p-5 sm:p-7 border ${
+        isLight ? 'border-zinc-200' : 'border-zinc-800'
+      } flex flex-col gap-4 ${alignClass}`}
+    >
+      <div className="space-y-1">
+        <div className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider opacity-80">
+          <Clock className="w-3.5 h-3.5" style={{ color: resolvedAccent }} />
+          <span>Tiempo Restante</span>
+        </div>
+        <h3 className="text-lg sm:text-2xl font-extrabold tracking-tight">{block.title}</h3>
+        {block.subtitle && <p className="text-xs sm:text-sm opacity-75">{block.subtitle}</p>}
+      </div>
+
+      {timeLeft.total <= 0 ? (
+        <p className="text-sm font-bold px-4 py-2 rounded-xl bg-black/10 dark:bg-white/10">
+          {block.expiredText || 'Promoción finalizada'}
+        </p>
+      ) : (
+        <div className="flex flex-wrap gap-2.5 sm:gap-3">
+          {[
+            ['Días', timeLeft.days],
+            ['Horas', timeLeft.hours],
+            ['Min', timeLeft.minutes],
+            ['Seg', timeLeft.seconds],
+          ].map(([label, val]) => (
+            <div
+              key={label as string}
+              className={`min-w-[64px] sm:min-w-[74px] px-3 py-2.5 rounded-xl border text-center ${
+                isLight ? 'bg-white border-zinc-200' : 'bg-zinc-900 border-zinc-800'
+              }`}
+            >
+              <span className="block text-xl sm:text-2xl font-black font-mono leading-none">
+                {String(val).padStart(2, '0')}
+              </span>
+              <span className="block text-[10px] font-bold uppercase tracking-wider opacity-60 mt-1">
+                {label}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {block.ctaLabel && (
+        <button
+          type="button"
+          onClick={() => {
+            onCtaClick?.();
+            if (block.ctaUrl) window.location.href = block.ctaUrl;
+          }}
+          style={{ backgroundColor: resolvedAccent }}
+          className="px-5 py-2.5 rounded-xl text-xs font-bold text-white inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
+        >
+          <span>{block.ctaLabel}</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
+// 14. LEAD / CONTACT FORM WIDGET (Connects directly to CRM)
+// ============================================================================
+export const LeadFormWidget: React.FC<{
+  block: LeadFormBlockConfig;
+  themeMode: 'dark' | 'light';
+  accentColor: string;
+  onSubmitLead?: (lead: { fullName: string; phone: string; email?: string; message?: string }) => void;
+}> = ({ block, themeMode, accentColor, onSubmitLead }) => {
+  const isLight = themeMode === 'light';
+  const resolvedAccent = block.accentColor || accentColor || '#e11d48';
+  const resolvedBg = block.bgColor || (isLight ? '#ffffff' : '#12141B');
+
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fullName.trim() || !phone.trim()) return;
+    onSubmitLead?.({
+      fullName: fullName.trim(),
+      phone: phone.trim(),
+      email: email.trim() || undefined,
+      message: message.trim() || undefined,
+    });
+    setSubmitted(true);
+    setFullName('');
+    setPhone('');
+    setEmail('');
+    setMessage('');
+  };
+
+  return (
+    <div
+      style={{
+        backgroundColor: resolvedBg,
+        borderRadius: `${block.borderRadiusPx}px`,
+      }}
+      className={`w-full p-5 sm:p-7 border ${
+        isLight ? 'border-zinc-200 text-zinc-900' : 'border-zinc-800 text-white'
+      }`}
+    >
+      {submitted ? (
+        <div className="py-6 text-center space-y-2">
+          <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-500" />
+          <p className="text-sm font-bold">{block.successMessage}</p>
+          <button
+            type="button"
+            onClick={() => setSubmitted(false)}
+            className="text-xs font-semibold underline opacity-75 hover:opacity-100"
+          >
+            Enviar otra consulta
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1">
+            <h3 className="text-lg font-extrabold">{block.title}</h3>
+            {block.subtitle && (
+              <p className={`text-xs ${isLight ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                {block.subtitle}
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input
+              type="text"
+              required
+              value={fullName}
+              onChange={e => setFullName(e.target.value)}
+              placeholder="Nombre completo *"
+              className={`w-full px-3.5 py-2.5 rounded-xl border text-xs focus:outline-none ${
+                isLight
+                  ? 'bg-zinc-50 border-zinc-200 text-zinc-900'
+                  : 'bg-zinc-900 border-zinc-800 text-white'
+              }`}
+            />
+            <input
+              type="tel"
+              required
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              placeholder="WhatsApp / Teléfono *"
+              className={`w-full px-3.5 py-2.5 rounded-xl border text-xs focus:outline-none ${
+                isLight
+                  ? 'bg-zinc-50 border-zinc-200 text-zinc-900'
+                  : 'bg-zinc-900 border-zinc-800 text-white'
+              }`}
+            />
+          </div>
+
+          {block.showEmail && (
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="Correo electrónico (opcional)"
+              className={`w-full px-3.5 py-2.5 rounded-xl border text-xs focus:outline-none ${
+                isLight
+                  ? 'bg-zinc-50 border-zinc-200 text-zinc-900'
+                  : 'bg-zinc-900 border-zinc-800 text-white'
+              }`}
+            />
+          )}
+
+          {block.showMessage && (
+            <textarea
+              rows={3}
+              value={message}
+              onChange={e => setMessage(e.target.value)}
+              placeholder="Cuéntanos qué necesitas..."
+              className={`w-full px-3.5 py-2.5 rounded-xl border text-xs focus:outline-none resize-none ${
+                isLight
+                  ? 'bg-zinc-50 border-zinc-200 text-zinc-900'
+                  : 'bg-zinc-900 border-zinc-800 text-white'
+              }`}
+            />
+          )}
+
+          <button
+            type="submit"
+            style={{ backgroundColor: resolvedAccent }}
+            className="px-5 py-2.5 rounded-xl text-xs font-bold text-white inline-flex items-center gap-2 hover:opacity-90 transition-opacity"
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span>{block.submitLabel || 'Enviar'}</span>
+          </button>
+        </form>
+      )}
+    </div>
+  );
+};
+
+// ============================================================================
+// 15. COLUMNS CONTAINER WIDGET (2, 3 or 4 responsive columns)
+// ============================================================================
+export const ColumnsWidget: React.FC<{
+  block: ColumnsBlockConfig;
+  viewport: BuilderViewport;
+  themeMode: 'dark' | 'light';
+  accentColor: string;
+  autoButtonContrast: boolean;
+  products: Product[];
+  activeCategory?: string;
+  searchQuery?: string;
+  onSelectCategory?: (catId: string) => void;
+  onChangeSearch?: (q: string) => void;
+  onSelectProduct: (product: Product, imgEl?: HTMLElement | null) => void;
+  onQuickViewProduct?: (product: Product) => void;
+  onSubmitLead?: (lead: { fullName: string; phone: string; email?: string; message?: string }) => void;
+  onCtaClick?: () => void;
+}> = ({
+  block,
+  viewport,
+  themeMode,
+  accentColor,
+  autoButtonContrast,
+  products,
+  activeCategory = 'todos',
+  searchQuery = '',
+  onSelectCategory = () => {},
+  onChangeSearch = () => {},
+  onSelectProduct,
+  onQuickViewProduct = () => {},
+  onSubmitLead,
+  onCtaClick,
+}) => {
+  const isLight = themeMode === 'light';
+  const cols = pickVp(viewport, block.columnsMobile, block.columnsTablet, block.columnsDesktop);
+  const alignItems =
+    block.verticalAlign === 'center'
+      ? 'items-center'
+      : block.verticalAlign === 'stretch'
+      ? 'items-stretch'
+      : 'items-start';
+
+  return (
+    <div
+      style={{
+        backgroundColor: block.bgColor || 'transparent',
+        borderColor: block.borderColor || 'transparent',
+        borderWidth: block.borderWidth > 0 ? `${block.borderWidth}px` : undefined,
+        borderStyle: block.borderWidth > 0 ? 'solid' : undefined,
+        borderRadius: `${block.borderRadiusPx}px`,
+        padding: block.paddingPx > 0 ? `${block.paddingPx}px` : undefined,
+      }}
+      className="w-full space-y-3"
+    >
+      {block.title && (
+        <h3 className={`text-base font-extrabold ${isLight ? 'text-zinc-900' : 'text-white'}`}>
+          {block.title}
+        </h3>
+      )}
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+          gap: `${block.gapPx}px`,
+        }}
+        className={alignItems}
+      >
+        {block.columns.map(col => (
+          <div key={col.id} className="min-w-0 space-y-3">
+            {col.blocks.map((child, idx) => (
+              <StoreBlockRenderer
+                key={child.id}
+                block={child}
+                index={idx}
+                viewport={viewport}
+                themeMode={themeMode}
+                accentColor={accentColor}
+                autoButtonContrast={autoButtonContrast}
+                products={products}
+                activeCategory={activeCategory}
+                searchQuery={searchQuery}
+                onSelectCategory={onSelectCategory}
+                onChangeSearch={onChangeSearch}
+                onSelectProduct={onSelectProduct}
+                onQuickViewProduct={onQuickViewProduct}
+                onSubmitLead={onSubmitLead}
+                onCtaClick={onCtaClick}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
+// UNIFIED BLOCK RENDERER (Used by Storefront, Pages Module, Public View & Columns)
+// ============================================================================
+export const StoreBlockRenderer: React.FC<{
+  block: StoreBlock;
+  index?: number;
+  viewport: BuilderViewport;
+  themeMode: 'dark' | 'light';
+  accentColor: string;
+  autoButtonContrast?: boolean;
+  products: Product[];
+  activeCategory?: string;
+  searchQuery?: string;
+  onSelectCategory?: (catId: string) => void;
+  onChangeSearch?: (q: string) => void;
+  onSelectProduct: (product: Product, imgEl?: HTMLElement | null) => void;
+  onQuickViewProduct?: (product: Product) => void;
+  onSubmitLead?: (lead: { fullName: string; phone: string; email?: string; message?: string }) => void;
+  onCtaClick?: () => void;
+}> = ({
+  block,
+  index = 0,
+  viewport,
+  themeMode,
+  accentColor,
+  autoButtonContrast = false,
+  products,
+  activeCategory = 'todos',
+  searchQuery = '',
+  onSelectCategory = () => {},
+  onChangeSearch = () => {},
+  onSelectProduct,
+  onQuickViewProduct = () => {},
+  onSubmitLead,
+  onCtaClick,
+}) => {
+  const isLight = themeMode === 'light';
+
+  switch (block.type) {
+    case 'slider':
+      return (
+        <StoreSliderWidget
+          block={block}
+          viewport={viewport}
+          isLightTheme={isLight}
+          accentColor={accentColor}
+          autoButtonContrast={autoButtonContrast}
+          products={products}
+          onSelectProduct={prod => onSelectProduct(prod)}
+          isHero={index === 0}
+        />
+      );
+    case 'categories':
+      return (
+        <StoreCategoriesWidget
+          block={block}
+          viewport={viewport}
+          isLightTheme={isLight}
+          accentColor={accentColor}
+          autoButtonContrast={autoButtonContrast}
+          products={products}
+          activeCategory={activeCategory}
+          onSelectCategory={onSelectCategory}
+        />
+      );
+    case 'product_grid':
+      return (
+        <StoreProductGridWidget
+          block={block}
+          viewport={viewport}
+          isLightTheme={isLight}
+          accentColor={accentColor}
+          autoButtonContrast={autoButtonContrast}
+          products={products}
+          activeCategory={activeCategory}
+          searchQuery={searchQuery}
+          onSelectProduct={onSelectProduct}
+          onQuickViewProduct={onQuickViewProduct}
+          isAboveFold={index <= 2}
+        />
+      );
+    case 'search_bar':
+      return (
+        <StoreSearchBarWidget
+          block={block}
+          viewport={viewport}
+          accentColor={accentColor}
+          isLightTheme={isLight}
+          searchQuery={searchQuery}
+          onChangeSearch={onChangeSearch}
+        />
+      );
+    case 'promo_strip':
+      return (
+        <StorePromoStripWidget
+          block={block}
+          viewport={viewport}
+          accentColor={accentColor}
+          products={products}
+          autoButtonContrast={autoButtonContrast}
+          onSelectProduct={prod => onSelectProduct(prod)}
+        />
+      );
+    case 'text':
+      return (
+        <TextWidget
+          block={block}
+          viewport={viewport}
+          themeMode={themeMode}
+          accentColor={accentColor}
+        />
+      );
+    case 'paragraph':
+      return (
+        <ParagraphWidget
+          block={block}
+          viewport={viewport}
+          themeMode={themeMode}
+          accentColor={accentColor}
+        />
+      );
+    case 'video':
+      return <VideoWidget block={block} viewport={viewport} themeMode={themeMode} />;
+    case 'image':
+      return (
+        <ImageWidget
+          block={block}
+          viewport={viewport}
+          themeMode={themeMode}
+          products={products}
+          onSelectProduct={prod => onSelectProduct(prod)}
+        />
+      );
+    case 'button':
+      return (
+        <div onClick={onCtaClick}>
+          <ButtonWidget
+            block={block}
+            viewport={viewport}
+            themeMode={themeMode}
+            accentColor={accentColor}
+            products={products}
+            onSelectProduct={prod => onSelectProduct(prod)}
+          />
+        </div>
+      );
+    case 'spacer':
+      return <SpacerWidget block={block} viewport={viewport} themeMode={themeMode} />;
+    case 'faq':
+      return <FaqWidget block={block} themeMode={themeMode} accentColor={accentColor} />;
+    case 'countdown':
+      return (
+        <CountdownWidget
+          block={block}
+          viewport={viewport}
+          themeMode={themeMode}
+          accentColor={accentColor}
+          onCtaClick={onCtaClick}
+        />
+      );
+    case 'lead_form':
+      return (
+        <LeadFormWidget
+          block={block}
+          themeMode={themeMode}
+          accentColor={accentColor}
+          onSubmitLead={onSubmitLead}
+        />
+      );
+    case 'columns':
+      return (
+        <ColumnsWidget
+          block={block}
+          viewport={viewport}
+          themeMode={themeMode}
+          accentColor={accentColor}
+          autoButtonContrast={autoButtonContrast}
+          products={products}
+          activeCategory={activeCategory}
+          searchQuery={searchQuery}
+          onSelectCategory={onSelectCategory}
+          onChangeSearch={onChangeSearch}
+          onSelectProduct={onSelectProduct}
+          onQuickViewProduct={onQuickViewProduct}
+          onSubmitLead={onSubmitLead}
+          onCtaClick={onCtaClick}
+        />
+      );
+  }
 };

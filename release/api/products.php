@@ -1,15 +1,23 @@
 <?php
 /**
  * Endpoint de Menú y Catálogo de Productos
- * GET /api/products.php -> Retorna todas las categorías con sus productos
+ * GET /api/products.php -> Retorna todas las categorías con sus productos (requiere token ERP)
  */
 
 require_once __DIR__ . '/config.php';
-$pdo = getDbConnection();
+require_once __DIR__ . '/storage-lib.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     sendResponse(['success' => false, 'error' => 'Método no permitido'], 405);
 }
+
+$token = requestToken();
+$admin = $token !== '' ? verifyToken($token) : null;
+if ($admin === null) {
+    sendResponse(['success' => false, 'error' => 'No autorizado'], 401);
+}
+
+$pdo = getDbConnection();
 
 try {
     // 1. Obtener Categorías
@@ -25,6 +33,7 @@ try {
         'categories' => $categories,
         'products'   => $products,
     ]);
-} catch (Exception $e) {
-    sendResponse(['success' => false, 'error' => $e->getMessage()], 500);
+} catch (Throwable $e) {
+    error_log('[Khalessi ERP products.php] Query error: ' . $e->getMessage());
+    sendResponse(['success' => false, 'error' => 'Error al consultar productos'], 500);
 }

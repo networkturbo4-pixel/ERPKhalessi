@@ -154,10 +154,10 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
     }
   }, [addrStreet, currentDeliveryAddress, isAddingAddress]);
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
-    const res = loginCustomer(loginIdentifier, loginPassword);
+    const res = await loginCustomer(loginIdentifier, loginPassword);
     if (!res.ok) {
       setAuthError(res.error || 'No se pudo iniciar sesión.');
       return;
@@ -165,10 +165,10 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
     setLoginPassword('');
   };
 
-  const handleSignupSubmit = (e: React.FormEvent) => {
+  const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
-    const res = registerCustomer({
+    const res = await registerCustomer({
       fullName: signupName,
       email: signupEmail,
       phone: signupPhone,

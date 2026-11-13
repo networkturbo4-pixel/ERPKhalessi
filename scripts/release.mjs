@@ -41,8 +41,10 @@ if (fs.existsSync(serverDir)) {
   fs.cpSync(serverDir, path.join(release, 'server'), { recursive: true });
 }
 
-// Las credenciales secretas viven en config.local.php (nunca viajan en release)
+// Las credenciales y secretos locales nunca viajan en release
 fs.rmSync(path.join(release, 'api', 'config.local.php'), { force: true });
+fs.rmSync(path.join(release, 'api', '.token_secret.php'), { force: true });
+fs.rmSync(path.join(release, 'api', '.rate_limit'), { recursive: true, force: true });
 
 function buildManifestEntries(dir, baseDir = dir) {
   const entries = [];
@@ -50,11 +52,13 @@ function buildManifestEntries(dir, baseDir = dir) {
   for (const item of items) {
     const fullPath = path.join(dir, item.name);
     if (item.isDirectory()) {
+      if (item.name === '.rate_limit') continue;
       entries.push(...buildManifestEntries(fullPath, baseDir));
     } else {
       const relPath = path.relative(baseDir, fullPath).replace(/\\/g, '/');
       if (
         relPath === 'api/config.local.php' ||
+        relPath === 'api/.token_secret.php' ||
         relPath === 'manifest.json' ||
         relPath === 'version.json'
       ) {

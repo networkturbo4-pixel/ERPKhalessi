@@ -9,6 +9,7 @@ import {
 import { useOrderCatalog } from './OrderCatalogContext';
 import { useSettings } from './SettingsContext';
 import { soundSynth } from '../utils/audio';
+import { hashPassword, isHashedPassword, verifyPassword } from '../utils/passwordHash';
 
 const ACCOUNTS_KEY = 'kh_store_customer_accounts_v1';
 const ACTIVE_ACCOUNT_ID_KEY = 'kh_store_active_customer_id_v1';
@@ -93,8 +94,8 @@ interface StoreCustomerContextType {
   allCustomerAccounts: StoreCustomerAccount[];
   customerOrders: Order[];
   activeCustomerOrdersCount: number;
-  registerCustomer: (data: RegisterPayload) => { ok: boolean; error?: string };
-  loginCustomer: (identifier: string, password: string) => { ok: boolean; error?: string };
+  registerCustomer: (data: RegisterPayload) => Promise<{ ok: boolean; error?: string }>;
+  loginCustomer: (identifier: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logoutCustomer: () => void;
   updateCustomerProfile: (data: UpdateProfilePayload) => { ok: boolean; error?: string };
   addCustomerAddress: (addr: Omit<SavedCustomerAddress, 'id'>) => SavedCustomerAddress;
@@ -260,7 +261,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [accounts, customers, syncAccountToErpCrm]);
 
   const registerCustomer = useCallback(
-    (data: RegisterPayload): { ok: boolean; error?: string } => {
+    async (data: RegisterPayload): Promise<{ ok: boolean; error?: string }> => {
       const emailClean = data.email.trim().toLowerCase();
       const phoneClean = data.phone.trim();
       const phoneDigits = normalizeDigits(phoneClean);
@@ -314,13 +315,15 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
           ]
         : [];
 
+      const hashedPassword = await hashPassword(data.password);
+
       const newAccount: StoreCustomerAccount = {
         id: `cust-acc-${Date.now()}`,
         fullName: data.fullName.trim(),
         dni: (data.dni || '').trim(),
         phone: phoneClean,
         email: emailClean,
-        password: data.password,
+        password: hashedPassword,
         addresses: [],
         paymentMethods: [],
         orderIds: [...guestOrderIds],
@@ -346,41 +349,49 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const loginCustomer = useCallback(
-    (identifier: string, password: string): { ok: boolean; error?: string } => {
+    async (identifier: string, password: string): Promise<{ ok: boolean; error?: string }> => {
       const cleanId = identifier.trim().toLowerCase();
       const idDigits = normalizeDigits(cleanId);
 
-      const found = accounts.find(a => {
+      const candidate = accounts.find(a => {
         const emailMatch = a.email.toLowerCase() === cleanId;
         const phoneMatch = idDigits.length >= 7 && normalizeDigits(a.phone) === idDigits;
-        return (emailMatch || phoneMatch) && a.password === password;
+        return emailMatch || phoneMatch;
       });
 
-      if (!found) {
+      const validPassword = candidate ? await verifyPassword(password, candidate.password) : false;
+
+      if (!candidate || !validPassword) {
         return {
           ok: false,
           error: 'Correo/celular o contraseña incorrectos. Verifica tus datos.',
         };
       }
 
-      // Attach any guest orders made on this browser right before signing in
-      if (guestOrderIds.length > 0) {
+      const needsHashUpgrade = !isHashedPassword(candidate.password);
+      const upgradedHash = needsHashUpgrade ? await hashPassword(password) : null;
+
+      // Attach any guest orders made on this browser right before signing in and upgrade legacy plaintext hash
+      if (guestOrderIds.length > 0 || upgradedHash) {
         setAccounts(prev =>
           prev.map(a =>
-            a.id === found.id
+            a.id === candidate.id
               ? {
                   ...a,
-                  orderIds: Array.from(new Set([...a.orderIds, ...guestOrderIds])),
+                  ...(upgradedHash ? { password: upgradedHash } : {}),
+                  ...(guestOrderIds.length > 0
+                    ? { orderIds: Array.from(new Set([...a.orderIds, ...guestOrderIds])) }
+                    : {}),
                 }
               : a
           )
         );
       }
 
-      setActiveCustomerId(found.id);
+      setActiveCustomerId(candidate.id);
       dispatchToast(
         'Sesión Iniciada',
-        `Hola de nuevo, ${found.fullName.split(' ')[0]}.`,
+        `Hola de nuevo, ${candidate.fullName.split(' ')[0]}.`,
         'success'
       );
       return { ok: true };

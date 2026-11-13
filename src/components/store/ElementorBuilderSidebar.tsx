@@ -18,6 +18,9 @@ import {
   StoreAnimationType,
   getOptimalContrastHex,
 } from '../../types/storeBuilder';
+import { ElementorBasicWidgetsInspector } from './ElementorBasicWidgetsInspector';
+import { ElementorAdvancedWidgetsInspector } from './ElementorAdvancedWidgetsInspector';
+import { MediaGalleryModal } from '../media/MediaGalleryModal';
 import {
   Bell,
   ChevronLeft,
@@ -32,6 +35,7 @@ import {
   Copy,
   ArrowUp,
   ArrowDown,
+  Eye,
   EyeOff,
   Hash,
   MoveHorizontal,
@@ -50,6 +54,20 @@ import {
   ChevronRight,
   Check,
   ExternalLink,
+  Type,
+  AlignLeft,
+  PlaySquare,
+  Image as ImageIcon,
+  MousePointerClick,
+  Undo2,
+  Redo2,
+  ClipboardPaste,
+  Columns,
+  Minus,
+  HelpCircle,
+  Clock,
+  Mail,
+  GripVertical,
 } from 'lucide-react';
 
 const AdvancedOptionsAccordion: React.FC<{
@@ -184,17 +202,29 @@ export const ElementorBuilderSidebar: React.FC = () => {
   const {
     templates,
     activeTemplate,
+    activeEditingPageId,
     selectTemplate,
     updateActiveTemplateMeta,
     resetActiveTemplateToFactory,
+    previewViewport,
+    setPreviewViewport,
     selectedBlockId,
     setSelectedBlockId,
     setIsBuilderOpen,
     addBlock,
     updateBlock,
     moveBlock,
+    reorderBlock,
     duplicateBlock,
     removeBlock,
+    toggleBlockVisibility,
+    canUndo,
+    canRedo,
+    undo,
+    redo,
+    copiedStyleType,
+    copyBlockStyles,
+    pasteBlockStyles,
   } = useStoreBuilder();
 
   const { products } = useOrderCatalog();
@@ -203,6 +233,12 @@ export const ElementorBuilderSidebar: React.FC = () => {
   const [rootTab, setRootTab] = useState<'widgets' | 'templates'>('widgets');
   const [expandedSlideId, setExpandedSlideId] = useState<string | null>(null);
   const [showProductIdsHelper, setShowProductIdsHelper] = useState(false);
+  const [dragLayerIdx, setDragLayerIdx] = useState<number | null>(null);
+  const [sliderMediaTarget, setSliderMediaTarget] = useState<{
+    blockId: string;
+    slideId: string;
+    field: 'imageDesktop' | 'imageTablet' | 'imageMobile';
+  } | null>(null);
 
   const selectedBlock = activeTemplate.blocks.find(b => b.id === selectedBlockId) || null;
 
@@ -284,6 +320,56 @@ export const ElementorBuilderSidebar: React.FC = () => {
           label: 'Cinta Promocional',
           icon: <Megaphone className="w-4 h-4 text-rose-400" />,
         };
+      case 'text':
+        return {
+          label: 'Texto / Título',
+          icon: <Type className="w-4 h-4 text-cyan-400" />,
+        };
+      case 'paragraph':
+        return {
+          label: 'Párrafo',
+          icon: <AlignLeft className="w-4 h-4 text-indigo-400" />,
+        };
+      case 'video':
+        return {
+          label: 'Video',
+          icon: <PlaySquare className="w-4 h-4 text-red-400" />,
+        };
+      case 'image':
+        return {
+          label: 'Imagen',
+          icon: <ImageIcon className="w-4 h-4 text-teal-400" />,
+        };
+      case 'button':
+        return {
+          label: 'Botón',
+          icon: <MousePointerClick className="w-4 h-4 text-orange-400" />,
+        };
+      case 'columns':
+        return {
+          label: 'Columnas',
+          icon: <Columns className="w-4 h-4 text-sky-400" />,
+        };
+      case 'spacer':
+        return {
+          label: 'Espaciador / Divisor',
+          icon: <Minus className="w-4 h-4 text-zinc-400" />,
+        };
+      case 'faq':
+        return {
+          label: 'Preguntas Frecuentes',
+          icon: <HelpCircle className="w-4 h-4 text-violet-400" />,
+        };
+      case 'countdown':
+        return {
+          label: 'Contador Regresivo',
+          icon: <Clock className="w-4 h-4 text-amber-400" />,
+        };
+      case 'lead_form':
+        return {
+          label: 'Formulario / Leads',
+          icon: <Mail className="w-4 h-4 text-emerald-400" />,
+        };
     }
   };
 
@@ -292,39 +378,103 @@ export const ElementorBuilderSidebar: React.FC = () => {
      ========================================================================== */
   if (selectedBlock) {
     const meta = getBlockMeta(selectedBlock.type);
+    const isHidden = Boolean(selectedBlock.advanced.isHidden);
 
     return (
       <aside className="w-full lg:w-[360px] xl:w-[380px] shrink-0 bg-[#101117] border-r border-[#242735] text-zinc-100 flex flex-col h-full select-none">
         {/* Top Inspector Header */}
-        <div className="px-4 py-3.5 border-b border-[#232634] flex items-center justify-between gap-2 bg-[#12141c]">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="px-4 py-3 border-b border-[#232634] space-y-2.5 bg-[#12141c]">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3 min-w-0">
+              <button
+                type="button"
+                onClick={() => setSelectedBlockId(null)}
+                title="Volver a Capas y Widgets"
+                className="w-8 h-8 rounded-lg bg-[#1b1e2b] hover:bg-[#25293a] border border-[#2c3042] flex items-center justify-center text-zinc-300 hover:text-white transition-colors shrink-0"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <div className="min-w-0">
+                <span className="block text-[10px] font-black uppercase tracking-wider text-rose-500 leading-none mb-1">
+                  CONFIGURACIÓN
+                </span>
+                <div className="flex items-center gap-1.5">
+                  {meta.icon}
+                  <h3 className="text-sm font-black text-white truncate">{meta.label}</h3>
+                </div>
+              </div>
+            </div>
+
             <button
               type="button"
               onClick={() => setSelectedBlockId(null)}
-              title="Volver a Capas y Widgets"
-              className="w-8 h-8 rounded-lg bg-[#1b1e2b] hover:bg-[#25293a] border border-[#2c3042] flex items-center justify-center text-zinc-300 hover:text-white transition-colors shrink-0"
+              title="Cerrar configuración de bloque"
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#1e2130] transition-colors shrink-0"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <X className="w-4 h-4" />
             </button>
-            <div className="min-w-0">
-              <span className="block text-[10px] font-black uppercase tracking-wider text-rose-500 leading-none mb-1">
-                CONFIGURACIÓN
-              </span>
-              <div className="flex items-center gap-1.5">
-                {meta.icon}
-                <h3 className="text-sm font-black text-white truncate">{meta.label}</h3>
-              </div>
-            </div>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setSelectedBlockId(null)}
-            title="Cerrar configuración de bloque"
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#1e2130] transition-colors shrink-0"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          {/* Quick Inspector Toolbar: Undo/Redo, Visibility, Copy/Paste Styles */}
+          <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-[#1e212e]">
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                disabled={!canUndo}
+                onClick={undo}
+                title="Deshacer (Ctrl+Z)"
+                className="p-1.5 rounded-lg bg-[#181b26] hover:bg-[#232738] text-zinc-300 disabled:opacity-30"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                disabled={!canRedo}
+                onClick={redo}
+                title="Rehacer (Ctrl+Y)"
+                className="p-1.5 rounded-lg bg-[#181b26] hover:bg-[#232738] text-zinc-300 disabled:opacity-30"
+              >
+                <Redo2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => toggleBlockVisibility(selectedBlock.id)}
+                title={isHidden ? 'Mostrar bloque' : 'Ocultar bloque temporalmente'}
+                className={`px-2 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 border ${
+                  isHidden
+                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                    : 'bg-[#181b26] border-[#262a3a] text-zinc-300 hover:text-white'
+                }`}
+              >
+                {isHidden ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                <span>{isHidden ? 'Mostrar' : 'Ocultar'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => copyBlockStyles(selectedBlock)}
+                title="Copiar estilos del bloque"
+                className="p-1.5 rounded-lg bg-[#181b26] hover:bg-[#232738] border border-[#262a3a] text-zinc-300 hover:text-white"
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
+
+              {copiedStyleType && (
+                <button
+                  type="button"
+                  onClick={() => pasteBlockStyles(selectedBlock.id)}
+                  title="Pegar estilos copiados"
+                  className="px-2 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold flex items-center gap-1"
+                >
+                  <ClipboardPaste className="w-3 h-3" />
+                  <span>Pegar</span>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Scrollable Inspector Body */}
@@ -1424,20 +1574,36 @@ export const ElementorBuilderSidebar: React.FC = () => {
                                       <label className="text-[10px] font-bold text-zinc-300">
                                         {imgLabel}
                                       </label>
-                                      <label className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 hover:text-amber-300 cursor-pointer">
-                                        <Upload className="w-3 h-3" />
-                                        <span>Subir archivo</span>
-                                        <input
-                                          type="file"
-                                          accept="image/*"
-                                          className="hidden"
-                                          onChange={e =>
-                                            handleImageFileUpload(e, dataUrl =>
-                                              updateSlide(slide.id, { [imgField]: dataUrl })
-                                            )
+                                      <div className="flex items-center gap-2.5">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setSliderMediaTarget({
+                                              blockId: blk.id,
+                                              slideId: slide.id,
+                                              field: imgField,
+                                            })
                                           }
-                                        />
-                                      </label>
+                                          className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-400 hover:text-rose-300"
+                                        >
+                                          <ImageIcon className="w-3 h-3" />
+                                          <span>Galería</span>
+                                        </button>
+                                        <label className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 hover:text-amber-300 cursor-pointer">
+                                          <Upload className="w-3 h-3" />
+                                          <span>Subir archivo</span>
+                                          <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={e =>
+                                              handleImageFileUpload(e, dataUrl =>
+                                                updateSlide(slide.id, { [imgField]: dataUrl })
+                                              )
+                                            }
+                                          />
+                                        </label>
+                                      </div>
                                     </div>
                                     <input
                                       type="url"
@@ -1896,6 +2062,64 @@ export const ElementorBuilderSidebar: React.FC = () => {
             );
           })()}
 
+          {(selectedBlock.type === 'text' ||
+            selectedBlock.type === 'paragraph' ||
+            selectedBlock.type === 'video' ||
+            selectedBlock.type === 'image' ||
+            selectedBlock.type === 'button') && (
+            <ElementorBasicWidgetsInspector
+              block={selectedBlock}
+              viewport={previewViewport}
+              onChangeViewport={setPreviewViewport}
+              products={products}
+              onPatch={partial =>
+                updateBlock(selectedBlock.id, prev => ({ ...prev, ...partial } as StoreBlock))
+              }
+              renderAdvanced={(value, onChange) => (
+                <AdvancedOptionsAccordion value={value} onChange={onChange} />
+              )}
+            />
+          )}
+
+          {(selectedBlock.type === 'columns' ||
+            selectedBlock.type === 'spacer' ||
+            selectedBlock.type === 'faq' ||
+            selectedBlock.type === 'countdown' ||
+            selectedBlock.type === 'lead_form') && (
+            <ElementorAdvancedWidgetsInspector
+              block={selectedBlock}
+              viewport={previewViewport}
+              onChangeViewport={setPreviewViewport}
+              onPatch={partial =>
+                updateBlock(selectedBlock.id, prev => ({ ...prev, ...partial } as StoreBlock))
+              }
+              renderAdvanced={(value, onChange) => (
+                <AdvancedOptionsAccordion value={value} onChange={onChange} />
+              )}
+            />
+          )}
+
+          <MediaGalleryModal
+            isOpen={sliderMediaTarget !== null}
+            onClose={() => setSliderMediaTarget(null)}
+            onSelect={url => {
+              if (sliderMediaTarget) {
+                updateBlock(sliderMediaTarget.blockId, prev => {
+                  if (prev.type !== 'slider') return prev;
+                  return {
+                    ...prev,
+                    slides: prev.slides.map(s =>
+                      s.id === sliderMediaTarget.slideId
+                        ? { ...s, [sliderMediaTarget.field]: url }
+                        : s
+                    ),
+                  };
+                });
+              }
+              setSliderMediaTarget(null);
+            }}
+          />
+
           {/* Bottom Delete Action */}
           <div className="pt-3 border-t border-[#232634]">
             <button
@@ -1933,14 +2157,34 @@ export const ElementorBuilderSidebar: React.FC = () => {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsBuilderOpen(false)}
-          title="Salir del Constructor"
-          className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#1d2030] transition-colors"
-        >
-          <X className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            disabled={!canUndo}
+            onClick={undo}
+            title="Deshacer (Ctrl+Z)"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#1d2030] disabled:opacity-30 transition-colors"
+          >
+            <Undo2 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            disabled={!canRedo}
+            onClick={redo}
+            title="Rehacer (Ctrl+Y)"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#1d2030] disabled:opacity-30 transition-colors"
+          >
+            <Redo2 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsBuilderOpen(false)}
+            title="Salir del Constructor"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#1d2030] transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Mode Switcher Tabs */}
@@ -2000,38 +2244,97 @@ export const ElementorBuilderSidebar: React.FC = () => {
                         ? `Estilo: ${blk.style}`
                         : blk.type === 'product_grid'
                         ? `${blk.cardStyle} • ${blk.columnsDesktop} cols PC`
-                        : blk.title || 'Activo';
+                        : blk.type === 'text'
+                        ? blk.text || 'Título'
+                        : blk.type === 'paragraph'
+                        ? blk.text || 'Párrafo'
+                        : blk.type === 'video'
+                        ? blk.aspectRatio
+                        : blk.type === 'image'
+                        ? blk.alt || 'Imagen'
+                        : blk.type === 'button'
+                        ? blk.label || 'Botón'
+                        : blk.type === 'columns'
+                        ? `${blk.columns.length} columnas`
+                        : blk.type === 'spacer'
+                        ? `${blk.heightDesktop}px${blk.showDivider ? ' + Línea' : ''}`
+                        : blk.type === 'faq'
+                        ? `${blk.items.length} preguntas`
+                        : blk.type === 'countdown'
+                        ? blk.title || 'Contador'
+                        : blk.type === 'lead_form'
+                        ? blk.title || 'Formulario'
+                        : ('title' in blk && blk.title) || 'Activo';
+
+                    const isHidden = Boolean(blk.advanced.isHidden);
 
                     return (
                       <div
                         key={blk.id}
-                        className="group rounded-xl border border-[#252938] bg-[#161822] hover:border-amber-500/50 p-3 flex items-center justify-between gap-2 transition-all"
+                        draggable
+                        onDragStart={() => setDragLayerIdx(idx)}
+                        onDragOver={e => e.preventDefault()}
+                        onDrop={() => {
+                          if (dragLayerIdx !== null && dragLayerIdx !== idx) {
+                            reorderBlock(dragLayerIdx, idx);
+                          }
+                          setDragLayerIdx(null);
+                        }}
+                        onDragEnd={() => setDragLayerIdx(null)}
+                        className={`group rounded-xl border bg-[#161822] hover:border-amber-500/50 p-2.5 flex items-center justify-between gap-1.5 transition-all ${
+                          dragLayerIdx === idx
+                            ? 'border-rose-500 opacity-60'
+                            : 'border-[#252938]'
+                        } ${isHidden ? 'opacity-50' : ''}`}
                       >
-                        <button
-                          type="button"
-                          onClick={() => setSelectedBlockId(blk.id)}
-                          className="flex items-center gap-2.5 text-left min-w-0 flex-1"
-                        >
-                          <div className="w-8 h-8 rounded-lg bg-[#1f2333] border border-[#2d3246] flex items-center justify-center shrink-0">
-                            {meta.icon}
-                          </div>
-                          <div className="min-w-0">
-                            <span className="block text-xs font-bold text-white truncate">
-                              {'title' in blk && blk.title ? blk.title : meta.label}
-                            </span>
-                            <span className="block text-[10px] text-zinc-400 truncate">
-                              {subInfo}
-                            </span>
-                          </div>
-                        </button>
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                          <span
+                            title="Arrastrar para reordenar"
+                            className="cursor-grab active:cursor-grabbing text-zinc-600 hover:text-zinc-300 shrink-0"
+                          >
+                            <GripVertical className="w-3.5 h-3.5" />
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedBlockId(blk.id)}
+                            className="flex items-center gap-2 text-left min-w-0 flex-1"
+                          >
+                            <div className="w-7 h-7 rounded-lg bg-[#1f2333] border border-[#2d3246] flex items-center justify-center shrink-0">
+                              {meta.icon}
+                            </div>
+                            <div className="min-w-0">
+                              <span className="block text-xs font-bold text-white truncate">
+                                {'title' in blk && blk.title ? blk.title : meta.label}
+                              </span>
+                              <span className="block text-[10px] text-zinc-400 truncate">
+                                {isHidden ? 'Oculto • ' : ''}
+                                {subInfo}
+                              </span>
+                            </div>
+                          </button>
+                        </div>
 
                         <div className="flex items-center gap-0.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => toggleBlockVisibility(blk.id)}
+                            title={isHidden ? 'Mostrar bloque' : 'Ocultar bloque'}
+                            className={`p-1 rounded-lg hover:bg-[#232738] ${
+                              isHidden ? 'text-amber-400' : 'text-zinc-500 hover:text-white'
+                            }`}
+                          >
+                            {isHidden ? (
+                              <Eye className="w-3.5 h-3.5" />
+                            ) : (
+                              <EyeOff className="w-3.5 h-3.5" />
+                            )}
+                          </button>
                           <button
                             type="button"
                             disabled={idx === 0}
                             onClick={() => moveBlock(blk.id, -1)}
                             title="Subir bloque"
-                            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#232738] disabled:opacity-25"
+                            className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-[#232738] disabled:opacity-25"
                           >
                             <ArrowUp className="w-3.5 h-3.5" />
                           </button>
@@ -2040,7 +2343,7 @@ export const ElementorBuilderSidebar: React.FC = () => {
                             disabled={idx === activeTemplate.blocks.length - 1}
                             onClick={() => moveBlock(blk.id, 1)}
                             title="Bajar bloque"
-                            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#232738] disabled:opacity-25"
+                            className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-[#232738] disabled:opacity-25"
                           >
                             <ArrowDown className="w-3.5 h-3.5" />
                           </button>
@@ -2048,7 +2351,7 @@ export const ElementorBuilderSidebar: React.FC = () => {
                             type="button"
                             onClick={() => duplicateBlock(blk.id)}
                             title="Duplicar bloque"
-                            className="p-1.5 rounded-lg text-zinc-400 hover:text-amber-400 hover:bg-[#232738]"
+                            className="p-1 rounded-lg text-zinc-400 hover:text-amber-400 hover:bg-[#232738]"
                           >
                             <Copy className="w-3.5 h-3.5" />
                           </button>
@@ -2056,7 +2359,7 @@ export const ElementorBuilderSidebar: React.FC = () => {
                             type="button"
                             onClick={() => confirmDeleteBlock(blk)}
                             title="Eliminar bloque"
-                            className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-[#232738]"
+                            className="p-1 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-[#232738]"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -2079,6 +2382,16 @@ export const ElementorBuilderSidebar: React.FC = () => {
               <div className="grid grid-cols-2 gap-2">
                 {(
                   [
+                    ['columns', 'Columnas', '2, 3 o 4 columnas', 'border-sky-500/30'],
+                    ['text', 'Texto / Título', 'H1-H4, color, 3 vistas', 'border-cyan-500/30'],
+                    ['paragraph', 'Párrafo', 'Editorial, alineación, cita', 'border-indigo-500/30'],
+                    ['image', 'Imagen', 'Galería, 3 vistas, acción', 'border-teal-500/30'],
+                    ['video', 'Video', 'YouTube, Vimeo o MP4', 'border-red-500/30'],
+                    ['button', 'Botón', 'CTA, WhatsApp, enlace', 'border-orange-500/30'],
+                    ['spacer', 'Espaciador', 'Aire + línea divisoria', 'border-zinc-500/30'],
+                    ['faq', 'Acordeón FAQ', 'Preguntas frecuentes', 'border-violet-500/30'],
+                    ['countdown', 'Contador', 'Reloj oferta limitada', 'border-amber-500/30'],
+                    ['lead_form', 'Formulario', 'Captura leads al CRM', 'border-emerald-500/30'],
                     ['slider', 'Slider Hero', '3 vistas + Enlace/Prod.', 'border-amber-500/30'],
                     ['categories', 'Categorías', 'Pills, Cards, Círculos', 'border-emerald-500/30'],
                     ['product_grid', 'Productos', 'Parrilla o Carrusel', 'border-blue-500/30'],
@@ -2120,12 +2433,13 @@ export const ElementorBuilderSidebar: React.FC = () => {
         ) : (
           /* ==================== PESTAÑA DE PLANTILLAS Y ESTILO GLOBAL ==================== */
           <div className="space-y-5">
-            <div className="space-y-2.5">
-              <span className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                ELIGE UNA PLANTILLA EDITABLE
-              </span>
+            {!activeEditingPageId && (
+              <div className="space-y-2.5">
+                <span className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+                  ELIGE UNA PLANTILLA EDITABLE
+                </span>
 
-              {templates.map(tpl => {
+                {templates.map(tpl => {
                 const isCurrent = tpl.id === activeTemplate.id;
                 return (
                   <button
@@ -2164,14 +2478,15 @@ export const ElementorBuilderSidebar: React.FC = () => {
                   </button>
                 );
               })}
-            </div>
+              </div>
+            )}
 
-            <hr className="border-[#232634]" />
+            {!activeEditingPageId && <hr className="border-[#232634]" />}
 
             {/* Global Colors & Theme of Active Template */}
             <div className="space-y-3">
               <span className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                APARIENCIA DE LA PLANTILLA ACTIVA
+                {activeEditingPageId ? 'APARIENCIA DE LA PÁGINA' : 'APARIENCIA DE LA PLANTILLA ACTIVA'}
               </span>
 
               <div>

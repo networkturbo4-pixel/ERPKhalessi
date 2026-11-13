@@ -3,7 +3,8 @@
  * Inicio de sesión de personal ERP para sincronización autenticada con el servidor.
  *   POST /api/auth.php  {"pin":"12345678"}  ->  {success, token, expires, user}
  * El PIN se valida contra los colaboradores guardados en kv_storage, tabla MySQL `users`
- * o contra el PIN de administración de rescate/bootstrap (ADMIN_BOOTSTRAP_PIN).
+ * o contra el PIN de administración de rescate/bootstrap (ADMIN_BOOTSTRAP_PIN en config.local.php)
+ * únicamente mientras no existan usuarios configurados.
  */
 
 require_once __DIR__ . '/config.php';
@@ -13,6 +14,70 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     sendResponse(['success' => false, 'error' => 'Método no permitido'], 405);
 }
 
+// --- Rate limiting por IP contra fuerza bruta de PIN ---
+const AUTH_MAX_ATTEMPTS = 5;
+const AUTH_WINDOW_SECONDS = 300; // 5 minutos
+
+function getClientIpKey(): string {
+    $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    return hash('sha256', (string)$ip);
+}
+
+function getRateLimitFile(): string {
+    $dir = __DIR__ . '/.rate_limit';
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0750, true);
+    }
+    if (is_dir($dir) && is_writable($dir)) {
+        return $dir . '/auth_' . getClientIpKey() . '.json';
+    }
+    return rtrim(sys_get_temp_dir(), '/\\') . DIRECTORY_SEPARATOR . 'kh_auth_' . getClientIpKey() . '.json';
+}
+
+function checkRateLimit(): void {
+    $file = getRateLimitFile();
+    if (!is_file($file)) return;
+    $raw = @file_get_contents($file);
+    $data = $raw ? json_decode($raw, true) : null;
+    if (!is_array($data)) return;
+
+    $now = time();
+    $attempts = array_values(array_filter($data['attempts'] ?? [], fn($ts) => is_int($ts) && ($now - $ts) < AUTH_WINDOW_SECONDS));
+    if (count($attempts) >= AUTH_MAX_ATTEMPTS) {
+        $oldest = min($attempts);
+        $retryAfter = max(1, AUTH_WINDOW_SECONDS - ($now - $oldest));
+        header('Retry-After: ' . $retryAfter);
+        sendResponse([
+            'success' => false,
+            'error'   => 'Demasiados intentos fallidos. Intenta nuevamente en unos minutos.',
+        ], 429);
+    }
+}
+
+function recordFailedAttempt(): void {
+    $file = getRateLimitFile();
+    $now = time();
+    $attempts = [];
+    if (is_file($file)) {
+        $raw = @file_get_contents($file);
+        $data = $raw ? json_decode($raw, true) : null;
+        if (is_array($data) && isset($data['attempts']) && is_array($data['attempts'])) {
+            $attempts = array_values(array_filter($data['attempts'], fn($ts) => is_int($ts) && ($now - $ts) < AUTH_WINDOW_SECONDS));
+        }
+    }
+    $attempts[] = $now;
+    @file_put_contents($file, json_encode(['attempts' => $attempts]), LOCK_EX);
+}
+
+function clearRateLimit(): void {
+    $file = getRateLimitFile();
+    if (is_file($file)) {
+        @unlink($file);
+    }
+}
+
+checkRateLimit();
+
 $pdo = getDbConnection();
 kvInit($pdo);
 
@@ -20,6 +85,7 @@ $input = json_decode(file_get_contents('php://input'), true);
 $pin = is_array($input) && isset($input['pin']) ? preg_replace('/\D/', '', (string)$input['pin']) : '';
 
 function failAuth(): void {
+    recordFailedAttempt();
     usleep(200000); // 200ms contra fuerza bruta
     sendResponse(['success' => false, 'error' => 'Credencial no autorizada'], 401);
 }
@@ -75,18 +141,11 @@ if ($matched === null) {
     }
 }
 
-// Rescate / Super Administrador: si coincide con ADMIN_BOOTSTRAP_PIN (o 230825 cuando aún no hay usuarios guardados)
-if ($matched === null) {
+// Rescate inicial: solo si aún no hay usuarios configurados y ADMIN_BOOTSTRAP_PIN está definido en config.local.php
+if ($matched === null && !$hasConfiguredUsers) {
     if (defined('ADMIN_BOOTSTRAP_PIN') && ADMIN_BOOTSTRAP_PIN !== '' && hash_equals((string)ADMIN_BOOTSTRAP_PIN, $pin)) {
         $matched = [
             'id'     => 'bootstrap',
-            'name'   => 'Super Administrador',
-            'roleId' => 'role-admin',
-            'status' => 'active',
-        ];
-    } elseif (!$hasConfiguredUsers && hash_equals('230825', $pin)) {
-        $matched = [
-            'id'     => 'user-1',
             'name'   => 'Super Administrador',
             'roleId' => 'role-admin',
             'status' => 'active',
@@ -97,6 +156,8 @@ if ($matched === null) {
 if ($matched === null || (isset($matched['status']) && $matched['status'] === 'suspended')) {
     failAuth();
 }
+
+clearRateLimit();
 
 $uid = (string)($matched['id'] ?? 'bootstrap');
 $uname = (string)($matched['name'] ?? 'Colaborador');

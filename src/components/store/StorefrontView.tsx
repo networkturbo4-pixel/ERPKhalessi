@@ -21,13 +21,7 @@ import {
 import { ToastContainer } from '../common/ToastContainer';
 import { SystemNoticeModal } from '../common/SystemNoticeModal';
 import { StorefrontSkeleton } from '../common/AppSurfaceSkeleton';
-import {
-  StoreSliderWidget,
-  StoreCategoriesWidget,
-  StoreProductGridWidget,
-  StoreSearchBarWidget,
-  StorePromoStripWidget,
-} from './StorefrontWidgets';
+import { StoreBlockRenderer } from './StorefrontWidgets';
 import { StoreAccountMenu } from './StoreAccountMenu';
 
 const loadStoreProductDetailPage = () =>
@@ -184,6 +178,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     clearCart,
     cartSubtotal,
     createOrder,
+    upsertCustomer,
   } = useOrderCatalog();
 
   const {
@@ -201,6 +196,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     templates,
     activeTemplate,
     selectTemplate,
+    customPages,
     isBuilderOpen,
     setIsBuilderOpen,
     previewViewport,
@@ -1053,74 +1049,37 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     finalizeOrderCreation();
   };
 
-  const renderBlockContent = (block: StoreBlock, idx = 0) => {
-    switch (block.type) {
-      case 'slider':
-        return (
-          <StoreSliderWidget
-            block={block}
-            viewport={effectiveViewport}
-            isLightTheme={isLightTheme}
-            accentColor={accentColor}
-            autoButtonContrast={autoButtonContrast}
-            products={products}
-            onSelectProduct={prod => navigateToProductSlug(prod)}
-            isHero={idx === 0}
-          />
-        );
-      case 'categories':
-        return (
-          <StoreCategoriesWidget
-            block={block}
-            viewport={effectiveViewport}
-            isLightTheme={isLightTheme}
-            accentColor={accentColor}
-            autoButtonContrast={autoButtonContrast}
-            products={products}
-            activeCategory={activeCategory}
-            onSelectCategory={catId => setActiveCategory(catId)}
-          />
-        );
-      case 'product_grid':
-        return (
-          <StoreProductGridWidget
-            block={block}
-            viewport={effectiveViewport}
-            isLightTheme={isLightTheme}
-            accentColor={accentColor}
-            autoButtonContrast={autoButtonContrast}
-            products={products}
-            activeCategory={activeCategory}
-            searchQuery={searchQuery}
-            onSelectProduct={(prod, imgEl) => navigateToProductSlug(prod, imgEl)}
-            onQuickViewProduct={prod => setQuickViewProduct(prod)}
-            isAboveFold={idx <= 2}
-          />
-        );
-      case 'search_bar':
-        return (
-          <StoreSearchBarWidget
-            block={block}
-            viewport={effectiveViewport}
-            accentColor={accentColor}
-            isLightTheme={isLightTheme}
-            searchQuery={searchQuery}
-            onChangeSearch={q => setSearchQuery(q)}
-          />
-        );
-      case 'promo_strip':
-        return (
-          <StorePromoStripWidget
-            block={block}
-            viewport={effectiveViewport}
-            accentColor={accentColor}
-            products={products}
-            autoButtonContrast={autoButtonContrast}
-            onSelectProduct={prod => navigateToProductSlug(prod)}
-          />
-        );
-    }
-  };
+  const renderBlockContent = (block: StoreBlock, idx = 0) => (
+    <StoreBlockRenderer
+      block={block}
+      index={idx}
+      viewport={effectiveViewport}
+      themeMode={activeTemplate.themeMode}
+      accentColor={accentColor}
+      autoButtonContrast={autoButtonContrast}
+      products={products}
+      activeCategory={activeCategory}
+      searchQuery={searchQuery}
+      onSelectCategory={catId => setActiveCategory(catId)}
+      onChangeSearch={q => setSearchQuery(q)}
+      onSelectProduct={(prod, imgEl) =>
+        navigateToProductSlug(prod, (imgEl as HTMLImageElement | null | undefined) ?? null)
+      }
+      onQuickViewProduct={prod => setQuickViewProduct(prod)}
+      onSubmitLead={lead => {
+        upsertCustomer({
+          dni: '',
+          fullName: lead.fullName,
+          email: lead.email || '',
+          whatsapp: lead.phone,
+          address: '',
+          reference: lead.message ? `[Lead Tienda] ${lead.message}` : '[Lead Tienda]',
+          tenantId: activeTenant.id,
+        });
+        dispatchToast('Consulta Enviada', 'Tus datos se registraron correctamente.', 'success');
+      }}
+    />
+  );
 
   const blockTypeLabel: Record<StoreBlock['type'], string> = {
     slider: 'Slider',
@@ -1128,6 +1087,16 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     product_grid: 'Parrilla de Productos',
     search_bar: 'Buscador',
     promo_strip: 'Cinta Promo',
+    text: 'Texto / Título',
+    paragraph: 'Párrafo',
+    video: 'Video',
+    image: 'Imagen',
+    button: 'Botón',
+    columns: 'Columnas',
+    spacer: 'Espaciador',
+    faq: 'Preguntas Frecuentes',
+    countdown: 'Contador Regresivo',
+    lead_form: 'Formulario',
   };
 
   const headerLogoUrl =
@@ -1311,8 +1280,24 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
               </button>
             </div>
 
-            {/* ZONE B (Center — Tablet & Desktop PC): Live Search Trigger (mode switcher now lives in the cart) */}
-            <div className="hidden md:flex items-center justify-center gap-2.5 lg:gap-3 lg:flex-1 lg:max-w-xl min-w-0">
+            {/* ZONE B (Center — Tablet & Desktop PC): Live Search Trigger + Custom Pages Nav */}
+            <div className="hidden md:flex items-center justify-center gap-2.5 lg:gap-3 lg:flex-1 lg:max-w-2xl min-w-0">
+              {customPages
+                .filter(p => p.status === 'published' && p.showInStoreNav)
+                .slice(0, 4)
+                .map(p => (
+                  <a
+                    key={p.id}
+                    href={`/p/${p.slug}`}
+                    className={`hidden lg:inline-flex items-center px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors ${
+                      isLightTheme
+                        ? 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900'
+                        : 'text-zinc-300 hover:bg-neutral-800 hover:text-white'
+                    }`}
+                  >
+                    {p.navLabel?.trim() || p.title}
+                  </a>
+                ))}
 
               {/* Wide Desktop Integrated Search Trigger (xl >= 1280px) */}
               <button
@@ -1514,8 +1499,9 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
           })()}
           {activeTemplate.blocks.map((block, idx) => {
             const visibleOnCurrentDevice = isBlockVisibleOnViewport(block, effectiveViewport);
+            const isHidden = Boolean(block.advanced.isHidden);
 
-            if (!isBuilderOpen && !visibleOnCurrentDevice) {
+            if (!isBuilderOpen && (!visibleOnCurrentDevice || isHidden)) {
               return null;
             }
 
@@ -1543,7 +1529,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                   isSelected
                     ? 'ring-2 ring-rose-500 ring-offset-2 ring-offset-transparent'
                     : 'hover:ring-2 hover:ring-amber-400/70'
-                } ${!visibleOnCurrentDevice ? 'opacity-45 grayscale-[30%]' : ''}`}
+                } ${!visibleOnCurrentDevice || isHidden ? 'opacity-45 grayscale-[30%]' : ''}`}
               >
                 <div
                   className={`absolute -top-3 right-3 z-30 flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold shadow-lg border transition-opacity ${
@@ -1563,6 +1549,12 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                     <Edit3 className="w-3 h-3" />
                     <span>{blockTypeLabel[block.type]}</span>
                   </button>
+
+                  {isHidden && (
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-black/40 text-[10px] text-rose-300">
+                      <EyeOff className="w-3 h-3" /> Oculto
+                    </span>
+                  )}
 
                   {!visibleOnCurrentDevice && (
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-black/40 text-[10px] text-amber-300">

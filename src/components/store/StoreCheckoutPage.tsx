@@ -222,7 +222,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
     }
   };
 
-  const handleQuickAuthSubmit = (e: React.FormEvent) => {
+  const handleQuickAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmittingAuth(true);
 
@@ -232,7 +232,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
         setIsSubmittingAuth(false);
         return;
       }
-      const res = registerCustomer({
+      const res = await registerCustomer({
         fullName: authName.trim(),
         phone: authPhone.trim(),
         email: authEmail.trim(),
@@ -256,7 +256,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
         setIsSubmittingAuth(false);
         return;
       }
-      const res = loginCustomer(authEmail.trim(), authPassword.trim());
+      const res = await loginCustomer(authEmail.trim(), authPassword.trim());
       setIsSubmittingAuth(false);
       if (res.ok) {
         setIsAuthModalOpen(false);

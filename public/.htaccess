@@ -16,6 +16,12 @@
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
+  # No hacer fallback a index.html para assets faltantes o archivos estáticos (evita MIME text/html en módulos JS)
+  RewriteRule ^(assets/|.*\.(js|mjs|css|map|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|json)$) - [R=404,L]
+
+  # Open Graph dinámico para URLs cortas de páginas personalizadas (/p/{slug})
+  RewriteRule ^p/([^/]+)/?$ api/page-og.php?slug=$1 [L,QSA]
+
   # Redirigir todas las demás rutas a index.html (SPA Fallback)
   RewriteRule ^ index.html [L]
 </IfModule>
@@ -25,7 +31,15 @@
   AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json application/xml image/svg+xml
 </IfModule>
 
-# Caché de activos estáticos
+# Nunca cachear index.html ni manifiestos de versión (evita hashes JS obsoletos tras desplegar)
+<FilesMatch "^(index\.html|version\.json|manifest\.json)$">
+  <IfModule mod_headers.c>
+    Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    Header set Pragma "no-cache"
+  </IfModule>
+</FilesMatch>
+
+# Caché de activos estáticos con hash
 <IfModule mod_expires.c>
   ExpiresActive On
   ExpiresByType image/svg+xml "access plus 1 month"
@@ -37,6 +51,6 @@
 </IfModule>
 
 # Nunca servir credenciales ni librerias internas
-<FilesMatch "^(config\.local\.php|config\.php|storage-lib\.php)$">
+<FilesMatch "^(config\.local\.php|config\.local\.example\.php|config\.php|storage-lib\.php|\.token_secret\.php)$">
   Require all denied
 </FilesMatch>

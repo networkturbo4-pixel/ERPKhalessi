@@ -16,6 +16,8 @@ const loadLoginScreen = () =>
   import('./components/auth/LoginScreen').then(m => ({ default: m.LoginScreen }));
 const loadStorefrontView = () =>
   import('./components/store/StorefrontView').then(m => ({ default: m.StorefrontView }));
+const loadCustomPagePublicView = () =>
+  import('./components/store/CustomPagePublicView').then(m => ({ default: m.CustomPagePublicView }));
 const loadKioskSelfServiceView = () =>
   import('./components/kiosk/KioskSelfServiceView').then(m => ({ default: m.KioskSelfServiceView }));
 const loadHRProvider = () =>
@@ -24,6 +26,7 @@ const loadHRProvider = () =>
 const MainLayout = lazy(loadMainLayout);
 const LoginScreen = lazy(loadLoginScreen);
 const StorefrontView = lazy(loadStorefrontView);
+const CustomPagePublicView = lazy(loadCustomPagePublicView);
 const KioskSelfServiceView = lazy(loadKioskSelfServiceView);
 const LazyHRProvider = lazy(loadHRProvider);
 
@@ -38,6 +41,11 @@ export function preloadInitialRouteChunk(): void {
 
   if (path.startsWith('/kiosco') || hash.startsWith('#kiosco')) {
     void loadKioskSelfServiceView();
+    return;
+  }
+
+  if (path.startsWith('/p/')) {
+    void loadCustomPagePublicView();
     return;
   }
 
@@ -109,6 +117,9 @@ export function App() {
     currentPath.startsWith('/kiosco') ||
     (typeof window !== 'undefined' && window.location.hash.startsWith('#kiosco'));
 
+  const customPageSlugMatch = currentPath.match(/^\/p\/([^/]+)\/?$/);
+  const customPageSlug = customPageSlugMatch ? decodeURIComponent(customPageSlugMatch[1]) : null;
+
   return (
     <ErrorBoundary>
       <RBACProvider>
@@ -129,6 +140,12 @@ export function App() {
                           <AppGate
                             onNavigateToStore={() => navigate('/')}
                             onNavigateToKiosk={() => navigate('/kiosco')}
+                          />
+                        ) : customPageSlug ? (
+                          <CustomPagePublicView
+                            slug={customPageSlug}
+                            onNavigateHome={() => navigate('/')}
+                            onNavigateToAdmin={() => navigate('/admin')}
                           />
                         ) : (
                           <StorefrontView onNavigateToAdmin={() => navigate('/admin')} />

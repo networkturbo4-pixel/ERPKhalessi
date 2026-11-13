@@ -5,7 +5,8 @@
  */
 
 // Cabeceras HTTP para permitir comunicación con React (CORS) y formato JSON
-header("Access-Control-Allow-Origin: *");
+$allowedOrigin = getenv('CORS_ALLOWED_ORIGIN') ?: '*';
+header("Access-Control-Allow-Origin: " . $allowedOrigin);
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-ERP-Token, X-Client-Id");
 header("Content-Type: application/json; charset=UTF-8");
@@ -16,20 +17,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-// Las credenciales reales viven en config.local.php (no versionado)
+// Las credenciales reales viven en config.local.php (no versionado) o variables de entorno
 if (file_exists(__DIR__ . '/config.local.php')) {
-    require __DIR__ . '/config.local.php';
+    require_once __DIR__ . '/config.local.php';
 }
+
+foreach (['DB_HOST', 'DB_USER', 'DB_PASS', 'DB_NAME', 'DB_CHARSET', 'ADMIN_BOOTSTRAP_PIN', 'TOKEN_SECRET', 'ERP_REALTIME_SECRET'] as $envKey) {
+    if (!defined($envKey)) {
+        $val = getenv($envKey);
+        if ($val !== false && $val !== '') {
+            define($envKey, $val);
+        }
+    }
+}
+
 defined('DB_HOST') || define('DB_HOST', 'localhost');
-defined('DB_USER') || define('DB_USER', 'pizzjkyq_erpkhale');
-defined('DB_PASS') || define('DB_PASS', 'Khalessi2026@');
-defined('DB_NAME') || define('DB_NAME', 'pizzjkyq_khalessierp');
 defined('DB_CHARSET') || define('DB_CHARSET', 'utf8mb4');
-defined('ADMIN_BOOTSTRAP_PIN') || define('ADMIN_BOOTSTRAP_PIN', '230825');
 
 function getDbConnection() {
     static $pdo = null;
     if ($pdo === null) {
+        if (!defined('DB_USER') || !defined('DB_PASS') || !defined('DB_NAME') || DB_USER === '' || DB_NAME === '') {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error'   => 'Configuración de base de datos incompleta en el servidor (config.local.php).'
+            ], JSON_UNESCAPED_UNICODE);
+            exit();
+        }
         $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
         $options = [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
@@ -39,11 +54,11 @@ function getDbConnection() {
         try {
             $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
         } catch (PDOException $e) {
+            error_log('[Khalessi ERP DB] Connection error: ' . $e->getMessage());
             http_response_code(500);
             echo json_encode([
                 'success' => false,
-                'error'   => 'Error de conexión a la base de datos MySQL en cPanel',
-                'details' => $e->getMessage()
+                'error'   => 'Error de conexión a la base de datos MySQL en el servidor'
             ], JSON_UNESCAPED_UNICODE);
             exit();
         }

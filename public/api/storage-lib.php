@@ -89,7 +89,23 @@ function sanitizeSettingsForPublic(string $json): string {
 // ----------------------------- Tokens -----------------------------
 
 function tokenSecret(): string {
-    return hash('sha256', DB_PASS . '|' . DB_NAME . '|khalessi-erp-token');
+    if (defined('TOKEN_SECRET') && TOKEN_SECRET !== '') {
+        return (string)TOKEN_SECRET;
+    }
+    $envSecret = getenv('TOKEN_SECRET');
+    if ($envSecret !== false && $envSecret !== '') {
+        return $envSecret;
+    }
+    $secretFile = __DIR__ . '/.token_secret.php';
+    if (is_file($secretFile)) {
+        $loaded = @include $secretFile;
+        if (is_string($loaded) && strlen($loaded) >= 32) {
+            return $loaded;
+        }
+    }
+    $generated = bin2hex(random_bytes(32));
+    @file_put_contents($secretFile, "<?php\nreturn " . var_export($generated, true) . ";\n", LOCK_EX);
+    return $generated;
 }
 
 function b64u(string $s): string {

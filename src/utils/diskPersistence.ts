@@ -44,6 +44,20 @@ const PUBLIC_WRITABLE_KEYS = new Set<string>([
   'khalessi_erp_complaints_v1',
 ]);
 
+// Claves legibles sin sesión ERP (espejo de KH_PUBLIC_READ_KEYS en storage-lib.php)
+const PUBLIC_READ_KEYS = new Set<string>([
+  'khalessi_erp_settings_v3',
+  'kh_store_builder_v2',
+  'kh_catalog_products',
+  'kh_product_categories_v1',
+  'kh_erp_benefits_v1',
+  'kh_orders_list',
+  'kh_customers_crm_v1',
+  'kh_store_customer_accounts_v1',
+  'kh_floor_tables_v1',
+  'khalessi_erp_complaints_v1',
+]);
+
 const SETTINGS_KEY = 'khalessi_erp_settings_v3';
 const RBAC_KEY = 'khalessi_erp_rbac_v3';
 const TOKEN_KEY = 'erp_api_token';
@@ -98,13 +112,7 @@ export async function authenticateServer(pin: string, force = false): Promise<bo
         body: JSON.stringify({ pin: cleanPin }),
       });
       if (!(res.headers.get('content-type') || '').includes('json')) {
-        // En desarrollo local sin PHP
-        localStorage.setItem(
-          TOKEN_KEY,
-          JSON.stringify({ token: 'dev-token', expires: Math.floor(Date.now() / 1000) + 86400 * 7 })
-        );
-        onServerAuthenticated?.();
-        return true;
+        return false;
       }
       if (!res.ok) {
         if (res.status === 401) {
@@ -388,21 +396,7 @@ function enqueueServerSync(
           if (key === 'kh_orders_list' && resJson && typeof resJson.data === 'string') {
             applyRemoteUpdate('kh_orders_list', resJson.data, true);
           }
-
-          // Difundir por Node.js SSE DESPUÉS de haber confirmado escritura en MySQL
-          void fetch('/realtime/broadcast', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'set',
-              key,
-              large: true,
-              eventHint: key === 'kh_orders_list' ? 'new_order' : 'generic',
-              senderId: CLIENT_ID,
-              ts: Date.now(),
-            }),
-            keepalive: true,
-          }).catch(() => {});
+          // La difusión SSE ocurre desde storage.php tras confirmar escritura en MySQL
         } else {
           const res = await fetch(`/api/storage/${encodeURIComponent(key)}`, {
             method: 'DELETE',
@@ -416,17 +410,6 @@ function enqueueServerSync(
           if (!memoryMirror.has(key)) {
             failedSyncValues.delete(key);
           }
-          void fetch('/realtime/broadcast', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              action: 'remove',
-              key,
-              senderId: CLIENT_ID,
-              ts: Date.now(),
-            }),
-            keepalive: true,
-          }).catch(() => {});
         }
       } catch {
         failedSyncValues.set(key, op);
@@ -597,6 +580,7 @@ export async function initDiskPersistence(): Promise<void> {
   };
 
   const fetchSingleKeyFromServer = async (key: string) => {
+    if (!getServerToken() && !PUBLIC_READ_KEYS.has(key)) return;
     if ((inFlightWrites.get(key) || 0) > 0 || failedSyncValues.has(key)) return;
     if (key !== 'kh_orders_list' && (lastLocalWriteAt.get(key) || 0) >= Date.now() - 2500) return;
     lastHash = '';

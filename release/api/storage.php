@@ -138,13 +138,21 @@ function broadcastRealtimeEvent(string $key, string $eventHint = 'generic'): voi
     }
     $urls[] = 'http://127.0.0.1:3000/broadcast';
 
+    $realtimeSecret = defined('ERP_REALTIME_SECRET') ? (string)ERP_REALTIME_SECRET : (string)(getenv('ERP_REALTIME_SECRET') ?: '');
+    $curlHeaders = ['Content-Type: application/json'];
+    $streamHeaders = "Content-Type: application/json\r\n";
+    if ($realtimeSecret !== '') {
+        $curlHeaders[] = 'X-ERP-Token: ' . $realtimeSecret;
+        $streamHeaders .= "X-ERP-Token: " . $realtimeSecret . "\r\n";
+    }
+
     foreach ($urls as $url) {
         if (function_exists('curl_init')) {
             $ch = curl_init($url);
             curl_setopt_array($ch, [
                 CURLOPT_POST           => true,
                 CURLOPT_POSTFIELDS     => $payload,
-                CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+                CURLOPT_HTTPHEADER     => $curlHeaders,
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_CONNECTTIMEOUT_MS => 600,
                 CURLOPT_TIMEOUT_MS        => 900,
@@ -161,7 +169,7 @@ function broadcastRealtimeEvent(string $key, string $eventHint = 'generic'): voi
             $ctx = stream_context_create([
                 'http' => [
                     'method'  => 'POST',
-                    'header'  => "Content-Type: application/json\r\n",
+                    'header'  => $streamHeaders,
                     'content' => $payload,
                     'timeout' => 0.7,
                 ],

@@ -10,6 +10,7 @@ import {
 } from '../types/catalog';
 import { useSettings } from './SettingsContext';
 import { soundSynth } from '../utils/audio';
+import { getAuthHeaders } from '../utils/diskPersistence';
 
 interface OrderStatusPatch {
   assignedDriverId?: string;
@@ -1154,7 +1155,7 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
       try {
         await fetch('/api/orders.php', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
           body: JSON.stringify({
             id: newOrder.id,
             tenant_id: newOrder.tenantId,
@@ -1227,7 +1228,7 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     void fetch(`/api/orders.php?id=${encodeURIComponent(orderId)}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ status }),
     }).catch(() => {});
 
@@ -1297,6 +1298,7 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const deleteOrder = (orderId: string) => {
     void fetch(`/api/orders.php?id=${encodeURIComponent(orderId)}`, {
       method: 'DELETE',
+      headers: { ...getAuthHeaders() },
     }).catch(() => {});
     persistAndSyncOrders((prev) => prev.filter((o) => o.id !== orderId));
   };
