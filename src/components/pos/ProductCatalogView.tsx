@@ -45,6 +45,7 @@ import {
   LayoutGrid,
   SlidersHorizontal,
   FileImage,
+  ArrowLeft,
 } from 'lucide-react';
 import { MediaGalleryModal } from '../media/MediaGalleryModal';
 import { compressImageFile } from '../../utils/imageCompressor';
@@ -1147,6 +1148,8 @@ export const ProductCatalogView: React.FC = () => {
 
   return (
     <div className="space-y-6 max-w-[1600px] mx-auto p-4 sm:p-6 text-zinc-900 dark:text-zinc-100">
+      {!(isEditModalOpen && tempProduct) ? (
+        <>
       {/* Header Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm">
         <div>
@@ -1606,40 +1609,67 @@ export const ProductCatalogView: React.FC = () => {
           ))
         )}
       </div>
-
-      {/* Expanded Modal (90-95vh) for Full Configuration */}
-      {isEditModalOpen && tempProduct && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-xs">
-          <div className="w-full max-w-6xl w-[96vw] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col text-zinc-900 dark:text-zinc-100 h-[92vh] max-h-[95vh]">
-            {/* Modal Header */}
-            <div className="p-4 sm:p-5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between bg-zinc-50 dark:bg-zinc-950 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 shrink-0">
-                  <ChefHat className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-black text-base sm:text-lg text-zinc-950 dark:text-white">
-                    {isCreatingProduct ? 'Crear Nuevo Producto' : `Configurar: ${tempProduct.name}`}
-                  </h3>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    Sube fotos, pega imágenes desde el portapapeles y define opciones condicionales.
-                  </p>
-                </div>
-              </div>
+        </>
+      ) : (
+        /* Inline Responsive 2-Column SPA Product Editor */
+        <form onSubmit={handleSaveProduct} className="space-y-5">
+          {/* SPA Top Header Bar */}
+          <div className="p-4 sm:p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <button
                 type="button"
                 onClick={() => setIsEditModalOpen(false)}
-                className="text-zinc-500 hover:text-zinc-950 dark:hover:text-white p-2 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 text-xs font-bold transition-colors whitespace-nowrap shrink-0"
               >
-                <X className="w-5 h-5" />
+                <ArrowLeft className="w-4 h-4" />
+                <span>Volver</span>
               </button>
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 shrink-0">
+                <ChefHat className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-black text-base sm:text-lg text-zinc-950 dark:text-white truncate">
+                  {isCreatingProduct ? 'Crear Nuevo Producto' : `Configurar: ${tempProduct.name}`}
+                </h3>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
+                  Edición rápida en dos columnas: información base a la izquierda, opciones y extras a la derecha.
+                </p>
+              </div>
             </div>
 
-            {/* Modal Body with Fixed Bottom Footer */}
-            <form onSubmit={handleSaveProduct} className="flex flex-col flex-1 overflow-hidden min-h-0">
-              <div className="p-5 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
+            <div className="flex items-center gap-2 ml-auto flex-wrap">
+              {!isCreatingProduct && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteProduct(tempProduct.id, tempProduct.name)}
+                  className="whitespace-nowrap shrink-0 px-3.5 py-2 rounded-xl border border-rose-300 dark:border-rose-900/40 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Eliminar</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="whitespace-nowrap shrink-0 px-4 py-2 rounded-xl border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white text-xs font-bold transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="whitespace-nowrap shrink-0 px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black shadow-md transition-colors"
+              >
+                Guardar Cambios
+              </button>
+            </div>
+          </div>
+
+          {/* 2-Column Responsive Workspace */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+            {/* LEFT COLUMN: Live Preview + Basic Info + Option Templates */}
+            <div className="xl:col-span-5 space-y-5 xl:sticky xl:top-4">
               {/* Product Basic Info + Live Image Preview + Upload & Paste */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-200 dark:border-zinc-800">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-4 p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm">
                 {/* Live Preview Box */}
                 <div className="space-y-2">
                   <span className="text-xs font-bold text-zinc-600 dark:text-zinc-400 block">
@@ -1711,7 +1741,7 @@ export const ProductCatalogView: React.FC = () => {
                 </div>
 
                 {/* Form Fields */}
-                <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div className="sm:col-span-2">
                     <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
                       Nombre del Producto *
@@ -1913,10 +1943,11 @@ export const ProductCatalogView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleStartEditTemplate(selectedTemplateId)}
-                      className="p-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-400 text-xs font-bold transition-colors shrink-0"
-                      title="Editar nombre o contenido de esta plantilla"
+                      className="px-3 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-400 text-xs font-black flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
+                      title="Editar nombre o actualizar opciones de esta plantilla"
                     >
                       <Edit2 className="w-3.5 h-3.5" />
+                      <span>Editar</span>
                     </button>
                   )}
 
@@ -1934,31 +1965,53 @@ export const ProductCatalogView: React.FC = () => {
 
                 {/* Edit Template Inline Dialog */}
                 {isEditingTemplate && selectedTemplateId && (
-                  <div className="p-3 bg-white dark:bg-zinc-900 rounded-xl border border-amber-500/40 flex flex-wrap items-center gap-2 shadow-sm">
-                    <span className="text-xs font-bold text-zinc-500">Renombrar Plantilla:</span>
-                    <input
-                      type="text"
-                      value={editTemplateName}
-                      onChange={e => setEditTemplateName(e.target.value)}
-                      className="flex-1 min-w-[200px] px-3 py-1.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs font-bold text-zinc-900 dark:text-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleSaveEditTemplate}
-                      className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-zinc-950 text-xs font-black whitespace-nowrap shrink-0 shadow-xs"
-                    >
-                      Guardar Nombre
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingTemplate(false)}
-                      className="px-2.5 py-1.5 rounded-xl bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-bold whitespace-nowrap shrink-0"
-                    >
-                      Cancelar
-                    </button>
+                  <div className="p-3 bg-white dark:bg-zinc-900 rounded-xl border border-amber-500/40 space-y-2.5 shadow-sm">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-xs font-black text-zinc-700 dark:text-zinc-200">
+                        Editar Plantilla (Nombre y Opciones Actuales)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyTemplate(selectedTemplateId)}
+                        className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-[11px] font-bold flex items-center gap-1 whitespace-nowrap shrink-0"
+                      >
+                        <Copy className="w-3 h-3" />
+                        <span>Cargar al Editor</span>
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      Edita los tamaños, sub-opciones o adicionales en la columna derecha y luego guarda para actualizar esta plantilla.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        type="text"
+                        value={editTemplateName}
+                        onChange={e => setEditTemplateName(e.target.value)}
+                        placeholder="Nombre de la plantilla"
+                        className="flex-1 min-w-[180px] px-3 py-1.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs font-bold text-zinc-900 dark:text-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSaveEditTemplate}
+                        className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-zinc-950 text-xs font-black whitespace-nowrap shrink-0 shadow-xs"
+                      >
+                        Actualizar Plantilla
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingTemplate(false)}
+                        className="px-2.5 py-1.5 rounded-xl bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-bold whitespace-nowrap shrink-0"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* RIGHT COLUMN: Sizes + Sub-Options + Extras */}
+            <div className="xl:col-span-7 space-y-5">
 
               {/* TAMAÑOS CON FOTO Y CRUD */}
               {tempProduct.hasSizes && (
@@ -2386,30 +2439,65 @@ export const ProductCatalogView: React.FC = () => {
                                 <div className="flex items-center gap-2.5">
                                   <GripVertical className="w-4 h-4 text-zinc-400 shrink-0 cursor-grab" />
 
-                                  {/* Photo Box with thumbnail, upload, paste & remove */}
-                                  <div className="relative w-12 h-12 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 overflow-hidden flex items-center justify-center shrink-0">
+                                  {/* Photo Box with Media Gallery (primary), upload & remove */}
+                                  <div className="relative w-12 h-12 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 overflow-hidden flex items-center justify-center shrink-0 group">
                                     {choice.imageUrl ? (
                                       <>
                                         <img src={choice.imageUrl} alt={choice.name} className="w-full h-full object-cover" />
-                                        <button
-                                          type="button"
-                                          onClick={() => handleUpdateChoice(group.id, choice.id, { imageUrl: '' })}
-                                          className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
-                                          title="Quitar foto"
-                                        >
-                                          <X className="w-3.5 h-3.5" />
-                                        </button>
+                                        <div className="absolute inset-0 bg-black/65 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setMediaPickerConfig({
+                                                isOpen: true,
+                                                title: `Imagen para "${choice.name || 'Opción'}"`,
+                                                onSelect: (url) => handleUpdateChoice(group.id, choice.id, { imageUrl: url }),
+                                              })
+                                            }
+                                            className="p-1 rounded-md bg-amber-500 text-zinc-950 hover:bg-amber-400"
+                                            title="Cambiar desde Galería"
+                                          >
+                                            <FileImage className="w-3 h-3" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleUpdateChoice(group.id, choice.id, { imageUrl: '' })}
+                                            className="p-1 rounded-md bg-rose-600 text-white hover:bg-rose-500"
+                                            title="Quitar foto"
+                                          >
+                                            <X className="w-3 h-3" />
+                                          </button>
+                                        </div>
                                       </>
                                     ) : (
-                                      <label className="w-full h-full flex flex-col items-center justify-center text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer">
-                                        <ImageIcon className="w-4 h-4" />
-                                        <input
-                                          type="file"
-                                          accept="image/*"
-                                          className="hidden"
-                                          onChange={(e) => handleFileUpload(e, (b64) => handleUpdateChoice(group.id, choice.id, { imageUrl: b64 }))}
-                                        />
-                                      </label>
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setMediaPickerConfig({
+                                              isOpen: true,
+                                              title: `Seleccionar Imagen (${choice.name || 'Opción'})`,
+                                              onSelect: (url) => handleUpdateChoice(group.id, choice.id, { imageUrl: url }),
+                                            })
+                                          }
+                                          className="w-full h-full flex flex-col items-center justify-center text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                                          title="Elegir desde Galería de Medios"
+                                        >
+                                          <ImageIcon className="w-4 h-4" />
+                                        </button>
+                                        <label
+                                          className="absolute bottom-0.5 right-0.5 w-4 h-4 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:hover:text-white cursor-pointer opacity-80 hover:opacity-100"
+                                          title="Subir archivo desde dispositivo"
+                                        >
+                                          <Upload className="w-2.5 h-2.5" />
+                                          <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            onChange={(e) => handleFileUpload(e, (b64) => handleUpdateChoice(group.id, choice.id, { imageUrl: b64 }))}
+                                          />
+                                        </label>
+                                      </>
                                     )}
                                   </div>
 
@@ -2505,8 +2593,38 @@ export const ProductCatalogView: React.FC = () => {
                                             key={nested.id}
                                             className="p-2.5 bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 flex flex-wrap items-center gap-2.5 text-xs"
                                           >
-                                            <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 shrink-0">
-                                              <ImageIcon className="w-3.5 h-3.5" />
+                                            <div className="relative w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 overflow-hidden flex items-center justify-center text-zinc-400 shrink-0 group">
+                                              {nested.imageUrl ? (
+                                                <>
+                                                  <img src={nested.imageUrl} alt={nested.name} className="w-full h-full object-cover" />
+                                                  <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                      handleUpdateNestedChoice(group.id, choice.id, nested.id, { imageUrl: '' })
+                                                    }
+                                                    className="absolute inset-0 bg-black/65 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    title="Quitar imagen"
+                                                  >
+                                                    <X className="w-3 h-3" />
+                                                  </button>
+                                                </>
+                                              ) : (
+                                                <button
+                                                  type="button"
+                                                  onClick={() =>
+                                                    setMediaPickerConfig({
+                                                      isOpen: true,
+                                                      title: `Imagen para "${nested.name || 'Sub-opción'}"`,
+                                                      onSelect: (url) =>
+                                                        handleUpdateNestedChoice(group.id, choice.id, nested.id, { imageUrl: url }),
+                                                    })
+                                                  }
+                                                  className="w-full h-full flex items-center justify-center text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                                                  title="Elegir desde Galería"
+                                                >
+                                                  <ImageIcon className="w-3.5 h-3.5" />
+                                                </button>
+                                              )}
                                             </div>
 
                                             <input
@@ -3127,41 +3245,39 @@ export const ProductCatalogView: React.FC = () => {
                   })}
                 </div>
               </div>
-
-              </div>
-
-              {/* Fixed Bottom Action Bar */}
-              <div className="p-4 sm:p-5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 flex items-center justify-between gap-3 shrink-0 shadow-lg z-20">
-                {!isCreatingProduct && (
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteProduct(tempProduct.id, tempProduct.name)}
-                    className="whitespace-nowrap shrink-0 px-4 py-2.5 rounded-xl border border-rose-300 dark:border-rose-900/40 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-bold flex items-center gap-1.5 transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Eliminar Producto</span>
-                  </button>
-                )}
-
-                <div className="flex items-center gap-2 ml-auto">
-                  <button
-                    type="button"
-                    onClick={() => setIsEditModalOpen(false)}
-                    className="whitespace-nowrap shrink-0 px-4 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white text-xs font-bold transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="whitespace-nowrap shrink-0 px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black shadow-md transition-colors"
-                  >
-                    Guardar Cambios
-                  </button>
-                </div>
-              </div>
-            </form>
+            </div>
           </div>
-        </div>
+
+          {/* Bottom Action Bar */}
+          <div className="p-4 sm:p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-sm">
+            {!isCreatingProduct && (
+              <button
+                type="button"
+                onClick={() => handleDeleteProduct(tempProduct.id, tempProduct.name)}
+                className="whitespace-nowrap shrink-0 px-4 py-2.5 rounded-xl border border-rose-300 dark:border-rose-900/40 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-bold flex items-center gap-1.5 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Eliminar Producto</span>
+              </button>
+            )}
+
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                type="button"
+                onClick={() => setIsEditModalOpen(false)}
+                className="whitespace-nowrap shrink-0 px-4 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white text-xs font-bold transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="whitespace-nowrap shrink-0 px-6 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black shadow-md transition-colors"
+              >
+                Guardar Cambios
+              </button>
+            </div>
+          </div>
+        </form>
       )}
 
       {/* Category Creation & Management Modal */}
