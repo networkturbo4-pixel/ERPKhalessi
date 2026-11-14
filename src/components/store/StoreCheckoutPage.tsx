@@ -37,6 +37,9 @@ import {
   ExternalLink,
   X,
   Search,
+  Building2,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 interface StoreCheckoutPageProps {
@@ -157,11 +160,37 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
   const [deliveryReference, setDeliveryReference] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
 
-  // Payment Selection
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('culqi');
+  // Payment Selection & Enabled Methods
+  const culqiEnabled =
+    companyInfo.checkoutPaymentMethods?.culqiEnabled ??
+    companyInfo.culqiConfig?.enabled ??
+    true;
+  const walletsEnabled =
+    companyInfo.checkoutPaymentMethods?.walletsEnabled ?? true;
+  const bankTransferEnabled =
+    companyInfo.checkoutPaymentMethods?.bankTransferEnabled ?? true;
+  const cashEnabled =
+    companyInfo.checkoutPaymentMethods?.cashEnabled ??
+    companyInfo.culqiConfig?.allowCashFallback ??
+    true;
+
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(() => {
+    if (culqiEnabled) return 'culqi';
+    if (walletsEnabled) return 'yape_plin';
+    if (bankTransferEnabled) return 'transferencia';
+    return 'efectivo';
+  });
   const [cashBillAmount, setCashBillAmount] = useState<string>('exact'); // 'exact' | '50' | '100' | 'custom'
   const [cashCustomAmount, setCashCustomAmount] = useState<string>('');
   const [yapeOperationCode, setYapeOperationCode] = useState('');
+  const [transferOperationCode, setTransferOperationCode] = useState('');
+  const [copiedPaymentText, setCopiedPaymentText] = useState<string | null>(null);
+
+  const handleCopyPaymentField = (value: string) => {
+    navigator.clipboard?.writeText(value);
+    setCopiedPaymentText(value);
+    setTimeout(() => setCopiedPaymentText(null), 1800);
+  };
 
   // Invoicing (Boleta / Factura)
   const [invoiceType, setInvoiceType] = useState<'boleta_simple' | 'boleta_dni' | 'factura_ruc'>('boleta_simple');
@@ -385,6 +414,8 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
       finalNotes = finalNotes ? `${finalNotes} | [Efectivo: ${cashText}]` : `[Efectivo: ${cashText}]`;
     } else if (paymentMethod === 'yape_plin' && yapeOperationCode.trim()) {
       finalNotes = finalNotes ? `${finalNotes} | [Op. Yape: ${yapeOperationCode.trim()}]` : `[Op. Yape: ${yapeOperationCode.trim()}]`;
+    } else if (paymentMethod === 'transferencia' && transferOperationCode.trim()) {
+      finalNotes = finalNotes ? `${finalNotes} | [Op. Transferencia: ${transferOperationCode.trim()}]` : `[Op. Transferencia: ${transferOperationCode.trim()}]`;
     }
 
     const willEarnPoints =
@@ -677,81 +708,153 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
                 <h3 className="font-black text-sm sm:text-base">Método de Pago</h3>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
                 {/* Culqi Online Card */}
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('culqi')}
-                  className={`p-3.5 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${
-                    paymentMethod === 'culqi'
-                      ? 'border-rose-500 bg-rose-50/50 dark:bg-rose-950/20 shadow-sm'
-                      : isLightTheme
-                      ? 'border-zinc-200 hover:border-zinc-300 bg-white'
-                      : 'border-neutral-800 hover:border-neutral-700 bg-neutral-950'
-                  }`}
-                >
-                  <div className="flex items-center justify-between w-full mb-2">
-                    <CreditCard className={`w-5 h-5 ${paymentMethod === 'culqi' ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-400'}`} />
-                    {paymentMethod === 'culqi' && <CheckCircle2 className="w-4 h-4 text-rose-600" />}
-                  </div>
-                  <div>
-                    <span className="block font-black text-xs sm:text-sm">Tarjeta Online</span>
-                    <span className="text-[10px] text-zinc-500 dark:text-neutral-400">Crédito o Débito</span>
-                  </div>
-                </button>
+                {culqiEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('culqi')}
+                    className={`p-3.5 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${
+                      paymentMethod === 'culqi'
+                        ? 'border-rose-500 bg-rose-50/50 dark:bg-rose-950/20 shadow-sm'
+                        : isLightTheme
+                        ? 'border-zinc-200 hover:border-zinc-300 bg-white'
+                        : 'border-neutral-800 hover:border-neutral-700 bg-neutral-950'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-2">
+                      <CreditCard className={`w-5 h-5 ${paymentMethod === 'culqi' ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-400'}`} />
+                      {paymentMethod === 'culqi' && <CheckCircle2 className="w-4 h-4 text-rose-600" />}
+                    </div>
+                    <div>
+                      <span className="block font-black text-xs sm:text-sm">Tarjeta / Culqi</span>
+                      <span className="text-[10px] text-zinc-500 dark:text-neutral-400">Crédito, Débito</span>
+                    </div>
+                  </button>
+                )}
 
                 {/* Yape / Plin */}
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('yape_plin')}
-                  className={`p-3.5 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${
-                    paymentMethod === 'yape_plin'
-                      ? 'border-purple-500 bg-purple-50/50 dark:bg-purple-950/20 shadow-sm'
-                      : isLightTheme
-                      ? 'border-zinc-200 hover:border-zinc-300 bg-white'
-                      : 'border-neutral-800 hover:border-neutral-700 bg-neutral-950'
-                  }`}
-                >
-                  <div className="flex items-center justify-between w-full mb-2">
-                    <QrCode className={`w-5 h-5 ${paymentMethod === 'yape_plin' ? 'text-purple-600 dark:text-purple-400' : 'text-zinc-400'}`} />
-                    {paymentMethod === 'yape_plin' && <CheckCircle2 className="w-4 h-4 text-purple-600" />}
-                  </div>
-                  <div>
-                    <span className="block font-black text-xs sm:text-sm">Yape / Plin</span>
-                    <span className="text-[10px] text-zinc-500 dark:text-neutral-400">Transferencia rápida</span>
-                  </div>
-                </button>
+                {walletsEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('yape_plin')}
+                    className={`p-3.5 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${
+                      paymentMethod === 'yape_plin'
+                        ? 'border-purple-500 bg-purple-50/50 dark:bg-purple-950/20 shadow-sm'
+                        : isLightTheme
+                        ? 'border-zinc-200 hover:border-zinc-300 bg-white'
+                        : 'border-neutral-800 hover:border-neutral-700 bg-neutral-950'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-2">
+                      <QrCode className={`w-5 h-5 ${paymentMethod === 'yape_plin' ? 'text-purple-600 dark:text-purple-400' : 'text-zinc-400'}`} />
+                      {paymentMethod === 'yape_plin' && <CheckCircle2 className="w-4 h-4 text-purple-600" />}
+                    </div>
+                    <div>
+                      <span className="block font-black text-xs sm:text-sm">Yape / Plin QR</span>
+                      <span className="text-[10px] text-zinc-500 dark:text-neutral-400">Billetera digital</span>
+                    </div>
+                  </button>
+                )}
+
+                {/* Bank Transfer */}
+                {bankTransferEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('transferencia')}
+                    className={`p-3.5 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${
+                      paymentMethod === 'transferencia'
+                        ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/20 shadow-sm'
+                        : isLightTheme
+                        ? 'border-zinc-200 hover:border-zinc-300 bg-white'
+                        : 'border-neutral-800 hover:border-neutral-700 bg-neutral-950'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-2">
+                      <Building2 className={`w-5 h-5 ${paymentMethod === 'transferencia' ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-400'}`} />
+                      {paymentMethod === 'transferencia' && <CheckCircle2 className="w-4 h-4 text-blue-600" />}
+                    </div>
+                    <div>
+                      <span className="block font-black text-xs sm:text-sm">Transferencia</span>
+                      <span className="text-[10px] text-zinc-500 dark:text-neutral-400">Cuentas Bancarias</span>
+                    </div>
+                  </button>
+                )}
 
                 {/* Cash on Delivery */}
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('efectivo')}
-                  className={`p-3.5 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${
-                    paymentMethod === 'efectivo'
-                      ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 shadow-sm'
-                      : isLightTheme
-                      ? 'border-zinc-200 hover:border-zinc-300 bg-white'
-                      : 'border-neutral-800 hover:border-neutral-700 bg-neutral-950'
-                  }`}
-                >
-                  <div className="flex items-center justify-between w-full mb-2">
-                    <Banknote className={`w-5 h-5 ${paymentMethod === 'efectivo' ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'}`} />
-                    {paymentMethod === 'efectivo' && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
-                  </div>
-                  <div>
-                    <span className="block font-black text-xs sm:text-sm">Efectivo</span>
-                    <span className="text-[10px] text-zinc-500 dark:text-neutral-400">Contra entrega</span>
-                  </div>
-                </button>
+                {cashEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('efectivo')}
+                    className={`p-3.5 rounded-2xl border-2 text-left transition-all flex flex-col justify-between ${
+                      paymentMethod === 'efectivo'
+                        ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20 shadow-sm'
+                        : isLightTheme
+                        ? 'border-zinc-200 hover:border-zinc-300 bg-white'
+                        : 'border-neutral-800 hover:border-neutral-700 bg-neutral-950'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full mb-2">
+                      <Banknote className={`w-5 h-5 ${paymentMethod === 'efectivo' ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'}`} />
+                      {paymentMethod === 'efectivo' && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                    </div>
+                    <div>
+                      <span className="block font-black text-xs sm:text-sm">Efectivo</span>
+                      <span className="text-[10px] text-zinc-500 dark:text-neutral-400">Contra entrega</span>
+                    </div>
+                  </button>
+                )}
               </div>
 
               {/* Payment Details Accordion */}
               {paymentMethod === 'yape_plin' && (
                 <div className={`p-4 rounded-2xl border space-y-3 ${isLightTheme ? 'bg-purple-50/60 border-purple-200 text-purple-900' : 'bg-purple-950/30 border-purple-800 text-purple-200'}`}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold">Número Yape de la Sede:</span>
-                    <span className="font-black text-sm tracking-wider">{activeTenant.operations?.yapeNumber || '987 654 321'}</span>
-                  </div>
+                  {(companyInfo.wallets || []).length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {(companyInfo.wallets || []).map(wallet => (
+                        <div
+                          key={wallet.id}
+                          className={`p-3 rounded-xl border flex items-center gap-3 ${
+                            isLightTheme ? 'bg-white border-purple-200' : 'bg-neutral-900 border-purple-800/60'
+                          }`}
+                        >
+                          {wallet.qrImageUrl && (
+                            <img
+                              src={wallet.qrImageUrl}
+                              alt={`QR ${wallet.provider}`}
+                              className="w-16 h-16 rounded-lg object-cover border border-zinc-200 dark:border-zinc-700 shrink-0 bg-white"
+                            />
+                          )}
+                          <div className="min-w-0 flex-1 space-y-0.5">
+                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-600 text-white">
+                              {wallet.provider}
+                            </span>
+                            <p className="text-xs font-extrabold truncate">{wallet.holderName}</p>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-mono font-bold tracking-wider">{wallet.phone}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyPaymentField(wallet.phone)}
+                                className="p-1 rounded hover:bg-purple-100 dark:hover:bg-purple-900/40"
+                                title="Copiar número"
+                              >
+                                {copiedPaymentText === wallet.phone ? (
+                                  <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                ) : (
+                                  <Copy className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold">Número Yape de la Sede:</span>
+                      <span className="font-black text-sm tracking-wider">{activeTenant.operations?.yapeNumber || '987 654 321'}</span>
+                    </div>
+                  )}
                   <div>
                     <label className="text-[11px] font-semibold block mb-1">
                       Código de Operación o últimos 4 dígitos (Opcional):
@@ -762,6 +865,77 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
                       value={yapeOperationCode}
                       onChange={e => setYapeOperationCode(e.target.value)}
                       className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-neutral-900 border border-purple-200 dark:border-purple-800"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {paymentMethod === 'transferencia' && (
+                <div className={`p-4 rounded-2xl border space-y-3 ${isLightTheme ? 'bg-blue-50/60 border-blue-200 text-blue-900' : 'bg-blue-950/30 border-blue-800 text-blue-200'}`}>
+                  {(companyInfo.bankAccounts || []).length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {(companyInfo.bankAccounts || []).map(bank => (
+                        <div
+                          key={bank.id}
+                          className={`p-3 rounded-xl border space-y-1 ${
+                            isLightTheme ? 'bg-white border-blue-200' : 'bg-neutral-900 border-blue-800/60'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-extrabold truncate">{bank.bankName}</span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-blue-600 text-white shrink-0">
+                              {bank.currency}
+                            </span>
+                          </div>
+                          <p className="text-[11px] opacity-80 truncate">Titular: {bank.holderName}</p>
+                          <div className="flex items-center justify-between gap-2 text-xs font-mono">
+                            <span className="truncate">N°: <strong>{bank.accountNumber}</strong></span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyPaymentField(bank.accountNumber)}
+                              className="p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 shrink-0"
+                              title="Copiar cuenta"
+                            >
+                              {copiedPaymentText === bank.accountNumber ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-500" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
+                          {bank.cci && (
+                            <div className="flex items-center justify-between gap-2 text-[11px] font-mono opacity-85">
+                              <span className="truncate">CCI: {bank.cci}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyPaymentField(bank.cci || '')}
+                                className="p-1 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 shrink-0"
+                                title="Copiar CCI"
+                              >
+                                {copiedPaymentText === bank.cci ? (
+                                  <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                ) : (
+                                  <Copy className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs">No hay cuentas bancarias configuradas aún.</p>
+                  )}
+                  <div>
+                    <label className="text-[11px] font-semibold block mb-1">
+                      N° de Operación / Constancia (Opcional):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ej: 00293847"
+                      value={transferOperationCode}
+                      onChange={e => setTransferOperationCode(e.target.value)}
+                      className="w-full px-3 py-2 text-xs rounded-xl bg-white dark:bg-neutral-900 border border-blue-200 dark:border-blue-800"
                     />
                   </div>
                 </div>

@@ -757,13 +757,27 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
   }, [isCheckoutModalOpen]);
 
   // Checkout customer, invoice, schedule, coupon, reward & Culqi fields
-  const culqiEnabled = companyInfo.culqiConfig?.enabled ?? true;
+  const culqiEnabled =
+    companyInfo.checkoutPaymentMethods?.culqiEnabled ??
+    companyInfo.culqiConfig?.enabled ??
+    true;
+  const walletsEnabled =
+    companyInfo.checkoutPaymentMethods?.walletsEnabled ?? true;
+  const bankTransferEnabled =
+    companyInfo.checkoutPaymentMethods?.bankTransferEnabled ?? true;
+  const cashEnabled =
+    companyInfo.checkoutPaymentMethods?.cashEnabled ??
+    companyInfo.culqiConfig?.allowCashFallback ??
+    true;
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [deliveryReference, setDeliveryReference] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(() =>
-    culqiEnabled ? 'culqi' : 'efectivo'
-  );
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(() => {
+    if (culqiEnabled) return 'culqi';
+    if (walletsEnabled) return 'yape_plin';
+    if (bankTransferEnabled) return 'transferencia';
+    return 'efectivo';
+  });
   const [selectedRecurringId, setSelectedRecurringId] = useState<string | null>(null);
 
   // SUNAT Invoice state
@@ -1493,7 +1507,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
         {/* 2. Dynamic Elementor Block Canvas + Live Order Tracker */}
         <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-3.5 sm:pt-5 pb-28 lg:pb-14 w-full space-y-4 flex-1">
           {/* Live Rappi-Style Order Status Pill (updates automatically without F5 reload) */}
-          {!isBuilderOpen && latestActiveCustomerOrder && (() => {
+          {!isBuilderOpen && activeCategory === 'todos' && latestActiveCustomerOrder && (() => {
             const isPickup =
               latestActiveCustomerOrder.channel === 'pos-takeaway' ||
               (latestActiveCustomerOrder.deliveryAddress || '').toLowerCase().includes('llevar') ||
@@ -3252,71 +3266,129 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                   </div>
                 )}
 
-                {(!culqiEnabled || (companyInfo.culqiConfig?.allowCashFallback ?? true)) && (
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedRecurringId(null);
-                        setPaymentMethod('yape_plin');
-                      }}
-                      className={`p-2.5 rounded-2xl border text-center text-[11px] font-bold flex flex-col items-center gap-1 transition-all ${
-                        !selectedRecurringId && paymentMethod === 'yape_plin'
-                          ? isLightTheme
-                            ? 'border-purple-500 bg-purple-50 text-purple-800 ring-1 ring-purple-400/30'
-                            : 'border-purple-500 bg-purple-500/15 text-purple-200'
-                          : isLightTheme
-                          ? 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'
-                          : 'border-neutral-800 bg-neutral-950 text-neutral-400'
-                      }`}
-                    >
-                      <Smartphone
-                        className={`w-4 h-4 ${isLightTheme ? 'text-purple-600' : 'text-purple-400'}`}
-                      />
-                      <span>Yape Entrega</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedRecurringId(null);
-                        setPaymentMethod('efectivo');
-                      }}
-                      className={`p-2.5 rounded-2xl border text-center text-[11px] font-bold flex flex-col items-center gap-1 transition-all ${
-                        !selectedRecurringId && paymentMethod === 'efectivo'
-                          ? isLightTheme
-                            ? 'border-emerald-500 bg-emerald-50 text-emerald-800 ring-1 ring-emerald-400/30'
-                            : 'border-emerald-500 bg-emerald-500/15 text-emerald-200'
-                          : isLightTheme
-                          ? 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'
-                          : 'border-neutral-800 bg-neutral-950 text-neutral-400'
-                      }`}
-                    >
-                      <Banknote
-                        className={`w-4 h-4 ${isLightTheme ? 'text-emerald-600' : 'text-emerald-400'}`}
-                      />
-                      <span>Efectivo</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedRecurringId(null);
-                        setPaymentMethod('tarjeta');
-                      }}
-                      className={`p-2.5 rounded-2xl border text-center text-[11px] font-bold flex flex-col items-center gap-1 transition-all ${
-                        !selectedRecurringId && paymentMethod === 'tarjeta'
-                          ? isLightTheme
-                            ? 'border-blue-500 bg-blue-50 text-blue-800 ring-1 ring-blue-400/30'
-                            : 'border-blue-500 bg-blue-500/15 text-blue-200'
-                          : isLightTheme
-                          ? 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'
-                          : 'border-neutral-800 bg-neutral-950 text-neutral-400'
-                      }`}
-                    >
-                      <CreditCard
-                        className={`w-4 h-4 ${isLightTheme ? 'text-blue-600' : 'text-blue-400'}`}
-                      />
-                      <span>POS Entrega</span>
-                    </button>
+                {(walletsEnabled || bankTransferEnabled || cashEnabled) && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {walletsEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedRecurringId(null);
+                          setPaymentMethod('yape_plin');
+                        }}
+                        className={`p-2.5 rounded-2xl border text-center text-[11px] font-bold flex flex-col items-center gap-1 transition-all ${
+                          !selectedRecurringId && paymentMethod === 'yape_plin'
+                            ? isLightTheme
+                              ? 'border-purple-500 bg-purple-50 text-purple-800 ring-1 ring-purple-400/30'
+                              : 'border-purple-500 bg-purple-500/15 text-purple-200'
+                            : isLightTheme
+                            ? 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'
+                            : 'border-neutral-800 bg-neutral-950 text-neutral-400'
+                        }`}
+                      >
+                        <Smartphone
+                          className={`w-4 h-4 ${isLightTheme ? 'text-purple-600' : 'text-purple-400'}`}
+                        />
+                        <span>Yape / Plin QR</span>
+                      </button>
+                    )}
+                    {bankTransferEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedRecurringId(null);
+                          setPaymentMethod('transferencia');
+                        }}
+                        className={`p-2.5 rounded-2xl border text-center text-[11px] font-bold flex flex-col items-center gap-1 transition-all ${
+                          !selectedRecurringId && paymentMethod === 'transferencia'
+                            ? isLightTheme
+                              ? 'border-blue-500 bg-blue-50 text-blue-800 ring-1 ring-blue-400/30'
+                              : 'border-blue-500 bg-blue-500/15 text-blue-200'
+                            : isLightTheme
+                            ? 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'
+                            : 'border-neutral-800 bg-neutral-950 text-neutral-400'
+                        }`}
+                      >
+                        <CreditCard
+                          className={`w-4 h-4 ${isLightTheme ? 'text-blue-600' : 'text-blue-400'}`}
+                        />
+                        <span>Transferencia</span>
+                      </button>
+                    )}
+                    {cashEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedRecurringId(null);
+                          setPaymentMethod('efectivo');
+                        }}
+                        className={`p-2.5 rounded-2xl border text-center text-[11px] font-bold flex flex-col items-center gap-1 transition-all ${
+                          !selectedRecurringId && paymentMethod === 'efectivo'
+                            ? isLightTheme
+                              ? 'border-emerald-500 bg-emerald-50 text-emerald-800 ring-1 ring-emerald-400/30'
+                              : 'border-emerald-500 bg-emerald-500/15 text-emerald-200'
+                            : isLightTheme
+                            ? 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'
+                            : 'border-neutral-800 bg-neutral-950 text-neutral-400'
+                        }`}
+                      >
+                        <Banknote
+                          className={`w-4 h-4 ${isLightTheme ? 'text-emerald-600' : 'text-emerald-400'}`}
+                        />
+                        <span>Efectivo</span>
+                      </button>
+                    )}
+                    {cashEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedRecurringId(null);
+                          setPaymentMethod('tarjeta');
+                        }}
+                        className={`p-2.5 rounded-2xl border text-center text-[11px] font-bold flex flex-col items-center gap-1 transition-all ${
+                          !selectedRecurringId && paymentMethod === 'tarjeta'
+                            ? isLightTheme
+                              ? 'border-blue-500 bg-blue-50 text-blue-800 ring-1 ring-blue-400/30'
+                              : 'border-blue-500 bg-blue-500/15 text-blue-200'
+                            : isLightTheme
+                            ? 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'
+                            : 'border-neutral-800 bg-neutral-950 text-neutral-400'
+                        }`}
+                      >
+                        <CreditCard
+                          className={`w-4 h-4 ${isLightTheme ? 'text-blue-600' : 'text-blue-400'}`}
+                        />
+                        <span>POS Entrega</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {!selectedRecurringId && paymentMethod === 'yape_plin' && (companyInfo.wallets || []).length > 0 && (
+                  <div className={`p-3 rounded-2xl border space-y-2 ${isLightTheme ? 'bg-purple-50/70 border-purple-200 text-purple-950' : 'bg-purple-950/30 border-purple-800/60 text-purple-100'}`}>
+                    {(companyInfo.wallets || []).map(w => (
+                      <div key={w.id} className="flex items-center gap-2.5 text-xs">
+                        {w.qrImageUrl && (
+                          <img src={w.qrImageUrl} alt={`QR ${w.provider}`} className="w-12 h-12 rounded-lg object-cover bg-white border border-purple-200 shrink-0" />
+                        )}
+                        <div className="min-w-0">
+                          <span className="font-black uppercase text-[10px] text-purple-600 dark:text-purple-300">{w.provider}</span>
+                          <p className="font-bold truncate">{w.holderName}</p>
+                          <p className="font-mono font-bold">{w.phone}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {!selectedRecurringId && paymentMethod === 'transferencia' && (companyInfo.bankAccounts || []).length > 0 && (
+                  <div className={`p-3 rounded-2xl border space-y-2 ${isLightTheme ? 'bg-blue-50/70 border-blue-200 text-blue-950' : 'bg-blue-950/30 border-blue-800/60 text-blue-100'}`}>
+                    {(companyInfo.bankAccounts || []).map(b => (
+                      <div key={b.id} className="text-[11px] space-y-0.5">
+                        <p className="font-black">{b.bankName} ({b.currency})</p>
+                        <p className="font-mono">Cuenta: {b.accountNumber}</p>
+                        {b.cci && <p className="font-mono opacity-80">CCI: {b.cci}</p>}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

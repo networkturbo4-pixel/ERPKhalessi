@@ -181,6 +181,13 @@ export interface DeliveryTariffConfig {
   brackets: DeliveryDistanceBracket[];
 }
 
+export interface CheckoutPaymentMethodsConfig {
+  culqiEnabled?: boolean;
+  walletsEnabled?: boolean;
+  bankTransferEnabled?: boolean;
+  cashEnabled?: boolean;
+}
+
 export interface CompanyInfo {
   legalName: string;
   taxId: string;
@@ -193,6 +200,7 @@ export interface CompanyInfo {
   wallets: DigitalWallet[];
   socialLinks?: SocialLinks;
   culqiConfig?: CulqiGatewayConfig;
+  checkoutPaymentMethods?: CheckoutPaymentMethodsConfig;
   facturaloConfig?: FacturaloConfig;
   deliveryTariff?: DeliveryTariffConfig;
 }

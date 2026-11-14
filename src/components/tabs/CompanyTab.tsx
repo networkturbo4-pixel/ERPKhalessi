@@ -54,7 +54,7 @@ export const CompanyTab: React.FC = () => {
     dispatchToast,
   } = useSettings();
 
-  const [activeSubTab, setActiveSubTab] = useState<'legal' | 'banks' | 'wallets' | 'complaints' | 'culqi'>('legal');
+  const [activeSubTab, setActiveSubTab] = useState<'legal' | 'payments' | 'complaints'>('legal');
   const [complaintFilter, setComplaintFilter] = useState<'all' | ComplaintStatus>('all');
   const [complaintSearch, setComplaintSearch] = useState('');
   const [selectedComplaint, setSelectedComplaint] = useState<ComplaintRecord | null>(null);
@@ -326,27 +326,17 @@ export const CompanyTab: React.FC = () => {
           </button>
           <button
             type="button"
-            onClick={() => setActiveSubTab('banks')}
+            onClick={() => setActiveSubTab('payments')}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              activeSubTab === 'banks'
+              activeSubTab === 'payments'
                 ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700'
                 : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white'
             }`}
           >
-            <CreditCard className="h-3.5 w-3.5" />
-            2. Cuentas Bancarias ({(companyInfo.bankAccounts || []).length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSubTab('wallets')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              activeSubTab === 'wallets'
-                ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700'
-                : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white'
-            }`}
-          >
-            <QrCode className="h-3.5 w-3.5" />
-            3. Billeteras Digitales y QR ({(companyInfo.wallets || []).length})
+            <CreditCard className="h-3.5 w-3.5 text-emerald-500" />
+            <span>
+              2. Métodos de Pago ({(companyInfo.bankAccounts || []).length + (companyInfo.wallets || []).length})
+            </span>
           </button>
           <button
             type="button"
@@ -358,24 +348,12 @@ export const CompanyTab: React.FC = () => {
             }`}
           >
             <BookOpen className="h-3.5 w-3.5 text-amber-500" />
-            <span>4. Libro de Reclamaciones ({complaints.length})</span>
+            <span>3. Libro de Reclamaciones ({complaints.length})</span>
             {pendingComplaintsCount > 0 && (
               <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-amber-500 text-zinc-950">
                 {pendingComplaintsCount} pend.
               </span>
             )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSubTab('culqi')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-              activeSubTab === 'culqi'
-                ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700'
-                : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white'
-            }`}
-          >
-            <Globe className="h-3.5 w-3.5 text-emerald-500" />
-            <span>5. Pasarela Culqi Checkout</span>
           </button>
         </div>
 
@@ -601,8 +579,151 @@ export const CompanyTab: React.FC = () => {
           </div>
         )}
 
-        {/* Tab 2: Bank Accounts */}
-        {activeSubTab === 'banks' && (
+        {/* Tab 2: Métodos de Pago Unificados */}
+        {activeSubTab === 'payments' && (
+          <div className="space-y-6">
+            {/* Checkout Activation Matrix */}
+            <div className="saas-card p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-200 dark:border-zinc-800">
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-wider text-zinc-800 dark:text-zinc-100">
+                    Métodos de Pago Activos en el Checkout Web
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    Define qué opciones verá el cliente al finalizar su pedido en la tienda virtual.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={saveAllSettings}
+                  disabled={isSaving}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white rounded-xl shadow-sm transition-all whitespace-nowrap shrink-0 hover:opacity-95"
+                  style={{ backgroundColor: customization.primaryColor }}
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  {isSaving ? 'Guardando...' : 'Guardar Métodos'}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* 1. Pasarela Culqi */}
+                <label className="p-4 rounded-2xl saas-subcard flex items-start justify-between gap-3 cursor-pointer">
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold text-zinc-950 dark:text-white block">
+                      Pasarela Culqi
+                    </span>
+                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block leading-snug">
+                      Tarjetas de crédito/débito y PagoEfectivo online.
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={
+                      companyInfo.checkoutPaymentMethods?.culqiEnabled ??
+                      companyInfo.culqiConfig?.enabled ??
+                      true
+                    }
+                    onChange={e =>
+                      updateCompanyInfo({
+                        checkoutPaymentMethods: {
+                          ...(companyInfo.checkoutPaymentMethods || {}),
+                          culqiEnabled: e.target.checked,
+                        },
+                        culqiConfig: {
+                          ...(companyInfo.culqiConfig!),
+                          enabled: e.target.checked,
+                        },
+                      })
+                    }
+                    className="mt-0.5 h-4 w-4 rounded accent-rose-600 shrink-0"
+                  />
+                </label>
+
+                {/* 2. Billeteras Digitales y QR */}
+                <label className="p-4 rounded-2xl saas-subcard flex items-start justify-between gap-3 cursor-pointer">
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold text-zinc-950 dark:text-white block">
+                      Billeteras / QR
+                    </span>
+                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block leading-snug">
+                      Yape / Plin con QR ({(companyInfo.wallets || []).length} configuradas).
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={companyInfo.checkoutPaymentMethods?.walletsEnabled ?? true}
+                    onChange={e =>
+                      updateCompanyInfo({
+                        checkoutPaymentMethods: {
+                          ...(companyInfo.checkoutPaymentMethods || {}),
+                          walletsEnabled: e.target.checked,
+                        },
+                      })
+                    }
+                    className="mt-0.5 h-4 w-4 rounded accent-purple-600 shrink-0"
+                  />
+                </label>
+
+                {/* 3. Transferencia Bancaria */}
+                <label className="p-4 rounded-2xl saas-subcard flex items-start justify-between gap-3 cursor-pointer">
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold text-zinc-950 dark:text-white block">
+                      Transferencia Bancaria
+                    </span>
+                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block leading-snug">
+                      Cuentas BCP/BBVA/CCI ({(companyInfo.bankAccounts || []).length} cuentas).
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={companyInfo.checkoutPaymentMethods?.bankTransferEnabled ?? true}
+                    onChange={e =>
+                      updateCompanyInfo({
+                        checkoutPaymentMethods: {
+                          ...(companyInfo.checkoutPaymentMethods || {}),
+                          bankTransferEnabled: e.target.checked,
+                        },
+                      })
+                    }
+                    className="mt-0.5 h-4 w-4 rounded accent-blue-600 shrink-0"
+                  />
+                </label>
+
+                {/* 4. Efectivo Contraentrega */}
+                <label className="p-4 rounded-2xl saas-subcard flex items-start justify-between gap-3 cursor-pointer">
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold text-zinc-950 dark:text-white block">
+                      Efectivo Contraentrega
+                    </span>
+                    <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block leading-snug">
+                      Pago en efectivo o POS al recibir el pedido.
+                    </span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={
+                      companyInfo.checkoutPaymentMethods?.cashEnabled ??
+                      companyInfo.culqiConfig?.allowCashFallback ??
+                      true
+                    }
+                    onChange={e =>
+                      updateCompanyInfo({
+                        checkoutPaymentMethods: {
+                          ...(companyInfo.checkoutPaymentMethods || {}),
+                          cashEnabled: e.target.checked,
+                        },
+                        culqiConfig: {
+                          ...(companyInfo.culqiConfig!),
+                          allowCashFallback: e.target.checked,
+                        },
+                      })
+                    }
+                    className="mt-0.5 h-4 w-4 rounded accent-emerald-600 shrink-0"
+                  />
+                </label>
+              </div>
+            </div>
+
           <div className="saas-card p-6 space-y-5">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -704,12 +825,10 @@ export const CompanyTab: React.FC = () => {
                 ))
               )}
             </div>
-          </div>
-        )}
+            </div>
 
-        {/* Tab 3: Digital Wallets & QR */}
-        {activeSubTab === 'wallets' && (
-          <div className="saas-card p-6 space-y-5">
+            {/* Digital Wallets & QR */}
+            <div className="saas-card p-6 space-y-5">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-200">
@@ -816,9 +935,10 @@ export const CompanyTab: React.FC = () => {
               )}
             </div>
           </div>
+          </div>
         )}
 
-        {/* Tab 4: Libro de Reclamaciones (INDECOPI Ley N° 29571) */}
+        {/* Tab 3: Libro de Reclamaciones (INDECOPI Ley N° 29571) */}
         {activeSubTab === 'complaints' && (
           <div className="space-y-5">
             {/* Summary Metrics */}
@@ -1027,8 +1147,8 @@ export const CompanyTab: React.FC = () => {
           </div>
         )}
 
-        {/* Tab 5: Pasarela Culqi Checkout v4 & API v2 */}
-        {activeSubTab === 'culqi' && (
+        {/* Pasarela Culqi Checkout v4 & API v2 */}
+        {activeSubTab === 'payments' && (
           <div className="saas-card p-6 space-y-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-zinc-200 dark:border-zinc-800">
@@ -1107,6 +1227,10 @@ export const CompanyTab: React.FC = () => {
                     checked={companyInfo.culqiConfig?.enabled ?? true}
                     onChange={e =>
                       updateCompanyInfo({
+                        checkoutPaymentMethods: {
+                          ...(companyInfo.checkoutPaymentMethods || {}),
+                          culqiEnabled: e.target.checked,
+                        },
                         culqiConfig: {
                           ...(companyInfo.culqiConfig || {
                             enabled: true,
@@ -1416,6 +1540,10 @@ export const CompanyTab: React.FC = () => {
                   checked={companyInfo.culqiConfig?.allowCashFallback ?? true}
                   onChange={e =>
                     updateCompanyInfo({
+                      checkoutPaymentMethods: {
+                        ...(companyInfo.checkoutPaymentMethods || {}),
+                        cashEnabled: e.target.checked,
+                      },
                       culqiConfig: {
                         ...(companyInfo.culqiConfig!),
                         allowCashFallback: e.target.checked,

@@ -156,6 +156,12 @@ const DEFAULT_COMPANY_INFO: CompanyInfo = {
     backendOrderEndpoint: '',
     backendChargeEndpoint: '',
   },
+  checkoutPaymentMethods: {
+    culqiEnabled: true,
+    walletsEnabled: true,
+    bankTransferEnabled: true,
+    cashEnabled: true,
+  },
   facturaloConfig: {
     enabled: true,
     apiUrl: 'https://api.facturalo.pe/api/v3',
@@ -724,6 +730,20 @@ function normalizeLoadedState(raw: string | null): PersistedSnapshot | null {
           webhookUrl:
             parsed.companyInfo?.culqiConfig?.webhookUrl ||
             'https://pizzakhalessi.com/api/culqi/webhook',
+        },
+        checkoutPaymentMethods: {
+          culqiEnabled:
+            parsed.companyInfo?.checkoutPaymentMethods?.culqiEnabled ??
+            parsed.companyInfo?.culqiConfig?.enabled ??
+            true,
+          walletsEnabled:
+            parsed.companyInfo?.checkoutPaymentMethods?.walletsEnabled ?? true,
+          bankTransferEnabled:
+            parsed.companyInfo?.checkoutPaymentMethods?.bankTransferEnabled ?? true,
+          cashEnabled:
+            parsed.companyInfo?.checkoutPaymentMethods?.cashEnabled ??
+            parsed.companyInfo?.culqiConfig?.allowCashFallback ??
+            true,
         },
         facturaloConfig: {
           ...DEFAULT_COMPANY_INFO.facturaloConfig!,

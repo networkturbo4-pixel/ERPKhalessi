@@ -156,7 +156,7 @@ export type OrderStatus =
   | 'en_ruta'
   | 'entregado'
   | 'cancelado';
-export type PaymentMethod = 'culqi' | 'yape_plin' | 'efectivo' | 'tarjeta';
+export type PaymentMethod = 'culqi' | 'yape_plin' | 'transferencia' | 'efectivo' | 'tarjeta';
 export type InvoiceDocumentType = 'boleta_simple' | 'boleta_dni' | 'factura_ruc';
 
 export type TableShape = 'square' | 'round' | 'rect';

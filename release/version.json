@@ -1,8 +1,8 @@
 {
-  "buildId": "20261114005621",
-  "builtAt": "2026-11-14T00:56:21.341Z",
-  "commitSha": "62cf1d1",
-  "message": "feat(storefront): add hybrid SPA category view with /categoria/:id routing and sticky switcher",
+  "buildId": "20261114010949",
+  "builtAt": "2026-11-14T01:09:49.709Z",
+  "commitSha": "b372c3b",
+  "message": "build(release): generate release for SPA category view",
   "totalFiles": 87,
-  "manifestSha256": "93f32dddc2d2f52ec6a05c266da5a9424af2a83d3ff7b3d3afe68114a4ae7f05"
+  "manifestSha256": "d31dfa4023a2c2157b7aa0946c00ca41ad0d95aa083a7d867ba00a4381c90dd5"
 }
