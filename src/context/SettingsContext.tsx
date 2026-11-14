@@ -84,6 +84,8 @@ export const DEFAULT_CUSTOMIZATION: TenantCustomization = {
     scope: 'storefront',
     showBanner: true,
     bannerText: '',
+    styleMode: 'doodle',
+    buttonAccent: true,
   },
 };
 

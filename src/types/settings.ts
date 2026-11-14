@@ -27,6 +27,8 @@ export type SeasonalIntensity = 'subtle' | 'medium' | 'festive';
 
 export type SeasonalScope = 'storefront' | 'storefront_kiosk' | 'all';
 
+export type SeasonalStyleMode = 'doodle' | 'minimal' | 'classic';
+
 export interface SeasonalThemeConfig {
   enabled: boolean;
   theme: SeasonalThemeId;
@@ -34,6 +36,8 @@ export interface SeasonalThemeConfig {
   scope: SeasonalScope;
   showBanner: boolean;
   bannerText?: string;
+  styleMode?: SeasonalStyleMode;
+  buttonAccent?: boolean;
 }
 
 export interface TenantCustomization {

@@ -1,8 +1,8 @@
 {
-  "buildId": "20261114233736",
-  "builtAt": "2026-11-14T23:37:36.225Z",
-  "commitSha": "e7dac50",
-  "message": "feat(catalog): duplicate and reorder option cards and sub-option groups (release 20261114230453)",
+  "buildId": "20261114234607",
+  "builtAt": "2026-11-14T23:46:07.862Z",
+  "commitSha": "f5a2e33",
+  "message": "feat(store,checkout): enforce required group conditions and responsive fixed checkout CTA (release 20261114233736)",
   "totalFiles": 90,
-  "manifestSha256": "5745cb5a6ac54c0d8a2fdd8e0432d4aed580f3b0fe14ab6e90b705d87cc56a66"
+  "manifestSha256": "48c8f24b8bdcb13387e7d9d50f54c18543955bcff734b2c4d1c07c9624cef339"
 }

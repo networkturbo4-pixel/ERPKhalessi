@@ -329,6 +329,28 @@ dialog::backdrop {
   color: contrast-color(var(--store-btn-bg, #f59e0b));
 }
 
+/* Google-Doodle-inspired subtle seasonal accents on storefront primary buttons */
+[data-seasonal-doodle] .store-btn-solid {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 14px -2px color-mix(in srgb, var(--store-btn-bg, #f59e0b) 35%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+[data-seasonal-doodle] .store-btn-solid::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  pointer-events: none;
+  opacity: 0.85;
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'%3E%3Cpath d='M12 2 L14.4 9.6 L22 12 L14.4 14.4 L12 22 L9.6 14.4 L2 12 L9.6 9.6 Z'/%3E%3C/svg%3E");
+}
+
 /* Native <details> Product Option Accordions (per modern-web-guidance accordion) */
 .store-option-accordion details > summary {
   list-style: none;

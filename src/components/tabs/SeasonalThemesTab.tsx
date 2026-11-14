@@ -4,6 +4,7 @@ import { PermissionGate } from '../common/PermissionGate';
 import {
   SeasonalIntensity,
   SeasonalScope,
+  SeasonalStyleMode,
   SeasonalThemeConfig,
   SeasonalThemeId,
 } from '../../types/settings';
@@ -56,6 +57,12 @@ const SCOPE_OPTIONS: Array<{
   },
 ];
 
+const STYLE_MODE_OPTIONS: Array<{ id: SeasonalStyleMode; label: string; desc: string }> = [
+  { id: 'doodle', label: 'Doodle Editorial (Google)', desc: 'Cabecera ilustrada con vectores + partículas limpias' },
+  { id: 'minimal', label: 'Minimalista', desc: 'Solo cabecera ilustrada y detalles en botones' },
+  { id: 'classic', label: 'Clásico', desc: 'Cintillo simple y emojis animados' },
+];
+
 export const SeasonalThemesTab: React.FC = () => {
   const { customization, updateCustomization, saveAllSettings, dispatchToast } = useSettings();
 
@@ -66,6 +73,8 @@ export const SeasonalThemesTab: React.FC = () => {
     scope: 'storefront',
     showBanner: true,
     bannerText: '',
+    styleMode: 'doodle',
+    buttonAccent: true,
   };
 
   const updateSeasonal = (partial: Partial<SeasonalThemeConfig>) => {
@@ -266,8 +275,37 @@ export const SeasonalThemesTab: React.FC = () => {
           <div className="saas-card p-5 space-y-5">
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-zinc-950 dark:text-white flex items-center gap-2">
+                <Sparkles className="h-4 w-4" style={{ color: customization.primaryColor }} />
+                <span>3. Estilo Visual (Google Doodle / Minimalista)</span>
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                {STYLE_MODE_OPTIONS.map(opt => {
+                  const active = (seasonal.styleMode || 'doodle') === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => updateSeasonal({ styleMode: opt.id })}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        active
+                          ? 'border-zinc-900 dark:border-white bg-zinc-50 dark:bg-zinc-900/90'
+                          : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900/40'
+                      }`}
+                    >
+                      <p className="text-xs font-bold text-zinc-950 dark:text-white">{opt.label}</p>
+                      <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5 leading-tight">
+                        {opt.desc}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="border-t border-zinc-200 dark:border-zinc-800 pt-4 space-y-3">
+              <h3 className="text-sm font-semibold text-zinc-950 dark:text-white flex items-center gap-2">
                 <Gauge className="h-4 w-4" style={{ color: customization.primaryColor }} />
-                <span>3. Intensidad de Partículas</span>
+                <span>4. Intensidad de Partículas</span>
               </h3>
               <div className="grid grid-cols-3 gap-2.5">
                 {INTENSITY_OPTIONS.map(opt => {
@@ -294,6 +332,23 @@ export const SeasonalThemesTab: React.FC = () => {
             </div>
 
             <div className="border-t border-zinc-200 dark:border-zinc-800 pt-4 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <label
+                  htmlFor="seasonal-button-accent-toggle"
+                  className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2 cursor-pointer"
+                >
+                  <Sparkles className="h-4 w-4 text-amber-500" />
+                  <span>Detalles Doodle en botones principales de la Tienda</span>
+                </label>
+                <input
+                  id="seasonal-button-accent-toggle"
+                  type="checkbox"
+                  checked={seasonal.buttonAccent ?? true}
+                  onChange={e => updateSeasonal({ buttonAccent: e.target.checked })}
+                  className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-700 accent-orange-500 cursor-pointer"
+                />
+              </div>
+
               <div className="flex items-center justify-between gap-3">
                 <label
                   htmlFor="seasonal-banner-toggle"

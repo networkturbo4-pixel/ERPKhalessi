@@ -2033,8 +2033,13 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
       </div>
     );
 
+  const seasonalDoodleTheme =
+    customization.seasonalTheme?.enabled && (customization.seasonalTheme?.buttonAccent ?? true)
+      ? customization.seasonalTheme.theme
+      : undefined;
+
   return (
-    <div style={storeThemeVars} className="min-h-dvh flex flex-col bg-[#0b0c10]">
+    <div style={storeThemeVars} data-seasonal-doodle={seasonalDoodleTheme} className="min-h-dvh flex flex-col bg-[#0b0c10]">
       <SeasonalOverlay surface="storefront" />
       <ToastContainer />
       <SystemNoticeModal />
