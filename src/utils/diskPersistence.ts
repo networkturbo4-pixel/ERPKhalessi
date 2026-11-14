@@ -514,6 +514,16 @@ function enqueueServerSync(
             if (isPublicWritable) {
               // Reintentar inmediatamente sin token vencido para que el pedido jamás se pierda
               res = await doPost(false);
+            } else if (
+              originalGetItemFn?.('khalessi_erp_auth_v1') === 'authenticated' &&
+              isErpAdminSurface()
+            ) {
+              const activePin = resolveAuthenticatedUserPin();
+              if (activePin && (await authenticateServer(activePin, true))) {
+                res = await doPost(true);
+              } else {
+                return;
+              }
             } else {
               return;
             }
@@ -746,6 +756,20 @@ export async function initDiskPersistence(): Promise<void> {
         }
 
         applyRemoteUpdate(key, value, emitEvents);
+      }
+
+      // Si ya había token al iniciar y una clave local aún no existe en el servidor, subirla automáticamente
+      if (!initialReconcileCompleted && getServerToken() && isErpAdminSurface()) {
+        for (const key of SERVER_SYNC_KEYS) {
+          if (key === 'kh_orders_list') continue;
+          if (key === SETTINGS_KEY && settingsHasUnhydratedSensitiveFields) continue;
+          if (records[key] === undefined) {
+            const local = memoryMirror.get(key) ?? originalGetItemFn?.(key);
+            if (local !== null && local !== undefined) {
+              enqueueServerSync(key, { action: 'set', value: local });
+            }
+          }
+        }
       }
     } catch {
       // Fallback fluido a caché local

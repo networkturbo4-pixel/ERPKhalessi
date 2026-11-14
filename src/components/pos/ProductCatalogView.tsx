@@ -60,135 +60,22 @@ export interface ProductOptionTemplate {
   allowedExtras: ExtraModifier[];
 }
 
-const DEFAULT_OPTION_TEMPLATES: ProductOptionTemplate[] = [
-  {
-    id: 'tpl-opt-pizzas-clasicas',
-    name: 'Pizzas Artesanales Clásicas',
-    description: '4 tamaños estándar con tajadas, masa fina/gruesa, salsas y adicionales clásicos.',
-    category: 'pizzas',
-    sizes: [
-      { id: 'sz-personal', name: '04 Tajadas de Pizza', label: '4 Cortes • Personal', slices: 4, price: 19.9, enabled: true },
-      { id: 'sz-mediana', name: '06 Tajadas de Pizza', label: '6 Cortes • Mediana', slices: 6, price: 32.9, enabled: true },
-      { id: 'sz-familiar', name: '08 Tajadas de Pizza', label: '8 Cortes • Familiar', slices: 8, price: 46.9, enabled: true, isDefault: true },
-      { id: 'sz-extra', name: '12 Tajadas de Pizza', label: '12 Cortes • Extra Familiar', slices: 12, price: 59.9, enabled: true },
-    ],
-    subOptions: [
-      {
-        id: 'sub-masa',
-        name: 'Tipo de Masa',
-        required: true,
-        enabled: true,
-        choices: [
-          { id: 'm-fina', name: 'Masa Fina Artesanal', priceDelta: 0, isDefault: true, isIncluded: true },
-          { id: 'm-tradicional', name: 'Masa Gruesa Tradicional', priceDelta: 0, isIncluded: true },
-          { id: 'm-queso', name: 'Borde Relleno de Mozzarella', priceDelta: 8.0 },
-        ],
-      },
-      {
-        id: 'sub-salsa',
-        name: 'Salsa Base',
-        required: true,
-        enabled: true,
-        choices: [
-          { id: 's-tomate', name: 'Salsa de Tomate Italiana', priceDelta: 0, isDefault: true, isIncluded: true },
-          { id: 's-bbq', name: 'Salsa BBQ Dulce', priceDelta: 0, isIncluded: true },
-          { id: 's-blanca', name: 'Salsa Blanca Alfredo', priceDelta: 2.0 },
-        ],
-      },
-    ],
-    allowedExtras: [
-      { id: 'ext-queso', name: 'Extra Queso Mozzarella', price: 5.0, category: 'quesos', enabled: true },
-      { id: 'ext-pepp', name: 'Pepperoni Americano Extra', price: 5.5, category: 'toppings', enabled: true },
-      { id: 'ext-jamon', name: 'Jamón Inglés Extra', price: 4.5, category: 'toppings', enabled: true },
-      { id: 'ext-champ', name: 'Champiñones Frescos', price: 4.0, category: 'toppings', enabled: true },
-      { id: 'ext-tocino', name: 'Tocino Ahumado Crispy', price: 5.0, category: 'toppings', enabled: true },
-      { id: 'ext-aceit', name: 'Aceitunas Negras', price: 3.5, category: 'toppings', enabled: true },
-    ],
-  },
-  {
-    id: 'tpl-opt-pizzas-gourmet',
-    name: 'Pizzas Especiales / Gourmet',
-    description: '4 tamaños gourmet con tajadas, quesos madurados y toppings premium.',
-    category: 'pizzas',
-    sizes: [
-      { id: 'sz-g-pers', name: '04 Tajadas de Pizza', label: '4 Cortes • Personal Gourmet', slices: 4, price: 24.9, enabled: true },
-      { id: 'sz-g-med', name: '06 Tajadas de Pizza', label: '6 Cortes • Mediana Gourmet', slices: 6, price: 39.9, enabled: true },
-      { id: 'sz-g-fam', name: '08 Tajadas de Pizza', label: '8 Cortes • Familiar Gourmet', slices: 8, price: 54.9, enabled: true, isDefault: true },
-      { id: 'sz-g-ext', name: '12 Tajadas de Pizza', label: '12 Cortes • Gigante Gourmet', slices: 12, price: 69.9, enabled: true },
-    ],
-    subOptions: [
-      {
-        id: 'sub-masa-g',
-        name: 'Tipo de Masa',
-        required: true,
-        enabled: true,
-        choices: [
-          { id: 'mg-fina', name: 'Masa Madre 48h', priceDelta: 0, isDefault: true, isIncluded: true },
-          { id: 'mg-borde', name: 'Borde Parmesano & Orégano', priceDelta: 6.0 },
-        ],
-      },
-    ],
-    allowedExtras: [
-      { id: 'ext-parm', name: 'Parmesano Reggiano', price: 6.0, category: 'quesos', enabled: true },
-      { id: 'ext-prosc', name: 'Prosciutto Di Parma', price: 8.0, category: 'toppings', enabled: true },
-      { id: 'ext-honey', name: 'Hot Honey Picante', price: 4.5, category: 'salsas', enabled: true },
-    ],
-  },
-  {
-    id: 'tpl-opt-entradas',
-    name: 'Entradas & Alitas',
-    description: 'Porciones de 6 y 12 piezas con selección de salsas y complementos.',
-    category: 'entradas',
-    sizes: [
-      { id: 'sz-ent-6', name: 'Porción 6 Piezas', label: '6 Piezas', slices: 6, price: 18.9, enabled: true, isDefault: true },
-      { id: 'sz-ent-12', name: 'Porción 12 Piezas', label: '12 Piezas', slices: 12, price: 32.9, enabled: true },
-    ],
-    subOptions: [
-      {
-        id: 'sub-salsas-alitas',
-        name: 'Salsa para Bañar / Acompañar',
-        required: true,
-        enabled: true,
-        choices: [
-          { id: 'sa-bbq', name: 'BBQ Ahumada', priceDelta: 0, isDefault: true, isIncluded: true },
-          { id: 'sa-bufalo', name: 'Búfalo Picante', priceDelta: 0, isIncluded: true },
-          { id: 'sa-honey', name: 'Miel Mostaza', priceDelta: 0, isIncluded: true },
-          { id: 'sa-tartara', name: 'Tártara de la Casa', priceDelta: 0, isIncluded: true },
-        ],
-      },
-    ],
-    allowedExtras: [
-      { id: 'ext-papas', name: 'Porción de Papas Fritas', price: 8.0, category: 'toppings', enabled: true },
-      { id: 'ext-apio', name: 'Bastones de Apio & Zanahoria', price: 3.5, category: 'toppings', enabled: true },
-    ],
-  },
-  {
-    id: 'tpl-opt-bebidas',
-    name: 'Bebidas & Refrescos',
-    description: 'Formatos personal y familiar con opciones de temperatura y hielo.',
-    category: 'bebidas',
-    sizes: [
-      { id: 'sz-beb-500', name: 'Personal 500ml', label: '500 ml', slices: 1, price: 5.5, enabled: true, isDefault: true },
-      { id: 'sz-beb-15', name: 'Familiar 1.5L', label: '1.5 Litros', slices: 1, price: 10.5, enabled: true },
-      { id: 'sz-beb-3', name: 'Familiar 3L', label: '3 Litros', slices: 1, price: 15.0, enabled: true },
-    ],
-    subOptions: [
-      {
-        id: 'sub-temp',
-        name: 'Temperatura',
-        required: true,
-        enabled: true,
-        choices: [
-          { id: 't-helada', name: 'Helada', priceDelta: 0, isDefault: true, isIncluded: true },
-          { id: 't-tiempo', name: 'Al Tiempo', priceDelta: 0, isIncluded: true },
-        ],
-      },
-    ],
-    allowedExtras: [
-      { id: 'ext-hielo', name: 'Vaso con Hielo Extra', price: 1.0, category: 'toppings', enabled: true },
-    ],
-  },
-];
+const LEGACY_DEFAULT_TEMPLATE_IDS = new Set<string>([
+  'tpl-opt-pizzas-clasicas',
+  'tpl-opt-pizzas-gourmet',
+  'tpl-opt-entradas',
+  'tpl-opt-bebidas',
+]);
+
+const DEFAULT_OPTION_TEMPLATES: ProductOptionTemplate[] = [];
+
+function stripLegacyOptionTemplates(list: ProductOptionTemplate[]): {
+  cleaned: ProductOptionTemplate[];
+  changed: boolean;
+} {
+  const cleaned = list.filter((t) => t && !LEGACY_DEFAULT_TEMPLATE_IDS.has(t.id));
+  return { cleaned, changed: cleaned.length !== list.length };
+}
 
 const DEFAULT_CATEGORIES: ProductCategoryItem[] = [
   { id: 'pizzas', name: 'Pizzas', icon: '🍕', imageUrl: 'https://images.unsplash.com/photo-1628840042765-356cda07504e?auto=format&fit=crop&w=400&q=80' },
@@ -331,7 +218,12 @@ export const ProductCatalogView: React.FC = () => {
   const [optionTemplates, setOptionTemplates] = useState<ProductOptionTemplate[]>(() => {
     try {
       const stored = localStorage.getItem('kh_product_option_templates_v1');
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          return stripLegacyOptionTemplates(parsed).cleaned;
+        }
+      }
     } catch {
       // ignore
     }
@@ -339,11 +231,33 @@ export const ProductCatalogView: React.FC = () => {
   });
 
   useEffect(() => {
+    try {
+      const stored = localStorage.getItem('kh_product_option_templates_v1');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          const { cleaned, changed } = stripLegacyOptionTemplates(parsed);
+          if (changed) {
+            setOptionTemplates(cleaned);
+            localStorage.setItem('kh_product_option_templates_v1', JSON.stringify(cleaned));
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     const onStorage = (e: StorageEvent) => {
       if (e.key === 'kh_product_option_templates_v1' && e.newValue) {
         try {
           const parsed = JSON.parse(e.newValue);
-          if (Array.isArray(parsed)) setOptionTemplates(parsed);
+          if (Array.isArray(parsed)) {
+            const { cleaned, changed } = stripLegacyOptionTemplates(parsed);
+            setOptionTemplates(cleaned);
+            if (changed) {
+              localStorage.setItem('kh_product_option_templates_v1', JSON.stringify(cleaned));
+            }
+          }
         } catch {
           // ignore
         }
