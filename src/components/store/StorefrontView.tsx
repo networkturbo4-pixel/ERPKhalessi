@@ -27,7 +27,7 @@ import {
 import { ToastContainer } from '../common/ToastContainer';
 import { SystemNoticeModal } from '../common/SystemNoticeModal';
 import { StorefrontSkeleton } from '../common/AppSurfaceSkeleton';
-import { StoreBlockRenderer } from './StorefrontWidgets';
+import { StoreBlockRenderer, getStoreCategories } from './StorefrontWidgets';
 import { StoreAccountMenu } from './StoreAccountMenu';
 
 const loadStoreProductDetailPage = () =>
@@ -77,6 +77,7 @@ import {
   Flame,
   Trash2,
   Shield,
+  ArrowLeft,
   ArrowRight,
   CheckCircle2,
   Phone,
@@ -171,6 +172,11 @@ function calculateHaversineKm(
 
 function parseSlugFromPath(pathname: string): string | null {
   const match = pathname.match(/^\/producto\/([^/?#]+)/i);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function parseCategoryFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/categoria\/([^/?#]+)/i);
   return match ? decodeURIComponent(match[1]) : null;
 }
 
@@ -510,6 +516,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
   useEffect(() => {
     const onPopState = () => {
       setActiveProductSlug(parseSlugFromPath(window.location.pathname));
+      setActiveCategory(parseCategoryFromPath(window.location.pathname) || 'todos');
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
@@ -585,8 +592,40 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     }
   }, []);
 
+  const navigateToCategory = useCallback(
+    (catId: string) => {
+      const target = catId || 'todos';
+      if (isBuilderOpen) {
+        setActiveCategory(target);
+        return;
+      }
+      const nextUrl = target === 'todos' ? '/' : `/categoria/${encodeURIComponent(target)}`;
+      const applyCategory = () => {
+        if (window.location.pathname !== nextUrl) {
+          window.history.pushState({}, '', nextUrl);
+        }
+        flushSync(() => {
+          setActiveCategory(target);
+        });
+        window.scrollTo({ top: 0 });
+      };
+
+      const docWithVT = document as Document & {
+        startViewTransition?: (cb: () => void) => { finished: Promise<void> };
+      };
+      if (typeof docWithVT.startViewTransition === 'function') {
+        docWithVT.startViewTransition(applyCategory);
+      } else {
+        applyCategory();
+      }
+    },
+    [isBuilderOpen]
+  );
+
   // Catalog, Quick View, Off-Canvas / Bottom-Sheet Drawers State
-  const [activeCategory, setActiveCategory] = useState<string>('todos');
+  const [activeCategory, setActiveCategory] = useState<string>(() =>
+    typeof window !== 'undefined' ? parseCategoryFromPath(window.location.pathname) || 'todos' : 'todos'
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -1106,7 +1145,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
       products={products}
       activeCategory={activeCategory}
       searchQuery={searchQuery}
-      onSelectCategory={catId => setActiveCategory(catId)}
+      onSelectCategory={catId => navigateToCategory(catId)}
       onChangeSearch={q => setSearchQuery(q)}
       onSelectProduct={(prod, imgEl) =>
         navigateToProductSlug(prod, (imgEl as HTMLImageElement | null | undefined) ?? null)
@@ -1233,8 +1272,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
               <button
                 type="button"
                 onClick={() => {
-                  setActiveCategory('todos');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  navigateToCategory('todos');
                 }}
                 aria-label="Ir al inicio de la carta"
                 style={{ touchAction: 'manipulation' }}
@@ -1548,26 +1586,141 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
               </button>
             );
           })()}
-          {activeTemplate.blocks.map((block, idx) => {
-            const visibleOnCurrentDevice = isBlockVisibleOnViewport(block, effectiveViewport);
-            const isHidden = Boolean(block.advanced.isHidden);
+          {!isBuilderOpen && activeCategory !== 'todos' ? (
+            (() => {
+              const allCats = getStoreCategories();
+              const activeCatMeta = allCats.find(c => c.id === activeCategory);
+              const catCount = products.filter(
+                p => p.isAvailable && p.category === activeCategory
+              ).length;
+              const baseGridBlock = activeTemplate.blocks.find(b => b.type === 'product_grid');
+              const categoryGridBlock: StoreBlock = baseGridBlock
+                ? {
+                    ...baseGridBlock,
+                    categoryFilter: 'active_sync',
+                    title: '',
+                  }
+                : {
+                    id: 'spa-category-grid',
+                    type: 'product_grid',
+                    visible: true,
+                    advanced: {},
+                    title: '',
+                    categoryFilter: 'active_sync',
+                    columnsDesktop: 4,
+                    columnsTablet: 2,
+                    columnsMobile: 1,
+                    cardStyle: 'clasica',
+                    showDescription: true,
+                    showBadge: true,
+                    showSizesPreview: true,
+                    maxItems: 0,
+                  };
 
-            if (!isBuilderOpen && (!visibleOnCurrentDevice || isHidden)) {
-              return null;
-            }
+              return (
+                <section aria-label={activeCatMeta?.label || 'Categoría'} className="space-y-4">
+                  {/* Sticky SPA Category Header + Quick Switcher */}
+                  <div
+                    className={`sticky top-[64px] sm:top-[74px] z-20 -mx-3 sm:-mx-4 px-3 sm:px-4 py-3 backdrop-blur-md border-b transition-colors ${
+                      isLightTheme
+                        ? 'bg-zinc-100/90 border-zinc-200/80'
+                        : 'bg-[#0b0c10]/90 border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => navigateToCategory('todos')}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 whitespace-nowrap shrink-0 ${
+                            isLightTheme
+                              ? 'bg-white border-zinc-200 text-zinc-800 hover:bg-zinc-50 shadow-sm'
+                              : 'bg-white/5 border-white/15 text-zinc-100 hover:bg-white/10'
+                          }`}
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5" />
+                          <span>Volver</span>
+                        </button>
+                        <div className="min-w-0 flex items-center gap-2">
+                          {activeCatMeta?.icon && (
+                            <span className="text-lg shrink-0">{activeCatMeta.icon}</span>
+                          )}
+                          <h2
+                            className={`text-base sm:text-xl font-black tracking-tight truncate ${
+                              isLightTheme ? 'text-zinc-900' : 'text-white'
+                            }`}
+                          >
+                            {activeCatMeta?.label || 'Categoría'}
+                          </h2>
+                          <span
+                            className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                              isLightTheme
+                                ? 'bg-zinc-200/80 text-zinc-700'
+                                : 'bg-white/10 text-zinc-300'
+                            }`}
+                          >
+                            {catCount} {catCount === 1 ? 'producto' : 'productos'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
 
-            const isSelected = isBuilderOpen && selectedBlockId === block.id;
-
-            if (!isBuilderOpen) {
-              if (idx >= 3) {
-                return (
-                  <div key={block.id} className="store-below-fold-section">
-                    {renderBlockContent(block, idx)}
+                    {/* Horizontal quick category switcher */}
+                    <div className="mt-2.5 flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
+                      {allCats.map(cat => {
+                        const isCurrent = cat.id === activeCategory;
+                        return (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => navigateToCategory(cat.id)}
+                            style={
+                              isCurrent
+                                ? { backgroundColor: accentColor, borderColor: accentColor }
+                                : undefined
+                            }
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap shrink-0 ${
+                              isCurrent
+                                ? 'text-white shadow-sm'
+                                : isLightTheme
+                                ? 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
+                                : 'bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10'
+                            }`}
+                          >
+                            <span>{cat.icon}</span>
+                            <span>{cat.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                );
+
+                  {/* Focused Category Product Grid */}
+                  {renderBlockContent(categoryGridBlock, 0)}
+                </section>
+              );
+            })()
+          ) : (
+            activeTemplate.blocks.map((block, idx) => {
+              const visibleOnCurrentDevice = isBlockVisibleOnViewport(block, effectiveViewport);
+              const isHidden = Boolean(block.advanced.isHidden);
+
+              if (!isBuilderOpen && (!visibleOnCurrentDevice || isHidden)) {
+                return null;
               }
-              return <React.Fragment key={block.id}>{renderBlockContent(block, idx)}</React.Fragment>;
-            }
+
+              const isSelected = isBuilderOpen && selectedBlockId === block.id;
+
+              if (!isBuilderOpen) {
+                if (idx >= 3) {
+                  return (
+                    <div key={block.id} className="store-below-fold-section">
+                      {renderBlockContent(block, idx)}
+                    </div>
+                  );
+                }
+                return <React.Fragment key={block.id}>{renderBlockContent(block, idx)}</React.Fragment>;
+              }
 
             return (
               <div
@@ -1671,7 +1824,8 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                 {renderBlockContent(block, idx)}
               </div>
             );
-          })}
+          })
+          )}
         </main>
 
         {/* 3. Solid Corporate & Fiscal Footer (deferred below the fold) */}
@@ -3601,8 +3755,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                   : undefined
               }
               onClick={() => {
-                setActiveCategory('todos');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+                navigateToCategory('todos');
               }}
               style={{
                 color:
