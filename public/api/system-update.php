@@ -411,7 +411,13 @@ switch ($action) {
             : (string)($commitData['commit']['author']['date'] ?? date('c'));
 
         $installedBuildId = is_array($installed) && isset($installed['buildId']) ? (string)$installed['buildId'] : null;
-        $updateAvailable = $installedBuildId !== null ? ($installedBuildId !== $latestBuildId) : true;
+        if ($installedBuildId === null) {
+            $updateAvailable = true;
+        } elseif (ctype_digit($installedBuildId) && ctype_digit($latestBuildId) && strlen($installedBuildId) === 14 && strlen($latestBuildId) === 14) {
+            $updateAvailable = $latestBuildId > $installedBuildId;
+        } else {
+            $updateAvailable = $installedBuildId !== $latestBuildId;
+        }
 
         sendResponse([
             'success' => true,
@@ -600,6 +606,7 @@ switch ($action) {
                     @mkdir($dstParent, 0755, true);
                 }
                 if (@copy($srcFile, $dstFile)) {
+                    @touch($dstFile);
                     $updatedCount++;
                 }
             }
@@ -608,6 +615,7 @@ switch ($action) {
                 $srcFile = $stageDir . '/' . $relPath;
                 $dstFile = $rootTarget . '/' . $relPath;
                 if (@copy($srcFile, $dstFile)) {
+                    @touch($dstFile);
                     $updatedCount++;
                 }
             }

@@ -206,12 +206,12 @@ export const ProductCatalogView: React.FC = () => {
   const { dispatchToast, openNoticeModal } = useSettings();
 
   // Dynamic Categories state
-  const [categories, setCategories] = useState<ProductCategoryItem[]>(() => {
+  const loadStoredCategories = (): ProductCategoryItem[] => {
     try {
       const stored = localStorage.getItem('kh_product_categories_v1');
-      if (stored) {
+      if (stored !== null) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed.map((item: ProductCategoryItem) => {
             const def = DEFAULT_CATEGORIES.find((d) => d.id === item.id);
             return {
@@ -226,7 +226,24 @@ export const ProductCatalogView: React.FC = () => {
       // ignore
     }
     return DEFAULT_CATEGORIES;
-  });
+  };
+
+  const [categories, setCategories] = useState<ProductCategoryItem[]>(loadStoredCategories);
+
+  useEffect(() => {
+    const syncCategories = (e?: Event) => {
+      if (e && 'key' in e && (e as StorageEvent).key && (e as StorageEvent).key !== 'kh_product_categories_v1') {
+        return;
+      }
+      setCategories(loadStoredCategories());
+    };
+    window.addEventListener('storage', syncCategories);
+    window.addEventListener('kh:categories-updated', syncCategories);
+    return () => {
+      window.removeEventListener('storage', syncCategories);
+      window.removeEventListener('kh:categories-updated', syncCategories);
+    };
+  }, []);
 
   const [activeTab, setActiveTab] = useState<string>('todos');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -320,6 +337,21 @@ export const ProductCatalogView: React.FC = () => {
     }
     return DEFAULT_OPTION_TEMPLATES;
   });
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'kh_product_option_templates_v1' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) setOptionTemplates(parsed);
+        } catch {
+          // ignore
+        }
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [isSavingTemplateName, setIsSavingTemplateName] = useState(false);
   const [templateCustomName, setTemplateCustomName] = useState('');
@@ -715,6 +747,7 @@ export const ProductCatalogView: React.FC = () => {
       setCategories(updated);
       try {
         localStorage.setItem('kh_product_categories_v1', JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('kh:categories-updated'));
       } catch {
         // ignore
       }
@@ -747,6 +780,7 @@ export const ProductCatalogView: React.FC = () => {
       setCategories(updated);
       try {
         localStorage.setItem('kh_product_categories_v1', JSON.stringify(updated));
+        window.dispatchEvent(new CustomEvent('kh:categories-updated'));
       } catch {
         // ignore
       }
@@ -784,6 +818,7 @@ export const ProductCatalogView: React.FC = () => {
         setCategories(updated);
         try {
           localStorage.setItem('kh_product_categories_v1', JSON.stringify(updated));
+          window.dispatchEvent(new CustomEvent('kh:categories-updated'));
         } catch {
           // ignore
         }
@@ -1001,7 +1036,7 @@ export const ProductCatalogView: React.FC = () => {
     if (!file) return;
     try {
       dispatchToast('Comprimiendo', 'Optimizando foto...', 'info');
-      const compressed = await compressImageFile(file, { maxWidth: 1280, maxHeight: 1280, quality: 0.82 });
+      const compressed = await compressImageFile(file, { maxWidth: 800, maxHeight: 800, quality: 0.75 });
       onResult(compressed.dataUrl);
       dispatchToast('Imagen Cargada', 'Se adjuntó la foto optimizada con éxito.', 'success');
     } catch {
@@ -1029,7 +1064,7 @@ export const ProductCatalogView: React.FC = () => {
           const blob = await item.getType(imageType);
           const file = new File([blob], `paste-${Date.now()}.png`, { type: imageType });
           dispatchToast('Comprimiendo', 'Optimizando foto pegada...', 'info');
-          const compressed = await compressImageFile(file, { maxWidth: 1280, maxHeight: 1280, quality: 0.82 });
+          const compressed = await compressImageFile(file, { maxWidth: 800, maxHeight: 800, quality: 0.75 });
           onResult(compressed.dataUrl);
           dispatchToast('Imagen Pegada', 'Foto pegada y comprimida con éxito.', 'success');
           return;

@@ -261,15 +261,17 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
       className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-5 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200"
     >
       <div
-        className={`relative w-full max-w-5xl rounded-t-[2rem] sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[90vh] sm:h-auto sm:max-h-[92vh] border-t sm:border border-zinc-200 dark:border-neutral-800 animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-300 ${
-          isLightTheme ? 'bg-white text-zinc-900' : 'bg-neutral-900 text-white'
+        className={`relative w-full max-w-5xl rounded-t-[2rem] sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[90vh] sm:h-auto sm:max-h-[92vh] border-t sm:border animate-in slide-in-from-bottom-6 sm:slide-in-from-bottom-2 duration-300 ${
+          isLightTheme ? 'bg-white text-zinc-900 border-zinc-200' : 'bg-neutral-900 text-white border-neutral-800'
         }`}
       >
         {/* Top Header */}
-        <div className={`p-4 sm:p-5 border-b flex items-start justify-between gap-4 ${isLightTheme ? 'bg-zinc-50' : 'bg-neutral-950/50'}`}>
+        <div className={`p-4 sm:p-5 border-b flex items-start justify-between gap-4 ${isLightTheme ? 'bg-zinc-50 border-zinc-200' : 'bg-neutral-950/50 border-neutral-800'}`}>
           <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider text-rose-600 bg-rose-50 dark:bg-rose-950/50 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 mb-1">
-              <Store className="w-3 h-3 text-rose-500" />
+            <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border mb-1 ${
+              isLightTheme ? 'text-rose-700 bg-rose-50 border-rose-200' : 'bg-rose-950/50 text-rose-300 border-rose-900/50'
+            }`}>
+              <Store className={`w-3 h-3 ${isLightTheme ? 'text-rose-600' : 'text-rose-400'}`} />
               <span>Tiendas & Cobertura</span>
             </div>
             <h2 className="text-lg sm:text-xl font-black tracking-tight">Elige tu tienda</h2>
@@ -290,15 +292,15 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
         </div>
 
         {/* Content Body: Responsive Tab Switcher on Mobile (< lg) */}
-        <div className="lg:hidden flex items-center border-b border-zinc-200 dark:border-neutral-800 bg-zinc-50 dark:bg-neutral-900/60 p-1.5 px-3">
+        <div className={`lg:hidden flex items-center border-b p-1.5 px-3 ${isLightTheme ? 'border-zinc-200 bg-zinc-50' : 'border-neutral-800 bg-neutral-900/60'}`}>
           <div className="grid grid-cols-2 gap-1 w-full max-w-sm mx-auto">
             <button
               type="button"
               onClick={() => setActiveMobileTab('list')}
               className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                 activeMobileTab === 'list'
-                  ? 'bg-white dark:bg-neutral-800 text-rose-600 dark:text-rose-400 shadow-sm'
-                  : 'text-zinc-500 dark:text-neutral-400'
+                  ? (isLightTheme ? 'bg-white text-rose-600 shadow-sm' : 'bg-neutral-800 text-rose-400 shadow-sm')
+                  : (isLightTheme ? 'text-zinc-600' : 'text-neutral-400')
               }`}
             >
               <Store className="w-3.5 h-3.5" />
@@ -309,8 +311,8 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
               onClick={() => setActiveMobileTab('map')}
               className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                 activeMobileTab === 'map'
-                  ? 'bg-white dark:bg-neutral-800 text-rose-600 dark:text-rose-400 shadow-sm'
-                  : 'text-zinc-500 dark:text-neutral-400'
+                  ? (isLightTheme ? 'bg-white text-rose-600 shadow-sm' : 'bg-neutral-800 text-rose-400 shadow-sm')
+                  : (isLightTheme ? 'text-zinc-600' : 'text-neutral-400')
               }`}
             >
               <Compass className="w-3.5 h-3.5" />
@@ -323,7 +325,9 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
           {/* Left Column: Switcher + Search + Store Cards List */}
           <div
-            className={`w-full lg:w-[44%] p-3 sm:p-5 flex flex-col gap-3 overflow-y-auto custom-scrollbar border-b lg:border-b-0 lg:border-r border-zinc-200 dark:border-neutral-800 ${
+            className={`w-full lg:w-[44%] p-3 sm:p-5 flex flex-col gap-3 overflow-y-auto custom-scrollbar border-b lg:border-b-0 lg:border-r ${
+              isLightTheme ? 'border-zinc-200' : 'border-neutral-800'
+            } ${
               activeMobileTab === 'map' ? 'hidden lg:flex' : 'flex'
             }`}
           >
@@ -334,8 +338,8 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                 onClick={() => setDeliveryType('delivery')}
                 className={`py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
                   deliveryType === 'delivery'
-                    ? 'bg-white dark:bg-neutral-800 text-rose-600 dark:text-rose-400 shadow-sm border border-zinc-200 dark:border-neutral-700'
-                    : 'text-zinc-500 hover:text-zinc-900 dark:text-neutral-400'
+                    ? (isLightTheme ? 'bg-white text-rose-600 shadow-sm border border-zinc-200' : 'bg-neutral-800 text-rose-400 shadow-sm border border-neutral-700')
+                    : (isLightTheme ? 'text-zinc-600 hover:text-zinc-900' : 'text-neutral-400 hover:text-white')
                 }`}
               >
                 <Bike className="w-4 h-4" />
@@ -346,8 +350,8 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                 onClick={() => setDeliveryType('pickup')}
                 className={`py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
                   deliveryType === 'pickup'
-                    ? 'bg-white dark:bg-neutral-800 text-rose-600 dark:text-rose-400 shadow-sm border border-zinc-200 dark:border-neutral-700'
-                    : 'text-zinc-500 hover:text-zinc-900 dark:text-neutral-400'
+                    ? (isLightTheme ? 'bg-white text-rose-600 shadow-sm border border-zinc-200' : 'bg-neutral-800 text-rose-400 shadow-sm border border-neutral-700')
+                    : (isLightTheme ? 'text-zinc-600 hover:text-zinc-900' : 'text-neutral-400 hover:text-white')
                 }`}
               >
                 <Store className="w-4 h-4" />
@@ -386,9 +390,9 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
 
             {/* Active Store & Geofence Status Indicator */}
             {isDeliveryBlocked ? (
-              <div className="p-3 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-200 text-xs space-y-2">
+              <div className={`p-3 rounded-xl border text-xs space-y-2 ${isLightTheme ? 'border-rose-300 bg-rose-50 text-rose-800' : 'border-rose-800 bg-rose-950/40 text-rose-200'}`}>
                 <div className="flex items-start gap-2 font-bold">
-                  <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                  <AlertCircle className={`w-4 h-4 shrink-0 mt-0.5 ${isLightTheme ? 'text-rose-600' : 'text-rose-400'}`} />
                   <span>
                     {coverageMatch.anyCovered
                       ? 'Esta sede no cubre el punto marcado en el mapa.'
@@ -408,7 +412,9 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setDeliveryType('pickup')}
-                    className="px-2.5 py-1 rounded-lg border border-rose-300 dark:border-rose-700 bg-white dark:bg-neutral-900 text-rose-700 dark:text-rose-300 font-bold text-[11px] hover:bg-rose-100 dark:hover:bg-rose-950 transition-colors whitespace-nowrap shrink-0"
+                    className={`px-2.5 py-1 rounded-lg border font-bold text-[11px] transition-colors whitespace-nowrap shrink-0 ${
+                      isLightTheme ? 'border-rose-300 bg-white text-rose-700 hover:bg-rose-100' : 'border-rose-700 bg-neutral-900 text-rose-300 hover:bg-rose-950'
+                    }`}
                   >
                     Cambiar a Retiro en Local
                   </button>
@@ -453,7 +459,7 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                     onClick={() => setSelectedTenantId(tenant.id)}
                     className={`p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${
                       isSelected
-                        ? 'border-rose-500 bg-rose-50/40 dark:bg-rose-950/20 shadow-md ring-1 ring-rose-500/20'
+                        ? (isLightTheme ? 'border-rose-500 bg-rose-50/60 shadow-md ring-1 ring-rose-500/20' : 'border-rose-500 bg-rose-950/25 shadow-md ring-1 ring-rose-500/20')
                         : isLightTheme
                         ? 'border-zinc-200 hover:border-zinc-300 bg-white'
                         : 'border-neutral-800 hover:border-neutral-700 bg-neutral-950/50'
@@ -461,7 +467,7 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                   >
                     <div className="flex items-start gap-3">
                       {/* Store Logo Thumbnail */}
-                      <div className="w-11 h-11 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 shadow-sm">
+                      <div className={`w-11 h-11 rounded-xl border overflow-hidden flex items-center justify-center shrink-0 shadow-sm ${isLightTheme ? 'border-zinc-200 bg-zinc-100' : 'border-zinc-700 bg-zinc-800'}`}>
                         {tenant.operations?.imageUrl ? (
                           <img
                             src={tenant.operations.imageUrl}
@@ -489,44 +495,44 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                         <div className="flex items-center gap-2">
                           <h4 className="text-sm font-black truncate">{name}</h4>
                           {isMain && (
-                            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300 border border-blue-200">
+                            <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold border ${isLightTheme ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-blue-950 text-blue-300 border-blue-800'}`}>
                               👑 Principal
                             </span>
                           )}
                           {isCurrentActive && !isMain && (
-                            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300">
+                            <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${isLightTheme ? 'bg-emerald-50 text-emerald-700' : 'bg-emerald-950 text-emerald-300'}`}>
                               Activa
                             </span>
                           )}
                         </div>
 
-                        <p className={`text-[11px] truncate mt-0.5 ${isLightTheme ? 'text-zinc-500' : 'text-neutral-400'}`}>
+                        <p className={`text-[11px] truncate mt-0.5 ${isLightTheme ? 'text-zinc-600' : 'text-neutral-400'}`}>
                           📍 {address}
                         </p>
 
                         <div className="flex items-center gap-2 mt-2 text-[10px] font-bold flex-wrap">
-                          <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-200 dark:border-amber-900/50 flex items-center gap-1">
+                          <span className={`px-2 py-0.5 rounded-md border flex items-center gap-1 ${isLightTheme ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-amber-950/50 text-amber-300 border-amber-900/50'}`}>
                             <Clock className="w-3 h-3" />
                             25 - 40 min
                           </span>
                           {deliveryType === 'pickup' ? (
-                            <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50 flex items-center gap-1">
+                            <span className={`px-2 py-0.5 rounded-md border flex items-center gap-1 ${isLightTheme ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-emerald-950/50 text-emerald-300 border-emerald-900/50'}`}>
                               <Store className="w-3 h-3" />
                               Retiro Gratis
                             </span>
                           ) : cov?.covered ? (
-                            <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50 flex items-center gap-1">
+                            <span className={`px-2 py-0.5 rounded-md border flex items-center gap-1 ${isLightTheme ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-emerald-950/50 text-emerald-300 border-emerald-900/50'}`}>
                               <Bike className="w-3 h-3" />
                               {cardFee.feeSoles === 0 ? 'Envío Gratis' : `Envío S/ ${cardFee.feeSoles.toFixed(2)}`}
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50 flex items-center gap-1">
+                            <span className={`px-2 py-0.5 rounded-md border flex items-center gap-1 ${isLightTheme ? 'bg-rose-50 text-rose-800 border-rose-200' : 'bg-rose-950/50 text-rose-300 border-rose-900/50'}`}>
                               <AlertCircle className="w-3 h-3" />
                               Fuera de cobertura
                             </span>
                           )}
                           {cov && (
-                            <span className="px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-600 dark:bg-neutral-800 dark:text-neutral-300">
+                            <span className={`px-2 py-0.5 rounded-md ${isLightTheme ? 'bg-zinc-100 text-zinc-700 border border-zinc-200' : 'bg-neutral-800 text-neutral-300'}`}>
                               {cov.distanceKm} km
                             </span>
                           )}
@@ -554,7 +560,9 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
 
           {/* Right Column: Interactive Map (Desktop always visible, Mobile in "map" tab) */}
           <div
-            className={`flex-1 relative flex flex-col h-full min-h-[420px] sm:min-h-[480px] bg-zinc-100 dark:bg-neutral-950 overflow-hidden ${
+            className={`flex-1 relative flex flex-col h-full min-h-[420px] sm:min-h-[480px] overflow-hidden ${
+              isLightTheme ? 'bg-zinc-100' : 'bg-neutral-950'
+            } ${
               activeMobileTab === 'list' ? 'hidden lg:flex' : 'flex'
             }`}
           >
@@ -579,9 +587,11 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
             </div>
 
             {/* Bottom Floating Card: Selected Store + Actions */}
-            <div className="absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-4 z-10 p-3 sm:p-4 rounded-2xl bg-white/95 dark:bg-neutral-900/95 backdrop-blur-md shadow-2xl border border-zinc-200/80 dark:border-neutral-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className={`absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-4 z-10 p-3 sm:p-4 rounded-2xl backdrop-blur-md shadow-2xl border flex flex-col md:flex-row md:items-center justify-between gap-3 ${
+              isLightTheme ? 'bg-white/95 border-zinc-200/80' : 'bg-neutral-900/95 border-neutral-800'
+            }`}>
               <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="w-11 h-11 rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 shadow-sm">
+                <div className={`w-11 h-11 rounded-xl border overflow-hidden flex items-center justify-center shrink-0 shadow-sm ${isLightTheme ? 'border-zinc-200 bg-zinc-100' : 'border-zinc-700 bg-zinc-800'}`}>
                   {activeTenant.operations?.imageUrl ? (
                     <img
                       src={activeTenant.operations.imageUrl}
@@ -602,26 +612,26 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h4 className="font-black text-sm text-zinc-950 dark:text-white truncate">
+                  <h4 className={`font-black text-sm truncate ${isLightTheme ? 'text-zinc-950' : 'text-white'}`}>
                     {activeTenant.name.replace('Khalessi Pizza - ', '')}
                   </h4>
-                  <p className="text-xs text-zinc-500 dark:text-neutral-400 truncate">
+                  <p className={`text-xs truncate ${isLightTheme ? 'text-zinc-600' : 'text-neutral-400'}`}>
                     {activeTenant.operations?.address || 'Lima, Perú'}
                   </p>
                   <div className="flex items-center gap-2.5 mt-1 text-[11px] font-bold flex-wrap">
-                    <span className="text-blue-600 dark:text-blue-400 flex items-center gap-1 shrink-0">
+                    <span className={`flex items-center gap-1 shrink-0 ${isLightTheme ? 'text-blue-700' : 'text-blue-400'}`}>
                       🚗 {routeInfo.durationMin} min ({routeInfo.distanceKm} km)
                     </span>
                     {deliveryType === 'pickup' ? (
-                      <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 shrink-0">
+                      <span className={`flex items-center gap-1 shrink-0 ${isLightTheme ? 'text-emerald-700' : 'text-emerald-400'}`}>
                         🏪 Retiro Gratis
                       </span>
                     ) : isDeliveryBlocked ? (
-                      <span className="text-rose-600 dark:text-rose-400 flex items-center gap-1 shrink-0">
+                      <span className={`flex items-center gap-1 shrink-0 ${isLightTheme ? 'text-rose-700' : 'text-rose-400'}`}>
                         ⚠️ Fuera de cobertura
                       </span>
                     ) : (
-                      <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 shrink-0">
+                      <span className={`flex items-center gap-1 shrink-0 ${isLightTheme ? 'text-emerald-700' : 'text-emerald-400'}`}>
                         🛵 {selectedDeliveryCalc.feeSoles === 0 ? 'Envío Gratis' : `Envío S/ ${selectedDeliveryCalc.feeSoles.toFixed(2)}`}
                       </span>
                     )}
@@ -629,12 +639,14 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0 pt-1 md:pt-0 border-t md:border-t-0 border-zinc-100 dark:border-neutral-800/80">
+              <div className={`flex items-center gap-2 shrink-0 pt-1 md:pt-0 border-t md:border-t-0 ${isLightTheme ? 'border-zinc-100' : 'border-neutral-800/80'}`}>
                 <a
                   href={`https://www.google.com/maps/dir/?api=1&destination=${activeTenant.operations?.latitude || -11.93605},${activeTenant.operations?.longitude || -77.05432}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex-1 md:flex-initial justify-center px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-neutral-700 text-xs font-bold text-zinc-700 dark:text-neutral-300 hover:bg-zinc-100 dark:hover:bg-neutral-800 transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                  className={`flex-1 md:flex-initial justify-center px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                    isLightTheme ? 'border-zinc-200 text-zinc-700 hover:bg-zinc-100' : 'border-neutral-700 text-neutral-300 hover:bg-neutral-800'
+                  }`}
                 >
                   <Navigation className="w-3.5 h-3.5 text-zinc-500" />
                   <span>Cómo llegar</span>

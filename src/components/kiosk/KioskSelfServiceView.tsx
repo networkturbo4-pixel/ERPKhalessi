@@ -13,6 +13,7 @@ import { OfflineStatusBadge } from '../common/OfflineStatusBadge';
 import { useSettings } from '../../context/SettingsContext';
 import { isRealCulqiPublicKey, openOfficialCulqiCheckout } from '../../utils/culqiCheckout';
 import { StoreCulqiSandboxDialog } from '../store/StoreCulqiSandboxDialog';
+import { getStoreCategories } from '../store/StorefrontWidgets';
 import { ToastContainer } from '../common/ToastContainer';
 import { SystemNoticeModal } from '../common/SystemNoticeModal';
 import { SeasonalOverlay } from '../common/SeasonalOverlay';
@@ -53,15 +54,19 @@ export interface KioskSelfServiceViewProps {
 type KioskStep = 'attract' | 'catalog' | 'checkout' | 'ticket';
 type DiningMode = 'salon' | 'takeaway';
 
-const KIOSK_CATEGORIES: { id: string; label: string; emoji: string; subtitle: string }[] = [
-  { id: 'all', label: 'Todo el Menú', emoji: '✨', subtitle: 'Favoritos del día' },
-  { id: 'pizzas', label: 'Pizzas Artesanales', emoji: '🍕', subtitle: 'Masa madre 48h' },
-  { id: 'half_and_half', label: 'Mitad y Mitad', emoji: '🌓', subtitle: 'Combina 2 sabores' },
-  { id: 'combos', label: 'Combos & Promos', emoji: '🔥', subtitle: 'Ahorro en grande' },
-  { id: 'entradas', label: 'Complementos', emoji: '🧄', subtitle: 'Pan al ajo y alitas' },
-  { id: 'bebidas', label: 'Bebidas Heladas', emoji: '🥤', subtitle: 'Gaseosas y chicha' },
-  { id: 'postres', label: 'Postres', emoji: '🍫', subtitle: 'Dulce final' },
-];
+const buildKioskCategories = (): { id: string; label: string; emoji: string; subtitle: string }[] => {
+  const storeCats = getStoreCategories().filter((c) => c.id !== 'todos');
+  return [
+    { id: 'all', label: 'Todo el Menú', emoji: '✨', subtitle: 'Favoritos del día' },
+    { id: 'half_and_half', label: 'Mitad y Mitad', emoji: '🌓', subtitle: 'Combina 2 sabores' },
+    ...storeCats.map((c) => ({
+      id: c.id,
+      label: c.label,
+      emoji: c.icon || '🏷️',
+      subtitle: 'Categoría',
+    })),
+  ];
+};
 
 const INACTIVITY_LIMIT_SEC = 120;
 
@@ -83,6 +88,22 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
 
   // Simulator viewport mode when inside Admin ('totem-9-16' vs 'full-height')
   const [frameMode, setFrameMode] = useState<'totem' | 'expanded'>('totem');
+  const [kioskCategories, setKioskCategories] = useState(buildKioskCategories);
+
+  useEffect(() => {
+    const syncCats = (e?: Event) => {
+      if (e && 'key' in e && (e as StorageEvent).key && (e as StorageEvent).key !== 'kh_product_categories_v1') {
+        return;
+      }
+      setKioskCategories(buildKioskCategories());
+    };
+    window.addEventListener('storage', syncCats);
+    window.addEventListener('kh:categories-updated', syncCats);
+    return () => {
+      window.removeEventListener('storage', syncCats);
+      window.removeEventListener('kh:categories-updated', syncCats);
+    };
+  }, []);
 
   // Kiosk workflow state
   const [step, setStep] = useState<KioskStep>('attract');
@@ -966,7 +987,7 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
                 className="w-[88px] min-[400px]:w-[104px] sm:w-[124px] lg:w-[140px] bg-zinc-900/90 border-r border-zinc-800 p-2 flex flex-col gap-2 overflow-y-auto shrink-0"
                 style={{ overscrollBehavior: 'contain' }}
               >
-                {KIOSK_CATEGORIES.map((cat) => {
+                {kioskCategories.map((cat) => {
                   const isActive = selectedCategory === cat.id;
                   return (
                     <button
@@ -1001,7 +1022,7 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
                       SELECCIONA TUS FAVORITOS
                     </span>
                     <h3 className="text-sm sm:text-base font-black text-white">
-                      {KIOSK_CATEGORIES.find((c) => c.id === selectedCategory)?.label ||
+                      {kioskCategories.find((c) => c.id === selectedCategory)?.label ||
                         'Menú Artesanal'}
                     </h3>
                   </div>

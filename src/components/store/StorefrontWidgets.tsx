@@ -87,18 +87,22 @@ export const STORE_CATEGORIES: StoreCategoryDef[] = [
 ];
 
 export function getStoreCategories(): StoreCategoryDef[] {
+  const todosCategory: StoreCategoryDef = {
+    id: 'todos',
+    label: 'Todos',
+    icon: '✨',
+    bannerImg: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
+  };
   try {
     const raw = localStorage.getItem('kh_product_categories_v1');
-    if (raw) {
+    if (raw !== null) {
       const parsed: ProductCategoryItem[] = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
+        if (parsed.length === 0) {
+          return [todosCategory];
+        }
         return [
-          {
-            id: 'todos',
-            label: 'Todos',
-            icon: '✨',
-            bannerImg: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
-          },
+          todosCategory,
           ...parsed.map((c) => {
             const fallback = STORE_CATEGORIES.find((sc) => sc.id === c.id);
             return {

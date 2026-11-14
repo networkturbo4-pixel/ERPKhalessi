@@ -251,8 +251,18 @@ const BenefitsContext = createContext<BenefitsContextType | undefined>(undefined
 
 export const BenefitsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<PersistedBenefitsState>(loadBenefitsState);
+  const isFirstMountRef = React.useRef(true);
+  const skipNextPersistRef = React.useRef(false);
 
   useEffect(() => {
+    if (isFirstMountRef.current) {
+      isFirstMountRef.current = false;
+      return;
+    }
+    if (skipNextPersistRef.current) {
+      skipNextPersistRef.current = false;
+      return;
+    }
     try {
       localStorage.setItem(BENEFITS_STORAGE_KEY, JSON.stringify(state));
     } catch {
@@ -263,6 +273,7 @@ export const BenefitsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === BENEFITS_STORAGE_KEY) {
+        skipNextPersistRef.current = true;
         setState(loadBenefitsState());
       }
     };

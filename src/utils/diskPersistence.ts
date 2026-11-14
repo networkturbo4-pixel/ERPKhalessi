@@ -1,6 +1,8 @@
 import {
+  deleteOfflineSnapshot,
   enqueueOfflineOperation,
   flushOfflineQueue,
+  getAllOfflineSnapshots,
   initOfflineQueueListeners,
   saveOfflineSnapshot,
 } from './offlineQueue';
@@ -33,6 +35,7 @@ const SERVER_SYNC_KEYS = [
   'kh_store_builder_v2',
   'kh_catalog_products',
   'kh_product_categories_v1',
+  'kh_product_option_templates_v1',
   'kh_erp_benefits_v1',
   'kh_floor_tables_v1',
   'kh_orders_list',
@@ -60,6 +63,7 @@ const PUBLIC_READ_KEYS = new Set<string>([
   'kh_store_builder_v2',
   'kh_catalog_products',
   'kh_product_categories_v1',
+  'kh_product_option_templates_v1',
   'kh_erp_benefits_v1',
   'kh_orders_list',
   'kh_customers_crm_v1',
@@ -285,6 +289,84 @@ function cacheBrandSplashAssets(settingsJson: string): void {
 }
 
 const ORDERS_KEY = 'kh_orders_list';
+const IDB_PREFERRED_KEYS = new Set<string>([
+  'kh_media_gallery_v1',
+  'khalessi_erp_checkpoint_v3',
+]);
+
+function writeLocalWithQuotaFallback(key: string, value: string, warnOnFallback: boolean): void {
+  if (IDB_PREFERRED_KEYS.has(key)) {
+    void saveOfflineSnapshot(key, value);
+    try {
+      originalRemoveItemFn?.(key);
+    } catch {
+      // ignore
+    }
+    return;
+  }
+
+  try {
+    originalSetItemFn?.(key, value);
+    void deleteOfflineSnapshot(key);
+  } catch (err) {
+    // Free up localStorage space from heavy/redundant keys (migrating them to IndexedDB first) and retry once
+    let freed = false;
+    for (const heavyKey of IDB_PREFERRED_KEYS) {
+      const existing = memoryMirror.get(heavyKey) ?? originalGetItemFn?.(heavyKey);
+      if (existing !== null && existing !== undefined) {
+        void saveOfflineSnapshot(heavyKey, existing);
+      }
+      try {
+        if (originalGetItemFn?.(heavyKey) !== null) {
+          originalRemoveItemFn?.(heavyKey);
+          freed = true;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (freed) {
+      try {
+        originalSetItemFn?.(key, value);
+        void deleteOfflineSnapshot(key);
+        return;
+      } catch {
+        // Still over quota; fall through to IndexedDB + pruned fallback
+      }
+    }
+
+    void saveOfflineSnapshot(key, value);
+
+    if (key === ORDERS_KEY) {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) {
+          const pruned = parsed.slice(0, 100).map((o: any) => ({
+            ...o,
+            items: Array.isArray(o.items)
+              ? o.items.map((i: any) => ({
+                  ...i,
+                  productImage:
+                    typeof i?.productImage === 'string' && i.productImage.startsWith('data:')
+                      ? ''
+                      : i.productImage,
+                }))
+              : o.items,
+          }));
+          originalSetItemFn?.(key, JSON.stringify(pruned));
+        }
+      } catch {
+        // memoryMirror, IndexedDB y MySQL conservan todos los pedidos
+      }
+    } else if (warnOnFallback) {
+      console.info(
+        `[Storage] localStorage quota reached for "${key}". Persisted via memory mirror & IndexedDB.`,
+        err
+      );
+    }
+  }
+}
 
 /**
  * Elimina imágenes base64 pesadas (data:...) de cualquier campo del JSON de pedidos
@@ -335,32 +417,7 @@ function applyRemoteUpdate(key: string, nextValue: string | null, emitEvent: boo
     cacheBrandSplashAssets(nextValue);
   }
 
-  try {
-    originalSetItemFn(key, nextValue);
-  } catch {
-    if (key === 'kh_orders_list') {
-      try {
-        const parsed = JSON.parse(nextValue);
-        if (Array.isArray(parsed)) {
-          const pruned = parsed.slice(0, 100).map((o: any) => ({
-            ...o,
-            items: Array.isArray(o.items)
-              ? o.items.map((i: any) => ({
-                  ...i,
-                  productImage:
-                    typeof i?.productImage === 'string' && i.productImage.startsWith('data:')
-                      ? ''
-                      : i.productImage,
-                }))
-              : o.items,
-          }));
-          originalSetItemFn(key, JSON.stringify(pruned));
-        }
-      } catch {
-        // memoryMirror mantiene todos los pedidos en RAM
-      }
-    }
-  }
+  writeLocalWithQuotaFallback(key, nextValue, false);
 
   if (emitEvent) {
     window.dispatchEvent(
@@ -563,37 +620,7 @@ export function installStorageInterceptor(): void {
       cacheBrandSplashAssets(value);
     }
 
-    try {
-      originalSetItemFn?.(key, value);
-    } catch (err) {
-      if (key === 'kh_orders_list') {
-        try {
-          const parsed = JSON.parse(value);
-          if (Array.isArray(parsed)) {
-            const pruned = parsed.slice(0, 100).map((o: any) => ({
-              ...o,
-              items: Array.isArray(o.items)
-                ? o.items.map((i: any) => ({
-                    ...i,
-                    productImage:
-                      typeof i?.productImage === 'string' && i.productImage.startsWith('data:')
-                        ? ''
-                        : i.productImage,
-                  }))
-                : o.items,
-            }));
-            originalSetItemFn?.(key, JSON.stringify(pruned));
-          }
-        } catch {
-          // memoryMirror y MySQL conservan todos los pedidos
-        }
-      } else {
-        console.warn(
-          `[Storage] localStorage quota exceeded for key "${key}". Persisting via memory mirror & disk storage...`,
-          err
-        );
-      }
-    }
+    writeLocalWithQuotaFallback(key, value, true);
 
     if (isSharedKey(key)) {
       // Nunca sobreescribir el servidor con defaults de montaje antes de hidratar,
@@ -610,6 +637,7 @@ export function installStorageInterceptor(): void {
 
   localStorage.removeItem = (key: string) => {
     memoryMirror.delete(key);
+    void deleteOfflineSnapshot(key);
     try {
       originalRemoveItemFn?.(key);
     } catch {
@@ -631,6 +659,30 @@ export async function initDiskPersistence(): Promise<void> {
   persistenceStarted = true;
   installStorageInterceptor();
   initOfflineQueueListeners(getAuthHeaders, CLIENT_ID);
+
+  // Hydrate any overflow/IDB-preferred keys persisted in IndexedDB
+  try {
+    const snapshots = await getAllOfflineSnapshots();
+    for (const snap of snapshots) {
+      if (!snap.key || typeof snap.value !== 'string') continue;
+      const prev = memoryMirror.get(snap.key) ?? null;
+      if (prev !== snap.value) {
+        memoryMirror.set(snap.key, snap.value);
+        if (snap.key === SETTINGS_KEY) {
+          cacheBrandSplashAssets(snap.value);
+        }
+        window.dispatchEvent(
+          new StorageEvent('storage', {
+            key: snap.key,
+            oldValue: prev,
+            newValue: snap.value,
+          })
+        );
+      }
+    }
+  } catch {
+    // ignore IndexedDB hydration errors
+  }
 
   let lastHash = '';
 

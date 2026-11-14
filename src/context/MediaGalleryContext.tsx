@@ -106,6 +106,24 @@ export const MediaGalleryProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, [mediaItems]);
 
+  // Hydrate if IndexedDB snapshot arrives asynchronously on boot
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMediaItems(parsed);
+          }
+        } catch {
+          // ignore malformed json
+        }
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   const uploadFiles = useCallback(async (files: File[]): Promise<MediaItem[]> => {
     setIsProcessing(true);
     const created: MediaItem[] = [];

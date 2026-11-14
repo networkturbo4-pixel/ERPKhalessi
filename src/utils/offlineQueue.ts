@@ -102,6 +102,34 @@ export async function saveOfflineSnapshot(key: string, value: string): Promise<v
   }
 }
 
+export async function getAllOfflineSnapshots(): Promise<Array<{ key: string; value: string; updatedAt?: string }>> {
+  try {
+    const db = await openOfflineDb();
+    return await new Promise<Array<{ key: string; value: string; updatedAt?: string }>>((resolve, reject) => {
+      const tx = db.transaction(STORE_SNAPSHOTS, 'readonly');
+      const req = tx.objectStore(STORE_SNAPSHOTS).getAll();
+      req.onsuccess = () => resolve((req.result as Array<{ key: string; value: string; updatedAt?: string }>) || []);
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteOfflineSnapshot(key: string): Promise<void> {
+  try {
+    const db = await openOfflineDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_SNAPSHOTS, 'readwrite');
+      tx.objectStore(STORE_SNAPSHOTS).delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // Graceful no-op if IndexedDB unavailable
+  }
+}
+
 export async function enqueueOfflineOperation(
   item: Omit<OfflineQueueItem, 'createdAt' | 'attempts'>
 ): Promise<void> {

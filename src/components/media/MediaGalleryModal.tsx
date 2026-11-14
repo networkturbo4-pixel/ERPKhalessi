@@ -42,6 +42,17 @@ export const MediaGalleryModal: React.FC<MediaGalleryModalProps> = ({
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [previewItem, setPreviewItem] = useState<MediaItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (isOpen && !dialog.open) {
+      dialog.showModal();
+    } else if (!isOpen && dialog.open) {
+      dialog.close();
+    }
+  }, [isOpen]);
 
   // Escuchar pegar imagen con Ctrl+V mientras el modal esté abierto
   useEffect(() => {
@@ -192,7 +203,18 @@ export const MediaGalleryModal: React.FC<MediaGalleryModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-xs">
+    <dialog
+      ref={dialogRef}
+      onCancel={(e) => {
+        e.preventDefault();
+        if (previewItem) {
+          setPreviewItem(null);
+        } else {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-[120] m-0 w-screen h-screen max-w-none max-h-none flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-xs border-0"
+    >
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -493,6 +515,6 @@ export const MediaGalleryModal: React.FC<MediaGalleryModalProps> = ({
           </div>
         </div>
       )}
-    </div>
+    </dialog>
   );
 };

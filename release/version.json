@@ -1,8 +1,8 @@
 {
-  "buildId": "20261114165319",
-  "builtAt": "2026-11-14T16:53:19.554Z",
-  "commitSha": "d55df22",
-  "message": "fix: hide wallet and bank transfer options in checkout when none are configured",
+  "buildId": "20261114215707",
+  "builtAt": "2026-11-14T21:57:07.378Z",
+  "commitSha": "af55198",
+  "message": "feat(finance): modulo Finanzas en sidebar, persistencia de modulo activo y build 20261114165319",
   "totalFiles": 90,
-  "manifestSha256": "bbc564f69f8df79520a0e1b6b69aedee919f9b83a87c6396714ea19c76d17a7e"
+  "manifestSha256": "23de18dfe55f65a4b23127f1da8ea588c1a44e00d5117e7aabbca8de3cc44ba5"
 }
