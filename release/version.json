@@ -1,8 +1,8 @@
 {
-  "buildId": "20261114223205",
-  "builtAt": "2026-11-14T22:32:05.326Z",
-  "commitSha": "8543a17",
-  "message": "fix(api,release): invalidate PHP OPcache on update, allow authenticated kh_* keys, and use real mtime in ZIP (release 20261114221734)",
+  "buildId": "20261114230453",
+  "builtAt": "2026-11-14T23:04:53.252Z",
+  "commitSha": "22ca9c4",
+  "message": "feat(catalog,store): replace Preseleccionado with locked Incluido option behavior (release 20261114223205)",
   "totalFiles": 90,
-  "manifestSha256": "b9900d94aec478f5de6ee05b5aac73bbd9075443e77591637c87567fa27f781f"
+  "manifestSha256": "c02f6306d38a42197dd46d01bb79470f02f77d90084035175c00e958ab373a70"
 }

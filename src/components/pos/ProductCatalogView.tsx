@@ -46,6 +46,8 @@ import {
   SlidersHorizontal,
   FileImage,
   ArrowLeft,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import { MediaGalleryModal } from '../media/MediaGalleryModal';
 import { compressImageFile } from '../../utils/imageCompressor';
@@ -202,6 +204,10 @@ export const ProductCatalogView: React.FC = () => {
 
   // Sub-options group & choices state (Image 2 Full Architecture)
   const [expandedChoiceSubOptions, setExpandedChoiceSubOptions] = useState<Record<string, boolean>>({});
+  const [draggedGroupIdx, setDraggedGroupIdx] = useState<number | null>(null);
+  const [dragOverGroupIdx, setDragOverGroupIdx] = useState<number | null>(null);
+  const [draggedChoice, setDraggedChoice] = useState<{ groupId: string; index: number } | null>(null);
+  const [dragOverChoice, setDragOverChoice] = useState<{ groupId: string; index: number } | null>(null);
 
   // Media Gallery Picker modal state
   const [mediaPickerConfig, setMediaPickerConfig] = useState<{
@@ -508,6 +514,40 @@ export const ProductCatalogView: React.FC = () => {
     });
   };
 
+  const handleMoveGroup = (fromIdx: number, toIdx: number) => {
+    if (!tempProduct) return;
+    if (fromIdx === toIdx || toIdx < 0 || toIdx >= tempProduct.subOptions.length) return;
+    const next = [...tempProduct.subOptions];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    setTempProduct({ ...tempProduct, subOptions: next });
+  };
+
+  const handleDuplicateGroup = (groupId: string) => {
+    if (!tempProduct) return;
+    const idx = tempProduct.subOptions.findIndex((g) => g.id === groupId);
+    if (idx === -1) return;
+    const src = tempProduct.subOptions[idx];
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+    const cloned: SubOptionGroup = {
+      ...JSON.parse(JSON.stringify(src)),
+      id: `grp-${stamp}`,
+      name: src.name ? `${src.name} (Copia)` : 'Grupo (Copia)',
+      choices: (src.choices || []).map((c, cIdx) => ({
+        ...JSON.parse(JSON.stringify(c)),
+        id: `ch-${stamp}-${cIdx}`,
+        nestedChoices: (c.nestedChoices || []).map((n, nIdx) => ({
+          ...JSON.parse(JSON.stringify(n)),
+          id: `nest-${stamp}-${cIdx}-${nIdx}`,
+        })),
+      })),
+    };
+    const next = [...tempProduct.subOptions];
+    next.splice(idx + 1, 0, cloned);
+    setTempProduct({ ...tempProduct, subOptions: next });
+    dispatchToast('Grupo Duplicado', `Se duplicó "${src.name || 'Grupo'}".`, 'success');
+  };
+
   const handleAddNewChoiceToGroup = (groupId: string) => {
     if (!tempProduct) return;
     const newChoice: SubOptionChoice = {
@@ -543,6 +583,48 @@ export const ProductCatalogView: React.FC = () => {
         g.id === groupId ? { ...g, choices: g.choices.filter((c) => c.id !== choiceId) } : g
       ),
     });
+  };
+
+  const handleMoveChoice = (groupId: string, fromIdx: number, toIdx: number) => {
+    if (!tempProduct) return;
+    setTempProduct({
+      ...tempProduct,
+      subOptions: tempProduct.subOptions.map((g) => {
+        if (g.id !== groupId) return g;
+        if (fromIdx === toIdx || toIdx < 0 || toIdx >= g.choices.length) return g;
+        const next = [...g.choices];
+        const [moved] = next.splice(fromIdx, 1);
+        next.splice(toIdx, 0, moved);
+        return { ...g, choices: next };
+      }),
+    });
+  };
+
+  const handleDuplicateChoice = (groupId: string, choiceId: string) => {
+    if (!tempProduct) return;
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 5)}`;
+    setTempProduct({
+      ...tempProduct,
+      subOptions: tempProduct.subOptions.map((g) => {
+        if (g.id !== groupId) return g;
+        const idx = g.choices.findIndex((c) => c.id === choiceId);
+        if (idx === -1) return g;
+        const src = g.choices[idx];
+        const cloned: SubOptionChoice = {
+          ...JSON.parse(JSON.stringify(src)),
+          id: `ch-${stamp}`,
+          name: src.name ? `${src.name} (Copia)` : '',
+          nestedChoices: (src.nestedChoices || []).map((n, nIdx) => ({
+            ...JSON.parse(JSON.stringify(n)),
+            id: `nest-${stamp}-${nIdx}`,
+          })),
+        };
+        const next = [...g.choices];
+        next.splice(idx + 1, 0, cloned);
+        return { ...g, choices: next };
+      }),
+    });
+    dispatchToast('Opción Duplicada', 'Se creó una copia de la opción.', 'success');
   };
 
   const handleUpdateChoice = (groupId: string, choiceId: string, updates: Partial<SubOptionChoice>) => {
@@ -2277,13 +2359,66 @@ export const ProductCatalogView: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-5">
-                    {tempProduct.subOptions.map((group) => (
+                    {tempProduct.subOptions.map((group, groupIdx) => {
+                      const isGroupDropTarget = dragOverGroupIdx === groupIdx && draggedGroupIdx !== groupIdx;
+                      return (
                       <div
                         key={group.id}
-                        className="rounded-2xl border-2 border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 sm:p-5 space-y-4 shadow-sm"
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.effectAllowed = 'move';
+                          setDraggedGroupIdx(groupIdx);
+                        }}
+                        onDragOver={(e) => {
+                          if (draggedGroupIdx === null || draggedChoice !== null) return;
+                          e.preventDefault();
+                          if (dragOverGroupIdx !== groupIdx) setDragOverGroupIdx(groupIdx);
+                        }}
+                        onDrop={(e) => {
+                          if (draggedGroupIdx === null || draggedChoice !== null) return;
+                          e.preventDefault();
+                          handleMoveGroup(draggedGroupIdx, groupIdx);
+                          setDraggedGroupIdx(null);
+                          setDragOverGroupIdx(null);
+                        }}
+                        onDragEnd={() => {
+                          setDraggedGroupIdx(null);
+                          setDragOverGroupIdx(null);
+                        }}
+                        className={`rounded-2xl border-2 bg-white dark:bg-zinc-900 p-4 sm:p-5 space-y-4 shadow-sm transition-all ${
+                          isGroupDropTarget
+                            ? 'border-amber-500 ring-2 ring-amber-400/30'
+                            : 'border-zinc-200 dark:border-zinc-800'
+                        }`}
                       >
-                        {/* Group Header: Red Icon + Group Name Input + Delete Group */}
-                        <div className="flex items-center gap-3">
+                        {/* Group Header: Drag + Move + Red Icon + Group Name Input + Duplicate + Delete Group */}
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <GripVertical
+                              className="w-4 h-4 text-zinc-400 cursor-grab active:cursor-grabbing"
+                              aria-label="Arrastrar grupo"
+                            />
+                            <div className="flex flex-col">
+                              <button
+                                type="button"
+                                disabled={groupIdx === 0}
+                                onClick={() => handleMoveGroup(groupIdx, groupIdx - 1)}
+                                className="p-0.5 rounded text-zinc-400 hover:text-zinc-800 dark:hover:text-white disabled:opacity-25 disabled:cursor-not-allowed"
+                                title="Mover grupo arriba"
+                              >
+                                <ChevronUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={groupIdx === tempProduct.subOptions.length - 1}
+                                onClick={() => handleMoveGroup(groupIdx, groupIdx + 1)}
+                                className="p-0.5 rounded text-zinc-400 hover:text-zinc-800 dark:hover:text-white disabled:opacity-25 disabled:cursor-not-allowed"
+                                title="Mover grupo abajo"
+                              >
+                                <ChevronDown className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
                           <div className="w-9 h-9 rounded-xl bg-rose-600 flex items-center justify-center text-white shrink-0 shadow-xs">
                             <LayoutGrid className="w-5 h-5" />
                           </div>
@@ -2292,8 +2427,16 @@ export const ProductCatalogView: React.FC = () => {
                             placeholder="Nombre del Grupo (ej. Elige tus Toppings)"
                             value={group.name}
                             onChange={(e) => handleUpdateGroup(group.id, { name: e.target.value })}
-                            className="flex-1 px-3.5 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs sm:text-sm font-black text-zinc-900 dark:text-white focus:outline-none focus:border-rose-500"
+                            className="flex-1 min-w-0 px-3.5 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs sm:text-sm font-black text-zinc-900 dark:text-white focus:outline-none focus:border-rose-500"
                           />
+                          <button
+                            type="button"
+                            onClick={() => handleDuplicateGroup(group.id)}
+                            className="p-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors shrink-0"
+                            title="Duplicar grupo"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
                           <button
                             type="button"
                             onClick={() => handleDeleteGroup(group.id, group.name)}
@@ -2377,16 +2520,76 @@ export const ProductCatalogView: React.FC = () => {
 
                         {/* List of Choices in Group */}
                         <div className="space-y-3">
-                          {group.choices.map((choice) => {
+                          {group.choices.map((choice, choiceIdx) => {
                             const isSubOptionsOpen = !!expandedChoiceSubOptions[choice.id];
+                            const isChoiceDropTarget =
+                              dragOverChoice?.groupId === group.id &&
+                              dragOverChoice?.index === choiceIdx &&
+                              !(draggedChoice?.groupId === group.id && draggedChoice?.index === choiceIdx);
                             return (
                               <div
                                 key={choice.id}
-                                className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-950/40 p-3.5 space-y-3"
+                                draggable
+                                onDragStart={(e) => {
+                                  e.stopPropagation();
+                                  e.dataTransfer.effectAllowed = 'move';
+                                  setDraggedChoice({ groupId: group.id, index: choiceIdx });
+                                }}
+                                onDragOver={(e) => {
+                                  if (!draggedChoice || draggedChoice.groupId !== group.id) return;
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (
+                                    dragOverChoice?.groupId !== group.id ||
+                                    dragOverChoice?.index !== choiceIdx
+                                  ) {
+                                    setDragOverChoice({ groupId: group.id, index: choiceIdx });
+                                  }
+                                }}
+                                onDrop={(e) => {
+                                  if (!draggedChoice || draggedChoice.groupId !== group.id) return;
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleMoveChoice(group.id, draggedChoice.index, choiceIdx);
+                                  setDraggedChoice(null);
+                                  setDragOverChoice(null);
+                                }}
+                                onDragEnd={(e) => {
+                                  e.stopPropagation();
+                                  setDraggedChoice(null);
+                                  setDragOverChoice(null);
+                                }}
+                                className={`rounded-2xl border bg-zinc-50/60 dark:bg-zinc-950/40 p-3.5 space-y-3 transition-all ${
+                                  isChoiceDropTarget
+                                    ? 'border-amber-500 ring-2 ring-amber-400/30'
+                                    : 'border-zinc-200 dark:border-zinc-800'
+                                }`}
                               >
-                                {/* Row 1: Drag handle + Photo Box + Option Name + Price Delta + Delete */}
-                                <div className="flex items-center gap-2.5">
-                                  <GripVertical className="w-4 h-4 text-zinc-400 shrink-0 cursor-grab" />
+                                {/* Row 1: Drag handle + Move + Photo Box + Option Name + Price Delta + Duplicate + Delete */}
+                                <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-0.5 shrink-0">
+                                    <GripVertical className="w-4 h-4 text-zinc-400 cursor-grab active:cursor-grabbing" />
+                                    <div className="flex flex-col">
+                                      <button
+                                        type="button"
+                                        disabled={choiceIdx === 0}
+                                        onClick={() => handleMoveChoice(group.id, choiceIdx, choiceIdx - 1)}
+                                        className="p-0.5 rounded text-zinc-400 hover:text-zinc-800 dark:hover:text-white disabled:opacity-25 disabled:cursor-not-allowed"
+                                        title="Mover opción arriba"
+                                      >
+                                        <ChevronUp className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={choiceIdx === group.choices.length - 1}
+                                        onClick={() => handleMoveChoice(group.id, choiceIdx, choiceIdx + 1)}
+                                        className="p-0.5 rounded text-zinc-400 hover:text-zinc-800 dark:hover:text-white disabled:opacity-25 disabled:cursor-not-allowed"
+                                        title="Mover opción abajo"
+                                      >
+                                        <ChevronDown className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
 
                                   {/* Photo Box with Media Gallery (primary), upload & remove */}
                                   <div className="relative w-12 h-12 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 overflow-hidden flex items-center justify-center shrink-0 group">
@@ -2470,6 +2673,16 @@ export const ProductCatalogView: React.FC = () => {
                                       className="w-16 bg-transparent text-xs font-black text-amber-500 focus:outline-none"
                                     />
                                   </div>
+
+                                  {/* Duplicate Choice Button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDuplicateChoice(group.id, choice.id)}
+                                    className="p-2 rounded-xl text-zinc-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors shrink-0"
+                                    title="Duplicar opción"
+                                  >
+                                    <Copy className="w-4 h-4" />
+                                  </button>
 
                                   {/* Delete Choice Button */}
                                   <button
@@ -2837,7 +3050,8 @@ export const ProductCatalogView: React.FC = () => {
                           <span>+ Añadir Opción</span>
                         </button>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
