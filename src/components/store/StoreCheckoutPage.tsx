@@ -1,4 +1,4 @@
-import React, { useState, useId, useRef, useEffect } from 'react';
+import React, { useState, useId, useRef, useEffect, useMemo } from 'react';
 import { Tenant, CompanyInfo, TenantCustomization } from '../../types/settings';
 import { OrderItem, PaymentMethod } from '../../types/catalog';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
@@ -40,6 +40,7 @@ import {
   Building2,
   Copy,
   Check,
+  UtensilsCrossed,
 } from 'lucide-react';
 
 interface StoreCheckoutPageProps {
@@ -66,6 +67,13 @@ interface StoreCheckoutPageProps {
   isLightTheme?: boolean;
   initialRewardId?: string | null;
   initialCouponCode?: string | null;
+  initialPointsAccountId?: string | null;
+  qrTableContext?: {
+    tenantId: string;
+    tableId: string;
+    tableName: string;
+    zone?: string;
+  } | null;
 }
 
 export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
@@ -86,13 +94,18 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
   isLightTheme = true,
   initialRewardId = null,
   initialCouponCode = null,
+  initialPointsAccountId = null,
+  qrTableContext = null,
 }) => {
+  const isTableQrMode = Boolean(qrTableContext);
   const { createOrder } = useOrderCatalog();
   const {
     currentCustomer,
+    allCustomerAccounts,
     registerCustomer,
     loginCustomer,
     awardCustomerPoints,
+    adjustAccountPointsById,
     redeemCustomerPoints,
     recordStoreOrder,
   } = useStoreCustomer();
@@ -125,6 +138,56 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
 
   // Quick Auth Modal State
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
+  // QR Table Quick Points Lookup (Nombre, DNI o Celular)
+  const [pointsLookupQuery, setPointsLookupQuery] = useState('');
+  const [selectedPointsAccountId, setSelectedPointsAccountId] = useState<string | null>(initialPointsAccountId);
+
+  useEffect(() => {
+    if (initialPointsAccountId) {
+      setSelectedPointsAccountId(initialPointsAccountId);
+    }
+  }, [initialPointsAccountId]);
+
+  const selectedPointsAccount = useMemo(
+    () =>
+      selectedPointsAccountId
+        ? allCustomerAccounts.find((a) => a.id === selectedPointsAccountId) || null
+        : null,
+    [allCustomerAccounts, selectedPointsAccountId]
+  );
+
+  useEffect(() => {
+    if (!currentCustomer && selectedPointsAccount) {
+      if (!customerName.trim()) setCustomerName(selectedPointsAccount.fullName);
+      if (!customerPhone.trim() && selectedPointsAccount.phone) setCustomerPhone(selectedPointsAccount.phone);
+      if (!customerEmail.trim() && selectedPointsAccount.email) setCustomerEmail(selectedPointsAccount.email);
+    }
+  }, [currentCustomer, selectedPointsAccount]);
+
+  const pointsLookupMatches = useMemo(() => {
+    const q = pointsLookupQuery.trim();
+    if (q.length < 3) return [];
+    const qLower = q.toLowerCase();
+    const qDigits = q.replace(/\D/g, '');
+    return allCustomerAccounts
+      .filter((acc) => {
+        if (acc.dni && qDigits.length >= 4 && acc.dni.includes(qDigits)) return true;
+        if (acc.phone && qDigits.length >= 4 && acc.phone.replace(/\D/g, '').includes(qDigits)) return true;
+        if (acc.fullName.toLowerCase().includes(qLower)) return true;
+        return false;
+      })
+      .slice(0, 4);
+  }, [pointsLookupQuery, allCustomerAccounts]);
+
+  const maskCustomerLabel = (fullName: string, phone?: string) => {
+    const parts = fullName.trim().split(/\s+/);
+    const maskedName = parts
+      .map((p, idx) => (idx === 0 ? p : `${p.slice(0, 1)}***`))
+      .join(' ');
+    const phoneSuffix = phone ? `··· ${phone.slice(-4)}` : '';
+    return `${maskedName}${phoneSuffix ? ` (${phoneSuffix})` : ''}`;
+  };
   const [authModalTab, setAuthModalTab] = useState<'signup' | 'login'>('signup');
   const [authName, setAuthName] = useState('');
   const [authPhone, setAuthPhone] = useState('');
@@ -164,16 +227,18 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
   const hasWallets = (companyInfo.wallets || []).length > 0;
   const hasBankAccounts = (companyInfo.bankAccounts || []).length > 0;
   const culqiEnabled =
-    (companyInfo.checkoutPaymentMethods?.culqiEnabled ?? true) &&
-    (companyInfo.culqiConfig?.enabled ?? true);
+    isTableQrMode ||
+    ((companyInfo.checkoutPaymentMethods?.culqiEnabled ?? true) &&
+      (companyInfo.culqiConfig?.enabled ?? true));
   const walletsEnabled =
-    hasWallets && (companyInfo.checkoutPaymentMethods?.walletsEnabled ?? true);
+    !isTableQrMode && hasWallets && (companyInfo.checkoutPaymentMethods?.walletsEnabled ?? true);
   const bankTransferEnabled =
-    hasBankAccounts && (companyInfo.checkoutPaymentMethods?.bankTransferEnabled ?? true);
+    !isTableQrMode && hasBankAccounts && (companyInfo.checkoutPaymentMethods?.bankTransferEnabled ?? true);
   const cashEnabled =
-    companyInfo.checkoutPaymentMethods?.cashEnabled ??
-    companyInfo.culqiConfig?.allowCashFallback ??
-    true;
+    !isTableQrMode &&
+    (companyInfo.checkoutPaymentMethods?.cashEnabled ??
+      companyInfo.culqiConfig?.allowCashFallback ??
+      true);
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(() => {
     if (culqiEnabled) return 'culqi';
@@ -235,9 +300,10 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
     ? calculateRewardDiscount(appliedReward, Math.max(0, cartSubtotal - couponDiscountSoles))
     : 0;
   const discountSoles = Number(Math.min(cartSubtotal, couponDiscountSoles + rewardDiscountSoles).toFixed(2));
+  const effectiveDeliveryFee = !isTableQrMode && deliveryType === 'delivery' ? resolvedDeliveryFee : 0;
   const payableTotal = Math.max(
     0,
-    Number((cartSubtotal + (deliveryType === 'delivery' ? resolvedDeliveryFee : 0) - discountSoles).toFixed(2))
+    Number((cartSubtotal + effectiveDeliveryFee - discountSoles).toFixed(2))
   );
 
   // RENIEC / DNI Lookup helper (integrado con docs.facturalo.pe)
@@ -356,7 +422,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!currentCustomer) {
+    if (!currentCustomer && !isTableQrMode) {
       setAuthModalTab('signup');
       setIsAuthModalOpen(true);
       dispatchToast('Registro Requerido', 'Debes crear tu cuenta o iniciar sesión antes de confirmar el pedido.', 'warning');
@@ -368,7 +434,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
       return;
     }
 
-    if (deliveryType === 'delivery' && !deliveryAddress.trim()) {
+    if (!isTableQrMode && deliveryType === 'delivery' && !deliveryAddress.trim()) {
       dispatchToast('Dirección Requerida', 'Selecciona tu dirección de entrega en el mapa.', 'warning');
       return;
     }
@@ -434,8 +500,9 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
       finalNotes = finalNotes ? `${finalNotes} | [Op. Transferencia: ${transferOperationCode.trim()}]` : `[Op. Transferencia: ${transferOperationCode.trim()}]`;
     }
 
+    const pointsTargetAccount = currentCustomer || selectedPointsAccount;
     const willEarnPoints =
-      Boolean(currentCustomer) &&
+      Boolean(pointsTargetAccount) &&
       pointsConfig.enabled &&
       pointsConfig.status !== 'paused' &&
       cartSubtotal >= pointsConfig.minPurchaseAmountForPoint
@@ -445,13 +512,22 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
     const newOrder = createOrder({
       channel: 'online',
       tenantId: activeTenant.id,
-      customerId: currentCustomer?.crmCustomerId,
-      customerDni: invoiceType === 'boleta_dni' && invoiceDocument.trim() ? invoiceDocument.trim() : currentCustomer?.dni || undefined,
+      customerId: pointsTargetAccount?.crmCustomerId,
+      customerDni:
+        invoiceType === 'boleta_dni' && invoiceDocument.trim()
+          ? invoiceDocument.trim()
+          : pointsTargetAccount?.dni || undefined,
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
-      customerEmail: customerEmail.trim() || currentCustomer?.email || undefined,
-      deliveryAddress: deliveryType === 'delivery' ? deliveryAddress.trim() : `Para Llevar — Recojo en ${activeTenant.name}`,
-      deliveryReference: deliveryReference.trim() || undefined,
+      customerEmail: customerEmail.trim() || pointsTargetAccount?.email || undefined,
+      deliveryAddress: isTableQrMode
+        ? `Consumo en Mesa — ${qrTableContext!.tableName} (${activeTenant.name})`
+        : deliveryType === 'delivery'
+        ? deliveryAddress.trim()
+        : `Para Llevar — Recojo en ${activeTenant.name}`,
+      deliveryReference: isTableQrMode ? undefined : deliveryReference.trim() || undefined,
+      tableId: qrTableContext?.tableId,
+      tableNumber: qrTableContext?.tableName,
       paymentMethod,
       paymentStatus: isAutoPaid ? 'pagado' : 'pendiente',
       culqiReference: opts?.culqiReference,
@@ -464,10 +540,10 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
       pointsEarned: willEarnPoints > 0 ? willEarnPoints : undefined,
       items: cartItems,
       subtotal: cartSubtotal,
-      deliveryFee: deliveryType === 'delivery' ? resolvedDeliveryFee : 0,
+      deliveryFee: effectiveDeliveryFee,
       discount: discountSoles,
       total: payableTotal,
-      estimatedMinutes: deliveryType === 'delivery' ? 35 : 20,
+      estimatedMinutes: isTableQrMode ? 18 : deliveryType === 'delivery' ? 35 : 20,
     });
 
     recordStoreOrder(newOrder.id);
@@ -488,7 +564,15 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
     }
 
     if (willEarnPoints > 0) {
-      awardCustomerPoints(willEarnPoints, `Compra Web ${newOrder.orderNumber}`, newOrder.orderNumber);
+      if (currentCustomer) {
+        awardCustomerPoints(willEarnPoints, `Compra Web ${newOrder.orderNumber}`, newOrder.orderNumber);
+      } else if (selectedPointsAccount) {
+        adjustAccountPointsById(
+          selectedPointsAccount.id,
+          willEarnPoints,
+          `Compra Mesa QR ${newOrder.orderNumber}`
+        );
+      }
     }
 
     clearCart();
@@ -548,8 +632,101 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
 
       {/* Main Content: 2-Column Responsive Layout */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
-        {/* Customer Authentication Warning / Greeting Banner */}
-        {!currentCustomer ? (
+        {/* Customer Authentication Warning / Quick Points Lookup (QR Mode) / Greeting Banner */}
+        {!currentCustomer && isTableQrMode ? (
+          <div className={`mb-6 p-4 sm:p-5 rounded-3xl border shadow-sm space-y-3 ${isLightTheme ? 'bg-white border-zinc-200' : 'bg-neutral-900 border-neutral-800'}`}>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-zinc-950 dark:text-white">
+                    ¿Quieres sumar puntos con este pedido? (Opcional)
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    Busca tu cuenta por Nombre, DNI o Celular para acumular +{pointsConfig.pointsPerPurchase || 1} punto(s).
+                  </p>
+                </div>
+              </div>
+              {selectedPointsAccount && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPointsAccountId(null);
+                    setPointsLookupQuery('');
+                  }}
+                  className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline whitespace-nowrap shrink-0"
+                >
+                  Cambiar cuenta
+                </button>
+              )}
+            </div>
+
+            {selectedPointsAccount ? (
+              <div className="p-3 rounded-2xl border border-emerald-300 dark:border-emerald-700/60 bg-emerald-50/70 dark:bg-emerald-950/25 flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 min-w-0">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="truncate">
+                    Sumarás puntos a: <strong>{maskCustomerLabel(selectedPointsAccount.fullName, selectedPointsAccount.phone)}</strong>
+                  </span>
+                </div>
+                <span className="font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 px-2.5 py-0.5 rounded-full text-[11px] whitespace-nowrap shrink-0">
+                  ⭐ {selectedPointsAccount.points || 0} Puntos
+                </span>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3.5 top-3 text-zinc-400" />
+                  <input
+                    type="text"
+                    value={pointsLookupQuery}
+                    onChange={(e) => setPointsLookupQuery(e.target.value)}
+                    placeholder="Ingresa tu Nombre, DNI o Celular (ej. 987654321)"
+                    className={`w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all ${
+                      isLightTheme ? 'bg-zinc-50 border-zinc-200 text-zinc-900' : 'bg-neutral-950 border-neutral-800 text-white'
+                    }`}
+                  />
+                </div>
+                {pointsLookupQuery.trim().length >= 3 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {pointsLookupMatches.length > 0 ? (
+                      pointsLookupMatches.map((acc) => (
+                        <button
+                          key={acc.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedPointsAccountId(acc.id);
+                            if (!customerName.trim()) setCustomerName(acc.fullName);
+                            if (!customerPhone.trim() && acc.phone) setCustomerPhone(acc.phone);
+                            if (!customerEmail.trim() && acc.email) setCustomerEmail(acc.email);
+                          }}
+                          className={`p-2.5 rounded-xl border text-left flex items-center justify-between gap-2 transition-colors ${
+                            isLightTheme
+                              ? 'bg-zinc-50 hover:bg-amber-50 border-zinc-200 hover:border-amber-300'
+                              : 'bg-neutral-950 hover:bg-amber-950/30 border-neutral-800 hover:border-amber-700'
+                          }`}
+                        >
+                          <span className="text-xs font-bold truncate">
+                            {maskCustomerLabel(acc.fullName, acc.phone)}
+                          </span>
+                          <span className="text-[11px] font-black text-amber-600 dark:text-amber-400 whitespace-nowrap shrink-0">
+                            ⭐ {acc.points || 0}
+                          </span>
+                        </button>
+                      ))
+                    ) : (
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 col-span-full px-1">
+                        No encontramos cuentas con "{pointsLookupQuery.trim()}". Puedes continuar tu pedido igual.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ) : !currentCustomer ? (
           <div className="mb-6 p-4 sm:p-5 rounded-3xl border-2 border-amber-300 dark:border-amber-600/40 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/20 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
@@ -591,44 +768,62 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
         <form onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left Column (8 cols): Step by step easy checkout */}
           <div className="lg:col-span-7 space-y-6">
-            {/* Step 1: Entrega o Recojo */}
+            {/* Step 1: Entrega o Recojo o Mesa QR */}
             <div className={`p-5 rounded-3xl border shadow-sm ${isLightTheme ? 'bg-white border-zinc-200' : 'bg-neutral-900 border-neutral-800'}`}>
               <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-neutral-800 mb-4">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center font-black text-xs">
                     1
                   </div>
-                  <h3 className="font-black text-sm sm:text-base">Punto de Entrega</h3>
+                  <h3 className="font-black text-sm sm:text-base">
+                    {isTableQrMode ? 'Mesa Asignada (QR)' : 'Punto de Entrega'}
+                  </h3>
                 </div>
-                <button
-                  type="button"
-                  onClick={onOpenLocationModal}
-                  className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 whitespace-nowrap shrink-0"
-                >
-                  <MapPin className="w-3.5 h-3.5" />
-                  <span>Cambiar en el mapa</span>
-                </button>
+                {!isTableQrMode && (
+                  <button
+                    type="button"
+                    onClick={onOpenLocationModal}
+                    className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 whitespace-nowrap shrink-0"
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span>Cambiar en el mapa</span>
+                  </button>
+                )}
               </div>
 
               <div className="space-y-3">
                 <div className={`p-3.5 rounded-2xl border flex items-center gap-3 ${isLightTheme ? 'bg-zinc-50 border-zinc-200' : 'bg-neutral-950 border-neutral-800'}`}>
                   <div className="w-10 h-10 rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
-                    {deliveryType === 'delivery' ? <Bike className="w-5 h-5" /> : <StoreIcon className="w-5 h-5" />}
+                    {isTableQrMode ? (
+                      <UtensilsCrossed className="w-5 h-5" />
+                    ) : deliveryType === 'delivery' ? (
+                      <Bike className="w-5 h-5" />
+                    ) : (
+                      <StoreIcon className="w-5 h-5" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <span className="text-[10px] font-black uppercase text-rose-600 dark:text-rose-400">
-                      {deliveryType === 'delivery' ? 'Envío a Domicilio' : 'Retiro en Local'}
+                      {isTableQrMode
+                        ? `Consumo en Mesa · ${qrTableContext?.tableName}`
+                        : deliveryType === 'delivery'
+                        ? 'Envío a Domicilio'
+                        : 'Retiro en Local'}
                     </span>
                     <h4 className="font-black text-xs sm:text-sm truncate">
                       {activeTenant.name.replace('Khalessi Pizza - ', '')}
                     </h4>
                     <p className={`text-xs truncate ${isLightTheme ? 'text-zinc-500' : 'text-neutral-400'}`}>
-                      {deliveryType === 'delivery' ? deliveryAddress || 'Dirección seleccionada en mapa' : activeTenant.operations?.address}
+                      {isTableQrMode
+                        ? `${qrTableContext?.zone || 'Salón'} — Pedido directo a cocina`
+                        : deliveryType === 'delivery'
+                        ? deliveryAddress || 'Dirección seleccionada en mapa'
+                        : activeTenant.operations?.address}
                     </p>
                   </div>
                 </div>
 
-                {deliveryType === 'delivery' && (
+                {!isTableQrMode && deliveryType === 'delivery' && (
                   <div>
                     <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
                       Referencia o N° de Dpto / Timbre (Opcional)
@@ -1264,7 +1459,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
                   </div>
                 )}
 
-                {deliveryType === 'delivery' && (
+                {!isTableQrMode && deliveryType === 'delivery' && (
                   <div className="flex justify-between text-zinc-500 dark:text-neutral-400">
                     <span>Costo de Envío</span>
                     <span className="font-bold">

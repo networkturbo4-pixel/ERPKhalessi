@@ -44,6 +44,8 @@ const loadMediaGalleryView = () =>
   import('./media/MediaGalleryView').then(m => ({ default: m.MediaGalleryView }));
 const loadPagesModuleView = () =>
   import('./pages/PagesModuleView').then(m => ({ default: m.PagesModuleView }));
+const loadFinanceModuleView = () =>
+  import('./finance/FinanceModuleView').then(m => ({ default: m.FinanceModuleView }));
 
 const DashboardView = lazy(loadDashboardView);
 const SettingsView = lazy(loadSettingsView);
@@ -61,6 +63,7 @@ const ThermalTicketBuilderModal = lazy(loadThermalTicketBuilderModal);
 const InventoryModuleView = lazy(loadInventoryModuleView);
 const MediaGalleryView = lazy(loadMediaGalleryView);
 const PagesModuleView = lazy(loadPagesModuleView);
+const FinanceModuleView = lazy(loadFinanceModuleView);
 
 import {
   LayoutDashboard,
@@ -96,6 +99,7 @@ import {
   Upload,
   Clipboard as ClipboardIcon,
   Layers,
+  Wallet,
 } from 'lucide-react';
 
 export type MainModuleId =
@@ -112,6 +116,7 @@ export type MainModuleId =
   | 'pages'
   | 'inventory'
   | 'hr'
+  | 'finance'
   | 'settings';
 
 export interface MainLayoutProps {
@@ -167,7 +172,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
       if (saved && [
         'pos', 'kitchen', 'delivery', 'orders', 'catalog', 'tables',
         'kiosk', 'benefits', 'hr', 'crm', 'store_builder', 'settings', 'dashboard', 'inventory',
-        'products', 'clients', 'media', 'pages'
+        'products', 'clients', 'media', 'pages', 'finance'
       ].includes(saved)) {
         return saved;
       }
@@ -999,6 +1004,36 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
               )}
             </button>
 
+            {/* Finanzas & Caja Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveMainModule('finance');
+                setMobileMenuOpen(false);
+              }}
+              className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-all ${
+                sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
+              } ${
+                activeMainModule === 'finance'
+                  ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
+              }`}
+              title="Finanzas, Egresos y Cierre de Caja"
+            >
+              <Wallet
+                className="h-4 w-4 shrink-0 transition-colors"
+                style={activeMainModule === 'finance' ? { color: customization.primaryColor } : undefined}
+              />
+              {(!sidebarCollapsed || mobileMenuOpen) && (
+                <div className="flex items-center justify-between flex-1 min-w-0">
+                  <span className="truncate">Finanzas</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                    Caja
+                  </span>
+                </div>
+              )}
+            </button>
+
             {/* Galería de Medios & Fotos Button */}
             <button
               type="button"
@@ -1512,6 +1547,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 <PagesModuleView />
               ) : activeMainModule === 'inventory' ? (
                 <InventoryModuleView />
+              ) : activeMainModule === 'finance' ? (
+                <FinanceModuleView />
               ) : (
                 <SettingsView />
               )}

@@ -14,3 +14,9 @@ define('DB_NAME', 'tu_base_de_datos');
 
 // Secreto compartido con el servidor Node.js SSE (server/app.js -> ERP_REALTIME_SECRET)
 // define('ERP_REALTIME_SECRET', 'cambia_esto_por_secreto_realtime_aleatorio');
+
+// Secreto para autenticar el webhook de combustible de motorizados (X-Webhook-Secret)
+// define('DRIVER_WEBHOOK_SECRET', 'cambia_esto_por_secreto_webhook_aleatorio');
+
+// Token del bot de Telegram (@BotFather) para respuestas automáticas directas sin n8n/Make
+// define('TELEGRAM_BOT_TOKEN', '123456789:ABCdefGHIjklMNOpqrsTUVwxyz');

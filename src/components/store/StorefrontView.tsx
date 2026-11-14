@@ -73,6 +73,8 @@ import {
   ShoppingBag,
   Search,
   MapPin,
+  QrCode,
+  UtensilsCrossed,
   Sparkles,
   Flame,
   Trash2,
@@ -192,6 +194,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     cartSubtotal,
     createOrder,
     upsertCustomer,
+    getTablesForTenant,
   } = useOrderCatalog();
 
   const {
@@ -223,6 +226,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
 
   const {
     currentCustomer,
+    allCustomerAccounts,
     customerOrders,
     activeCustomerOrdersCount,
     recordStoreOrder,
@@ -341,6 +345,107 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
   const [isLocating, setIsLocating] = useState(false);
   const [isBranchSheetOpen, setIsBranchSheetOpen] = useState(false);
   const geoWatchIdRef = useRef<number | null>(null);
+
+  // QR Table Direct Ordering Context (?sucursal=...&mesa=...)
+  const [qrTableContext, setQrTableContext] = useState<{
+    tenantId: string;
+    tableId: string;
+    tableName: string;
+    zone?: string;
+  } | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const saved = sessionStorage.getItem('kh_qr_table_session_v1');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || tenants.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const paramTenant = params.get('sucursal') || params.get('tenant');
+    const paramMesa = params.get('mesa') || params.get('table');
+    if (!paramTenant || !paramMesa) return;
+
+    const matchedTenant =
+      tenants.find((t) => t.id === paramTenant) ||
+      tenants.find((t) => t.name.toLowerCase().includes(paramTenant.toLowerCase()));
+    if (!matchedTenant) return;
+
+    if (activeTenant.id !== matchedTenant.id) {
+      switchTenant(matchedTenant.id);
+    }
+
+    const branchTables = getTablesForTenant(matchedTenant.id);
+    const matchedTable =
+      branchTables.find((tb) => tb.id === paramMesa) ||
+      branchTables.find((tb) => tb.name.toLowerCase() === paramMesa.toLowerCase());
+
+    const resolvedContext = {
+      tenantId: matchedTenant.id,
+      tableId: matchedTable?.id || paramMesa,
+      tableName: matchedTable?.name || paramMesa,
+      zone: matchedTable?.zone || 'Salón',
+    };
+
+    setQrTableContext(resolvedContext);
+    setDeliveryType('pickup');
+    try {
+      sessionStorage.setItem('kh_qr_table_session_v1', JSON.stringify(resolvedContext));
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [tenants, activeTenant.id, switchTenant, getTablesForTenant]);
+
+  const handleExitQrTableMode = () => {
+    setQrTableContext(null);
+    try {
+      sessionStorage.removeItem('kh_qr_table_session_v1');
+    } catch {
+      // Ignore
+    }
+    if (typeof window !== 'undefined' && window.location.search) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  };
+
+  // Cart Drawer Quick Points Account Lookup (for QR Table Mode)
+  const [cartPointsLookupQuery, setCartPointsLookupQuery] = useState('');
+  const [selectedCartPointsAccountId, setSelectedCartPointsAccountId] = useState<string | null>(null);
+
+  const selectedCartPointsAccount = useMemo(
+    () =>
+      selectedCartPointsAccountId
+        ? allCustomerAccounts.find((a) => a.id === selectedCartPointsAccountId) || null
+        : null,
+    [allCustomerAccounts, selectedCartPointsAccountId]
+  );
+
+  const cartPointsMatches = useMemo(() => {
+    const q = cartPointsLookupQuery.trim();
+    if (q.length < 3) return [];
+    const qLower = q.toLowerCase();
+    const qDigits = q.replace(/\D/g, '');
+    return allCustomerAccounts
+      .filter((acc) => {
+        if (acc.dni && qDigits.length >= 4 && acc.dni.includes(qDigits)) return true;
+        if (acc.phone && qDigits.length >= 4 && acc.phone.replace(/\D/g, '').includes(qDigits)) return true;
+        if (acc.fullName.toLowerCase().includes(qLower)) return true;
+        return false;
+      })
+      .slice(0, 4);
+  }, [cartPointsLookupQuery, allCustomerAccounts]);
+
+  const maskCartCustomerLabel = (fullName: string, phone?: string) => {
+    const parts = fullName.trim().split(/\s+/);
+    const maskedName = parts
+      .map((p, idx) => (idx === 0 ? p : `${p.slice(0, 1)}***`))
+      .join(' ');
+    const phoneSuffix = phone ? `··· ${phone.slice(-4)}` : '';
+    return `${maskedName}${phoneSuffix ? ` (${phoneSuffix})` : ''}`;
+  };
 
   useEffect(() => {
     try {
@@ -1233,6 +1338,8 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
           customization={customization}
           companyInfo={companyInfo}
           isLightTheme={isLightTheme}
+          qrTableContext={qrTableContext}
+          initialPointsAccountId={selectedCartPointsAccountId}
         />
       </Suspense>
     ) : activeSlugProduct && !isBuilderOpen ? (
@@ -1268,6 +1375,27 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
             : 'bg-neutral-950 text-neutral-100 selection:bg-amber-500 selection:text-neutral-950'
         } ${!isBuilderOpen ? 'pb-24 lg:pb-0' : ''}`}
       >
+        {qrTableContext && (
+          <div className="bg-amber-500 text-zinc-950 px-4 py-2 text-xs font-bold flex items-center justify-between gap-3 z-40">
+            <div className="max-w-[1600px] mx-auto w-full flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <QrCode className="w-4 h-4 shrink-0" />
+                <span className="truncate">
+                  <strong>{qrTableContext.tableName}</strong> ({qrTableContext.zone || 'Salón'}) ·{' '}
+                  {activeTenant.name.replace('Khalessi Pizza - ', '')} — Pedido directo a tu mesa (Pago con tarjeta Culqi)
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleExitQrTableMode}
+                className="px-2.5 py-1 rounded-lg bg-zinc-950/10 hover:bg-zinc-950/20 text-zinc-950 text-[11px] font-black whitespace-nowrap shrink-0 transition-colors"
+              >
+                Salir de mesa
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* 1. Responsive 3-Tier App Header (Mobile / Tablet / Desktop PC) */}
         <header
           className={`sticky top-0 z-30 border-b px-3.5 sm:px-6 lg:px-8 py-2 sm:py-2.5 transition-colors ${
@@ -1322,66 +1450,103 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                 }`}
               />
 
-              {/* Spacious Interactive Location & ETA Pill (never wraps ETA onto 2 lines) */}
-              <button
-                type="button"
-                onClick={() => setIsLocationModalOpen(true)}
-                style={{ touchAction: 'manipulation' }}
-                className={`min-h-[44px] flex-1 sm:flex-initial min-w-0 sm:max-w-[270px] lg:max-w-[290px] xl:max-w-[340px] flex flex-col justify-center text-left px-3 py-1 rounded-2xl border transition-colors ${
-                  isLightTheme
-                    ? 'bg-zinc-100/90 hover:bg-zinc-200/70 border-zinc-200/80'
-                    : 'bg-neutral-900 hover:bg-neutral-800 border-neutral-800'
-                }`}
-              >
-                <span
-                  className={`text-[10px] font-bold leading-none flex items-center gap-1.5 whitespace-nowrap ${
-                    isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
+              {/* Spacious Interactive Location & ETA Pill (locked when QR table is active) */}
+              {qrTableContext ? (
+                <div
+                  className={`min-h-[44px] flex-1 sm:flex-initial min-w-0 sm:max-w-[270px] lg:max-w-[290px] xl:max-w-[340px] flex flex-col justify-center text-left px-3 py-1 rounded-2xl border ${
+                    isLightTheme
+                      ? 'bg-amber-50 border-amber-200'
+                      : 'bg-amber-950/30 border-amber-800/60'
                   }`}
                 >
-                  {/* On mobile, show active mode badge inline; on tablet/PC, mode switch is beside it */}
-                  <span className="md:hidden inline-flex items-center gap-1 font-extrabold">
-                    {deliveryType === 'delivery' ? (
-                      <>
-                        <Bike aria-hidden="true" className="w-3 h-3 shrink-0" style={{ color: accentColor }} />
-                        <span>Delivery</span>
-                      </>
-                    ) : (
-                      <>
-                        <Store aria-hidden="true" className="w-3 h-3 shrink-0" style={{ color: accentColor }} />
-                        <span>Retiro</span>
-                      </>
-                    )}
-                  </span>
-                  <span className="hidden md:inline">
-                    {deliveryType === 'delivery' ? 'Enviar a' : 'Recoger en'}
-                  </span>
-                  <span aria-hidden="true" className="w-1 h-1 rounded-full bg-emerald-500 shrink-0" />
-                  <span className="text-emerald-600 dark:text-emerald-400 font-extrabold whitespace-nowrap">
-                    {deliveryType === 'delivery' ? '25-35 min' : '15-20 min'}
-                  </span>
-                </span>
-
-                <span className="mt-1 flex items-center gap-1 min-w-0">
-                  <MapPin
-                    aria-hidden="true"
-                    className="w-3.5 h-3.5 shrink-0"
-                    style={{ color: accentColor }}
-                  />
                   <span
-                    className={`text-xs sm:text-[13px] font-black truncate flex-1 ${
-                      isLightTheme ? 'text-zinc-900' : 'text-white'
+                    className={`text-[10px] font-bold leading-none flex items-center gap-1.5 whitespace-nowrap ${
+                      isLightTheme ? 'text-amber-700' : 'text-amber-400'
                     }`}
                   >
-                    {deliveryType === 'delivery' && deliveryAddress.trim()
-                      ? deliveryAddress
-                      : activeTenant.name.replace('Khalessi Pizza - ', '')}
+                    <UtensilsCrossed aria-hidden="true" className="w-3 h-3 shrink-0" />
+                    <span className="font-extrabold">Consumo en Mesa</span>
+                    <span aria-hidden="true" className="w-1 h-1 rounded-full bg-emerald-500 shrink-0" />
+                    <span className="text-emerald-600 dark:text-emerald-400 font-extrabold whitespace-nowrap">
+                      {qrTableContext.tableName}
+                    </span>
                   </span>
-                  <ChevronDown
-                    aria-hidden="true"
-                    className="w-3.5 h-3.5 opacity-60 shrink-0"
-                  />
-                </span>
-              </button>
+                  <span className="mt-1 flex items-center gap-1 min-w-0">
+                    <MapPin
+                      aria-hidden="true"
+                      className="w-3.5 h-3.5 shrink-0"
+                      style={{ color: accentColor }}
+                    />
+                    <span
+                      className={`text-xs sm:text-[13px] font-black truncate flex-1 ${
+                        isLightTheme ? 'text-zinc-900' : 'text-white'
+                      }`}
+                    >
+                      {activeTenant.name.replace('Khalessi Pizza - ', '')}
+                    </span>
+                  </span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsLocationModalOpen(true)}
+                  style={{ touchAction: 'manipulation' }}
+                  className={`min-h-[44px] flex-1 sm:flex-initial min-w-0 sm:max-w-[270px] lg:max-w-[290px] xl:max-w-[340px] flex flex-col justify-center text-left px-3 py-1 rounded-2xl border transition-colors ${
+                    isLightTheme
+                      ? 'bg-zinc-100/90 hover:bg-zinc-200/70 border-zinc-200/80'
+                      : 'bg-neutral-900 hover:bg-neutral-800 border-neutral-800'
+                  }`}
+                >
+                  <span
+                    className={`text-[10px] font-bold leading-none flex items-center gap-1.5 whitespace-nowrap ${
+                      isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
+                    }`}
+                  >
+                    {/* On mobile, show active mode badge inline; on tablet/PC, mode switch is beside it */}
+                    <span className="md:hidden inline-flex items-center gap-1 font-extrabold">
+                      {deliveryType === 'delivery' ? (
+                        <>
+                          <Bike aria-hidden="true" className="w-3 h-3 shrink-0" style={{ color: accentColor }} />
+                          <span>Delivery</span>
+                        </>
+                      ) : (
+                        <>
+                          <Store aria-hidden="true" className="w-3 h-3 shrink-0" style={{ color: accentColor }} />
+                          <span>Retiro</span>
+                        </>
+                      )}
+                    </span>
+                    <span className="hidden md:inline">
+                      {deliveryType === 'delivery' ? 'Enviar a' : 'Recoger en'}
+                    </span>
+                    <span aria-hidden="true" className="w-1 h-1 rounded-full bg-emerald-500 shrink-0" />
+                    <span className="text-emerald-600 dark:text-emerald-400 font-extrabold whitespace-nowrap">
+                      {deliveryType === 'delivery' ? '25-35 min' : '15-20 min'}
+                    </span>
+                  </span>
+
+                  <span className="mt-1 flex items-center gap-1 min-w-0">
+                    <MapPin
+                      aria-hidden="true"
+                      className="w-3.5 h-3.5 shrink-0"
+                      style={{ color: accentColor }}
+                    />
+                    <span
+                      className={`text-xs sm:text-[13px] font-black truncate flex-1 ${
+                        isLightTheme ? 'text-zinc-900' : 'text-white'
+                      }`}
+                    >
+                      {deliveryType === 'delivery' && deliveryAddress.trim()
+                        ? deliveryAddress
+                        : activeTenant.name.replace('Khalessi Pizza - ', '')}
+                    </span>
+                    <ChevronDown
+                      aria-hidden="true"
+                      className="w-3.5 h-3.5 opacity-60 shrink-0"
+                    />
+                  </span>
+                </button>
+              )}
             </div>
 
             {/* ZONE B (Center — Tablet & Desktop PC): Live Search Trigger + Custom Pages Nav */}
@@ -1467,20 +1632,22 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                   <Search aria-hidden="true" className="w-4 h-4" />
                 </button>
 
-                <StoreAccountMenu
-                  isLightTheme={isLightTheme}
-                  accentColor={accentColor}
-                  autoButtonContrast={autoButtonContrast}
-                  customerFirstName={currentCustomer ? currentCustomer.fullName.split(' ')[0] : null}
-                  customerFullName={currentCustomer ? currentCustomer.fullName : null}
-                  activeOrdersCount={activeCustomerOrdersCount}
-                  onOpenProfile={() => setIsProfileOpen(true)}
-                  onOpenOrders={() => {
-                    setFocusedOrderId(null);
-                    setIsOrdersOpen(true);
-                  }}
-                  onOpenBenefits={() => setIsBenefitsOpen(true)}
-                />
+                {!qrTableContext && (
+                  <StoreAccountMenu
+                    isLightTheme={isLightTheme}
+                    accentColor={accentColor}
+                    autoButtonContrast={autoButtonContrast}
+                    customerFirstName={currentCustomer ? currentCustomer.fullName.split(' ')[0] : null}
+                    customerFullName={currentCustomer ? currentCustomer.fullName : null}
+                    activeOrdersCount={activeCustomerOrdersCount}
+                    onOpenProfile={() => setIsProfileOpen(true)}
+                    onOpenOrders={() => {
+                      setFocusedOrderId(null);
+                      setIsOrdersOpen(true);
+                    }}
+                    onOpenBenefits={() => setIsBenefitsOpen(true)}
+                  />
+                )}
 
                 <button
                   type="button"
@@ -2097,8 +2264,12 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                       isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
                     }`}
                   >
-                    {deliveryType === 'delivery' ? '🛵 Delivery' : '🛍️ Para Llevar'} •{' '}
-                    {activeTenant.name.replace('Khalessi Pizza - ', '')}
+                    {qrTableContext
+                      ? `🍽️ Consumo en Mesa · ${qrTableContext.tableName}`
+                      : deliveryType === 'delivery'
+                      ? '🛵 Delivery'
+                      : '🛍️ Para Llevar'}{' '}
+                    • {activeTenant.name.replace('Khalessi Pizza - ', '')}
                   </p>
                 </div>
               </div>
@@ -2116,32 +2287,41 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
               </button>
             </div>
 
-            {/* Clean delivery/pickup summary banner (eliminates clutter from cart) */}
+            {/* Clean delivery/pickup/table summary banner (eliminates clutter from cart) */}
             <div
               className={`px-4 sm:px-5 py-2.5 border-b shrink-0 flex items-center justify-between text-xs ${
                 isLightTheme ? 'bg-zinc-50 border-zinc-200 text-zinc-700' : 'bg-neutral-950/60 border-neutral-800 text-neutral-300'
               }`}
             >
               <div className="flex items-center gap-2 truncate">
-                {deliveryType === 'delivery' ? (
+                {qrTableContext ? (
+                  <UtensilsCrossed className="w-4 h-4 text-amber-500 shrink-0" />
+                ) : deliveryType === 'delivery' ? (
                   <Bike className="w-4 h-4 text-rose-500 shrink-0" />
                 ) : (
                   <Store className="w-4 h-4 text-rose-500 shrink-0" />
                 )}
                 <span className="truncate font-semibold">
-                  {deliveryType === 'delivery' ? 'Envío a domicilio' : 'Retiro en local'} · <strong className="font-bold">{activeTenant.name.replace('Khalessi Pizza - ', '')}</strong>
+                  {qrTableContext
+                    ? `Consumo en Mesa (${qrTableContext.tableName})`
+                    : deliveryType === 'delivery'
+                    ? 'Envío a domicilio'
+                    : 'Retiro en local'}{' '}
+                  · <strong className="font-bold">{activeTenant.name.replace('Khalessi Pizza - ', '')}</strong>
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsCartOpen(false);
-                  setIsLocationModalOpen(true);
-                }}
-                className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline shrink-0 whitespace-nowrap ml-2"
-              >
-                Cambiar
-              </button>
+              {!qrTableContext && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCartOpen(false);
+                    setIsLocationModalOpen(true);
+                  }}
+                  className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline shrink-0 whitespace-nowrap ml-2"
+                >
+                  Cambiar
+                </button>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3 custom-scrollbar">
@@ -2480,6 +2660,95 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                     )}
                   </div>
 
+                  {/* Buscador Rápido de Cuenta para Sumar Puntos (Modo QR Mesa) */}
+                  {qrTableContext && !currentCustomer && (
+                    <div
+                      className={`pt-2.5 border-t space-y-2 ${
+                        isLightTheme ? 'border-zinc-200' : 'border-neutral-800'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className={`text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 ${
+                            isLightTheme ? 'text-zinc-600' : 'text-neutral-300'
+                          }`}
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                          <span>Acumular Puntos en Cuenta</span>
+                        </span>
+                        {selectedCartPointsAccount && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedCartPointsAccountId(null);
+                              setCartPointsLookupQuery('');
+                            }}
+                            className="text-[11px] font-bold text-rose-600 dark:text-rose-400 hover:underline whitespace-nowrap shrink-0"
+                          >
+                            Quitar
+                          </button>
+                        )}
+                      </div>
+
+                      {selectedCartPointsAccount ? (
+                        <div className="p-2.5 rounded-xl border border-emerald-300 dark:border-emerald-700/60 bg-emerald-50/70 dark:bg-emerald-950/25 flex items-center justify-between gap-2 text-xs">
+                          <span className="truncate font-bold text-emerald-800 dark:text-emerald-300">
+                            ✓ {maskCartCustomerLabel(selectedCartPointsAccount.fullName, selectedCartPointsAccount.phone)}
+                          </span>
+                          <span className="font-black text-emerald-700 dark:text-emerald-400 whitespace-nowrap shrink-0">
+                            ⭐ {selectedCartPointsAccount.points || 0} pts
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          <div className="relative">
+                            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-zinc-400" />
+                            <input
+                              type="text"
+                              value={cartPointsLookupQuery}
+                              onChange={e => setCartPointsLookupQuery(e.target.value)}
+                              placeholder="Nombre, DNI o Celular (opcional)"
+                              className={`w-full pl-8 pr-3 py-2 rounded-xl border text-xs focus:outline-none focus:border-amber-500 ${
+                                isLightTheme
+                                  ? 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'
+                                  : 'bg-neutral-900 border-neutral-800 text-white placeholder-neutral-500'
+                              }`}
+                            />
+                          </div>
+                          {cartPointsLookupQuery.trim().length >= 3 && (
+                            <div className="space-y-1 max-h-32 overflow-y-auto">
+                              {cartPointsMatches.length > 0 ? (
+                                cartPointsMatches.map(acc => (
+                                  <button
+                                    key={acc.id}
+                                    type="button"
+                                    onClick={() => setSelectedCartPointsAccountId(acc.id)}
+                                    className={`w-full p-2 rounded-xl border text-left flex items-center justify-between gap-2 transition-colors ${
+                                      isLightTheme
+                                        ? 'bg-zinc-50 hover:bg-amber-50 border-zinc-200 hover:border-amber-300'
+                                        : 'bg-neutral-900 hover:bg-amber-950/30 border-neutral-800 hover:border-amber-700'
+                                    }`}
+                                  >
+                                    <span className="text-xs font-bold truncate">
+                                      {maskCartCustomerLabel(acc.fullName, acc.phone)}
+                                    </span>
+                                    <span className="text-[11px] font-black text-amber-600 dark:text-amber-400 whitespace-nowrap shrink-0">
+                                      ⭐ {acc.points || 0}
+                                    </span>
+                                  </button>
+                                ))
+                              ) : (
+                                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 px-1">
+                                  Sin coincidencias. Puedes continuar sin cuenta.
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Canjear Premios de la Tarjeta de Puntos */}
                   {currentCustomer && pointsConfig.enabled && pointsConfig.status !== 'paused' && (
                     <div
@@ -2612,7 +2881,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                 <button
                   type="button"
                   onClick={() => {
-                    if (!currentCustomer) {
+                    if (!currentCustomer && !qrTableContext) {
                       dispatchToast(
                         'Registro Requerido',
                         'Para realizar tu pedido, por favor crea tu cuenta o inicia sesión.',

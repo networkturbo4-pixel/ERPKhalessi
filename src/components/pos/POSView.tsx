@@ -18,6 +18,7 @@ import { lookupPersonByDni } from '../../utils/dniLookup';
 import { ProductCustomizerModal } from '../common/ProductCustomizerModal';
 import { ThermalTicketBuilderModal } from './ThermalTicketBuilderModal';
 import { TableOperationsModal } from './TableOperationsModal';
+import { TableQRModal } from './TableQRModal';
 import { OfflineStatusBadge } from '../common/OfflineStatusBadge';
 import { CustomerAddressMapPicker } from './CustomerAddressMapPicker';
 import { calculateDynamicDeliveryFee } from '../../utils/culqiCheckout';
@@ -56,6 +57,7 @@ import {
   ChevronDown,
   ChevronUp,
   Printer,
+  QrCode,
   Sun,
   Moon,
   Sparkles,
@@ -223,6 +225,8 @@ export const POSView: React.FC<POSViewProps> = ({
   // Table Editor Modal State
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
   const [editingTable, setEditingTable] = useState<RestaurantTable | null>(null);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [qrInitialTableId, setQrInitialTableId] = useState<string | null>(null);
   const [tblName, setTblName] = useState('');
   const [tblZone, setTblZone] = useState('Salón Principal');
   const [tblCapacity, setTblCapacity] = useState(4);
@@ -358,7 +362,8 @@ export const POSView: React.FC<POSViewProps> = ({
       .filter(
         (o) =>
           o.tenantId === activeTenant.id &&
-          o.channel === 'pos-salon' &&
+          (o.channel === 'pos-salon' ||
+            (o.channel === 'online' && Boolean(o.tableId || o.tableNumber))) &&
           o.status !== 'entregado' &&
           o.status !== 'cancelado'
       )
@@ -1640,7 +1645,19 @@ export const POSView: React.FC<POSViewProps> = ({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQrInitialTableId(null);
+                      setIsQrModalOpen(true);
+                    }}
+                    className="min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:border-amber-500/60 hover:text-amber-600 dark:hover:text-amber-400 transition-all whitespace-nowrap shrink-0"
+                  >
+                    <QrCode className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>QRs de Mesas</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => setIsTableBuilderMode((v) => !v)}
@@ -1772,10 +1789,25 @@ export const POSView: React.FC<POSViewProps> = ({
                               {table.zone}
                             </span>
                           </div>
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-white/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200/70 dark:border-zinc-700 shrink-0">
-                            <Users className="w-2.5 h-2.5" aria-hidden="true" />
-                            {table.capacity}
-                          </span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              aria-label={`Ver código QR de ${table.name}`}
+                              title={`Ver QR de ${table.name}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setQrInitialTableId(table.id);
+                                setIsQrModalOpen(true);
+                              }}
+                              className="w-6 h-6 rounded-md bg-white/80 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-amber-600 dark:hover:text-amber-400 border border-zinc-200/70 dark:border-zinc-700 flex items-center justify-center transition-colors"
+                            >
+                              <QrCode className="w-3 h-3" aria-hidden="true" />
+                            </button>
+                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-white/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200/70 dark:border-zinc-700 shrink-0">
+                              <Users className="w-2.5 h-2.5" aria-hidden="true" />
+                              {table.capacity}
+                            </span>
+                          </div>
                         </div>
 
                         {/* Status or Builder Controls */}
@@ -2540,6 +2572,14 @@ export const POSView: React.FC<POSViewProps> = ({
             'success'
           );
         }}
+      />
+
+      <TableQRModal
+        isOpen={isQrModalOpen}
+        onClose={() => setIsQrModalOpen(false)}
+        tenant={activeTenant}
+        tables={branchTables}
+        initialTableId={qrInitialTableId}
       />
     </div>
   );

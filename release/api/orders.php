@@ -19,6 +19,39 @@ $admin = $token !== '' ? verifyToken($token) : null;
 
 const VALID_ORDER_STATUSES = ['recibido', 'en_cocina', 'en_horno', 'listo', 'en_ruta', 'entregado', 'cancelado'];
 const VALID_ORDER_CHANNELS = ['online', 'pos-salon', 'pos-mostrador', 'pos-delivery'];
+const VALID_ORDER_TRANSITIONS = [
+    'recibido'  => ['en_cocina', 'en_horno', 'listo', 'cancelado'],
+    'en_cocina' => ['en_horno', 'listo', 'cancelado'],
+    'en_horno'  => ['listo', 'cancelado'],
+    'listo'     => ['en_ruta', 'entregado', 'cancelado'],
+    'en_ruta'   => ['entregado', 'cancelado'],
+    'entregado' => [],
+    'cancelado' => [],
+];
+
+/**
+ * Asegura que la tabla orders cuente con las columnas de despacho y motorizado
+ * sin requerir migración manual en instalaciones existentes.
+ */
+function ensureOrderDeliveryColumns(PDO $pdo): void {
+    static $checked = false;
+    if ($checked) return;
+    $checked = true;
+    try {
+        $colCheck = $pdo->query("SHOW COLUMNS FROM orders LIKE 'assigned_driver_id'");
+        if ($colCheck && $colCheck->fetch() === false) {
+            $pdo->exec("
+                ALTER TABLE orders
+                ADD COLUMN assigned_driver_id VARCHAR(64) NULL AFTER notes,
+                ADD COLUMN assigned_driver_name VARCHAR(120) NULL AFTER assigned_driver_id,
+                ADD COLUMN dispatched_at DATETIME NULL AFTER assigned_driver_name,
+                ADD COLUMN delivered_at DATETIME NULL AFTER dispatched_at
+            ");
+        }
+    } catch (Throwable $e) {
+        error_log('[Khalessi ERP orders.php] ensureOrderDeliveryColumns: ' . $e->getMessage());
+    }
+}
 
 switch ($method) {
     case 'GET':
@@ -170,15 +203,116 @@ switch ($method) {
             sendResponse(['success' => false, 'error' => 'Falta el parámetro id'], 400);
         }
         $input = json_decode(file_get_contents('php://input'), true);
-        $newStatus = is_array($input) && isset($input['status']) ? trim((string)$input['status']) : '';
+        if (!is_array($input)) {
+            sendResponse(['success' => false, 'error' => 'Cuerpo JSON inválido'], 400);
+        }
+        $newStatus = isset($input['status']) ? trim((string)$input['status']) : '';
 
         if (!in_array($newStatus, VALID_ORDER_STATUSES, true)) {
             sendResponse(['success' => false, 'error' => 'Estado de pedido inválido o vacío'], 400);
         }
 
-        $stmt = $pdo->prepare("UPDATE orders SET status = :status, updated_at = NOW() WHERE id = :id");
-        $stmt->execute([':status' => $newStatus, ':id' => $id]);
-        sendResponse(['success' => true, 'message' => "Estado actualizado a $newStatus"]);
+        ensureOrderDeliveryColumns($pdo);
+
+        $driverId = '';
+        if (isset($input['assignedDriverId']) && is_string($input['assignedDriverId'])) {
+            $driverId = substr(trim($input['assignedDriverId']), 0, 64);
+        } elseif (isset($admin['id']) || isset($admin['sub']) || isset($admin['username'])) {
+            $driverId = substr(trim((string)($admin['id'] ?? $admin['sub'] ?? $admin['username'])), 0, 64);
+        }
+
+        $driverName = '';
+        if (isset($input['assignedDriverName']) && is_string($input['assignedDriverName'])) {
+            $driverName = substr(trim($input['assignedDriverName']), 0, 120);
+        } elseif (isset($admin['name']) || isset($admin['username'])) {
+            $driverName = substr(trim((string)($admin['name'] ?? $admin['username'])), 0, 120);
+        }
+
+        $pdo->beginTransaction();
+        try {
+            $lockStmt = $pdo->prepare("SELECT status, assigned_driver_id FROM orders WHERE id = :id FOR UPDATE");
+            $lockStmt->execute([':id' => $id]);
+            $currentRow = $lockStmt->fetch();
+
+            if ($currentRow) {
+                $currentStatus = (string)($currentRow['status'] ?? '');
+                $currentDriver = trim((string)($currentRow['assigned_driver_id'] ?? ''));
+
+                if ($currentStatus !== $newStatus) {
+                    $allowedNext = VALID_ORDER_TRANSITIONS[$currentStatus] ?? [];
+                    if (!in_array($newStatus, $allowedNext, true)) {
+                        $pdo->rollBack();
+                        sendResponse([
+                            'success' => false,
+                            'error'   => "Transición de estado inválida: '$currentStatus' → '$newStatus'",
+                        ], 409);
+                    }
+                }
+
+                if ($newStatus === 'en_ruta') {
+                    if ($currentDriver !== '' && ($driverId === '' || $currentDriver !== $driverId)) {
+                        $pdo->rollBack();
+                        sendResponse([
+                            'success'            => false,
+                            'error'              => 'El pedido ya fue tomado por otro motorizado',
+                            'assigned_driver_id' => $currentDriver,
+                        ], 409);
+                    }
+
+                    $upd = $pdo->prepare("
+                        UPDATE orders
+                        SET status = :status,
+                            assigned_driver_id = COALESCE(NULLIF(:driver_id, ''), assigned_driver_id),
+                            assigned_driver_name = COALESCE(NULLIF(:driver_name, ''), assigned_driver_name),
+                            dispatched_at = COALESCE(dispatched_at, NOW()),
+                            updated_at = NOW()
+                        WHERE id = :id
+                          AND (assigned_driver_id IS NULL OR assigned_driver_id = '' OR assigned_driver_id = :driver_id_check)
+                    ");
+                    $upd->execute([
+                        ':status'          => $newStatus,
+                        ':driver_id'       => $driverId,
+                        ':driver_name'     => $driverName,
+                        ':id'              => $id,
+                        ':driver_id_check' => $driverId,
+                    ]);
+
+                    if ($upd->rowCount() === 0) {
+                        $pdo->rollBack();
+                        sendResponse([
+                            'success' => false,
+                            'error'   => 'No se pudo asignar: el pedido ya fue tomado concurrentemente',
+                        ], 409);
+                    }
+                } elseif ($newStatus === 'entregado') {
+                    $upd = $pdo->prepare("
+                        UPDATE orders
+                        SET status = :status,
+                            delivered_at = COALESCE(delivered_at, NOW()),
+                            updated_at = NOW()
+                        WHERE id = :id
+                    ");
+                    $upd->execute([':status' => $newStatus, ':id' => $id]);
+                } else {
+                    $upd = $pdo->prepare("UPDATE orders SET status = :status, updated_at = NOW() WHERE id = :id");
+                    $upd->execute([':status' => $newStatus, ':id' => $id]);
+                }
+            }
+
+            $pdo->commit();
+            sendResponse([
+                'success'  => true,
+                'message'  => "Estado actualizado a $newStatus",
+                'order_id' => $id,
+                'status'   => $newStatus,
+            ]);
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            error_log('[Khalessi ERP orders.php] PUT error: ' . $e->getMessage());
+            sendResponse(['success' => false, 'error' => 'Error al actualizar el estado del pedido'], 500);
+        }
         break;
 
     case 'DELETE':

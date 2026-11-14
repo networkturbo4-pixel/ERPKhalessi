@@ -1,4 +1,4 @@
-const CACHE_NAME = 'khalessi-pwa-v2';
+const CACHE_NAME = 'khalessi-pwa-v3';
 const CORE_ASSETS = ['/', '/manifest.webmanifest', '/api/favicon.php'];
 
 self.addEventListener('install', (event) => {

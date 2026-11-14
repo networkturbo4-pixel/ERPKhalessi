@@ -19,6 +19,15 @@ import {
   getOfflineStatusSnapshot,
   enqueueOfflineOperation,
 } from '../utils/offlineQueue';
+import {
+  DriverFuelExpense,
+  DriverDailyMetrics,
+  FuelExpenseSource,
+  loadFuelExpenses,
+  saveFuelExpenses,
+  buildFuelExpenseEntry,
+  calculateDriverDailyMetrics,
+} from '../utils/deliveryOperations';
 
 interface OrderStatusPatch {
   assignedDriverId?: string;
@@ -79,6 +88,22 @@ interface OrderCatalogContextType {
   deliveryFee: number;
   offlineStatus: OfflineSyncStatus;
   syncOfflineQueueNow: () => Promise<number>;
+  // Delivery Fuel & Daily Operations
+  fuelExpenses: DriverFuelExpense[];
+  recordFuelExpense: (params: {
+    driverId: string;
+    driverName: string;
+    tenantId: string;
+    amount: number;
+    source?: FuelExpenseSource;
+    note?: string;
+    odometerKm?: number;
+  }) => DriverFuelExpense | null;
+  getDriverDailyMetrics: (options?: {
+    driverId?: string;
+    tenantId?: string;
+    date?: string;
+  }) => DriverDailyMetrics;
 }
 
 const SEEDED_HALF_AND_HALF_PRODUCT: Product = {
@@ -1480,8 +1505,23 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
     void fetch(`/api/orders.php?id=${encodeURIComponent(orderId)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-      body: JSON.stringify({ status }),
-    }).catch(() => {});
+      body: JSON.stringify({
+        status,
+        ...(patch?.assignedDriverId ? { assignedDriverId: patch.assignedDriverId } : {}),
+        ...(patch?.assignedDriverName ? { assignedDriverName: patch.assignedDriverName } : {}),
+      }),
+    })
+      .then(async (res) => {
+        if (res.status === 409) {
+          const payload = await res.json().catch(() => null);
+          dispatchToast(
+            'Conflicto de Asignación',
+            payload?.error || 'Este pedido ya fue tomado o cambió de estado.',
+            'warning'
+          );
+        }
+      })
+      .catch(() => {});
 
     if (targetOrder) {
       const prevStatus = targetOrder.status;
@@ -1612,6 +1652,70 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setCartItems([]);
   };
 
+  const [fuelExpenses, setFuelExpenses] = useState<DriverFuelExpense[]>(() => loadFuelExpenses());
+
+  useEffect(() => {
+    const authHeaders = getAuthHeaders();
+    if (!authHeaders.Authorization) return;
+    void fetch('/api/driver-expenses.php', { headers: { ...authHeaders } })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const json = await res.json().catch(() => null);
+        if (json?.success && Array.isArray(json.data)) {
+          setFuelExpenses(json.data);
+          saveFuelExpenses(json.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const recordFuelExpense = useCallback(
+    (params: {
+      driverId: string;
+      driverName: string;
+      tenantId: string;
+      amount: number;
+      source?: FuelExpenseSource;
+      note?: string;
+      odometerKm?: number;
+    }): DriverFuelExpense | null => {
+      if (!Number.isFinite(params.amount) || params.amount <= 0) {
+        dispatchToast('Monto inválido', 'El gasto de combustible debe ser mayor a S/ 0.00.', 'warning');
+        return null;
+      }
+
+      const entry = buildFuelExpenseEntry(params);
+      setFuelExpenses((prev) => {
+        const next = [entry, ...prev].slice(0, 1000);
+        saveFuelExpenses(next);
+        return next;
+      });
+
+      const authHeaders = getAuthHeaders();
+      if (authHeaders.Authorization) {
+        void fetch('/api/driver-expenses.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          body: JSON.stringify(entry),
+        }).catch(() => {});
+      }
+
+      dispatchToast(
+        'Combustible Registrado',
+        `${entry.driverName}: S/ ${entry.amount.toFixed(2)} (${entry.source === 'efectivo_ruta' ? 'Efectivo de ruta' : 'Caja chica'}).`,
+        'success'
+      );
+      return entry;
+    },
+    [dispatchToast]
+  );
+
+  const getDriverDailyMetrics = useCallback(
+    (options?: { driverId?: string; tenantId?: string; date?: string }) =>
+      calculateDriverDailyMetrics(orders, fuelExpenses, options),
+    [orders, fuelExpenses]
+  );
+
   const cartSubtotal = cartItems.reduce((acc, item) => acc + item.totalPrice, 0);
   const cartTotal = cartSubtotal > 0 ? cartSubtotal + deliveryFee : 0;
 
@@ -1654,6 +1758,9 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
         deliveryFee,
         offlineStatus,
         syncOfflineQueueNow: syncPendingOfflineQueue,
+        fuelExpenses,
+        recordFuelExpense,
+        getDriverDailyMetrics,
       }}
     >
       {children}

@@ -18,6 +18,9 @@ const KH_SYNC_KEYS = [
     'kh_orders_list',
     'kh_customers_crm_v1',
     'kh_store_customer_accounts_v1',
+    'khalessi_delivery_fuel_v1',
+    'khalessi_erp_finance_expenses_v1',
+    'khalessi_erp_cash_closings_v1',
 ];
 
 // Claves que terminales operativas y tienda pueden LEER (ajustes siempre sanitizado sin claves ni PINs)

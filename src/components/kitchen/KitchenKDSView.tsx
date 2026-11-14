@@ -15,6 +15,7 @@ import {
   Radio,
   MapPin,
   Smartphone,
+  QrCode,
 } from 'lucide-react';
 
 type MobileKdsStage = 'recibido' | 'horno' | 'listo';
@@ -66,7 +67,8 @@ export const KitchenKDSView: React.FC = () => {
   };
 
   const isDeliveryChannel = (order: Order) =>
-    order.channel === 'online' || order.channel === 'pos-delivery';
+    (order.channel === 'online' && !order.tableNumber && !order.tableId) ||
+    order.channel === 'pos-delivery';
 
   const renderOrderCard = (order: Order) => {
     const elapsed = getElapsedMinutes(order.createdAt);
@@ -93,7 +95,9 @@ export const KitchenKDSView: React.FC = () => {
             </span>
             <span
               className={`px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1 whitespace-nowrap shrink-0 ${
-                order.channel === 'online'
+                order.channel === 'online' && (order.tableNumber || order.tableId)
+                  ? 'bg-teal-100 text-teal-800 dark:bg-teal-500/20 dark:text-teal-300 border border-teal-300 dark:border-teal-500/30'
+                  : order.channel === 'online'
                   ? 'bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-300 border border-purple-300 dark:border-purple-500/30'
                   : order.channel === 'pos-delivery'
                   ? 'bg-orange-100 text-orange-800 dark:bg-orange-500/20 dark:text-orange-300 border border-orange-300 dark:border-orange-500/30'
@@ -104,7 +108,11 @@ export const KitchenKDSView: React.FC = () => {
                   : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30'
               }`}
             >
-              {order.channel === 'online' ? (
+              {order.channel === 'online' && (order.tableNumber || order.tableId) ? (
+                <>
+                  <QrCode className="w-3 h-3" /> QR {order.tableNumber || 'Mesa'}
+                </>
+              ) : order.channel === 'online' ? (
                 <>
                   <Bike className="w-3 h-3" /> Web Delivery
                 </>
