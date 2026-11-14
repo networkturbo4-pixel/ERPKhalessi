@@ -17,14 +17,25 @@ export interface SeasonalThemeMeta {
 export const SEASONAL_THEMES_META: Record<SeasonalThemeId, SeasonalThemeMeta> = {
   christmas: {
     id: 'christmas',
-    name: 'Navidad & Año Nuevo',
-    subtitle: 'Copos de nieve cayendo suavemente sobre la tienda',
-    badge: '❄️ Nieve',
+    name: 'Navidad',
+    subtitle: 'Luces navideñas, copos de nieve y destellos festivos',
+    badge: '❄️ Navidad',
     accentColor: '#38bdf8',
     bannerBgClass: 'from-rose-700 via-red-700 to-emerald-800',
     motion: 'fall',
     symbols: ['❄️', '❅', '❆', '✦'],
-    defaultBannerText: '🎄 ¡Felices Fiestas! Disfruta nuestras promociones navideñas al horno de piedra',
+    defaultBannerText: '🎄 ¡Feliz Navidad! Disfruta nuestras promociones navideñas al horno de piedra',
+  },
+  new_year: {
+    id: 'new_year',
+    name: 'Año Nuevo',
+    subtitle: 'Fuegos artificiales, confeti dorado y brillo moderno de fiesta',
+    badge: '🥂 Año Nuevo',
+    accentColor: '#eab308',
+    bannerBgClass: 'from-slate-900 via-indigo-900 to-amber-700',
+    motion: 'twinkle',
+    symbols: ['✨', '🥂', '🎆', '🎊'],
+    defaultBannerText: '🎆 ¡Feliz Año Nuevo! Celebra con nuestras promos especiales de fiesta',
   },
   valentine: {
     id: 'valentine',
@@ -170,20 +181,34 @@ export const SeasonalOverlay: React.FC<SeasonalOverlayProps> = ({
           <svg
             aria-hidden="true"
             viewBox="0 0 120 40"
-            className="h-8 w-24 shrink-0 opacity-90 hidden sm:block"
+            className="h-8 w-24 shrink-0 opacity-95 hidden sm:block"
             style={flip ? { transform: flip } : undefined}
           >
-            {/* String lights curve */}
             <path d="M0 8 Q30 22 60 10 T120 12" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
-            <circle cx="18" cy="14" r="3" fill="#fde047" />
-            <circle cx="48" cy="14" r="3" fill="#34d399" />
-            <circle cx="78" cy="11" r="3" fill="#fb7185" />
-            <circle cx="105" cy="13" r="2.8" fill="#38bdf8" />
-            {/* Minimalist pine tree */}
+            <circle cx="18" cy="14" r="3.2" fill="#fde047" className="animate-pulse" />
+            <circle cx="48" cy="14" r="3.2" fill="#34d399" />
+            <circle cx="78" cy="11" r="3.2" fill="#fb7185" className="animate-pulse" />
+            <circle cx="105" cy="13" r="3" fill="#38bdf8" />
             <polygon points="18,36 26,20 34,36" fill="rgba(255,255,255,0.22)" />
             <polygon points="20,28 26,16 32,28" fill="rgba(255,255,255,0.35)" />
-            {/* 4-point sparkle */}
             <path d="M90 22 L92 27 L97 29 L92 31 L90 36 L88 31 L83 29 L88 27 Z" fill="#fef08a" />
+          </svg>
+        );
+      case 'new_year':
+        return (
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 120 40"
+            className="h-8 w-24 shrink-0 opacity-95 hidden sm:block"
+            style={flip ? { transform: flip } : undefined}
+          >
+            {/* Firework burst */}
+            <circle cx="28" cy="20" r="2.2" fill="#fef08a" />
+            <path d="M28 8 L28 14 M28 26 L28 32 M16 20 L22 20 M34 20 L40 20 M19 11 L23 15 M33 25 L37 29 M37 11 L33 15 M23 25 L19 29" stroke="#fde047" strokeWidth="1.6" strokeLinecap="round" />
+            {/* Party ribbon & confetti */}
+            <path d="M52 28 Q64 12 78 24 T106 14" fill="none" stroke="rgba(253,224,71,0.55)" strokeWidth="1.6" strokeDasharray="3 3" />
+            <rect x="64" y="10" width="5" height="5" rx="1" transform="rotate(25 66.5 12.5)" fill="#f472b6" />
+            <path d="M96 16 L98 21 L103 23 L98 25 L96 30 L94 25 L89 23 L94 21 Z" fill="#fef08a" className="animate-pulse" />
           </svg>
         );
       case 'valentine':
@@ -219,12 +244,17 @@ export const SeasonalOverlay: React.FC<SeasonalOverlayProps> = ({
           <svg
             aria-hidden="true"
             viewBox="0 0 120 40"
-            className="h-8 w-24 shrink-0 opacity-90 hidden sm:block"
+            className="h-8 w-24 shrink-0 opacity-95 hidden sm:block"
             style={flip ? { transform: flip } : undefined}
           >
-            <path d="M26 10 A10 10 0 1 0 34 26 A8 8 0 1 1 26 10 Z" fill="#fde68a" />
-            <path d="M56 18 Q62 12 68 18 Q74 12 80 18 Q72 22 68 25 Q64 22 56 18 Z" fill="rgba(255,255,255,0.75)" />
-            <path d="M98 11 L99.5 15 L103.5 16.5 L99.5 18 L98 22 L96.5 18 L92.5 16.5 L96.5 15 Z" fill="#fdba74" />
+            {/* Corner spiderweb */}
+            <path d="M0 0 L32 16 M0 0 L18 32 M0 0 L42 4" stroke="rgba(255,255,255,0.4)" strokeWidth="1" />
+            <path d="M12 0 Q10 10 0 12 M24 2 Q18 18 2 22 M34 4 Q24 26 8 30" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1" />
+            {/* Crescent moon */}
+            <path d="M54 11 A9 9 0 1 0 62 25 A7 7 0 1 1 54 11 Z" fill="#fde68a" />
+            {/* Bat silhouette */}
+            <path d="M78 20 Q83 14 88 20 Q93 14 98 20 Q91 23 88 26 Q85 23 78 20 Z" fill="rgba(255,255,255,0.85)" />
+            <path d="M108 10 L109.5 14 L113.5 15.5 L109.5 17 L108 21 L106.5 17 L102.5 15.5 L106.5 14 Z" fill="#fdba74" />
           </svg>
         );
       case 'patriotic':
@@ -262,6 +292,16 @@ export const SeasonalOverlay: React.FC<SeasonalOverlayProps> = ({
             <path d="M12 2 L14.2 9.8 L22 12 L14.2 14.2 L12 22 L9.8 14.2 L2 12 L9.8 9.8 Z" />
           </svg>
         );
+      case 'new_year':
+        return p.symbolIdx % 2 === 0 ? (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="#fde047">
+            <path d="M12 2 L14.2 9.8 L22 12 L14.2 14.2 L12 22 L9.8 14.2 L2 12 L9.8 9.8 Z" />
+          </svg>
+        ) : (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={p.symbolIdx % 3 === 0 ? '#f472b6' : '#38bdf8'}>
+            <rect x="7" y="7" width="10" height="10" rx="2" transform="rotate(45 12 12)" />
+          </svg>
+        );
       case 'valentine':
         return (
           <svg width={size} height={size} viewBox="0 0 24 24" fill={p.symbolIdx % 2 === 0 ? '#fda4af' : '#fb7185'}>
@@ -296,13 +336,15 @@ export const SeasonalOverlay: React.FC<SeasonalOverlayProps> = ({
         isDoodleHeader ? (
           <div
             className={`${
-              contained ? 'relative' : 'relative z-40'
-            } w-full bg-gradient-to-r ${meta.bannerBgClass} text-white px-3 sm:px-6 py-2 shadow-sm border-b border-white/15 overflow-hidden`}
+              contained ? 'relative px-2 pt-2' : 'relative z-40 px-3 sm:px-6 pt-2 pb-1'
+            } w-full`}
           >
-            <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+            <div
+              className={`max-w-5xl mx-auto rounded-full bg-gradient-to-r ${meta.bannerBgClass} text-white px-4 sm:px-6 py-2 shadow-lg ring-1 ring-white/25 overflow-hidden flex items-center justify-between gap-3`}
+            >
               {renderDoodleCornerSvg('left')}
               <div className="flex-1 flex items-center justify-center gap-2 text-center min-w-0">
-                <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full bg-white/15 backdrop-blur-xs border border-white/25 text-[10px] font-black uppercase tracking-wider shrink-0">
+                <span className="hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-xs border border-white/25 text-[10px] font-black uppercase tracking-wider shrink-0">
                   {meta.badge}
                 </span>
                 <span className="text-xs sm:text-[13px] font-bold tracking-tight truncate">

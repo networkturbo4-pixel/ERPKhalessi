@@ -1,8 +1,8 @@
 {
-  "buildId": "20261114234607",
-  "builtAt": "2026-11-14T23:46:07.862Z",
-  "commitSha": "f5a2e33",
-  "message": "feat(store,checkout): enforce required group conditions and responsive fixed checkout CTA (release 20261114233736)",
+  "buildId": "20261114235140",
+  "builtAt": "2026-11-14T23:51:40.442Z",
+  "commitSha": "f3b7537",
+  "message": "feat(seasonal): add Google Doodle editorial header and button accents",
   "totalFiles": 90,
-  "manifestSha256": "48c8f24b8bdcb13387e7d9d50f54c18543955bcff734b2c4d1c07c9624cef339"
+  "manifestSha256": "52149ea29d0cbfadb73264a9dcc209595939257c1a4f1a9348051aeb99ba57cf"
 }

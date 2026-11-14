@@ -18,6 +18,7 @@ export interface WelcomeSlide {
 
 export type SeasonalThemeId =
   | 'christmas'
+  | 'new_year'
   | 'valentine'
   | 'summer'
   | 'halloween'
