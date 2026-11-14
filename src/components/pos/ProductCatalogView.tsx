@@ -2663,11 +2663,11 @@ export const ProductCatalogView: React.FC = () => {
 
                                 {/* Row 3: Feature Chips (matching Image 2) */}
                                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                                  {/* Preseleccionado */}
+                                  {/* Incluido */}
                                   <label
                                     className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors ${
                                       choice.isIncluded || choice.isDefault
-                                        ? 'bg-rose-500/15 border-rose-500/40 text-rose-700 dark:text-rose-300'
+                                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
                                         : 'bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400'
                                     }`}
                                   >
@@ -2682,7 +2682,7 @@ export const ProductCatalogView: React.FC = () => {
                                       }
                                       className="hidden"
                                     />
-                                    <span>Preseleccionado</span>
+                                    <span>Incluido</span>
                                   </label>
 
                                   {/* Recomendado */}

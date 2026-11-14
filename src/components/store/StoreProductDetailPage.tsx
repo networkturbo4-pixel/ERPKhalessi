@@ -152,6 +152,8 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
     if (group.maxSelection && group.maxSelection > 1) {
       const curList = selectedSubOptionsMulti[group.id] || [];
       if (curList.includes(choiceId)) {
+        const targetChoice = (group.choices || []).find(c => c.id === choiceId);
+        if (targetChoice?.isIncluded) return;
         setSelectedSubOptionsMulti(prev => ({
           ...prev,
           [group.id]: curList.filter(id => id !== choiceId),
@@ -209,7 +211,8 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
   ) => {
     const group = (product.subOptions || []).find(g => g.id === groupId);
     const curQty = subOptionQuantities[choice.id] || 0;
-    const nextQty = Math.max(0, curQty + delta);
+    const minQty = choice.isIncluded ? Math.max(1, choice.freeQuantity || 1) : 0;
+    const nextQty = Math.max(minQty, curQty + delta);
 
     if (delta > 0) {
       const maxPerChoice = choice.maxQuantity && choice.maxQuantity > 0 ? choice.maxQuantity : 99;
@@ -304,7 +307,9 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
         if (qty > 0) {
           isChoiceActive = true;
           if (!choice.hidePrice) {
-            const freeQty = choice.freeQuantity || 0;
+            const freeQty = choice.isIncluded
+              ? Math.max(1, choice.freeQuantity || 1)
+              : (choice.freeQuantity || 0);
             const billableQty = Math.max(0, qty - freeQty);
             subOptionsDelta += billableQty * (choice.priceDelta || 0);
           }
@@ -312,7 +317,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
       } else {
         if (isSingleChoiceSelected(group, choice.id)) {
           isChoiceActive = true;
-          if (!choice.hidePrice) {
+          if (!choice.hidePrice && !choice.isIncluded) {
             subOptionsDelta += choice.priceDelta || 0;
           }
         }
@@ -1266,8 +1271,11 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
                         {group.choices.map(choice => {
                           const isMultiple = !!choice.isMultiple;
                           const qty = isMultiple ? (subOptionQuantities[choice.id] || 0) : 0;
+                          const minQty = choice.isIncluded ? Math.max(1, choice.freeQuantity || 1) : 0;
                           const isSelected = isMultiple ? qty > 0 : isSingleChoiceSelected(group, choice.id);
-                          const freeQty = choice.freeQuantity || 0;
+                          const freeQty = choice.isIncluded
+                            ? Math.max(1, choice.freeQuantity || 1)
+                            : (choice.freeQuantity || 0);
                           const groupTotal = getGroupTotalSelected(group);
                           const isGroupMulti = Boolean(group.maxSelection && group.maxSelection > 1);
                           const isAtMax = Boolean(
@@ -1285,14 +1293,18 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
                               } else {
                                 const billable = Math.max(0, qty - freeQty);
                                 priceSubtitle = billable === 0
-                                  ? 'Gratis'
+                                  ? (choice.isIncluded ? 'Incluido' : 'Gratis')
                                   : `+ S/ ${(billable * choice.priceDelta).toFixed(2)}`;
                               }
                             } else {
-                              priceSubtitle = choice.priceDelta > 0
+                              priceSubtitle = choice.isIncluded
+                                ? 'Incluido'
+                                : choice.priceDelta > 0
                                 ? `+ S/ ${choice.priceDelta.toFixed(2)}`
                                 : 'Incluido';
                             }
+                          } else if (choice.isIncluded) {
+                            priceSubtitle = 'Incluido';
                           }
 
                           if (isPills) {
@@ -1433,7 +1445,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
                                     <div className="flex items-center gap-1.5 ml-auto" onClick={e => e.stopPropagation()}>
                                       <button
                                         type="button"
-                                        disabled={qty <= 0}
+                                        disabled={qty <= minQty}
                                         onClick={() => handleUpdateChoiceQty(group.id, choice, -1)}
                                         className={`w-7 h-7 rounded-lg border flex items-center justify-center font-bold text-xs disabled:opacity-30 transition-all active:scale-90 ${
                                           isLightTheme
@@ -1548,6 +1560,11 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
                                           🎁 {freeQty} Gratis
                                         </span>
                                       )}
+                                      {choice.isIncluded && (
+                                        <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[10px] font-black uppercase">
+                                          ✓ Incluido
+                                        </span>
+                                      )}
                                       {choice.maxQuantity && choice.maxQuantity > 0 ? (
                                         <span
                                           className={`px-1.5 py-0.2 rounded-md text-[10px] font-bold ${
@@ -1574,7 +1591,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
                                     {priceSubtitle && (
                                       <span
                                         className={`block text-xs font-semibold mt-0.5 ${
-                                          priceSubtitle === 'Gratis'
+                                          priceSubtitle === 'Gratis' || priceSubtitle === 'Incluido'
                                             ? isLightTheme ? 'text-emerald-700 font-bold' : 'text-emerald-400 font-bold'
                                             : choice.priceDelta > 0
                                             ? isLightTheme ? 'text-red-600 font-bold' : 'text-rose-400 font-bold'
@@ -1595,7 +1612,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
                                     <button
                                       type="button"
                                       onClick={() => handleUpdateChoiceQty(group.id, choice, -1)}
-                                      disabled={qty <= 0}
+                                      disabled={qty <= minQty}
                                       className={`w-8 h-8 rounded-xl border flex items-center justify-center text-sm font-black disabled:opacity-25 disabled:cursor-not-allowed transition-all active:scale-90 ${
                                         isLightTheme
                                           ? 'border-zinc-300 bg-white hover:bg-zinc-100 text-zinc-800'

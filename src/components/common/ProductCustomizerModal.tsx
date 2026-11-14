@@ -366,6 +366,8 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
     if (group.maxSelection && group.maxSelection > 1) {
       const curList = selectedSubOptionsMulti[group.id] || [];
       if (curList.includes(choiceId)) {
+        const targetChoice = (group.choices || []).find((c) => c.id === choiceId);
+        if (targetChoice?.isIncluded) return;
         setSelectedSubOptionsMulti((prev) => ({
           ...prev,
           [group.id]: curList.filter((id) => id !== choiceId),
@@ -388,7 +390,8 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
 
   const handleUpdateChoiceQty = (group: SubOptionGroup, choice: SubOptionChoice, delta: number) => {
     const curQty = subOptionQuantities[choice.id] || 0;
-    const nextQty = Math.max(0, curQty + delta);
+    const minQty = choice.isIncluded ? Math.max(1, choice.freeQuantity || 1) : 0;
+    const nextQty = Math.max(minQty, curQty + delta);
 
     if (delta > 0) {
       const maxPerChoice = choice.maxQuantity && choice.maxQuantity > 0 ? choice.maxQuantity : 99;
