@@ -1,8 +1,8 @@
 {
-  "buildId": "20261113235816",
-  "builtAt": "2026-11-13T23:58:16.422Z",
-  "commitSha": "692f22f",
-  "message": "fix(storefront,sync): preload hero LCP on first visit and protect production users/settings from default overwrites",
+  "buildId": "20261114002011",
+  "builtAt": "2026-11-14T00:20:11.990Z",
+  "commitSha": "ca2719e",
+  "message": "fix(auth): respect 429 Retry-After backoff in authenticateServer to stop retry loop",
   "totalFiles": 87,
-  "manifestSha256": "36f25037c9d5bd0e1fd65c052d326cd0b023a780ccfe14c5f449a7bb76287254"
+  "manifestSha256": "7b410eafeccb730f00f2be37541cd0d618bc1fd1860e68a6a8cf7f727768ccdc"
 }

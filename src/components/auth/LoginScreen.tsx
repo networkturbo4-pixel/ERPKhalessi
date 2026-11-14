@@ -4,6 +4,7 @@ import { useHR } from '../../context/HRContext';
 import { User } from '../../types/settings';
 import { AttendanceEventType } from '../../types/hr';
 import { soundSynth } from '../../utils/audio';
+import { authenticateAndHydrateServer } from '../../utils/diskPersistence';
 import { ToastContainer } from '../common/ToastContainer';
 import { SystemNoticeModal } from '../common/SystemNoticeModal';
 import {
@@ -119,7 +120,7 @@ export const LoginScreen: React.FC<{ onNavigateToStore?: () => void }> = ({ onNa
     return () => window.clearInterval(timer);
   }, [slides.length, isCarouselPaused]);
 
-  const attemptLogin = (candidateCode: string) => {
+  const attemptLogin = async (candidateCode: string) => {
     if (isSubmitting) return;
     const clean = candidateCode.replace(/\D/g, '');
     if (clean.length !== 4 && clean.length !== 6 && clean.length !== 8) {
@@ -129,15 +130,57 @@ export const LoginScreen: React.FC<{ onNavigateToStore?: () => void }> = ({ onNa
     }
 
     setIsSubmitting(true);
+    let matchedUser: User | undefined;
     const credResult = verifyLoginCredentials(clean);
-    if (!credResult.ok || !credResult.user) {
+
+    if (credResult.ok && credResult.user) {
+      matchedUser = credResult.user;
+    } else {
+      // Si el dispositivo aún no tenía usuarios reales (p. ej. nueva PC/celular tras modo público),
+      // validar contra /api/auth.php e hidratar inmediatamente los usuarios reales desde MySQL.
+      const serverAuth = await authenticateAndHydrateServer(clean);
+      if (serverAuth.ok) {
+        try {
+          const raw = localStorage.getItem('khalessi_erp_settings_v3');
+          const parsed = raw ? JSON.parse(raw) : null;
+          const hydratedUsers: User[] = Array.isArray(parsed?.users) ? parsed.users : [];
+          matchedUser = hydratedUsers.find(u => String(u.pin || '').replace(/\D/g, '') === clean);
+          if (!matchedUser && serverAuth.user) {
+            matchedUser = {
+              id: serverAuth.user.id || 'bootstrap',
+              name: serverAuth.user.name || 'Super Administrador',
+              email: 'admin@khalessipizza.com',
+              phone: '',
+              avatarUrl: '',
+              roleId: serverAuth.user.roleId || 'role-admin',
+              roleName: 'Super Administrador',
+              status: 'active',
+              pin: clean,
+              branchIds: ['all'],
+              createdAt: new Date().toISOString().slice(0, 10),
+              lastLogin: 'En línea ahora',
+            };
+          }
+        } catch {
+          // ignore parse error
+        }
+      }
+    }
+
+    if (!matchedUser) {
       setIsSubmitting(false);
       setErrorMsg(credResult.error || 'Credencial inválida.');
       inputRef.current?.focus();
       return;
     }
 
-    const matchedUser = credResult.user;
+    if (matchedUser.status === 'suspended') {
+      setIsSubmitting(false);
+      setErrorMsg(`La cuenta de ${matchedUser.name} se encuentra temporalmente suspendida.`);
+      inputRef.current?.focus();
+      return;
+    }
+
     const gateCheck = shouldGateLoginByAttendance(matchedUser);
 
     if (gateCheck.gated) {

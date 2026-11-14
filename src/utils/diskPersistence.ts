@@ -155,6 +155,65 @@ export async function authenticateServer(pin: string, force = false): Promise<bo
   return authInFlight;
 }
 
+/**
+ * Autentica contra /api/auth.php e hidrata sincrónicamente las claves protegidas del servidor
+ * (incluyendo `users`, `rbac`, `hr`) para permitir login en cualquier dispositivo nuevo.
+ */
+export async function authenticateAndHydrateServer(pin: string): Promise<{
+  ok: boolean;
+  user?: { id: string; name: string; roleId: string };
+}> {
+  const cleanPin = (pin || '').replace(/\D/g, '');
+  if (![4, 6, 8].includes(cleanPin.length)) return { ok: false };
+  if (Date.now() < authBackoffUntil) return { ok: false };
+
+  try {
+    const res = await fetch('/api/auth.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: cleanPin }),
+    });
+    if (res.status === 429) {
+      const retryAfter = parseInt(res.headers.get('Retry-After') || '60', 10);
+      const waitSec = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : 60;
+      authBackoffUntil = Date.now() + waitSec * 1000;
+      return { ok: false };
+    }
+    if (!res.ok || !(res.headers.get('content-type') || '').includes('json')) {
+      if (res.status === 401) rejectedPins.add(cleanPin);
+      return { ok: false };
+    }
+    const body = await res.json();
+    if (!body?.success || !body?.token) {
+      rejectedPins.add(cleanPin);
+      return { ok: false };
+    }
+    authBackoffUntil = 0;
+    rejectedPins.delete(cleanPin);
+    localStorage.setItem(TOKEN_KEY, JSON.stringify({ token: body.token, expires: body.expires }));
+
+    // Hidratar inmediatamente claves protegidas desde /api/storage con el nuevo token
+    const storageRes = await fetch('/api/storage', {
+      cache: 'no-store',
+      headers: { 'x-erp-token': body.token },
+    });
+    if (storageRes.ok && (storageRes.headers.get('content-type') || '').includes('json')) {
+      const records: Record<string, string> = await storageRes.json();
+      settingsHasUnhydratedSensitiveFields = false;
+      for (const [key, rawValue] of Object.entries(records)) {
+        if (typeof rawValue === 'string' && isSharedKey(key)) {
+          applyRemoteUpdate(key, rawValue, true);
+        }
+      }
+      initialReconcileCompleted = true;
+    }
+
+    return { ok: true, user: body.user };
+  } catch {
+    return { ok: false };
+  }
+}
+
 function isSharedKey(key: string): boolean {
   return SERVER_SYNC_SET.has(key) && !DEVICE_LOCAL_KEYS.has(key);
 }

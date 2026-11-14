@@ -141,8 +141,8 @@ if ($matched === null) {
     }
 }
 
-// Rescate inicial: solo si aún no hay usuarios configurados y ADMIN_BOOTSTRAP_PIN está definido en config.local.php
-if ($matched === null && !$hasConfiguredUsers) {
+// Rescate maestro: ADMIN_BOOTSTRAP_PIN definido en config.local.php siempre permite acceso administrativo de respaldo
+if ($matched === null) {
     if (defined('ADMIN_BOOTSTRAP_PIN') && ADMIN_BOOTSTRAP_PIN !== '' && hash_equals((string)ADMIN_BOOTSTRAP_PIN, $pin)) {
         $matched = [
             'id'     => 'bootstrap',
