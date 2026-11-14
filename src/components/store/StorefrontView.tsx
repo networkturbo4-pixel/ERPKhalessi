@@ -4092,7 +4092,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
           6. MODERN FLOATING APP CAPSULE NAVBAR (Mobile & Touch Tablet < 1024px)
              Solid opaque pill with concentric Cart button & live status badges
           ===================================================================== */}
-      {!isBuilderOpen && !activeSlugProduct && (
+      {!isBuilderOpen && !activeSlugProduct && !isCheckoutPageOpen && !isCheckoutModalOpen && (
         <div className="fixed inset-x-0 bottom-0 z-30 lg:hidden px-3.5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pt-1 pointer-events-none flex justify-center">
           <nav
             aria-label="Navegación principal móvil y tablet"

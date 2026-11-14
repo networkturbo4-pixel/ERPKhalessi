@@ -631,7 +631,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
       </header>
 
       {/* Main Content: 2-Column Responsive Layout */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8 pb-28 lg:pb-12">
         {/* Customer Authentication Warning / Quick Points Lookup (QR Mode) / Greeting Banner */}
         {!currentCustomer && isTableQrMode ? (
           <div className={`mb-6 p-4 sm:p-5 rounded-3xl border shadow-sm space-y-3 ${isLightTheme ? 'bg-white border-zinc-200' : 'bg-neutral-900 border-neutral-800'}`}>
@@ -765,7 +765,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
           </div>
         )}
 
-        <form onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <form id="store-checkout-form" onSubmit={handleSubmitOrder} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left Column (8 cols): Step by step easy checkout */}
           <div className="lg:col-span-7 space-y-6">
             {/* Step 1: Entrega o Recojo o Mesa QR */}
@@ -1482,11 +1482,11 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
                 <span>Tiempo estimado: {deliveryType === 'delivery' ? '25 - 40 min' : '15 - 20 min'} · Pizza recién horneada</span>
               </div>
 
-              {/* Big CTA Button */}
+              {/* Big CTA Button (Desktop) */}
               <button
                 type="submit"
                 disabled={isSubmitting || cartItems.length === 0}
-                className="w-full py-4 px-6 rounded-2xl text-white font-black text-sm sm:text-base shadow-xl hover:opacity-95 active:scale-[0.98] transition-all flex items-center justify-between whitespace-nowrap shrink-0 disabled:opacity-50"
+                className="hidden lg:flex w-full py-4 px-6 rounded-2xl text-white font-black text-sm sm:text-base shadow-xl hover:opacity-95 active:scale-[0.98] transition-all items-center justify-between whitespace-nowrap shrink-0 disabled:opacity-50"
                 style={{ backgroundColor: accentColor }}
               >
                 <span>{isSubmitting ? 'Procesando Pedido...' : 'Confirmar y Pedir Ahora'}</span>
@@ -1496,6 +1496,26 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
           </div>
         </form>
       </main>
+
+      {/* Fixed Bottom CTA Bar (Responsive Mobile & Tablet only) */}
+      <div
+        className={`fixed inset-x-0 bottom-0 z-40 lg:hidden px-4 pt-3 pb-[max(0.875rem,env(safe-area-inset-bottom,0px))] border-t backdrop-blur-md ${
+          isLightTheme
+            ? 'bg-white/95 border-zinc-200 shadow-[0_-10px_30px_rgba(0,0,0,0.08)]'
+            : 'bg-neutral-950/95 border-neutral-800 shadow-[0_-10px_30px_rgba(0,0,0,0.6)]'
+        }`}
+      >
+        <button
+          type="submit"
+          form="store-checkout-form"
+          disabled={isSubmitting || cartItems.length === 0}
+          className="w-full py-3.5 px-5 rounded-2xl text-white font-black text-sm shadow-xl hover:opacity-95 active:scale-[0.98] transition-all flex items-center justify-between whitespace-nowrap shrink-0 disabled:opacity-50"
+          style={{ backgroundColor: accentColor }}
+        >
+          <span>{isSubmitting ? 'Procesando Pedido...' : 'Confirmar y Pedir Ahora'}</span>
+          <span className="font-black tracking-tight">S/ {payableTotal.toFixed(2)} →</span>
+        </button>
+      </div>
 
       {/* Quick Customer Authentication Dialog */}
       <dialog

@@ -316,8 +316,21 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
       if (!group.choices || group.choices.length === 0) continue;
 
       const groupTotal = getGroupTotalSelected(group);
-      if (group.required && groupTotal === 0) {
-        return { valid: false, reason: `Elige una opción en "${group.name}"` };
+      if (group.required) {
+        if (group.maxSelection && group.maxSelection > 1) {
+          const hasMultiChoice = group.choices.some((c) => c.isMultiple);
+          const requiredCount = hasMultiChoice
+            ? group.maxSelection
+            : Math.min(group.maxSelection, group.choices.length);
+          if (groupTotal < requiredCount) {
+            return {
+              valid: false,
+              reason: `Elige ${requiredCount} opciones en "${group.name}" (${groupTotal}/${requiredCount})`,
+            };
+          }
+        } else if (groupTotal === 0) {
+          return { valid: false, reason: `Elige una opción en "${group.name}"` };
+        }
       }
       if (group.maxSelection && group.maxSelection > 0 && groupTotal > group.maxSelection) {
         return { valid: false, reason: `Máximo ${group.maxSelection} opciones en "${group.name}"` };

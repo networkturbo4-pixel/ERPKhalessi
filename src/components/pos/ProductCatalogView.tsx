@@ -2461,6 +2461,17 @@ export const ProductCatalogView: React.FC = () => {
                             />
                           </div>
 
+                          {/* Required */}
+                          <label className="flex items-center gap-1.5 cursor-pointer font-bold text-zinc-700 dark:text-zinc-300">
+                            <input
+                              type="checkbox"
+                              checked={group.required ?? false}
+                              onChange={(e) => handleUpdateGroup(group.id, { required: e.target.checked })}
+                              className="w-4 h-4 rounded text-rose-600 accent-rose-600"
+                            />
+                            <span>Requerido</span>
+                          </label>
+
                           {/* Open by Default */}
                           <label className="flex items-center gap-1.5 cursor-pointer font-bold text-zinc-700 dark:text-zinc-300">
                             <input

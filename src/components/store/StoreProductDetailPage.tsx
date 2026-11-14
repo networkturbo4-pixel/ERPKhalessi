@@ -363,8 +363,21 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
 
       const groupTotal = getGroupTotalSelected(group);
 
-      if (group.required && groupTotal === 0) {
-        return { valid: false, reason: `Elige una opción en "${group.name}"` };
+      if (group.required) {
+        if (group.maxSelection && group.maxSelection > 1) {
+          const hasMultiChoice = group.choices.some(c => c.isMultiple);
+          const requiredCount = hasMultiChoice
+            ? group.maxSelection
+            : Math.min(group.maxSelection, group.choices.length);
+          if (groupTotal < requiredCount) {
+            return {
+              valid: false,
+              reason: `Elige ${requiredCount} opciones en "${group.name}" (${groupTotal}/${requiredCount})`,
+            };
+          }
+        } else if (groupTotal === 0) {
+          return { valid: false, reason: `Elige una opción en "${group.name}"` };
+        }
       }
 
       if (group.maxSelection && group.maxSelection > 0 && groupTotal > group.maxSelection) {
@@ -385,7 +398,10 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
 
         const subLimit = choice.subExtrasLimit && choice.subExtrasLimit > 0 ? choice.subExtrasLimit : 0;
         if (subLimit > 0) {
-          const requiredCount = Math.min(subLimit, choice.nestedChoices.length);
+          const hasMultiNested = choice.nestedChoices.some(n => n.isMultiple);
+          const requiredCount = hasMultiNested
+            ? subLimit
+            : Math.min(subLimit, choice.nestedChoices.length);
           const curNestedIds = selectedNestedChoices[choice.id] || [];
           const nestedCount = choice.nestedChoices.reduce((sum, n) => {
             if (n.isMultiple) return sum + (nestedChoiceQuantities[`${choice.id}::${n.id}`] || 0);
