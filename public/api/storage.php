@@ -21,8 +21,13 @@ $admin = $token !== '' ? verifyToken($token) : null;
 
 header('Cache-Control: no-store, no-cache, must-revalidate');
 
+function isAllowedSyncKey(string $k, bool $isAuth): bool {
+    if (in_array($k, KH_SYNC_KEYS, true)) return true;
+    return $isAuth && (strncmp($k, 'kh_', 3) === 0 || strncmp($k, 'khalessi_', 9) === 0);
+}
+
 function readableFor(string $k, bool $isAuth): bool {
-    if (!in_array($k, KH_SYNC_KEYS, true)) return false;
+    if (!isAllowedSyncKey($k, $isAuth)) return false;
     return $isAuth || in_array($k, KH_PUBLIC_READ_KEYS, true);
 }
 
@@ -226,7 +231,7 @@ if ($method === 'GET') {
 }
 
 if ($method === 'POST' || $method === 'DELETE') {
-    if (!validKey($key) || !in_array($key, KH_SYNC_KEYS, true)) {
+    if (!validKey($key) || !isAllowedSyncKey($key, $admin !== null)) {
         sendResponse(['success' => true, 'ignored' => true]);
     }
 

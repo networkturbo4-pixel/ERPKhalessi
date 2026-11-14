@@ -536,6 +536,7 @@ function enqueueServerSync(
             failedSyncValues.delete(key);
           }
           if (resJson?.ignored) {
+            console.warn(`[Storage] Server ignored write for key "${key}" (check auth or server allowlist).`);
             return;
           }
 

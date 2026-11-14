@@ -1,8 +1,8 @@
 {
-  "buildId": "20261114220727",
-  "builtAt": "2026-11-14T22:07:27.146Z",
-  "commitSha": "98a9f4f",
-  "message": "fix(storage): IndexedDB quota fallback and sync product option templates (release 20261114215707)",
+  "buildId": "20261114221734",
+  "builtAt": "2026-11-14T22:17:34.285Z",
+  "commitSha": "96a1dbb",
+  "message": "fix(catalog): empty default option templates and auto-sync/retry token on boot (release 20261114220727)",
   "totalFiles": 90,
-  "manifestSha256": "6c554de17e99f3151de3d1a0950aa15f002c544c9d94966f2f2bcae2528a6525"
+  "manifestSha256": "dbf459c189031a71219d6ad5495389844a06ef11de18f1d89bfdb958e11f97b5"
 }

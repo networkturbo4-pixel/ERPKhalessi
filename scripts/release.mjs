@@ -142,6 +142,16 @@ function createPosixZip(sourceDir, zipFilePath) {
   const centralParts = [];
   let offset = 0;
 
+  const now = new Date();
+  const dosTime =
+    ((now.getHours() & 0x1f) << 11) |
+    ((now.getMinutes() & 0x3f) << 5) |
+    ((now.getSeconds() >> 1) & 0x1f);
+  const dosDate =
+    (((Math.max(1980, now.getFullYear()) - 1980) & 0x7f) << 9) |
+    (((now.getMonth() + 1) & 0x0f) << 5) |
+    (now.getDate() & 0x1f);
+
   for (const { fullPath, relPosix } of allFiles) {
     const rawData = fs.readFileSync(fullPath);
     const compressedData = zlib.deflateRawSync(rawData, { level: 9 });
@@ -156,8 +166,8 @@ function createPosixZip(sourceDir, zipFilePath) {
     localHeader.writeUInt16LE(20, 4); // version needed
     localHeader.writeUInt16LE(0x0800, 6); // UTF-8 flag
     localHeader.writeUInt16LE(method, 8);
-    localHeader.writeUInt16LE(0, 10); // mod time
-    localHeader.writeUInt16LE(0x5821, 12); // mod date
+    localHeader.writeUInt16LE(dosTime, 10); // mod time
+    localHeader.writeUInt16LE(dosDate, 12); // mod date
     localHeader.writeUInt32LE(crc, 14);
     localHeader.writeUInt32LE(payload.length, 18);
     localHeader.writeUInt32LE(rawData.length, 22);
@@ -171,8 +181,8 @@ function createPosixZip(sourceDir, zipFilePath) {
     centralHeader.writeUInt16LE(20, 6);
     centralHeader.writeUInt16LE(0x0800, 8);
     centralHeader.writeUInt16LE(method, 10);
-    centralHeader.writeUInt16LE(0, 12);
-    centralHeader.writeUInt16LE(0x5821, 14);
+    centralHeader.writeUInt16LE(dosTime, 12);
+    centralHeader.writeUInt16LE(dosDate, 14);
     centralHeader.writeUInt32LE(crc, 16);
     centralHeader.writeUInt32LE(payload.length, 20);
     centralHeader.writeUInt32LE(rawData.length, 24);

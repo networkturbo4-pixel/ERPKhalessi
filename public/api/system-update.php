@@ -607,6 +607,9 @@ switch ($action) {
                 }
                 if (@copy($srcFile, $dstFile)) {
                     @touch($dstFile);
+                    if (substr($dstFile, -4) === '.php' && function_exists('opcache_invalidate')) {
+                        @opcache_invalidate($dstFile, true);
+                    }
                     $updatedCount++;
                 }
             }
@@ -616,6 +619,9 @@ switch ($action) {
                 $dstFile = $rootTarget . '/' . $relPath;
                 if (@copy($srcFile, $dstFile)) {
                     @touch($dstFile);
+                    if (substr($dstFile, -4) === '.php' && function_exists('opcache_invalidate')) {
+                        @opcache_invalidate($dstFile, true);
+                    }
                     $updatedCount++;
                 }
             }
@@ -656,7 +662,12 @@ switch ($action) {
                 $steps[] = "Limpieza de caché: {$cleanedAssets} chunks antiguos eliminados de /assets.";
             }
 
-            // 6. Ejecutar auto-migración no destructiva de Base de Datos MySQL
+            // 6. Limpiar OPcache de PHP para que los archivos .php actualizados surtan efecto inmediato
+            if (function_exists('opcache_reset')) {
+                @opcache_reset();
+            }
+
+            // 7. Ejecutar auto-migración no destructiva de Base de Datos MySQL
             $dbStats = ensureDatabaseSchema($rootTarget);
             if ($dbStats['connected']) {
                 $steps[] = "Base de datos verificada: {$dbStats['tables_verified']} tablas comprobadas, {$dbStats['columns_added']} columnas nuevas creadas (datos 100% intactos).";
