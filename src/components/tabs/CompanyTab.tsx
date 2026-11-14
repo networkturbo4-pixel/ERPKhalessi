@@ -640,18 +640,28 @@ export const CompanyTab: React.FC = () => {
                 </label>
 
                 {/* 2. Billeteras Digitales y QR */}
-                <label className="p-4 rounded-2xl saas-subcard flex items-start justify-between gap-3 cursor-pointer">
+                <label
+                  className={`p-4 rounded-2xl saas-subcard flex items-start justify-between gap-3 ${
+                    (companyInfo.wallets || []).length === 0 ? 'opacity-65 cursor-not-allowed' : 'cursor-pointer'
+                  }`}
+                >
                   <div className="space-y-1">
                     <span className="text-xs font-bold text-zinc-950 dark:text-white block">
                       Billeteras / QR
                     </span>
                     <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block leading-snug">
-                      Yape / Plin con QR ({(companyInfo.wallets || []).length} configuradas).
+                      {(companyInfo.wallets || []).length === 0
+                        ? 'Agrega al menos 1 billetera abajo para mostrarla.'
+                        : `Yape / Plin con QR (${(companyInfo.wallets || []).length} configuradas).`}
                     </span>
                   </div>
                   <input
                     type="checkbox"
-                    checked={companyInfo.checkoutPaymentMethods?.walletsEnabled ?? true}
+                    disabled={(companyInfo.wallets || []).length === 0}
+                    checked={
+                      (companyInfo.wallets || []).length > 0 &&
+                      (companyInfo.checkoutPaymentMethods?.walletsEnabled ?? true)
+                    }
                     onChange={e =>
                       updateCompanyInfo({
                         checkoutPaymentMethods: {
@@ -665,18 +675,28 @@ export const CompanyTab: React.FC = () => {
                 </label>
 
                 {/* 3. Transferencia Bancaria */}
-                <label className="p-4 rounded-2xl saas-subcard flex items-start justify-between gap-3 cursor-pointer">
+                <label
+                  className={`p-4 rounded-2xl saas-subcard flex items-start justify-between gap-3 ${
+                    (companyInfo.bankAccounts || []).length === 0 ? 'opacity-65 cursor-not-allowed' : 'cursor-pointer'
+                  }`}
+                >
                   <div className="space-y-1">
                     <span className="text-xs font-bold text-zinc-950 dark:text-white block">
                       Transferencia Bancaria
                     </span>
                     <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block leading-snug">
-                      Cuentas BCP/BBVA/CCI ({(companyInfo.bankAccounts || []).length} cuentas).
+                      {(companyInfo.bankAccounts || []).length === 0
+                        ? 'Agrega al menos 1 cuenta abajo para mostrarla.'
+                        : `Cuentas BCP/BBVA/CCI (${(companyInfo.bankAccounts || []).length} cuentas).`}
                     </span>
                   </div>
                   <input
                     type="checkbox"
-                    checked={companyInfo.checkoutPaymentMethods?.bankTransferEnabled ?? true}
+                    disabled={(companyInfo.bankAccounts || []).length === 0}
+                    checked={
+                      (companyInfo.bankAccounts || []).length > 0 &&
+                      (companyInfo.checkoutPaymentMethods?.bankTransferEnabled ?? true)
+                    }
                     onChange={e =>
                       updateCompanyInfo({
                         checkoutPaymentMethods: {

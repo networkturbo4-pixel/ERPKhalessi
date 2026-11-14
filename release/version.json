@@ -1,8 +1,8 @@
 {
-  "buildId": "20261114010949",
-  "builtAt": "2026-11-14T01:09:49.709Z",
-  "commitSha": "b372c3b",
-  "message": "build(release): generate release for SPA category view",
+  "buildId": "20261114011314",
+  "builtAt": "2026-11-14T01:13:14.504Z",
+  "commitSha": "4a0e248",
+  "message": "feat: hide order card in category view, unify payment methods tab, and sync checkout with wallets/banks/culqi",
   "totalFiles": 87,
-  "manifestSha256": "d31dfa4023a2c2157b7aa0946c00ca41ad0d95aa083a7d867ba00a4381c90dd5"
+  "manifestSha256": "5ca853e42d34c9fa25c7e3917f294c087bc6eeae6b83485023325ca5b7e91b8a"
 }

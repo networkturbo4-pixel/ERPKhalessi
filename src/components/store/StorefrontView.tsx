@@ -757,14 +757,15 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
   }, [isCheckoutModalOpen]);
 
   // Checkout customer, invoice, schedule, coupon, reward & Culqi fields
+  const hasWallets = (companyInfo.wallets || []).length > 0;
+  const hasBankAccounts = (companyInfo.bankAccounts || []).length > 0;
   const culqiEnabled =
-    companyInfo.checkoutPaymentMethods?.culqiEnabled ??
-    companyInfo.culqiConfig?.enabled ??
-    true;
+    (companyInfo.checkoutPaymentMethods?.culqiEnabled ?? true) &&
+    (companyInfo.culqiConfig?.enabled ?? true);
   const walletsEnabled =
-    companyInfo.checkoutPaymentMethods?.walletsEnabled ?? true;
+    hasWallets && (companyInfo.checkoutPaymentMethods?.walletsEnabled ?? true);
   const bankTransferEnabled =
-    companyInfo.checkoutPaymentMethods?.bankTransferEnabled ?? true;
+    hasBankAccounts && (companyInfo.checkoutPaymentMethods?.bankTransferEnabled ?? true);
   const cashEnabled =
     companyInfo.checkoutPaymentMethods?.cashEnabled ??
     companyInfo.culqiConfig?.allowCashFallback ??

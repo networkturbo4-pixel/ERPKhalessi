@@ -161,14 +161,15 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
   const [orderNotes, setOrderNotes] = useState('');
 
   // Payment Selection & Enabled Methods
+  const hasWallets = (companyInfo.wallets || []).length > 0;
+  const hasBankAccounts = (companyInfo.bankAccounts || []).length > 0;
   const culqiEnabled =
-    companyInfo.checkoutPaymentMethods?.culqiEnabled ??
-    companyInfo.culqiConfig?.enabled ??
-    true;
+    (companyInfo.checkoutPaymentMethods?.culqiEnabled ?? true) &&
+    (companyInfo.culqiConfig?.enabled ?? true);
   const walletsEnabled =
-    companyInfo.checkoutPaymentMethods?.walletsEnabled ?? true;
+    hasWallets && (companyInfo.checkoutPaymentMethods?.walletsEnabled ?? true);
   const bankTransferEnabled =
-    companyInfo.checkoutPaymentMethods?.bankTransferEnabled ?? true;
+    hasBankAccounts && (companyInfo.checkoutPaymentMethods?.bankTransferEnabled ?? true);
   const cashEnabled =
     companyInfo.checkoutPaymentMethods?.cashEnabled ??
     companyInfo.culqiConfig?.allowCashFallback ??
@@ -180,6 +181,21 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
     if (bankTransferEnabled) return 'transferencia';
     return 'efectivo';
   });
+
+  useEffect(() => {
+    const isCurrentValid =
+      (paymentMethod === 'culqi' && culqiEnabled) ||
+      (paymentMethod === 'yape_plin' && walletsEnabled) ||
+      (paymentMethod === 'transferencia' && bankTransferEnabled) ||
+      (paymentMethod === 'efectivo' && cashEnabled);
+
+    if (!isCurrentValid) {
+      if (culqiEnabled) setPaymentMethod('culqi');
+      else if (walletsEnabled) setPaymentMethod('yape_plin');
+      else if (bankTransferEnabled) setPaymentMethod('transferencia');
+      else if (cashEnabled) setPaymentMethod('efectivo');
+    }
+  }, [paymentMethod, culqiEnabled, walletsEnabled, bankTransferEnabled, cashEnabled]);
   const [cashBillAmount, setCashBillAmount] = useState<string>('exact'); // 'exact' | '50' | '100' | 'custom'
   const [cashCustomAmount, setCashCustomAmount] = useState<string>('');
   const [yapeOperationCode, setYapeOperationCode] = useState('');
