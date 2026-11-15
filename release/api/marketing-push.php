@@ -528,6 +528,26 @@ if ($action === 'subscribe') {
 if ($action === 'send-push') {
     $vapid = mkt_get_or_create_vapid();
     $res = mkt_dispatch_campaign_push($body, $vapid);
+    $campaigns = mkt_read_json_file($campaignsFile);
+    array_unshift($campaigns, [
+        'id' => (string) ($body['id'] ?? ('mkt-' . time())),
+        'title' => (string) ($body['title'] ?? ''),
+        'body' => (string) ($body['body'] ?? ''),
+        'imageUrl' => !empty($body['imageUrl']) ? (string) $body['imageUrl'] : null,
+        'targetUrl' => !empty($body['targetUrl']) ? (string) $body['targetUrl'] : null,
+        'segment' => !empty($body['targetCustomerId']) ? 'single_customer' : 'all',
+        'channel' => 'web_push',
+        'targetCustomerId' => !empty($body['targetCustomerId']) ? (string) $body['targetCustomerId'] : null,
+        'targetCustomerPhone' => !empty($body['targetCustomerPhone']) ? (string) $body['targetCustomerPhone'] : null,
+        'scheduledAt' => gmdate('c'),
+        'status' => ($res['sent'] ?? 0) > 0 || ($res['total'] ?? 0) === 0 ? 'sent' : 'failed',
+        'sentCount' => $res['sent'] ?? 0,
+        'failedCount' => $res['failed'] ?? 0,
+        'createdAt' => gmdate('c'),
+        'sentAt' => gmdate('c'),
+    ]);
+    $campaigns = array_slice($campaigns, 0, 100);
+    mkt_write_json_file($campaignsFile, $campaigns);
     mkt_json(200, ['success' => true] + $res);
 }
 

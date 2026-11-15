@@ -1,8 +1,8 @@
 {
-  "buildId": "20261115034644",
-  "builtAt": "2026-11-15T03:46:44.799Z",
-  "commitSha": "e48022b",
-  "message": "fix(wallet): add cache-buster to dynamic stamp heroImage",
+  "buildId": "20261115040718",
+  "builtAt": "2026-11-15T04:07:18.737Z",
+  "commitSha": "aa6f4aa",
+  "message": "feat(marketing): add Marketing & Web Push module with cPanel Cron and customer pizza insights",
   "totalFiles": 97,
-  "manifestSha256": "feebcfc7514fea4c0e6d77cc1ed5161394a8511fc831a1398c9450c6de120031"
+  "manifestSha256": "e98e02813169f506d869731c6771705b3606eb85b0c09a2ade8e540721915b52"
 }
