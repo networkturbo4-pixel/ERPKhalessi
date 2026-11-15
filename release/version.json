@@ -1,8 +1,8 @@
 {
-  "buildId": "20261115025431",
-  "builtAt": "2026-11-15T02:54:31.244Z",
-  "commitSha": "0f86459",
-  "message": "feat(seasonal): add 7 new themes, doodle navbar badge, cursor sparkle, cart burst and order celebration",
+  "buildId": "20261115031126",
+  "builtAt": "2026-11-15T03:11:26.430Z",
+  "commitSha": "b2a38a2",
+  "message": "feat(benefits): integrate Google Wallet loyalty pass, stamps, geofencing and scheduled promos",
   "totalFiles": 94,
-  "manifestSha256": "56634bd24366d196080dfb347289d7fe97081e6a1aa8fdc9fae4f4ffc504924a"
+  "manifestSha256": "2e91cc56a571ee33753b9ec1aeb3a558fa1ed692d22c0bff021baca9987b2fdb"
 }

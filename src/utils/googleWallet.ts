@@ -76,6 +76,15 @@ export async function createGoogleWalletSaveLink(
   }
 
   const locations = gw.enableLocationAlerts !== false ? getBranchLocationsFromStorage() : [];
+  const normalizePublicHttpsUrl = (raw?: string): string => {
+    const val = (raw || '').trim();
+    if (!val) return '';
+    if (/^https:\/\/.+/i.test(val)) return val;
+    if (val.startsWith('/') && typeof window !== 'undefined' && /^https:\/\/.+/i.test(window.location.origin)) {
+      return `${window.location.origin}${val}`;
+    }
+    return '';
+  };
 
   try {
     const res = await fetch('/api/google-wallet.php', {
@@ -88,8 +97,8 @@ export async function createGoogleWalletSaveLink(
         issuerName: gw.issuerName?.trim() || 'Khalessi Pizza',
         programName: params.config.cardTitle || 'Tarjeta de Puntos Khalessi',
         subtitle: params.config.cardSubtitle || '',
-        logoUrl: gw.logoUrl?.trim() || '',
-        heroImageUrl: gw.heroImageUrl?.trim() || '',
+        logoUrl: normalizePublicHttpsUrl(gw.logoUrl),
+        heroImageUrl: normalizePublicHttpsUrl(gw.heroImageUrl),
         hexBackgroundColor: gw.hexBackgroundColor || params.config.cardBgColor || '#18181b',
         barcodeType: gw.barcodeType || 'QR_CODE',
         locations,

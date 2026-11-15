@@ -380,19 +380,20 @@ if ($action === 'create-save-link') {
             curl_close($chClass);
 
             $patchUrl = 'https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/' . rawurlencode($objectId);
-            $patchPayload = [
+            $usePut = ($barcodeType === 'NONE');
+            $patchPayload = $usePut ? $loyaltyObject : [
                 'loyaltyPoints' => $loyaltyObject['loyaltyPoints'],
                 'secondaryLoyaltyPoints' => $loyaltyObject['secondaryLoyaltyPoints'],
                 'textModulesData' => $loyaltyObject['textModulesData'],
-                'barcode' => $loyaltyObject['barcode'] ?? null,
+                'barcode' => $loyaltyObject['barcode'],
             ];
-            if (!empty($loyaltyObject['heroImage'])) {
+            if (!$usePut && !empty($loyaltyObject['heroImage'])) {
                 $patchPayload['heroImage'] = $loyaltyObject['heroImage'];
             }
             $ch = curl_init($patchUrl);
             curl_setopt_array($ch, [
                 CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_CUSTOMREQUEST => 'PATCH',
+                CURLOPT_CUSTOMREQUEST => $usePut ? 'PUT' : 'PATCH',
                 CURLOPT_HTTPHEADER => [
                     "Authorization: Bearer {$accessToken}",
                     'Content-Type: application/json',

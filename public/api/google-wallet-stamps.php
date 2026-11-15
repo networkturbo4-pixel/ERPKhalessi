@@ -60,22 +60,16 @@ $checkColor = $isLight
 imagefilledrectangle($img, 0, 0, $width, $height, $bgColor);
 
 // Calcular distribución de sellos (1 o 2 filas según meta)
-$cols = $goal <= 6 ? $goal : (int) ceil($goal / 2);
-$rows = $goal <= 6 ? 1 : 2;
-$cellSize = $rows === 1 ? 110 : 88;
-$gapX = 24;
-$gapY = 22;
+$cols = $goal <= 5 ? $goal : (int) ceil($goal / 2);
+$rows = $goal <= 5 ? 1 : 2;
+$cellSize = $rows === 1 ? 154 : 124;
+$gapX = $rows === 1 ? 42 : 48;
+$gapY = 26;
 
 $gridWidth = $cols * $cellSize + ($cols - 1) * $gapX;
 $gridHeight = $rows * $cellSize + ($rows - 1) * $gapY;
 $startX = (int) round(($width - $gridWidth) / 2);
-$startY = (int) round(($height - $gridHeight) / 2) + 14;
-
-// Encabezado sutil centrado arriba
-$headerText = "SELLOS MARCADOS: {$active} / {$goal}";
-$font = 5;
-$textWidth = imagefontwidth($font) * strlen($headerText);
-imagestring($img, $font, (int) round(($width - $textWidth) / 2), max(18, $startY - 36), $headerText, $textColor);
+$startY = (int) round(($height - $gridHeight) / 2);
 
 for ($i = 0; $i < $goal; $i++) {
     $row = (int) floor($i / $cols);
@@ -86,23 +80,23 @@ for ($i = 0; $i < $goal; $i++) {
 
     if ($isStamped) {
         imagefilledellipse($img, $cx, $cy, $cellSize, $cellSize, $stampedFill);
-        // Checkmark grueso dentro del sello (estilo tarjeta limpia)
-        imagesetthickness($img, 6);
-        imageline($img, $cx - 16, $cy + 2, $cx - 4, $cy + 14, $checkColor);
-        imageline($img, $cx - 4, $cy + 14, $cx + 18, $cy - 12, $checkColor);
+        // Checkmark grueso y limpio dentro del sello
+        imagesetthickness($img, 9);
+        imageline($img, $cx - 24, $cy + 3, $cx - 6, $cy + 21, $checkColor);
+        imageline($img, $cx - 6, $cy + 21, $cx + 26, $cy - 18, $checkColor);
         imagesetthickness($img, 1);
     } else {
         imagefilledellipse($img, $cx, $cy, $cellSize, $cellSize, $emptyFill);
         // Borde punteado alrededor del círculo vacío
         $radius = $cellSize / 2;
-        for ($deg = 0; $deg < 360; $deg += 18) {
+        for ($deg = 0; $deg < 360; $deg += 16) {
             $a1 = deg2rad($deg);
-            $a2 = deg2rad($deg + 9);
+            $a2 = deg2rad($deg + 8);
             $x1 = (int) round($cx + $radius * cos($a1));
             $y1 = (int) round($cy + $radius * sin($a1));
             $x2 = (int) round($cx + $radius * cos($a2));
             $y2 = (int) round($cy + $radius * sin($a2));
-            imagesetthickness($img, 2);
+            imagesetthickness($img, 3);
             imageline($img, $x1, $y1, $x2, $y2, $mutedColor);
         }
         imagesetthickness($img, 1);

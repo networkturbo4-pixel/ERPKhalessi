@@ -343,20 +343,25 @@ function diskStoragePlugin(): Plugin {
                           }),
                         }
                       )
+                      const usePut = barcodeType === 'NONE'
                       await fetch(
                         `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${encodeURIComponent(objectId)}`,
                         {
-                          method: 'PATCH',
+                          method: usePut ? 'PUT' : 'PATCH',
                           headers: {
                             Authorization: `Bearer ${tokenJson.access_token}`,
                             'Content-Type': 'application/json',
                           },
-                          body: JSON.stringify({
-                            loyaltyPoints: loyaltyObject.loyaltyPoints,
-                            secondaryLoyaltyPoints: loyaltyObject.secondaryLoyaltyPoints,
-                            textModulesData: loyaltyObject.textModulesData,
-                            barcode: loyaltyObject.barcode ?? null,
-                          }),
+                          body: JSON.stringify(
+                            usePut
+                              ? loyaltyObject
+                              : {
+                                  loyaltyPoints: loyaltyObject.loyaltyPoints,
+                                  secondaryLoyaltyPoints: loyaltyObject.secondaryLoyaltyPoints,
+                                  textModulesData: loyaltyObject.textModulesData,
+                                  barcode: loyaltyObject.barcode,
+                                }
+                          ),
                         }
                       )
                     }
