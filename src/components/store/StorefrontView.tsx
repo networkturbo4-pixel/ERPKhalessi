@@ -13,7 +13,12 @@ import { useSettings } from '../../context/SettingsContext';
 import { useStoreBuilder } from '../../context/StoreBuilderContext';
 import { useStoreCustomer } from '../../context/StoreCustomerContext';
 import { useBenefits } from '../../context/BenefitsContext';
-import { SeasonalOverlay } from '../common/SeasonalOverlay';
+import {
+  SeasonalOverlay,
+  SeasonalLogoBadge,
+  SeasonalCelebration,
+  dispatchSeasonalBurst,
+} from '../common/SeasonalOverlay';
 import {
   calculateDynamicDeliveryFee,
   isRealCulqiPublicKey,
@@ -1025,6 +1030,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
       totalPrice: unitPrice,
     };
     addToCart(quickItem);
+    dispatchSeasonalBurst();
     dispatchToast('¡Sumado al pedido!', `Se agregó ${prod.name} a tu bolsa.`, 'success');
   };
 
@@ -1358,6 +1364,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
           onOpenCart={() => setIsCartOpen(true)}
           onAddToCart={item => {
             addToCart(item);
+            dispatchSeasonalBurst();
             dispatchToast(
               'Agregado a tu Pedido',
               `${item.quantity}× ${item.productName} listo en tu carrito.`,
@@ -1422,14 +1429,17 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                 className="flex items-center shrink-0 active:scale-95 transition-transform focus:outline-none"
               >
                 {headerLogoUrl ? (
-                  <img
-                    src={headerLogoUrl}
-                    alt={companyInfo.commercialName || customization.appName || 'Logo'}
-                    decoding="async"
-                    className="h-8 sm:h-9 lg:h-10 w-auto max-w-[120px] sm:max-w-[160px] lg:max-w-[200px] object-contain"
-                  />
+                  <div className="relative inline-flex items-center">
+                    <img
+                      src={headerLogoUrl}
+                      alt={companyInfo.commercialName || customization.appName || 'Logo'}
+                      decoding="async"
+                      className="h-8 sm:h-9 lg:h-10 w-auto max-w-[120px] sm:max-w-[160px] lg:max-w-[200px] object-contain"
+                    />
+                    <SeasonalLogoBadge />
+                  </div>
                 ) : (
-                  <div className="flex items-center gap-2">
+                  <div className="relative flex items-center gap-2">
                     <span
                       data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
                       className="store-btn-solid w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shadow-sm text-lg"
@@ -1439,6 +1449,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                     <span className="font-black text-sm sm:text-base tracking-tight font-heading hidden xs:inline-block">
                       {companyInfo.commercialName || customization.appName || 'Pizza Khalessi'}
                     </span>
+                    <SeasonalLogoBadge />
                   </div>
                 )}
               </button>
@@ -3953,13 +3964,14 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
       {orderConfirmed && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-xs">
           <div
-            className={`w-full max-w-lg border rounded-t-3xl sm:rounded-3xl p-6 text-center space-y-4 shadow-2xl safe-bottom-bar ${
+            className={`relative overflow-hidden w-full max-w-lg border rounded-t-3xl sm:rounded-3xl p-6 text-center space-y-4 shadow-2xl safe-bottom-bar ${
               isLightTheme
                 ? 'bg-white border-zinc-200 text-zinc-900'
                 : 'bg-neutral-900 border-neutral-800 text-neutral-100'
             }`}
           >
-            <div className="w-16 h-16 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/35 mx-auto flex items-center justify-center">
+            <SeasonalCelebration />
+            <div className="relative z-10 w-16 h-16 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/35 mx-auto flex items-center justify-center">
               <CheckCircle2 aria-hidden="true" className="w-8 h-8" />
             </div>
 

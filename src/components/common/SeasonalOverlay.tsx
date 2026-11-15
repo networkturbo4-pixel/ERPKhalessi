@@ -1,6 +1,18 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { SeasonalIntensity, SeasonalThemeConfig, SeasonalThemeId } from '../../types/settings';
+
+export interface SeasonalBurstDetail {
+  x?: number;
+  y?: number;
+  count?: number;
+  variant?: 'cart' | 'celebration';
+}
+
+export function dispatchSeasonalBurst(detail: SeasonalBurstDetail = {}): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent<SeasonalBurstDetail>('kh-seasonal-burst', { detail }));
+}
 
 export interface SeasonalThemeMeta {
   id: SeasonalThemeId;
@@ -81,6 +93,83 @@ export const SEASONAL_THEMES_META: Record<SeasonalThemeId, SeasonalThemeMeta> = 
     symbols: ['🎊', '✨', '❤️', '🤍'],
     defaultBannerText: '🇵🇪 ¡Felices Fiestas Patrias! Celebra en familia con nuestro sabor artesanal',
   },
+  mothers_fathers_day: {
+    id: 'mothers_fathers_day',
+    name: 'Día de la Madre / Padre',
+    subtitle: 'Flores vectoriales suaves, corazones dorados y tonos cálidos',
+    badge: '💐 Familia',
+    accentColor: '#ec4899',
+    bannerBgClass: 'from-rose-500 via-amber-500 to-pink-600',
+    motion: 'float',
+    symbols: ['💐', '💛', '🌸', '✨'],
+    defaultBannerText: '💐 ¡Feliz Día Especial! Comparte una pizza artesanal hecha con amor',
+  },
+  kids_family: {
+    id: 'kids_family',
+    name: 'Día del Niño / Familiar',
+    subtitle: 'Globos, confeti pastel y doodles de porciones sonrientes',
+    badge: '🎈 Familiar',
+    accentColor: '#38bdf8',
+    bannerBgClass: 'from-sky-500 via-violet-500 to-pink-500',
+    motion: 'float',
+    symbols: ['🎈', '🍕', '🎉', '⭐'],
+    defaultBannerText: '🎈 ¡Fin de Semana Familiar! Diversión, globos y pizzas recién horneadas',
+  },
+  pizza_day: {
+    id: 'pizza_day',
+    name: 'Día de la Pizza / Aniversario',
+    subtitle: 'Masa girando, rebanadas vectoriales y fuego de horno artesanal',
+    badge: '🍕 Aniversario',
+    accentColor: '#f97316',
+    bannerBgClass: 'from-amber-600 via-orange-600 to-red-700',
+    motion: 'twinkle',
+    symbols: ['🍕', '🔥', '✨', '🧀'],
+    defaultBannerText: '🔥 ¡Celebramos el Día de la Pizza! Masa artesanal y promos de aniversario',
+  },
+  football: {
+    id: 'football',
+    name: 'Modo Fútbol / Selección',
+    subtitle: 'Banderines, destellos bicolor y cinta de Combo Partido',
+    badge: '⚽ Combo Partido',
+    accentColor: '#dc2626',
+    bannerBgClass: 'from-red-700 via-rose-600 to-zinc-900',
+    motion: 'fall',
+    symbols: ['⚽', '🚩', '✨', '🏆'],
+    defaultBannerText: '⚽ ¡Hoy Juega la Selección! Pide tu Combo Partido al toque',
+  },
+  criolla: {
+    id: 'criolla',
+    name: 'Día de la Canción Criolla',
+    subtitle: 'Notas musicales, guitarra criolla y jarana peruana',
+    badge: '🎸 Jarana',
+    accentColor: '#d97706',
+    bannerBgClass: 'from-amber-700 via-red-700 to-yellow-600',
+    motion: 'float',
+    symbols: ['🎸', '🎶', '✨', '🇵🇪'],
+    defaultBannerText: '🎶 ¡Feliz Día de la Canción Criolla! Sabor y música en cada porción',
+  },
+  oktoberfest: {
+    id: 'oktoberfest',
+    name: 'Oktoberfest',
+    subtitle: 'Banderines bávaros, espigas doradas y espíritu cervecero',
+    badge: '🥨 Oktoberfest',
+    accentColor: '#0284c7',
+    bannerBgClass: 'from-sky-700 via-blue-700 to-amber-600',
+    motion: 'fall',
+    symbols: ['🥨', '🍻', '🌾', '✨'],
+    defaultBannerText: '🥨 ¡Modo Oktoberfest! Pizzas artesanales y combos para brindar',
+  },
+  spring: {
+    id: 'spring',
+    name: 'Primavera',
+    subtitle: 'Flores frescas, hojas y brisa primaveral',
+    badge: '🌼 Primavera',
+    accentColor: '#10b981',
+    bannerBgClass: 'from-emerald-500 via-teal-500 to-lime-500',
+    motion: 'float',
+    symbols: ['🌼', '🦋', '🌿', '✨'],
+    defaultBannerText: '🌼 ¡Llegó la Primavera! Ingredientes frescos directo del horno',
+  },
 };
 
 const INTENSITY_COUNTS: Record<SeasonalIntensity, number> = {
@@ -152,6 +241,98 @@ export const SeasonalOverlay: React.FC<SeasonalOverlayProps> = ({
   }, [cfg, contained, surface]);
 
   const meta = SEASONAL_THEMES_META[cfg?.theme || 'christmas'] || SEASONAL_THEMES_META.christmas;
+
+  interface BurstParticle {
+    id: number;
+    x: number;
+    y: number;
+    dx: number;
+    dy: number;
+    rot: number;
+    sizePx: number;
+    symbolIdx: number;
+  }
+
+  const [burstParticles, setBurstParticles] = useState<BurstParticle[]>([]);
+  const cursorRef = useRef<HTMLDivElement | null>(null);
+  const [cursorDesktopActive, setCursorDesktopActive] = useState(false);
+
+  useEffect(() => {
+    if (!isVisibleOnSurface || contained || surface !== 'storefront') return;
+    const onBurst = (ev: Event) => {
+      const detail = (ev as CustomEvent<SeasonalBurstDetail>).detail || {};
+      const originX = typeof detail.x === 'number' ? detail.x : window.innerWidth * 0.5;
+      const originY = typeof detail.y === 'number' ? detail.y : window.innerHeight * 0.72;
+      const count = detail.count ?? (detail.variant === 'celebration' ? 28 : 14);
+      const baseId = Date.now() + Math.floor(Math.random() * 10000);
+      const created: BurstParticle[] = Array.from({ length: count }, (_, idx) => {
+        const angle = (Math.PI * 2 * idx) / count + (Math.random() - 0.5) * 0.45;
+        const dist = (detail.variant === 'celebration' ? 90 : 55) + Math.random() * 95;
+        return {
+          id: baseId + idx,
+          x: originX,
+          y: originY,
+          dx: Math.round(Math.cos(angle) * dist),
+          dy: Math.round(Math.sin(angle) * dist - (detail.variant === 'celebration' ? 35 : 20)),
+          rot: Math.round((Math.random() - 0.5) * 280),
+          sizePx: Math.round(13 + Math.random() * 9),
+          symbolIdx: idx,
+        };
+      });
+      setBurstParticles(prev => [...prev.slice(-30), ...created]);
+      window.setTimeout(() => {
+        const ids = new Set(created.map(c => c.id));
+        setBurstParticles(prev => prev.filter(p => !ids.has(p.id)));
+      }, 1050);
+    };
+    window.addEventListener('kh-seasonal-burst', onBurst);
+    return () => window.removeEventListener('kh-seasonal-burst', onBurst);
+  }, [isVisibleOnSurface, contained, surface]);
+
+  useEffect(() => {
+    if (!isVisibleOnSurface || contained || surface !== 'storefront') {
+      setCursorDesktopActive(false);
+      return;
+    }
+    const finePointer = window.matchMedia('(pointer: fine)').matches;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!finePointer || reducedMotion) {
+      setCursorDesktopActive(false);
+      return;
+    }
+    setCursorDesktopActive(true);
+    let rafId = 0;
+    let targetX = -100;
+    let targetY = -100;
+    let currentX = -100;
+    let currentY = -100;
+    let isInteractive = false;
+
+    const tick = () => {
+      currentX += (targetX - currentX) * 0.28;
+      currentY += (targetY - currentY) * 0.28;
+      if (cursorRef.current) {
+        const scale = isInteractive ? 1.25 : 0.9;
+        cursorRef.current.style.transform = `translate3d(${currentX + 12}px, ${currentY + 12}px, 0) scale(${scale})`;
+        cursorRef.current.style.opacity = isInteractive ? '0.92' : '0.42';
+      }
+      rafId = window.requestAnimationFrame(tick);
+    };
+
+    const onMove = (e: PointerEvent) => {
+      targetX = e.clientX;
+      targetY = e.clientY;
+      const el = e.target as HTMLElement | null;
+      isInteractive = Boolean(el?.closest('button, a, .store-btn-solid'));
+    };
+
+    window.addEventListener('pointermove', onMove, { passive: true });
+    rafId = window.requestAnimationFrame(tick);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.cancelAnimationFrame(rafId);
+    };
+  }, [isVisibleOnSurface, contained, surface]);
 
   const particles = useMemo(() => {
     const baseCount = INTENSITY_COUNTS[cfg?.intensity || 'medium'] ?? 26;
@@ -257,6 +438,131 @@ export const SeasonalOverlay: React.FC<SeasonalOverlayProps> = ({
             <path d="M108 10 L109.5 14 L113.5 15.5 L109.5 17 L108 21 L106.5 17 L102.5 15.5 L106.5 14 Z" fill="#fdba74" />
           </svg>
         );
+      case 'mothers_fathers_day':
+        return (
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 120 40"
+            className="h-8 w-24 shrink-0 opacity-95 hidden sm:block"
+            style={flip ? { transform: flip } : undefined}
+          >
+            {/* Soft flower */}
+            <circle cx="24" cy="20" r="3.5" fill="#fde047" />
+            <circle cx="24" cy="12" r="4" fill="rgba(255,255,255,0.75)" />
+            <circle cx="31" cy="17" r="4" fill="rgba(255,255,255,0.7)" />
+            <circle cx="28" cy="26" r="4" fill="rgba(255,255,255,0.75)" />
+            <circle cx="20" cy="26" r="4" fill="rgba(255,255,255,0.7)" />
+            <circle cx="17" cy="17" r="4" fill="rgba(255,255,255,0.75)" />
+            {/* Golden heart */}
+            <path d="M74 20 C74 16.5 68.5 14.5 66.5 18 C64.5 14.5 59 16.5 59 20 C59 25 66.5 29.5 66.5 29.5 C66.5 29.5 74 25 74 20 Z" fill="#fde047" />
+            <path d="M98 11 L99.5 15 L103.5 16.5 L99.5 18 L98 22 L96.5 18 L92.5 16.5 L96.5 15 Z" fill="#ffffff" />
+          </svg>
+        );
+      case 'kids_family':
+        return (
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 120 40"
+            className="h-8 w-24 shrink-0 opacity-95 hidden sm:block"
+            style={flip ? { transform: flip } : undefined}
+          >
+            {/* Balloons */}
+            <ellipse cx="22" cy="14" rx="7" ry="9" fill="#fde047" />
+            <path d="M22 23 Q20 29 24 35" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="1.2" />
+            <ellipse cx="42" cy="17" rx="6" ry="8" fill="#f9a8d4" />
+            <path d="M42 25 Q44 30 40 35" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="1.2" />
+            {/* Smiling pizza slice doodle */}
+            <polygon points="74,10 92,28 66,30" fill="#fde68a" />
+            <circle cx="77" cy="21" r="1.4" fill="#18181b" />
+            <circle cx="82" cy="22" r="1.4" fill="#18181b" />
+            <path d="M76 25 Q79 27 82 25" fill="none" stroke="#18181b" strokeWidth="1.2" strokeLinecap="round" />
+          </svg>
+        );
+      case 'pizza_day':
+        return (
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 120 40"
+            className="h-8 w-24 shrink-0 opacity-95 hidden sm:block"
+            style={flip ? { transform: flip } : undefined}
+          >
+            {/* Pizza slice */}
+            <polygon points="18,10 42,20 18,30" fill="#fde047" />
+            <path d="M16 9 Q13 20 16 31" fill="none" stroke="#fb923c" strokeWidth="4" strokeLinecap="round" />
+            <circle cx="25" cy="18" r="2.2" fill="#dc2626" />
+            <circle cx="31" cy="22" r="2" fill="#dc2626" />
+            {/* Oven flame */}
+            <path d="M68 30 C62 30 60 23 65 18 C66 21 68 20 69 14 C74 18 76 24 72 29 C71 30 69 30 68 30 Z" fill="#fef08a" />
+            <path d="M98 11 L99.5 15 L103.5 16.5 L99.5 18 L98 22 L96.5 18 L92.5 16.5 L96.5 15 Z" fill="#ffffff" />
+          </svg>
+        );
+      case 'football':
+        return (
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 120 40"
+            className="h-8 w-24 shrink-0 opacity-95 hidden sm:block"
+            style={flip ? { transform: flip } : undefined}
+          >
+            <path d="M0 8 Q30 18 60 8 T120 10" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" />
+            <polygon points="16,12 26,12 21,24" fill="#ffffff" />
+            <polygon points="38,14 48,14 43,26" fill="#dc2626" />
+            <polygon points="60,10 70,10 65,22" fill="#ffffff" />
+            {/* Ball */}
+            <circle cx="96" cy="22" r="8" fill="#ffffff" />
+            <polygon points="96,17 99,20 98,24 94,24 93,20" fill="#18181b" />
+          </svg>
+        );
+      case 'criolla':
+        return (
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 120 40"
+            className="h-8 w-24 shrink-0 opacity-95 hidden sm:block"
+            style={flip ? { transform: flip } : undefined}
+          >
+            {/* Musical notes */}
+            <circle cx="24" cy="26" r="4" fill="#fef08a" />
+            <path d="M28 26 L28 11 L42 9 L42 23" fill="none" stroke="#fef08a" strokeWidth="2.2" strokeLinecap="round" />
+            <circle cx="38" cy="24" r="4" fill="#fef08a" />
+            <circle cx="68" cy="22" r="6" fill="rgba(255,255,255,0.22)" stroke="#ffffff" strokeWidth="1.5" />
+            <path d="M98 12 L99.5 16 L103.5 17.5 L99.5 19 L98 23 L96.5 19 L92.5 17.5 L96.5 16 Z" fill="#ffffff" />
+          </svg>
+        );
+      case 'oktoberfest':
+        return (
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 120 40"
+            className="h-8 w-24 shrink-0 opacity-95 hidden sm:block"
+            style={flip ? { transform: flip } : undefined}
+          >
+            <path d="M0 8 Q30 18 60 8 T120 10" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+            <polygon points="14,12 24,12 19,24" fill="#ffffff" />
+            <polygon points="36,14 46,14 41,26" fill="#38bdf8" />
+            <polygon points="58,10 68,10 63,22" fill="#ffffff" />
+            {/* Wheat / Golden diamond */}
+            <rect x="90" y="14" width="10" height="10" rx="2" transform="rotate(45 95 19)" fill="#fde047" />
+          </svg>
+        );
+      case 'spring':
+        return (
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 120 40"
+            className="h-8 w-24 shrink-0 opacity-95 hidden sm:block"
+            style={flip ? { transform: flip } : undefined}
+          >
+            <circle cx="24" cy="20" r="3" fill="#fef08a" />
+            <circle cx="24" cy="14" r="3.5" fill="#ffffff" />
+            <circle cx="30" cy="18" r="3.5" fill="#fbcfe8" />
+            <circle cx="27" cy="25" r="3.5" fill="#ffffff" />
+            <circle cx="21" cy="25" r="3.5" fill="#fbcfe8" />
+            <circle cx="18" cy="18" r="3.5" fill="#ffffff" />
+            <path d="M62 24 Q70 12 78 24 Q70 28 62 24 Z" fill="rgba(255,255,255,0.75)" />
+            <path d="M98 11 L99.5 15 L103.5 16.5 L99.5 18 L98 22 L96.5 18 L92.5 16.5 L96.5 15 Z" fill="#fef08a" />
+          </svg>
+        );
       case 'patriotic':
       default:
         return (
@@ -318,6 +624,79 @@ export const SeasonalOverlay: React.FC<SeasonalOverlayProps> = ({
         return (
           <svg width={size} height={size} viewBox="0 0 24 24" fill={p.symbolIdx % 2 === 0 ? '#fb923c' : '#fde68a'}>
             <path d="M12 2 L14 10 L22 12 L14 14 L12 22 L10 14 L2 12 L10 10 Z" />
+          </svg>
+        );
+      case 'mothers_fathers_day':
+        return p.symbolIdx % 2 === 0 ? (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="#fde047">
+            <path d="M12 21s-7-4.35-9.5-8.4C.6 9.4 2.4 5 6.4 5c2.2 0 4 1.2 5.6 3.1C13.6 6.2 15.4 5 17.6 5c4 0 5.8 4.4 3.9 7.6C19 16.65 12 21 12 21z" />
+          </svg>
+        ) : (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="#fbcfe8">
+            <circle cx="12" cy="12" r="3" fill="#fde047" />
+            <circle cx="12" cy="6" r="3.5" />
+            <circle cx="17.5" cy="10" r="3.5" />
+            <circle cx="15.5" cy="16.5" r="3.5" />
+            <circle cx="8.5" cy="16.5" r="3.5" />
+            <circle cx="6.5" cy="10" r="3.5" />
+          </svg>
+        );
+      case 'kids_family':
+        return p.symbolIdx % 2 === 0 ? (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={p.symbolIdx % 4 === 0 ? '#f472b6' : '#38bdf8'}>
+            <ellipse cx="12" cy="10" rx="6" ry="8" />
+            <path d="M12 18 L12 23" stroke="rgba(255,255,255,0.8)" strokeWidth="1.5" />
+          </svg>
+        ) : (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="#fde047">
+            <polygon points="12,3 21,20 3,20" />
+            <circle cx="12" cy="14" r="1.8" fill="#ef4444" />
+          </svg>
+        );
+      case 'pizza_day':
+        return p.symbolIdx % 2 === 0 ? (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="#fde047">
+            <polygon points="12,3 21,20 3,20" />
+            <circle cx="12" cy="14" r="2" fill="#dc2626" />
+          </svg>
+        ) : (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="#fb923c">
+            <path d="M12 2 C9 7 7 10 9 14 C7 13 6 11 6 11 C5 16 8 21 12 21 C16 21 19 16 16 11 C15 8 13 5 12 2 Z" />
+          </svg>
+        );
+      case 'football':
+        return p.symbolIdx % 2 === 0 ? (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="#ffffff">
+            <circle cx="12" cy="12" r="8" stroke="#18181b" strokeWidth="1.5" />
+            <polygon points="12,8 15,11 14,15 10,15 9,11" fill="#18181b" />
+          </svg>
+        ) : (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill="#dc2626">
+            <rect x="7" y="7" width="10" height="10" rx="2" transform="rotate(45 12 12)" />
+          </svg>
+        );
+      case 'criolla':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={p.symbolIdx % 2 === 0 ? '#fde047' : '#fb7185'}>
+            <circle cx="9" cy="17" r="3" />
+            <path d="M12 17 L12 6 L19 5 L19 15" fill="none" stroke="currentColor" strokeWidth="2" />
+          </svg>
+        );
+      case 'oktoberfest':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={p.symbolIdx % 2 === 0 ? '#38bdf8' : '#fde047'}>
+            <rect x="7" y="7" width="10" height="10" rx="2" transform="rotate(45 12 12)" />
+          </svg>
+        );
+      case 'spring':
+        return (
+          <svg width={size} height={size} viewBox="0 0 24 24" fill={p.symbolIdx % 2 === 0 ? '#fde047' : '#fbcfe8'}>
+            <circle cx="12" cy="12" r="2.8" fill="#f59e0b" />
+            <circle cx="12" cy="6.5" r="3.2" />
+            <circle cx="17" cy="10.5" r="3.2" />
+            <circle cx="15" cy="16.5" r="3.2" />
+            <circle cx="9" cy="16.5" r="3.2" />
+            <circle cx="7" cy="10.5" r="3.2" />
           </svg>
         );
       case 'patriotic':
@@ -398,6 +777,200 @@ export const SeasonalOverlay: React.FC<SeasonalOverlayProps> = ({
           })}
         </div>
       )}
+      {burstParticles.length > 0 && (
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 pointer-events-none overflow-hidden z-[75] select-none"
+        >
+          {burstParticles.map(bp => (
+            <span
+              key={bp.id}
+              className="kh-seasonal-burst-item"
+              style={
+                {
+                  left: `${bp.x}px`,
+                  top: `${bp.y}px`,
+                  '--kh-bx': `${bp.dx}px`,
+                  '--kh-by': `${bp.dy}px`,
+                  '--kh-brot': `${bp.rot}deg`,
+                } as React.CSSProperties
+              }
+            >
+              {renderDoodleVectorParticle({
+                id: bp.id,
+                leftPct: 0,
+                topPct: 0,
+                sizePx: bp.sizePx,
+                durationSec: 1,
+                delaySec: 0,
+                swayPx: 0,
+                rotDeg: 0,
+                opacity: 1,
+                symbolIdx: bp.symbolIdx,
+              })}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {cursorDesktopActive && (
+        <div
+          ref={cursorRef}
+          aria-hidden="true"
+          className="fixed top-0 left-0 pointer-events-none z-[70] transition-opacity duration-200 will-change-transform"
+          style={{ opacity: 0 }}
+        >
+          {renderDoodleVectorParticle({
+            id: 9999,
+            leftPct: 0,
+            topPct: 0,
+            sizePx: 16,
+            durationSec: 1,
+            delaySec: 0,
+            swayPx: 0,
+            rotDeg: 0,
+            opacity: 1,
+            symbolIdx: 0,
+          })}
+        </div>
+      )}
     </>
+  );
+};
+
+/** Dynamic Google-Doodle ornament mounted on the Storefront Navbar logo */
+export const SeasonalLogoBadge: React.FC = () => {
+  const { customization } = useSettings();
+  const cfg = customization.seasonalTheme;
+  if (!cfg?.enabled) return null;
+
+  switch (cfg.theme) {
+    case 'christmas':
+      return (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 28 24"
+          className="w-6 h-5 -top-2.5 -right-2.5 absolute pointer-events-none drop-shadow-sm rotate-12"
+        >
+          <path d="M4 17 Q14 2 22 15 Z" fill="#dc2626" />
+          <rect x="2" y="15" width="21" height="4.5" rx="2.2" fill="#ffffff" />
+          <circle cx="23" cy="14" r="2.8" fill="#ffffff" />
+        </svg>
+      );
+    case 'halloween':
+      return (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 28 24"
+          className="w-6 h-5 -top-2 -right-2.5 absolute pointer-events-none drop-shadow-sm"
+        >
+          <path d="M2 14 Q8 4 14 14 Q20 4 26 14 Q18 18 14 21 Q10 18 2 14 Z" fill="#f97316" />
+          <circle cx="11" cy="13" r="1.2" fill="#18181b" />
+          <circle cx="17" cy="13" r="1.2" fill="#18181b" />
+        </svg>
+      );
+    case 'valentine':
+    case 'mothers_fathers_day':
+      return (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="w-4 h-4 -top-1.5 -right-2 absolute pointer-events-none drop-shadow-sm animate-pulse"
+          fill={cfg.theme === 'valentine' ? '#f43f5e' : '#eab308'}
+        >
+          <path d="M12 21s-7-4.35-9.5-8.4C.6 9.4 2.4 5 6.4 5c2.2 0 4 1.2 5.6 3.1C13.6 6.2 15.4 5 17.6 5c4 0 5.8 4.4 3.9 7.6C19 16.65 12 21 12 21z" />
+        </svg>
+      );
+    case 'new_year':
+      return (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="w-4 h-4 -top-1.5 -right-2 absolute pointer-events-none drop-shadow-sm animate-pulse"
+          fill="#eab308"
+        >
+          <path d="M12 1 L14.4 9.2 L22 12 L14.4 14.8 L12 23 L9.6 14.8 L2 12 L9.6 9.2 Z" />
+        </svg>
+      );
+    case 'football':
+      return (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="w-4 h-4 -top-1.5 -right-2 absolute pointer-events-none drop-shadow-sm"
+        >
+          <circle cx="12" cy="12" r="9" fill="#ffffff" stroke="#18181b" strokeWidth="1.5" />
+          <polygon points="12,7 15.5,10 14,15 10,15 8.5,10" fill="#18181b" />
+        </svg>
+      );
+    case 'pizza_day':
+      return (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="w-4 h-4 -top-2 -right-2 absolute pointer-events-none drop-shadow-sm"
+          fill="#f97316"
+        >
+          <path d="M12 2 C9 7 7 10 9 14 C7 13 6 11 6 11 C5 16 8 21 12 21 C16 21 19 16 16 11 C15 8 13 5 12 2 Z" />
+        </svg>
+      );
+    case 'kids_family':
+      return (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="w-4 h-4 -top-2 -right-2 absolute pointer-events-none drop-shadow-sm"
+          fill="#38bdf8"
+        >
+          <ellipse cx="12" cy="10" rx="6" ry="8" />
+          <path d="M12 18 L12 23" stroke="#94a3b8" strokeWidth="1.5" />
+        </svg>
+      );
+    default:
+      return (
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="w-4 h-4 -top-1.5 -right-2 absolute pointer-events-none drop-shadow-sm"
+          fill="#f59e0b"
+        >
+          <path d="M12 2 L14.4 9.6 L22 12 L14.4 14.4 L12 22 L9.6 14.4 L2 12 L9.6 9.6 Z" />
+        </svg>
+      );
+  }
+};
+
+/** Celebration overlay inside Order Confirmed modal */
+export const SeasonalCelebration: React.FC = () => {
+  const { customization } = useSettings();
+  const cfg = customization.seasonalTheme;
+
+  useEffect(() => {
+    if (!cfg?.enabled) return;
+    dispatchSeasonalBurst({ count: 30, variant: 'celebration' });
+  }, [cfg?.enabled]);
+
+  if (!cfg?.enabled) return null;
+  const meta = SEASONAL_THEMES_META[cfg.theme] || SEASONAL_THEMES_META.christmas;
+
+  return (
+    <div
+      aria-hidden="true"
+      className="absolute inset-x-0 top-0 h-28 pointer-events-none overflow-hidden rounded-t-3xl"
+    >
+      <div
+        className={`w-full h-full opacity-20 bg-gradient-to-b ${meta.bannerBgClass}`}
+        style={{ maskImage: 'linear-gradient(to bottom, black 20%, transparent 100%)' }}
+      />
+      <div className="absolute inset-0 flex items-start justify-between px-5 pt-3 opacity-85">
+        <span className="text-xl animate-bounce" style={{ animationDuration: '2.1s' }}>
+          {meta.symbols[0]}
+        </span>
+        <span className="text-lg animate-pulse">{meta.symbols[1]}</span>
+        <span className="text-xl animate-bounce" style={{ animationDuration: '2.4s', animationDelay: '0.25s' }}>
+          {meta.symbols[2] || meta.symbols[0]}
+        </span>
+      </div>
+    </div>
   );
 };

@@ -503,9 +503,147 @@ dialog::backdrop {
   animation: kh-btn-party-shimmer 3.8s ease-in-out infinite;
 }
 
+/* Día de la Madre / Padre: Flores suaves + corazón dorado */
+[data-seasonal-doodle="mothers_fathers_day"] .store-btn-solid::before {
+  bottom: 2px;
+  left: 5px;
+  width: 12px;
+  height: 12px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fbcfe8'%3E%3Ccircle cx='12' cy='12' r='3' fill='%23fde047'/%3E%3Ccircle cx='12' cy='6' r='3.5'/%3E%3Ccircle cx='17.5' cy='10' r='3.5'/%3E%3Ccircle cx='15.5' cy='16.5' r='3.5'/%3E%3Ccircle cx='8.5' cy='16.5' r='3.5'/%3E%3Ccircle cx='6.5' cy='10' r='3.5'/%3E%3C/svg%3E");
+  animation: kh-btn-twinkle-pop 3s ease-in-out infinite;
+}
+[data-seasonal-doodle="mothers_fathers_day"] .store-btn-solid::after {
+  top: 3px;
+  right: 5px;
+  width: 12px;
+  height: 12px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fde047'%3E%3Cpath d='M12 21s-7-4.35-9.5-8.4C.6 9.4 2.4 5 6.4 5c2.2 0 4 1.2 5.6 3.1C13.6 6.2 15.4 5 17.6 5c4 0 5.8 4.4 3.9 7.6C19 16.65 12 21 12 21z'/%3E%3C/svg%3E");
+  animation: kh-btn-heart-beat 2s ease-in-out infinite;
+}
+
+/* Día del Niño / Familiar: Globos + porción sonriente */
+[data-seasonal-doodle="kids_family"] .store-btn-solid::before {
+  top: 3px;
+  left: 5px;
+  width: 11px;
+  height: 14px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fde047'%3E%3Cellipse cx='12' cy='9' rx='6' ry='8'/%3E%3Cpath d='M12 17 L12 23' stroke='%23ffffff' stroke-width='1.8'/%3E%3C/svg%3E");
+  animation: kh-btn-spooky-sway 2.8s ease-in-out infinite;
+}
+[data-seasonal-doodle="kids_family"] .store-btn-solid::after {
+  top: 3px;
+  right: 5px;
+  width: 12px;
+  height: 12px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23f9a8d4'%3E%3Cellipse cx='12' cy='10' rx='6' ry='8'/%3E%3C/svg%3E");
+  animation: kh-btn-twinkle-pop 2.4s ease-in-out infinite;
+}
+
+/* Día de la Pizza / Aniversario: Rebanada + llama de horno */
+[data-seasonal-doodle="pizza_day"] .store-btn-solid::before {
+  top: 3px;
+  left: 5px;
+  width: 12px;
+  height: 12px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fde047'%3E%3Cpolygon points='12,3 21,20 3,20'/%3E%3Ccircle cx='12' cy='14' r='2' fill='%23dc2626'/%3E%3C/svg%3E");
+  animation: kh-btn-spooky-sway 3s ease-in-out infinite;
+}
+[data-seasonal-doodle="pizza_day"] .store-btn-solid::after {
+  top: 3px;
+  right: 5px;
+  width: 12px;
+  height: 12px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fef08a'%3E%3Cpath d='M12 2 C9 7 7 10 9 14 C7 13 6 11 6 11 C5 16 8 21 12 21 C16 21 19 16 16 11 C15 8 13 5 12 2 Z'/%3E%3C/svg%3E");
+  animation: kh-btn-twinkle-pop 1.9s ease-in-out infinite;
+}
+
+/* Modo Fútbol / Selección: Banderines bicolor + balón */
+[data-seasonal-doodle="football"] .store-btn-solid::before {
+  top: 0;
+  left: 6px;
+  right: 18px;
+  height: 8px;
+  background-size: 100% 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 10' preserveAspectRatio='none'%3E%3Cpolygon points='10,0 22,0 16,9' fill='%23ffffff'/%3E%3Cpolygon points='34,0 46,0 40,9' fill='%23fecaca'/%3E%3Cpolygon points='58,0 70,0 64,9' fill='%23ffffff'/%3E%3Cpolygon points='82,0 94,0 88,9' fill='%23fecaca'/%3E%3C/svg%3E");
+}
+[data-seasonal-doodle="football"] .store-btn-solid::after {
+  top: 3px;
+  right: 5px;
+  width: 12px;
+  height: 12px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpolygon points='12,7 15.5,10 14,15 10,15 8.5,10' fill='%2318181b'/%3E%3C/svg%3E");
+  animation: kh-btn-twinkle-pop 2.2s ease-in-out infinite;
+}
+
+/* Canción Criolla / Oktoberfest / Primavera */
+[data-seasonal-doodle="criolla"] .store-btn-solid::after {
+  top: 3px;
+  right: 5px;
+  width: 12px;
+  height: 12px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23fde047'%3E%3Ccircle cx='9' cy='17' r='3'/%3E%3Cpath d='M12 17 L12 6 L19 5 L19 15' fill='none' stroke='%23fde047' stroke-width='2'/%3E%3C/svg%3E");
+  animation: kh-btn-spooky-sway 2.2s ease-in-out infinite;
+}
+[data-seasonal-doodle="oktoberfest"] .store-btn-solid::before {
+  top: 0;
+  left: 6px;
+  right: 18px;
+  height: 8px;
+  background-size: 100% 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 10' preserveAspectRatio='none'%3E%3Cpolygon points='10,0 22,0 16,9' fill='%23ffffff'/%3E%3Cpolygon points='34,0 46,0 40,9' fill='%2338bdf8'/%3E%3Cpolygon points='58,0 70,0 64,9' fill='%23ffffff'/%3E%3Cpolygon points='82,0 94,0 88,9' fill='%2338bdf8'/%3E%3C/svg%3E");
+}
+[data-seasonal-doodle="spring"] .store-btn-solid::after {
+  top: 3px;
+  right: 5px;
+  width: 12px;
+  height: 12px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'%3E%3Ccircle cx='12' cy='12' r='2.8' fill='%23fde047'/%3E%3Ccircle cx='12' cy='6.5' r='3.2'/%3E%3Ccircle cx='17' cy='10.5' r='3.2'/%3E%3Ccircle cx='15' cy='16.5' r='3.2'/%3E%3Ccircle cx='9' cy='16.5' r='3.2'/%3E%3Ccircle cx='7' cy='10.5' r='3.2'/%3E%3C/svg%3E");
+  animation: kh-btn-twinkle-pop 2.5s ease-in-out infinite;
+}
+
+/* Hover micro-animations on primary buttons (+ Elegir, Agregar al Pedido, etc.) */
+[data-seasonal-doodle] .store-btn-solid:hover::after {
+  animation-duration: 0.75s;
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.95));
+}
+[data-seasonal-doodle="christmas"] .store-btn-solid:hover::before {
+  animation-duration: 0.65s;
+}
+[data-seasonal-doodle="halloween"] .store-btn-solid:hover::before {
+  opacity: 0.9;
+  filter: drop-shadow(0 0 5px rgba(251, 146, 60, 0.85));
+}
+[data-seasonal-doodle="valentine"] .store-btn-solid:hover::before,
+[data-seasonal-doodle="valentine"] .store-btn-solid:hover::after {
+  animation-duration: 0.75s;
+}
+
+/* Add-to-cart & order-confirmed radial burst particles */
+@keyframes kh-burst-fly {
+  0% {
+    transform: translate(-50%, -50%) scale(0.4) rotate(0deg);
+    opacity: 1;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--kh-bx, 0px)), calc(-50% + var(--kh-by, -60px))) scale(1.1) rotate(var(--kh-brot, 120deg));
+    opacity: 0;
+  }
+}
+
+.kh-seasonal-burst-item {
+  position: fixed;
+  pointer-events: none;
+  line-height: 1;
+  animation: kh-burst-fly 0.95s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-seasonal-doodle] .store-btn-solid::before,
-  [data-seasonal-doodle] .store-btn-solid::after {
+  [data-seasonal-doodle] .store-btn-solid::after,
+  .kh-seasonal-burst-item {
     animation: none !important;
   }
 }

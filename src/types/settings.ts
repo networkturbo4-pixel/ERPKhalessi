@@ -20,6 +20,13 @@ export type SeasonalThemeId =
   | 'christmas'
   | 'new_year'
   | 'valentine'
+  | 'mothers_fathers_day'
+  | 'kids_family'
+  | 'pizza_day'
+  | 'football'
+  | 'criolla'
+  | 'oktoberfest'
+  | 'spring'
   | 'summer'
   | 'halloween'
   | 'patriotic';
