@@ -219,7 +219,7 @@ if (!preg_match('/^[0-9A-Fa-f]{6}$/', $hexBgClean)) {
     $hexBgClean = '18181b';
 }
 $dynamicHeroUrl = ($isHttpsRequest && $hostHeader !== '' && stripos($hostHeader, 'localhost') === false)
-    ? "https://{$hostHeader}/api/google-wallet-stamps.php?points={$points}&goal={$goal}&bg={$hexBgClean}&accent=f59e0b"
+    ? "https://{$hostHeader}/api/google-wallet-stamps.php?points={$points}&goal={$goal}&bg={$hexBgClean}&accent=f59e0b&v=" . time()
     : '';
 
 if ($action === 'create-save-link') {

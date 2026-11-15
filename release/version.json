@@ -1,8 +1,8 @@
 {
-  "buildId": "20261115031126",
-  "builtAt": "2026-11-15T03:11:26.430Z",
-  "commitSha": "b2a38a2",
-  "message": "feat(benefits): integrate Google Wallet loyalty pass, stamps, geofencing and scheduled promos",
+  "buildId": "20261115032016",
+  "builtAt": "2026-11-15T03:20:16.978Z",
+  "commitSha": "7ecb230",
+  "message": "fix(wallet): enlarge stamp circles, support relative HTTPS paths and clear barcode with PUT",
   "totalFiles": 94,
-  "manifestSha256": "2e91cc56a571ee33753b9ec1aeb3a558fa1ed692d22c0bff021baca9987b2fdb"
+  "manifestSha256": "aa4d01bbde084f7228c0aab07913e859ab13a39822f0a99263ec169453e3dc09"
 }
