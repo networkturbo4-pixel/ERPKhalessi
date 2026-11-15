@@ -19,6 +19,33 @@ export interface PromoCoupon {
 export type LoyaltyCardStyle = 'modern_dark' | 'glass_light' | 'gold_vip' | 'gradient_brand' | 'classic_paper';
 export type LoyaltyStampStyle = 'pills' | 'circles' | 'squares' | 'minimal_dots' | 'tickets';
 
+export interface GoogleWalletScheduledPromo {
+  id: string;
+  header: string;
+  body: string;
+  promoUrl?: string;
+  messageType: 'TEXT_AND_NOTIFY' | 'TEXT';
+  targetMode: 'all_class' | 'test_preview';
+  scheduledAt: string;
+  status: 'scheduled' | 'sent' | 'failed' | 'cancelled';
+  createdAt: string;
+  sentAt?: string;
+  error?: string;
+}
+
+export interface GoogleWalletConfig {
+  enabled: boolean;
+  issuerId: string;
+  classSuffix: string;
+  issuerName: string;
+  logoUrl?: string;
+  heroImageUrl?: string;
+  hexBackgroundColor?: string;
+  barcodeType?: 'QR_CODE' | 'CODE_128' | 'NONE';
+  enableLocationAlerts?: boolean;
+  scheduledPromos?: GoogleWalletScheduledPromo[];
+}
+
 export interface PointsProgramConfig {
   enabled: boolean;
   status: 'active' | 'paused';
@@ -46,6 +73,7 @@ export interface PointsProgramConfig {
   pointsPerPurchase: number;
   minPurchaseAmountForPoint: number;
   stampsPerCardGoal: number;
+  googleWallet?: GoogleWalletConfig;
 }
 
 export type RewardBenefitType = 'free_product' | 'fixed_discount' | 'percentage_discount';

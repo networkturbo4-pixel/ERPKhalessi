@@ -2,6 +2,7 @@ import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin } from 'vite'
 import fs from 'fs'
 import path from 'path'
+import crypto from 'crypto'
 import type { ServerResponse } from 'http'
 
 interface SseClient {
@@ -94,6 +95,442 @@ function diskStoragePlugin(): Plugin {
           res.statusCode = 200
           res.end(fallbackSvg)
           return
+        }
+
+        // Google Wallet Loyalty Pass API (dev mirror of public/api/google-wallet.php)
+        if (req.url?.split('?')[0] === '/api/google-wallet.php') {
+          res.setHeader('Content-Type', 'application/json; charset=utf-8')
+          res.setHeader('Cache-Control', 'no-store')
+
+          const findServiceAccount = (): { client_email: string; private_key: string } | null => {
+            const candidates = [
+              process.env.GOOGLE_WALLET_SA_PATH || '',
+              path.resolve(process.cwd(), 'data', 'google-wallet-sa.json'),
+              path.resolve(process.cwd(), 'public', 'api', 'storage', 'google-wallet-sa.json'),
+            ].filter(Boolean)
+            for (const p of candidates) {
+              try {
+                if (fs.existsSync(p)) {
+                  const parsed = JSON.parse(fs.readFileSync(p, 'utf-8'))
+                  if (parsed?.client_email && parsed?.private_key) return parsed
+                }
+              } catch {
+                // ignore invalid file
+              }
+            }
+            return null
+          }
+
+          const b64url = (input: Buffer | string) =>
+            Buffer.from(input).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+
+          const signJwt = (header: Record<string, unknown>, payload: Record<string, unknown>, privateKey: string) => {
+            const head = b64url(JSON.stringify(header))
+            const body = b64url(JSON.stringify(payload))
+            const signer = crypto.createSign('RSA-SHA256')
+            signer.update(`${head}.${body}`)
+            signer.end()
+            const sig = b64url(signer.sign(privateKey))
+            return `${head}.${body}.${sig}`
+          }
+
+          const sanitizeId = (val: string) =>
+            val.replace(/[^A-Za-z0-9_.\-]/g, '_').replace(/^_+|_+$/g, '').slice(0, 64) || 'item'
+
+          if (req.method === 'GET') {
+            const sa = findServiceAccount()
+            res.statusCode = 200
+            res.end(
+              JSON.stringify({
+                success: true,
+                configured: Boolean(sa),
+                serviceAccountEmail: sa?.client_email || null,
+                mode: sa ? 'production' : 'unconfigured',
+              })
+            )
+            return
+          }
+
+          if (req.method === 'POST') {
+            const chunks: Buffer[] = []
+            req.on('data', c => chunks.push(Buffer.from(c)))
+            req.on('end', async () => {
+              try {
+                const body = JSON.parse(Buffer.concat(chunks).toString('utf-8') || '{}')
+                const sa = findServiceAccount()
+                if (!sa) {
+                  res.statusCode = 503
+                  res.end(
+                    JSON.stringify({
+                      success: false,
+                      code: 'SERVICE_ACCOUNT_MISSING',
+                      error: 'No se encontró google-wallet-sa.json en data/google-wallet-sa.json.',
+                    })
+                  )
+                  return
+                }
+
+                const issuerId = String(body.issuerId || '').replace(/[^0-9]/g, '')
+                const rawCustomerId = String(body.customerId || '').trim()
+                const customerId = rawCustomerId ? sanitizeId(rawCustomerId) : ''
+                if (!issuerId) {
+                  res.statusCode = 400
+                  res.end(JSON.stringify({ success: false, error: 'issuerId es obligatorio.' }))
+                  return
+                }
+                if (body.action !== 'send-promo' && !customerId) {
+                  res.statusCode = 400
+                  res.end(JSON.stringify({ success: false, error: 'customerId es obligatorio.' }))
+                  return
+                }
+
+                const classSuffix = sanitizeId(String(body.classSuffix || 'khalessi_loyalty_v1'))
+                const classId = `${issuerId}.${classSuffix}`
+                const objectId = `${issuerId}.khalessi_cust_${customerId}`
+                const points = Math.max(0, Math.round(Number(body.points || 0)))
+                const goal = Math.max(1, Math.round(Number(body.goal || 8)))
+                const activeStamps = Math.min(goal, points)
+                const remainingStamps = Math.max(0, goal - activeStamps)
+                const stampBar =
+                  goal <= 12
+                    ? `${'● '.repeat(activeStamps)}${'○ '.repeat(remainingStamps)}`.trim()
+                    : `${activeStamps} / ${goal}`
+                const stampPizzaBar =
+                  goal <= 12
+                    ? `${'🍕 '.repeat(activeStamps)}${'⚪ '.repeat(remainingStamps)}`.trim()
+                    : `${'🍕'.repeat(Math.min(8, activeStamps))} (${activeStamps}/${goal})`
+                const stampStatusText =
+                  remainingStamps === 0
+                    ? '¡Cartilla completa! Ya puedes canjear tu premio en tienda o web.'
+                    : `Llevas ${activeStamps} de ${goal} sellos. Te ${remainingStamps === 1 ? 'falta 1 sello' : `faltan ${remainingStamps} sellos`} para tu premio.`
+
+                if (body.action === 'create-save-link') {
+                  const issuerName = String(body.issuerName || 'Khalessi Pizza').trim() || 'Khalessi Pizza'
+                  const programName = String(body.programName || 'Tarjeta de Puntos Khalessi').trim()
+                  const subtitle = String(body.subtitle || '').trim()
+                  const customerName = String(body.customerName || 'Cliente Khalessi').trim()
+                  const accountId = String(body.customerPhone || customerId).trim() || customerId
+                  const hexBg = /^#[0-9A-Fa-f]{6}$/.test(String(body.hexBackgroundColor || ''))
+                    ? String(body.hexBackgroundColor)
+                    : '#18181b'
+                  const rawBarcodeType = String(body.barcodeType || 'QR_CODE')
+                  const barcodeType =
+                    rawBarcodeType === 'NONE' ? 'NONE' : rawBarcodeType === 'CODE_128' ? 'CODE_128' : 'QR_CODE'
+
+                  const resolvedLogoUrl =
+                    typeof body.logoUrl === 'string' && /^https:\/\/.+/i.test(body.logoUrl.trim())
+                      ? body.logoUrl.trim()
+                      : 'https://www.gstatic.com/images/branding/product/2x/wallet_48dp.png'
+
+                  const loyaltyClass: Record<string, unknown> = {
+                    id: classId,
+                    issuerName,
+                    programName,
+                    hexBackgroundColor: hexBg,
+                    reviewStatus: 'UNDER_REVIEW',
+                    programLogo: {
+                      sourceUri: { uri: resolvedLogoUrl },
+                      contentDescription: { defaultValue: { language: 'es', value: issuerName } },
+                    },
+                  }
+                  if (typeof body.heroImageUrl === 'string' && /^https:\/\/.+/i.test(body.heroImageUrl.trim())) {
+                    loyaltyClass.heroImage = {
+                      sourceUri: { uri: body.heroImageUrl.trim() },
+                      contentDescription: { defaultValue: { language: 'es', value: programName } },
+                    }
+                  }
+                  if (Array.isArray(body.locations) && body.locations.length > 0) {
+                    const validLocs = body.locations
+                      .filter(
+                        (l: unknown): l is { latitude: number; longitude: number } =>
+                          Boolean(l) &&
+                          typeof (l as { latitude?: unknown }).latitude === 'number' &&
+                          typeof (l as { longitude?: unknown }).longitude === 'number' &&
+                          Number.isFinite((l as { latitude: number }).latitude) &&
+                          Number.isFinite((l as { longitude: number }).longitude)
+                      )
+                      .slice(0, 10)
+                      .map((l: { latitude: number; longitude: number }) => ({ latitude: l.latitude, longitude: l.longitude }))
+                    if (validLocs.length > 0) {
+                      loyaltyClass.locations = validLocs
+                    }
+                  }
+
+                  const loyaltyObject: Record<string, unknown> = {
+                    id: objectId,
+                    classId,
+                    state: 'ACTIVE',
+                    accountId,
+                    accountName: customerName,
+                    loyaltyPoints: { label: 'Puntos', balance: { int: points } },
+                    secondaryLoyaltyPoints: { label: 'Sellos', balance: { string: `${stampBar} (${activeStamps}/${goal})` } },
+                    textModulesData: [
+                      {
+                        id: 'stamps_progress',
+                        header: `Sellos Marcados (${activeStamps} / ${goal})`,
+                        body: `${stampPizzaBar}\n${stampStatusText}`,
+                      },
+                      {
+                        id: 'program_info',
+                        header: 'Programa de Puntos',
+                        body: subtitle || 'Presenta este código en caja para sumar o canjear puntos.',
+                      },
+                    ],
+                  }
+                  if (barcodeType !== 'NONE') {
+                    loyaltyObject.barcode = {
+                      type: barcodeType,
+                      value: `KHALESSI:LOYALTY:${customerId}`,
+                      alternateText: accountId,
+                    }
+                  }
+
+                  const claims: Record<string, unknown> = {
+                    iss: sa.client_email,
+                    aud: 'google',
+                    typ: 'savetowallet',
+                    iat: Math.floor(Date.now() / 1000),
+                    payload: {
+                      loyaltyClasses: [loyaltyClass],
+                      loyaltyObjects: [loyaltyObject],
+                    },
+                  }
+                  if (req.headers.origin && /^https:\/\//i.test(req.headers.origin)) {
+                    claims.origins = [req.headers.origin]
+                  }
+
+                  const jwt = signJwt({ alg: 'RS256', typ: 'JWT' }, claims, sa.private_key)
+
+                  // Si el objeto ya existía en Google Wallet, actualizarlo vía PATCH para reflejar sellos/puntos actuales
+                  try {
+                    const now = Math.floor(Date.now() / 1000)
+                    const assertion = signJwt(
+                      { alg: 'RS256', typ: 'JWT' },
+                      {
+                        iss: sa.client_email,
+                        scope: 'https://www.googleapis.com/auth/wallet_object.issuer',
+                        aud: 'https://oauth2.googleapis.com/token',
+                        iat: now,
+                        exp: now + 3600,
+                      },
+                      sa.private_key
+                    )
+                    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                      body: new URLSearchParams({
+                        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+                        assertion,
+                      }).toString(),
+                    })
+                    const tokenJson = (await tokenRes.json()) as { access_token?: string }
+                    if (tokenRes.ok && tokenJson.access_token) {
+                      await fetch(
+                        `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyClass/${encodeURIComponent(classId)}`,
+                        {
+                          method: 'PATCH',
+                          headers: {
+                            Authorization: `Bearer ${tokenJson.access_token}`,
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify({
+                            issuerName,
+                            programName,
+                            hexBackgroundColor: hexBg,
+                            programLogo: loyaltyClass.programLogo,
+                            ...(loyaltyClass.heroImage ? { heroImage: loyaltyClass.heroImage } : {}),
+                            ...(loyaltyClass.locations ? { locations: loyaltyClass.locations } : {}),
+                          }),
+                        }
+                      )
+                      await fetch(
+                        `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${encodeURIComponent(objectId)}`,
+                        {
+                          method: 'PATCH',
+                          headers: {
+                            Authorization: `Bearer ${tokenJson.access_token}`,
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify({
+                            loyaltyPoints: loyaltyObject.loyaltyPoints,
+                            secondaryLoyaltyPoints: loyaltyObject.secondaryLoyaltyPoints,
+                            textModulesData: loyaltyObject.textModulesData,
+                            barcode: loyaltyObject.barcode ?? null,
+                          }),
+                        }
+                      )
+                    }
+                  } catch {
+                    // Si aún no existe (404) o falla red, el JWT savetowallet lo creará al guardar
+                  }
+
+                  res.statusCode = 200
+                  res.end(
+                    JSON.stringify({
+                      success: true,
+                      saveUrl: `https://pay.google.com/gp/v/save/${jwt}`,
+                      classId,
+                      objectId,
+                    })
+                  )
+                  return
+                }
+
+                if (body.action === 'sync-points') {
+                  const now = Math.floor(Date.now() / 1000)
+                  const assertion = signJwt(
+                    { alg: 'RS256', typ: 'JWT' },
+                    {
+                      iss: sa.client_email,
+                      scope: 'https://www.googleapis.com/auth/wallet_object.issuer',
+                      aud: 'https://oauth2.googleapis.com/token',
+                      iat: now,
+                      exp: now + 3600,
+                    },
+                    sa.private_key
+                  )
+                  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+                      assertion,
+                    }).toString(),
+                  })
+                  const tokenJson = (await tokenRes.json()) as { access_token?: string }
+                  if (!tokenRes.ok || !tokenJson.access_token) {
+                    res.statusCode = 502
+                    res.end(JSON.stringify({ success: false, error: 'Error obteniendo token OAuth2 de Google.' }))
+                    return
+                  }
+                  const patchRes = await fetch(
+                    `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${encodeURIComponent(objectId)}`,
+                    {
+                      method: 'PATCH',
+                      headers: {
+                        Authorization: `Bearer ${tokenJson.access_token}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        loyaltyPoints: { label: 'Puntos', balance: { int: points } },
+                        secondaryLoyaltyPoints: { label: 'Sellos', balance: { string: `${stampBar} (${activeStamps}/${goal})` } },
+                        textModulesData: [
+                          {
+                            id: 'stamps_progress',
+                            header: `Sellos Marcados (${activeStamps} / ${goal})`,
+                            body: `${stampPizzaBar}\n${stampStatusText}`,
+                          },
+                        ],
+                      }),
+                    }
+                  )
+                  if (patchRes.status === 404) {
+                    res.statusCode = 200
+                    res.end(JSON.stringify({ success: true, synced: false, reason: 'object_not_found' }))
+                    return
+                  }
+                  if (!patchRes.ok) {
+                    res.statusCode = 502
+                    res.end(JSON.stringify({ success: false, error: 'Error sincronizando puntos en Google Wallet.' }))
+                    return
+                  }
+                  res.statusCode = 200
+                  res.end(JSON.stringify({ success: true, synced: true, objectId, points }))
+                  return
+                }
+
+                if (body.action === 'send-promo') {
+                  const header = String(body.header || '').trim().slice(0, 80)
+                  const rawBodyText = String(body.body || '').trim().slice(0, 400)
+                  const promoUrl = String(body.promoUrl || '').trim()
+                  if (!header || !rawBodyText) {
+                    res.statusCode = 400
+                    res.end(JSON.stringify({ success: false, error: 'Título y mensaje son obligatorios.' }))
+                    return
+                  }
+                  const finalBody =
+                    promoUrl && /^https:\/\/.+/i.test(promoUrl) ? `${rawBodyText}\n${promoUrl}` : rawBodyText
+                  const messageType = body.messageType === 'TEXT' ? 'TEXT' : 'TEXT_AND_NOTIFY'
+                  const targetCust = String(body.targetCustomerId || '').trim()
+                  const targetEndpoint = targetCust
+                    ? `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/${encodeURIComponent(
+                        `${issuerId}.khalessi_cust_${sanitizeId(targetCust)}`
+                      )}/addMessage`
+                    : `https://walletobjects.googleapis.com/walletobjects/v1/loyaltyClass/${encodeURIComponent(
+                        classId
+                      )}/addMessage`
+
+                  const now = Math.floor(Date.now() / 1000)
+                  const assertion = signJwt(
+                    { alg: 'RS256', typ: 'JWT' },
+                    {
+                      iss: sa.client_email,
+                      scope: 'https://www.googleapis.com/auth/wallet_object.issuer',
+                      aud: 'https://oauth2.googleapis.com/token',
+                      iat: now,
+                      exp: now + 3600,
+                    },
+                    sa.private_key
+                  )
+                  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+                      assertion,
+                    }).toString(),
+                  })
+                  const tokenJson = (await tokenRes.json()) as { access_token?: string }
+                  if (!tokenRes.ok || !tokenJson.access_token) {
+                    res.statusCode = 502
+                    res.end(JSON.stringify({ success: false, error: 'Error obteniendo token OAuth2 de Google.' }))
+                    return
+                  }
+
+                  const msgId = `promo_${Date.now()}`
+                  const msgRes = await fetch(targetEndpoint, {
+                    method: 'POST',
+                    headers: {
+                      Authorization: `Bearer ${tokenJson.access_token}`,
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      message: {
+                        id: msgId,
+                        header,
+                        body: finalBody,
+                        messageType,
+                      },
+                    }),
+                  })
+                  const msgText = await msgRes.text()
+                  if (!msgRes.ok) {
+                    let googleErr = 'Error enviando notificación a Google Wallet.'
+                    try {
+                      const parsedErr = JSON.parse(msgText) as { error?: { message?: string } }
+                      if (parsedErr?.error?.message) googleErr = parsedErr.error.message
+                    } catch {
+                      // keep default
+                    }
+                    res.statusCode = 502
+                    res.end(JSON.stringify({ success: false, error: googleErr }))
+                    return
+                  }
+
+                  res.statusCode = 200
+                  res.end(JSON.stringify({ success: true, messageId: msgId }))
+                  return
+                }
+
+                res.statusCode = 400
+                res.end(JSON.stringify({ success: false, error: 'Acción no reconocida.' }))
+              } catch (err) {
+                res.statusCode = 500
+                res.end(JSON.stringify({ success: false, error: err instanceof Error ? err.message : 'Error interno' }))
+              }
+            })
+            return
+          }
         }
 
         // Proxy para Factúralo PRO (resuelve bloqueo de CORS de api.facturalo.pe en el navegador)

@@ -13,6 +13,7 @@ import { useStoreCustomer } from '../../context/StoreCustomerContext';
 import { useSettings } from '../../context/SettingsContext';
 import { StoreInteractiveGames } from './StoreInteractiveGames';
 import { LoyaltyCardView } from '../benefits/LoyaltyCardView';
+import { AddToGoogleWalletButton } from '../benefits/AddToGoogleWalletButton';
 
 interface StoreBenefitsDrawerProps {
   isOpen: boolean;
@@ -190,6 +191,16 @@ export const StoreBenefitsDrawer: React.FC<StoreBenefitsDrawerProps> = ({
                       points={currentCustomer?.points || 0}
                       rewardsCount={rewards.filter(r => r.isActive).length}
                     />
+
+                    {currentCustomer && (
+                      <AddToGoogleWalletButton
+                        config={pointsConfig}
+                        customerId={currentCustomer.id}
+                        customerName={currentCustomer.fullName}
+                        customerPhone={currentCustomer.phone}
+                        points={currentCustomer.points || 0}
+                      />
+                    )}
 
                     {!currentCustomer && (
                       <div

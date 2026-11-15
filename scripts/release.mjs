@@ -45,6 +45,7 @@ if (fs.existsSync(serverDir)) {
 fs.rmSync(path.join(release, 'api', 'config.local.php'), { force: true });
 fs.rmSync(path.join(release, 'api', '.token_secret.php'), { force: true });
 fs.rmSync(path.join(release, 'api', '.rate_limit'), { recursive: true, force: true });
+fs.rmSync(path.join(release, 'api', 'storage', 'google-wallet-sa.json'), { force: true });
 
 function buildManifestEntries(dir, baseDir = dir) {
   const entries = [];

@@ -6,6 +6,7 @@ import {
   RewardRedemptionRecord,
   GameSettingsConfig,
 } from '../types/benefits';
+import { sendGoogleWalletPromo } from '../utils/googleWallet';
 
 const BENEFITS_STORAGE_KEY = 'kh_erp_benefits_v1';
 
@@ -63,6 +64,18 @@ const DEFAULT_POINTS_CONFIG: PointsProgramConfig = {
   pointsPerPurchase: 1,
   minPurchaseAmountForPoint: 20,
   stampsPerCardGoal: 8,
+  googleWallet: {
+    enabled: false,
+    issuerId: '',
+    classSuffix: 'khalessi_loyalty_v1',
+    issuerName: 'Khalessi Pizza',
+    logoUrl: '',
+    heroImageUrl: '',
+    hexBackgroundColor: '#18181b',
+    barcodeType: 'QR_CODE',
+    enableLocationAlerts: true,
+    scheduledPromos: [],
+  },
 };
 
 const DEFAULT_GAME_SETTINGS: GameSettingsConfig = {
@@ -203,7 +216,14 @@ function loadBenefitsState(): PersistedBenefitsState {
     const parsed = JSON.parse(raw);
     return {
       coupons: Array.isArray(parsed.coupons) ? parsed.coupons : DEFAULT_COUPONS,
-      pointsConfig: { ...DEFAULT_POINTS_CONFIG, ...(parsed.pointsConfig || {}) },
+      pointsConfig: {
+        ...DEFAULT_POINTS_CONFIG,
+        ...(parsed.pointsConfig || {}),
+        googleWallet: {
+          ...DEFAULT_POINTS_CONFIG.googleWallet!,
+          ...(parsed.pointsConfig?.googleWallet || {}),
+        },
+      },
       rewards: Array.isArray(parsed.rewards) ? parsed.rewards : DEFAULT_REWARDS,
       redemptionHistory: Array.isArray(parsed.redemptionHistory) ? parsed.redemptionHistory : [],
       gameSettings: { ...DEFAULT_GAME_SETTINGS, ...(parsed.gameSettings || {}) },
@@ -253,6 +273,74 @@ export const BenefitsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [state, setState] = useState<PersistedBenefitsState>(loadBenefitsState);
   const isFirstMountRef = React.useRef(true);
   const skipNextPersistRef = React.useRef(false);
+  const processingPromoIdsRef = React.useRef<Set<string>>(new Set());
+
+  // Ejecutor automático de notificaciones programadas de Google Wallet
+  useEffect(() => {
+    const checkAndDispatchPromos = async () => {
+      const gw = state.pointsConfig.googleWallet;
+      if (!gw?.enabled || !gw.issuerId?.trim() || !Array.isArray(gw.scheduledPromos)) {
+        return;
+      }
+
+      const nowMs = Date.now();
+      const duePromos = gw.scheduledPromos.filter(
+        p =>
+          p.status === 'scheduled' &&
+          !processingPromoIdsRef.current.has(p.id) &&
+          Number.isFinite(new Date(p.scheduledAt).getTime()) &&
+          new Date(p.scheduledAt).getTime() <= nowMs
+      );
+
+      if (duePromos.length === 0) return;
+
+      for (const promo of duePromos) {
+        processingPromoIdsRef.current.add(promo.id);
+        const result = await sendGoogleWalletPromo({
+          issuerId: gw.issuerId,
+          classSuffix: gw.classSuffix || 'khalessi_loyalty_v1',
+          header: promo.header,
+          body: promo.body,
+          promoUrl: promo.promoUrl,
+          messageType: promo.messageType,
+          targetCustomerId: promo.targetMode === 'test_preview' ? 'demo-preview-001' : '',
+        });
+
+        const finishedAt = new Date().toISOString();
+        setState(prev => {
+          const prevGw = prev.pointsConfig.googleWallet;
+          if (!prevGw?.scheduledPromos) return prev;
+          return {
+            ...prev,
+            pointsConfig: {
+              ...prev.pointsConfig,
+              googleWallet: {
+                ...prevGw,
+                scheduledPromos: prevGw.scheduledPromos.map(item =>
+                  item.id === promo.id
+                    ? {
+                        ...item,
+                        status: result.success ? 'sent' : 'failed',
+                        sentAt: result.success ? finishedAt : undefined,
+                        error: result.success ? undefined : result.error || 'Error al enviar',
+                      }
+                    : item
+                ),
+              },
+            },
+          };
+        });
+        processingPromoIdsRef.current.delete(promo.id);
+      }
+    };
+
+    void checkAndDispatchPromos();
+    const timer = window.setInterval(() => {
+      void checkAndDispatchPromos();
+    }, 15000);
+
+    return () => window.clearInterval(timer);
+  }, [state.pointsConfig.googleWallet]);
 
   useEffect(() => {
     if (isFirstMountRef.current) {

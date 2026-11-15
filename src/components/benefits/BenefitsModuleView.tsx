@@ -38,6 +38,7 @@ import {
 } from '../../types/benefits';
 import { GamesSettingsTab } from './GamesSettingsTab';
 import { CARD_STYLE_PRESETS, LoyaltyCardView } from './LoyaltyCardView';
+import { GoogleWalletConfigCard } from './GoogleWalletConfigCard';
 
 type BenefitsTab = 'coupons' | 'points_card' | 'customers_points' | 'games';
 
@@ -1123,6 +1124,13 @@ export const BenefitsModuleView: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Integración Google Wallet (Loyalty Pass) */}
+          <GoogleWalletConfigCard
+            pointsConfig={pointsConfig}
+            previewPoints={previewPoints}
+            onUpdateConfig={updatePointsConfig}
+          />
 
           {/* Catálogo de Premios Canjeables */}
           <div className="space-y-4">

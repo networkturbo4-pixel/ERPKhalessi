@@ -76,6 +76,14 @@ export const EXPENSE_SOURCE_LABELS: Record<ExpensePaymentSource, string> = {
 
 const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
 
+export const toLocalIsoDate = (isoOrDate?: string): string => {
+  if (!isoOrDate) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(isoOrDate)) return isoOrDate;
+  const parsed = new Date(isoOrDate);
+  if (Number.isNaN(parsed.getTime())) return isoOrDate.slice(0, 10);
+  return getLocalIsoDate(parsed);
+};
+
 export const loadFinanceExpenses = (): FinanceExpense[] => {
   try {
     const raw = localStorage.getItem(FINANCE_EXPENSES_STORAGE_KEY);
@@ -90,6 +98,9 @@ export const loadFinanceExpenses = (): FinanceExpense[] => {
 export const saveFinanceExpenses = (items: FinanceExpense[]): void => {
   try {
     localStorage.setItem(FINANCE_EXPENSES_STORAGE_KEY, JSON.stringify(items.slice(0, 1500)));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('kh:finance-expenses-changed'));
+    }
   } catch {
     // Ignorar errores de almacenamiento
   }
@@ -121,6 +132,12 @@ export interface FinanceDaySummary {
   digitalRevenue: number;
   yapePlinRevenue: number;
   cardRevenue: number;
+  posRevenue: number;
+  posOrdersCount: number;
+  storeRevenue: number;
+  storeOrdersCount: number;
+  kioskRevenue: number;
+  kioskOrdersCount: number;
   ordersCount: number;
   deliveredOrdersCount: number;
   deliveryFeesTotal: number;
@@ -150,23 +167,29 @@ export const computeFinanceDaySummary = (
     if (o.status === 'cancelado') return false;
     if (!isConsolidated && o.tenantId !== options.tenantId) return false;
     const refIso = o.deliveredAt || o.createdAt;
-    return Boolean(refIso && refIso.slice(0, 10) === targetDate);
+    return toLocalIsoDate(refIso) === targetDate;
   });
 
   const dayFuel = fuelExpenses.filter((f) => {
     if (!isConsolidated && f.tenantId !== options.tenantId) return false;
-    return f.createdAt.slice(0, 10) === targetDate;
+    return toLocalIsoDate(f.createdAt) === targetDate;
   });
 
   const dayOther = financeExpenses.filter((e) => {
     if (!isConsolidated && e.tenantId !== options.tenantId) return false;
-    return e.createdAt.slice(0, 10) === targetDate;
+    return toLocalIsoDate(e.createdAt) === targetDate;
   });
 
   let totalRevenue = 0;
   let cashRevenue = 0;
   let yapePlinRevenue = 0;
   let cardRevenue = 0;
+  let posRevenue = 0;
+  let posOrdersCount = 0;
+  let storeRevenue = 0;
+  let storeOrdersCount = 0;
+  let kioskRevenue = 0;
+  let kioskOrdersCount = 0;
   let deliveredOrdersCount = 0;
   let deliveryFeesTotal = 0;
 
@@ -197,6 +220,17 @@ export const computeFinanceDaySummary = (
 
     const amt = Number(order.total) || 0;
     totalRevenue += amt;
+
+    if (order.channel === 'online') {
+      storeRevenue += amt;
+      storeOrdersCount += 1;
+    } else if (order.channel === 'kiosco-salon' || order.channel === 'kiosco-takeaway') {
+      kioskRevenue += amt;
+      kioskOrdersCount += 1;
+    } else {
+      posRevenue += amt;
+      posOrdersCount += 1;
+    }
 
     if (order.paymentMethod === 'efectivo') {
       cashRevenue += amt;
@@ -283,6 +317,12 @@ export const computeFinanceDaySummary = (
     digitalRevenue: round2(digitalRevenue),
     yapePlinRevenue: round2(yapePlinRevenue),
     cardRevenue: round2(cardRevenue),
+    posRevenue: round2(posRevenue),
+    posOrdersCount,
+    storeRevenue: round2(storeRevenue),
+    storeOrdersCount,
+    kioskRevenue: round2(kioskRevenue),
+    kioskOrdersCount,
     ordersCount: dayOrders.length,
     deliveredOrdersCount,
     deliveryFeesTotal: round2(deliveryFeesTotal),

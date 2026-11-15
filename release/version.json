@@ -1,8 +1,8 @@
 {
-  "buildId": "20261115000208",
-  "builtAt": "2026-11-15T00:02:08.668Z",
-  "commitSha": "13da307",
-  "message": "feat(seasonal): add theme-specific animated button details and organic capsule header",
-  "totalFiles": 90,
-  "manifestSha256": "6e24102e208bb21e9a80a2cd1b5805bd24e0578b4c45e0fe7a2cea57e0937847"
+  "buildId": "20261115025431",
+  "builtAt": "2026-11-15T02:54:31.244Z",
+  "commitSha": "0f86459",
+  "message": "feat(seasonal): add 7 new themes, doodle navbar badge, cursor sparkle, cart burst and order celebration",
+  "totalFiles": 94,
+  "manifestSha256": "56634bd24366d196080dfb347289d7fe97081e6a1aa8fdc9fae4f4ffc504924a"
 }

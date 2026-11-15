@@ -13,6 +13,7 @@ import {
 import { useSettings } from './SettingsContext';
 import { soundSynth } from '../utils/audio';
 import { getAuthHeaders, syncPendingOfflineQueue } from '../utils/diskPersistence';
+import { syncGoogleWalletPointsInBackground } from '../utils/googleWallet';
 import {
   OfflineSyncStatus,
   subscribeOfflineStatus,
@@ -1119,15 +1120,16 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const adjustCustomerPoints = (customerId: string, delta: number) => {
     const now = new Date().toISOString();
     persistAndSyncCustomers((prev) =>
-      prev.map((c) =>
-        c.id === customerId
-          ? {
-              ...c,
-              loyaltyPoints: Math.max(0, (c.loyaltyPoints || 0) + delta),
-              updatedAt: now,
-            }
-          : c
-      )
+      prev.map((c) => {
+        if (c.id !== customerId) return c;
+        const nextPoints = Math.max(0, (c.loyaltyPoints || 0) + delta);
+        syncGoogleWalletPointsInBackground({ customerId: c.id, points: nextPoints });
+        return {
+          ...c,
+          loyaltyPoints: nextPoints,
+          updatedAt: now,
+        };
+      })
     );
   };
 

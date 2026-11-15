@@ -23,6 +23,20 @@ import { OfflineStatusBadge } from '../common/OfflineStatusBadge';
 import { CustomerAddressMapPicker } from './CustomerAddressMapPicker';
 import { calculateDynamicDeliveryFee } from '../../utils/culqiCheckout';
 import { printThermalTicket } from '../../utils/thermalPrinter';
+import { getLocalIsoDate } from '../../utils/deliveryOperations';
+import {
+  computeFinanceDaySummary,
+  loadFinanceExpenses,
+  saveFinanceExpenses,
+  loadCashClosings,
+  saveCashClosings,
+  DailyCashClosing,
+  FinanceExpense,
+  ExpenseCategory,
+  ExpensePaymentSource,
+  EXPENSE_CATEGORY_LABELS,
+  EXPENSE_SOURCE_LABELS,
+} from '../../utils/financeOperations';
 import {
   Receipt,
   Plus,
@@ -63,6 +77,7 @@ import {
   Sparkles,
   Gift,
   Tag,
+  Wallet,
 } from 'lucide-react';
 import { useBenefits } from '../../context/BenefitsContext';
 import { PointReward } from '../../types/benefits';
@@ -88,6 +103,7 @@ export const POSView: React.FC<POSViewProps> = ({
   const {
     products,
     orders,
+    fuelExpenses,
     customers,
     createOrder,
     updateOrderStatus,
@@ -107,6 +123,7 @@ export const POSView: React.FC<POSViewProps> = ({
   const {
     activeTenant,
     companyInfo,
+    customization,
     dispatchToast,
     openNoticeModal,
     isDarkResolved,
@@ -144,8 +161,8 @@ export const POSView: React.FC<POSViewProps> = ({
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isThermalModalOpen, setIsThermalModalOpen] = useState(false);
 
-  // Cash Register State (persisted per branch)
-  const cashRegisterStorageKey = `kh_cash_register_${activeTenant.id}`;
+  // Cash Register State (persisted per branch and cashier)
+  const cashRegisterStorageKey = `kh_cash_register_${activeTenant.id}_${currentUser.id}`;
   const [cashSession, setCashSession] = useState<CashRegisterSession>(() => {
     try {
       const saved = localStorage.getItem(cashRegisterStorageKey);
@@ -197,16 +214,27 @@ export const POSView: React.FC<POSViewProps> = ({
 
   // Native <dialog> refs
   const aperturaDialogRef = useRef<HTMLDialogElement>(null);
+  const cierreDialogRef = useRef<HTMLDialogElement>(null);
+  const expenseDialogRef = useRef<HTMLDialogElement>(null);
   const customerDialogRef = useRef<HTMLDialogElement>(null);
   const tableEditorDialogRef = useRef<HTMLDialogElement>(null);
   const mobileCartDialogRef = useRef<HTMLDialogElement>(null);
 
   const aperturaTitleId = useId();
+  const cierreTitleId = useId();
+  const expenseTitleId = useId();
   const customerTitleId = useId();
   const tableEditorTitleId = useId();
   const mobileCartTitleId = useId();
 
   const [isAperturaModalOpen, setIsAperturaModalOpen] = useState(false);
+  const [isCierreModalOpen, setIsCierreModalOpen] = useState(false);
+  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [expAmount, setExpAmount] = useState('');
+  const [expCategory, setExpCategory] = useState<ExpenseCategory>('insumos');
+  const [expSource, setExpSource] = useState<ExpensePaymentSource>('caja_chica');
+  const [expDescription, setExpDescription] = useState('');
+  const [countedCashInput, setCountedCashInput] = useState('');
   const [inputFloatAmount, setInputFloatAmount] = useState('200.00');
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
 
@@ -312,6 +340,62 @@ export const POSView: React.FC<POSViewProps> = ({
       dlg.close();
     }
   }, [isAperturaModalOpen]);
+
+  useEffect(() => {
+    const dlg = cierreDialogRef.current;
+    if (!dlg) return;
+    if (isCierreModalOpen) {
+      if (!dlg.open) dlg.showModal();
+    } else if (dlg.open) {
+      dlg.close();
+    }
+  }, [isCierreModalOpen]);
+
+  useEffect(() => {
+    const dlg = expenseDialogRef.current;
+    if (!dlg) return;
+    if (isExpenseModalOpen) {
+      if (!dlg.open) dlg.showModal();
+    } else if (dlg.open) {
+      dlg.close();
+    }
+  }, [isExpenseModalOpen]);
+
+  useEffect(() => {
+    const onOpenCashClose = () => {
+      setCountedCashInput('');
+      setIsCierreModalOpen(true);
+    };
+    const onOpenCashRegister = () => {
+      setIsAperturaModalOpen(true);
+    };
+    const onOpenExpense = () => {
+      setExpAmount('');
+      setExpCategory('insumos');
+      setExpSource('caja_chica');
+      setExpDescription('');
+      setIsExpenseModalOpen(true);
+    };
+    window.addEventListener('kh:open-cash-close-modal', onOpenCashClose);
+    window.addEventListener('kh:open-cash-open-modal', onOpenCashRegister);
+    window.addEventListener('kh:open-cash-expense-modal', onOpenExpense);
+    return () => {
+      window.removeEventListener('kh:open-cash-close-modal', onOpenCashClose);
+      window.removeEventListener('kh:open-cash-open-modal', onOpenCashRegister);
+      window.removeEventListener('kh:open-cash-expense-modal', onOpenExpense);
+    };
+  }, []);
+
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent('kh:cash-session-changed', {
+        detail: {
+          key: cashRegisterStorageKey,
+          session: cashSession,
+        },
+      })
+    );
+  }, [cashSession, cashRegisterStorageKey]);
 
   useEffect(() => {
     const dlg = customerDialogRef.current;
@@ -473,22 +557,92 @@ export const POSView: React.FC<POSViewProps> = ({
     dispatchToast('Caja Aperturada', `Turno iniciado con fondo de caja de S/ ${amount.toFixed(2)}.`, 'success');
   };
 
-  const handleCloseCashRegister = () => {
-    openNoticeModal({
-      title: '¿Cerrar Caja del Turno Actual?',
-      message: `Se registrará el cierre de caja de ${currentUser.name} en ${activeTenant.name}.`,
-      tone: 'warning',
-      confirmLabel: 'Confirmar Cierre',
-      cancelLabel: 'Seguir Operando',
-      onConfirm: () => {
-        setCashSession({
-          isOpen: false,
-          initialFloat: 0,
-          cashierName: currentUser.name,
-        });
-        dispatchToast('Caja Cerrada', 'Se ha cerrado el turno de caja correctamente.', 'info');
-      },
+  const closingDaySummary = useMemo(() => {
+    const today = getLocalIsoDate();
+    const financeExpenses = isCierreModalOpen ? loadFinanceExpenses() : [];
+    return computeFinanceDaySummary(orders, fuelExpenses, financeExpenses, {
+      tenantId: activeTenant.id,
+      date: today,
     });
+  }, [orders, fuelExpenses, activeTenant.id, isCierreModalOpen]);
+
+  const handleCloseCashRegister = () => {
+    setCountedCashInput('');
+    setIsCierreModalOpen(true);
+  };
+
+  const handleConfirmCloseCashRegister = (e: React.FormEvent) => {
+    e.preventDefault();
+    const closing: DailyCashClosing = {
+      id: `cls-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      date: closingDaySummary.date,
+      tenantId: activeTenant.id,
+      tenantName: activeTenant.name.replace('Khalessi Pizza - ', ''),
+      totalRevenue: closingDaySummary.totalRevenue,
+      cashRevenue: closingDaySummary.cashRevenue,
+      digitalRevenue: closingDaySummary.digitalRevenue,
+      fuelExpensesTotal: closingDaySummary.fuelExpensesTotal,
+      fuelFromRouteCash: closingDaySummary.fuelFromRouteCash,
+      fuelFromPettyCash: closingDaySummary.fuelFromPettyCash,
+      otherExpensesTotal: closingDaySummary.otherExpensesTotal,
+      otherExpensesFromCash: closingDaySummary.otherExpensesFromCash,
+      expectedCashInDrawer: cashSession.initialFloat + closingDaySummary.expectedCashInDrawer,
+      netBalance: closingDaySummary.netBalance,
+      deliveredOrdersCount: closingDaySummary.deliveredOrdersCount,
+      costPerDelivery: closingDaySummary.costPerDelivery,
+      closedBy: currentUser.name,
+      closedAt: new Date().toISOString(),
+    };
+    saveCashClosings([closing, ...loadCashClosings()]);
+
+    setCashSession({
+      isOpen: false,
+      initialFloat: 0,
+      cashierName: currentUser.name,
+    });
+    setIsCierreModalOpen(false);
+    dispatchToast(
+      'Caja Cerrada',
+      `Cierre registrado: S/ ${closingDaySummary.totalRevenue.toFixed(2)} en ventas del día.`,
+      'info'
+    );
+  };
+
+  const handleOpenExpenseModal = () => {
+    setExpAmount('');
+    setExpCategory('insumos');
+    setExpSource('caja_chica');
+    setExpDescription('');
+    setIsExpenseModalOpen(true);
+  };
+
+  const handleSavePosExpense = (e: React.FormEvent) => {
+    e.preventDefault();
+    const numericAmount = parseFloat(expAmount);
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      dispatchToast('Monto inválido', 'Ingresa un monto mayor a S/ 0.00.', 'warning');
+      return;
+    }
+
+    const newExpense: FinanceExpense = {
+      id: `exp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      tenantId: activeTenant.id,
+      category: expCategory,
+      amount: Math.round((numericAmount + Number.EPSILON) * 100) / 100,
+      source: expSource,
+      description: expDescription.trim() || EXPENSE_CATEGORY_LABELS[expCategory],
+      createdBy: currentUser.name,
+      createdAt: new Date().toISOString(),
+    };
+
+    const existing = loadFinanceExpenses();
+    saveFinanceExpenses([newExpense, ...existing]);
+    setIsExpenseModalOpen(false);
+    dispatchToast(
+      'Gasto Registrado',
+      `S/ ${newExpense.amount.toFixed(2)} (${EXPENSE_CATEGORY_LABELS[expCategory]}) guardado en Finanzas.`,
+      'success'
+    );
   };
 
   // DNI Lookup & Customer Modal handlers
@@ -1415,8 +1569,12 @@ export const POSView: React.FC<POSViewProps> = ({
         <header className="p-3 sm:p-4 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Left: Branding & Branch & Cash badge */}
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 font-black text-xl">
-              🍕
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 font-black text-xl overflow-hidden">
+              {customization.favicon ? (
+                <img src={customization.favicon} alt="Favicon" className="w-7 h-7 object-contain rounded-lg" />
+              ) : (
+                '🍕'
+              )}
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
@@ -1572,6 +1730,24 @@ export const POSView: React.FC<POSViewProps> = ({
                       </button>
                     )}
                   </div>
+
+                  {/* Registrar Gasto / Egreso */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      handleOpenExpenseModal();
+                    }}
+                    className="w-full p-2.5 rounded-xl text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-bold flex items-center justify-between transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Wallet className="w-4 h-4 text-rose-500" />
+                      <span>Registrar Gasto / Egreso</span>
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-600 dark:text-rose-400">
+                      Caja Chica
+                    </span>
+                  </button>
 
                   {/* Constructor de Recibos Térmicos */}
                   <button
@@ -2146,6 +2322,338 @@ export const POSView: React.FC<POSViewProps> = ({
                   className="whitespace-nowrap shrink-0 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold shadow-md shadow-amber-500/20"
                 >
                   Confirmar Apertura de Caja
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </dialog>
+
+      {/* NATIVE <dialog>: CIERRE DE CAJA CON RESUMEN DEL DÍA */}
+      <dialog
+        ref={cierreDialogRef}
+        aria-labelledby={cierreTitleId}
+        onClose={() => setIsCierreModalOpen(false)}
+        className="max-w-lg w-full p-0 bg-transparent border-0"
+      >
+        {isCierreModalOpen && (() => {
+          const expectedDrawerCash = cashSession.initialFloat + closingDaySummary.expectedCashInDrawer;
+          const cashOutflows =
+            closingDaySummary.fuelFromPettyCash +
+            closingDaySummary.fuelFromRouteCash +
+            closingDaySummary.otherExpensesFromCash;
+          const nonCashOutflows = Math.max(0, closingDaySummary.totalOutflows - cashOutflows);
+          const hasCounted = countedCashInput.trim() !== '';
+          const countedVal = parseFloat(countedCashInput);
+          const cashDiff = hasCounted && Number.isFinite(countedVal) ? countedVal - expectedDrawerCash : null;
+
+          return (
+            <div className="touch-surface w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl p-6 text-zinc-900 dark:text-zinc-100 space-y-4">
+              <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-amber-500/15 text-amber-500">
+                    <Lock className="w-5 h-5" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <h2 id={cierreTitleId} className="font-bold text-base text-zinc-950 dark:text-white">
+                      Resumen y Cierre de Caja
+                    </h2>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      {activeTenant.name} · {currentUser.name} · {closingDaySummary.date}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Cerrar resumen de caja"
+                  onClick={() => setIsCierreModalOpen(false)}
+                  className="h-9 w-9 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-950 dark:hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleConfirmCloseCashRegister} className="space-y-4">
+                <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/60 p-4 space-y-2.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-500 dark:text-zinc-400">Fondo inicial de apertura</span>
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                      S/ {cashSession.initialFloat.toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-zinc-200/70 dark:border-zinc-800">
+                    <span className="font-bold text-zinc-800 dark:text-zinc-200">
+                      Ventas del día ({closingDaySummary.ordersCount} pedidos)
+                    </span>
+                    <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                      S/ {closingDaySummary.totalRevenue.toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 pt-1 text-[11px]">
+                    <div className="rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-2.5 py-1.5">
+                      <span className="block text-zinc-500 dark:text-zinc-400">Efectivo</span>
+                      <span className="font-bold text-zinc-900 dark:text-white">
+                        S/ {closingDaySummary.cashRevenue.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-2.5 py-1.5">
+                      <span className="block text-zinc-500 dark:text-zinc-400">Yape / Plin</span>
+                      <span className="font-bold text-zinc-900 dark:text-white">
+                        S/ {closingDaySummary.yapePlinRevenue.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-2.5 py-1.5">
+                      <span className="block text-zinc-500 dark:text-zinc-400">Tarjeta</span>
+                      <span className="font-bold text-zinc-900 dark:text-white">
+                        S/ {closingDaySummary.cardRevenue.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400 pt-1">
+                    <span>POS: S/ {closingDaySummary.posRevenue.toFixed(2)} ({closingDaySummary.posOrdersCount})</span>
+                    <span>Tienda Online: S/ {closingDaySummary.storeRevenue.toFixed(2)} ({closingDaySummary.storeOrdersCount})</span>
+                  </div>
+
+                  {cashOutflows > 0 && (
+                    <div className="flex items-center justify-between text-rose-600 dark:text-rose-400 pt-1 border-t border-zinc-200/70 dark:border-zinc-800">
+                      <span>Egresos en efectivo / ruta</span>
+                      <span className="font-bold">- S/ {cashOutflows.toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  {nonCashOutflows > 0 && (
+                    <div className="flex items-center justify-between text-zinc-600 dark:text-zinc-400">
+                      <span>Otros egresos (Transf. / Tarjeta)</span>
+                      <span className="font-bold">S/ {nonCashOutflows.toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                    <span className="font-bold text-zinc-900 dark:text-white">Efectivo esperado en gaveta</span>
+                    <span className="text-base font-black text-amber-600 dark:text-amber-400">
+                      S/ {expectedDrawerCash.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="pos-counted-cash" className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
+                    Efectivo contado en gaveta (opcional)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-zinc-500 text-sm">S/</span>
+                    <input
+                      id="pos-counted-cash"
+                      type="number"
+                      step="0.01"
+                      placeholder={expectedDrawerCash.toFixed(2)}
+                      value={countedCashInput}
+                      onChange={(e) => setCountedCashInput(e.target.value)}
+                      className="min-h-[42px] w-full pl-9 pr-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  {cashDiff !== null && (
+                    <p
+                      className={`text-[11px] font-bold mt-1 ${
+                        Math.abs(cashDiff) < 0.01
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : cashDiff > 0
+                          ? 'text-sky-600 dark:text-sky-400'
+                          : 'text-rose-600 dark:text-rose-400'
+                      }`}
+                    >
+                      {Math.abs(cashDiff) < 0.01
+                        ? 'Cuadre exacto con el efectivo esperado.'
+                        : cashDiff > 0
+                        ? `Sobrante en caja: +S/ ${cashDiff.toFixed(2)}`
+                        : `Faltante en caja: -S/ ${Math.abs(cashDiff).toFixed(2)}`}
+                    </p>
+                  )}
+                </div>
+
+                <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                  ¿Estás conforme con estos montos del día para cerrar la caja y registrar el cierre en Finanzas?
+                </p>
+
+                <div className="pt-1 flex items-center justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsCierreModalOpen(false)}
+                    className="whitespace-nowrap shrink-0 px-4 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  >
+                    Seguir Operando
+                  </button>
+                  <button
+                    type="submit"
+                    className="whitespace-nowrap shrink-0 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold shadow-md shadow-amber-500/20"
+                  >
+                    Confirmar y Cerrar Caja
+                  </button>
+                </div>
+              </form>
+            </div>
+          );
+        })()}
+      </dialog>
+
+      {/* NATIVE <dialog>: REGISTRAR GASTO / EGRESO TÁCTIL EN POS */}
+      <dialog
+        ref={expenseDialogRef}
+        aria-labelledby={expenseTitleId}
+        onClose={() => setIsExpenseModalOpen(false)}
+        className="max-w-lg w-full p-0 bg-transparent border-0"
+      >
+        {isExpenseModalOpen && (
+          <div className="touch-surface w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl p-6 text-zinc-900 dark:text-zinc-100 space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-rose-500/15 text-rose-500">
+                  <Wallet className="w-5 h-5" aria-hidden="true" />
+                </div>
+                <div>
+                  <h2 id={expenseTitleId} className="font-bold text-base text-zinc-950 dark:text-white">
+                    Registrar Gasto / Egreso
+                  </h2>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {activeTenant.name} · {currentUser.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                aria-label="Cerrar registro de gasto"
+                onClick={() => setIsExpenseModalOpen(false)}
+                className="h-9 w-9 rounded-xl flex items-center justify-center text-zinc-400 hover:text-zinc-950 dark:hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePosExpense} className="space-y-4">
+              {/* Monto con botones táctiles rápidos */}
+              <div className="space-y-2">
+                <label htmlFor="pos-expense-amount" className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block">
+                  Monto del Gasto (S/) *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-zinc-500 text-base">S/</span>
+                  <input
+                    id="pos-expense-amount"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    placeholder="0.00"
+                    value={expAmount}
+                    onChange={(e) => setExpAmount(e.target.value)}
+                    className="min-h-[48px] w-full pl-11 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-2xl text-lg font-black text-zinc-950 dark:text-white focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+                <div className="grid grid-cols-5 gap-2">
+                  {[5, 10, 20, 50, 100].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setExpAmount(preset.toFixed(2))}
+                      className="min-h-[40px] rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 hover:border-rose-500/50 hover:bg-rose-500/10 text-xs font-bold text-zinc-800 dark:text-zinc-200 transition-colors"
+                    >
+                      S/ {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Categoría táctil */}
+              <div className="space-y-1.5">
+                <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block">Categoría</span>
+                <div className="grid grid-cols-2 gap-2">
+                  {(Object.keys(EXPENSE_CATEGORY_LABELS) as ExpenseCategory[]).map((cat) => {
+                    const active = expCategory === cat;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setExpCategory(cat)}
+                        className={`min-h-[42px] px-3 py-2 rounded-xl border text-left text-xs font-bold transition-colors ${
+                          active
+                            ? 'bg-rose-500/15 border-rose-500 text-rose-700 dark:text-rose-300'
+                            : 'bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                        }`}
+                      >
+                        {EXPENSE_CATEGORY_LABELS[cat]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Origen del dinero */}
+              <div className="space-y-1.5">
+                <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block">Medio de Pago</span>
+                <div className="grid grid-cols-3 gap-2">
+                  {(Object.keys(EXPENSE_SOURCE_LABELS) as ExpensePaymentSource[]).map((src) => {
+                    const active = expSource === src;
+                    return (
+                      <button
+                        key={src}
+                        type="button"
+                        onClick={() => setExpSource(src)}
+                        className={`min-h-[42px] px-2.5 py-2 rounded-xl border text-center text-[11px] font-bold leading-tight transition-colors ${
+                          active
+                            ? 'bg-amber-500/15 border-amber-500 text-amber-800 dark:text-amber-300'
+                            : 'bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                        }`}
+                      >
+                        {EXPENSE_SOURCE_LABELS[src]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Motivo / Descripción */}
+              <div className="space-y-1.5">
+                <label htmlFor="pos-expense-desc" className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block">
+                  Detalle / Motivo
+                </label>
+                <input
+                  id="pos-expense-desc"
+                  type="text"
+                  placeholder="Ej: Compra rápida de queso, hielo, gas, limpieza..."
+                  value={expDescription}
+                  onChange={(e) => setExpDescription(e.target.value)}
+                  className="min-h-[44px] w-full px-3.5 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs font-semibold text-zinc-900 dark:text-white focus:outline-none focus:border-rose-500"
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {['Compra de insumos', 'Gas / Agua', 'Limpieza', 'Hielo / Bebidas'].map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => setExpDescription(chip)}
+                      className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-[11px] font-semibold text-zinc-700 dark:text-zinc-300"
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-1 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsExpenseModalOpen(false)}
+                  className="whitespace-nowrap shrink-0 px-4 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="whitespace-nowrap shrink-0 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-500/20"
+                >
+                  Guardar Gasto
                 </button>
               </div>
             </form>

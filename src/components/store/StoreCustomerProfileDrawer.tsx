@@ -27,6 +27,7 @@ import {
   Star,
 } from 'lucide-react';
 import { LoyaltyCardView } from '../benefits/LoyaltyCardView';
+import { AddToGoogleWalletButton } from '../benefits/AddToGoogleWalletButton';
 
 interface StoreCustomerProfileDrawerProps {
   isOpen: boolean;
@@ -781,6 +782,14 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                       config={pointsConfig}
                       points={currentCustomer.points || 0}
                       rewardsCount={rewards.filter(r => r.isActive).length}
+                    />
+
+                    <AddToGoogleWalletButton
+                      config={pointsConfig}
+                      customerId={currentCustomer.id}
+                      customerName={currentCustomer.fullName}
+                      customerPhone={currentCustomer.phone}
+                      points={currentCustomer.points || 0}
                     />
 
                     {/* Premios Disponibles */}

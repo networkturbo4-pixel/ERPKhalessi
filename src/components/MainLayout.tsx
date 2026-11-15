@@ -100,6 +100,8 @@ import {
   Clipboard as ClipboardIcon,
   Layers,
   Wallet,
+  Lock,
+  Unlock,
 } from 'lucide-react';
 
 export type MainModuleId =
@@ -152,6 +154,77 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
     if (branchScope === 'consolidated') return customers.length;
     return customers.filter(c => !c.tenantId || c.tenantId === activeTenant.id).length;
   }, [customers, branchScope, activeTenant.id]);
+
+  // Enforce assigned branch for restricted users (e.g., POS cashiers assigned to a specific branch)
+  useEffect(() => {
+    const assigned = currentUser.branchIds;
+    if (assigned && !assigned.includes('all') && assigned.length > 0) {
+      if (!assigned.includes(activeTenant.id)) {
+        const target = tenants.find((t) => assigned.includes(t.id));
+        if (target) {
+          switchTenant(target.id);
+        }
+      }
+    }
+  }, [currentUser.branchIds, activeTenant.id, tenants, switchTenant]);
+
+  const allowedStationTenants = React.useMemo(() => {
+    const assigned = currentUser.branchIds;
+    if (!assigned || assigned.includes('all') || assigned.length === 0) return tenants;
+    const filtered = tenants.filter((t) => assigned.includes(t.id));
+    return filtered.length > 0 ? filtered : tenants;
+  }, [currentUser.branchIds, tenants]);
+
+  // Sync POS cash register session state for the dedicated Cashier Station header
+  const stationCashKey = `kh_cash_register_${activeTenant.id}_${currentUser.id}`;
+  const [stationCashSession, setStationCashSession] = useState<{ isOpen: boolean; initialFloat: number }>(() => {
+    try {
+      const raw = localStorage.getItem(stationCashKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return { isOpen: Boolean(parsed.isOpen), initialFloat: Number(parsed.initialFloat) || 0 };
+      }
+    } catch {
+      // ignore
+    }
+    return { isOpen: false, initialFloat: 0 };
+  });
+
+  useEffect(() => {
+    const syncFromStorage = () => {
+      try {
+        const raw = localStorage.getItem(stationCashKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          setStationCashSession({ isOpen: Boolean(parsed.isOpen), initialFloat: Number(parsed.initialFloat) || 0 });
+        } else {
+          setStationCashSession({ isOpen: false, initialFloat: 0 });
+        }
+      } catch {
+        setStationCashSession({ isOpen: false, initialFloat: 0 });
+      }
+    };
+    syncFromStorage();
+
+    const onCashChanged = (e: Event) => {
+      const detail = (e as CustomEvent<{ key?: string; session?: { isOpen?: boolean; initialFloat?: number } }>).detail;
+      if (detail?.key === stationCashKey && detail.session) {
+        setStationCashSession({
+          isOpen: Boolean(detail.session.isOpen),
+          initialFloat: Number(detail.session.initialFloat) || 0,
+        });
+      }
+    };
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === stationCashKey) syncFromStorage();
+    };
+    window.addEventListener('kh:cash-session-changed', onCashChanged);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('kh:cash-session-changed', onCashChanged);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [stationCashKey]);
 
   // Live "ventas de hoy" per branch computed from real orders (updates in real time via SSE, no stale mock numbers)
   const liveSalesByTenant = React.useMemo(() => {
@@ -324,10 +397,20 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
           {/* Left: Branding & Branch Selector */}
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <div
-              className="h-10 w-10 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-sm shrink-0"
-              style={{ backgroundColor: customization.primaryColor }}
+              className={`h-10 w-10 rounded-xl flex items-center justify-center font-black text-lg shadow-sm shrink-0 overflow-hidden ${
+                customization.favicon
+                  ? 'bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700'
+                  : 'text-white'
+              }`}
+              style={customization.favicon ? undefined : { backgroundColor: customization.primaryColor }}
             >
-              {isCashierRole ? (
+              {customization.favicon ? (
+                <img
+                  src={customization.favicon}
+                  alt="Logo"
+                  className="w-7 h-7 object-contain rounded-lg"
+                />
+              ) : isCashierRole ? (
                 '🍕'
               ) : isDeliveryRole ? (
                 <Bike className="w-5 h-5 text-white" />
@@ -344,51 +427,79 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                   : 'Terminal Cocina & Horno KDS'}
               </h1>
 
-              {/* Branch Selector Dropdown */}
-              <div className="relative" ref={stationTenantMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => setIsStationTenantMenuOpen((v) => !v)}
-                  className="flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors truncate max-w-[200px]"
-                >
+              {/* Branch Badge (Locked in POS or when user has a single assigned branch) */}
+              {isCashierRole || allowedStationTenants.length <= 1 ? (
+                <div className="flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 truncate max-w-[220px]">
                   <Store className="w-3 h-3 shrink-0" />
                   <span className="truncate">{activeTenant.name.replace('Khalessi Pizza - ', '')}</span>
-                  <ChevronsUpDown className="w-3 h-3 shrink-0 opacity-60" />
-                </button>
+                </div>
+              ) : (
+                <div className="relative" ref={stationTenantMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsStationTenantMenuOpen((v) => !v)}
+                    className="flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors truncate max-w-[200px]"
+                  >
+                    <Store className="w-3 h-3 shrink-0" />
+                    <span className="truncate">{activeTenant.name.replace('Khalessi Pizza - ', '')}</span>
+                    <ChevronsUpDown className="w-3 h-3 shrink-0 opacity-60" />
+                  </button>
 
-                {isStationTenantMenuOpen && (
-                  <div className="absolute left-0 top-full mt-2 w-64 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
-                    <div className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-zinc-400">
-                      Cambiar de Sucursal
+                  {isStationTenantMenuOpen && (
+                    <div className="absolute left-0 top-full mt-2 w-64 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                      <div className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-zinc-400">
+                        Cambiar de Sucursal
+                      </div>
+                      {allowedStationTenants.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => {
+                            switchTenant(t.id);
+                            setIsStationTenantMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold transition-colors ${
+                            t.id === activeTenant.id
+                              ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                              : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                          }`}
+                        >
+                          <span className="truncate">{t.name.replace('Khalessi Pizza - ', '')}</span>
+                          {t.id === activeTenant.id && <Check className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                        </button>
+                      ))}
                     </div>
-                    {tenants.map((t) => (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => {
-                          switchTenant(t.id);
-                          setIsStationTenantMenuOpen(false);
-                        }}
-                        className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-bold transition-colors ${
-                          t.id === activeTenant.id
-                            ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
-                            : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                        }`}
-                      >
-                        <span className="truncate">{t.name.replace('Khalessi Pizza - ', '')}</span>
-                        {t.id === activeTenant.id && <Check className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
-
-
-          {/* Right: Operator Popover Dropdown (Miguel Mendoza) */}
-          <div className="flex items-center gap-2.5 shrink-0" ref={stationUserMenuRef}>
+          {/* Right: Cash Register Action (POS) + Operator Popover Dropdown */}
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0" ref={stationUserMenuRef}>
+            {isCashierRole && (
+              stationCashSession.isOpen ? (
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('kh:open-cash-close-modal'))}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-rose-500/15 text-emerald-700 dark:text-emerald-300 hover:text-rose-600 dark:hover:text-rose-400 border border-emerald-500/30 hover:border-rose-500/30 text-xs font-bold transition-colors whitespace-nowrap shrink-0"
+                  title="Ver resumen del día y cerrar caja"
+                >
+                  <Unlock className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden md:inline">Caja: S/ {stationCashSession.initialFloat.toFixed(2)} ·</span>
+                  <span>Cerrar Caja</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('kh:open-cash-open-modal'))}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-bold shadow-sm transition-colors whitespace-nowrap shrink-0"
+                >
+                  <Lock className="w-3.5 h-3.5 shrink-0" />
+                  <span>Abrir Caja</span>
+                </button>
+              )
+            )}
             <div className="relative">
               <button
                 type="button"
@@ -450,22 +561,64 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
 
                   {/* Thermal Receipt & Comanda Builder (For Cashiers) */}
                   {isCashierRole && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsStationUserMenuOpen(false);
-                        setIsThermalModalOpen(true);
-                      }}
-                      className="w-full p-2.5 rounded-xl text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-bold flex items-center justify-between transition-colors"
-                    >
-                      <span className="flex items-center gap-2">
-                        <Receipt className="w-4 h-4 text-amber-500" />
-                        <span>Recibos & Comandas Térmicas</span>
-                      </span>
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-400">
-                        80/58mm
-                      </span>
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsStationUserMenuOpen(false);
+                          window.dispatchEvent(new CustomEvent('kh:open-cash-expense-modal'));
+                        }}
+                        className="w-full p-2.5 rounded-xl text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-bold flex items-center justify-between transition-colors"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Wallet className="w-4 h-4 text-rose-500" />
+                          <span>Registrar Gasto / Egreso</span>
+                        </span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-500/15 text-rose-600 dark:text-rose-400">
+                          Caja Chica
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsStationUserMenuOpen(false);
+                          window.dispatchEvent(
+                            new CustomEvent(
+                              stationCashSession.isOpen ? 'kh:open-cash-close-modal' : 'kh:open-cash-open-modal'
+                            )
+                          );
+                        }}
+                        className="w-full p-2.5 rounded-xl text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-bold flex items-center justify-between transition-colors"
+                      >
+                        <span className="flex items-center gap-2">
+                          {stationCashSession.isOpen ? (
+                            <Lock className="w-4 h-4 text-rose-500" />
+                          ) : (
+                            <Unlock className="w-4 h-4 text-emerald-500" />
+                          )}
+                          <span>{stationCashSession.isOpen ? 'Cerrar Caja del Día' : 'Aperturar Caja'}</span>
+                        </span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-zinc-200/70 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+                          {stationCashSession.isOpen ? 'Abierta' : 'Cerrada'}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsStationUserMenuOpen(false);
+                          setIsThermalModalOpen(true);
+                        }}
+                        className="w-full p-2.5 rounded-xl text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 text-xs font-bold flex items-center justify-between transition-colors"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Receipt className="w-4 h-4 text-amber-500" />
+                          <span>Recibos & Comandas Térmicas</span>
+                        </span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-400">
+                          80/58mm
+                        </span>
+                      </button>
+                    </>
                   )}
 
                   {/* Theme Mode Toggle (Sun / Moon) */}

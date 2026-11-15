@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Wallet,
   Plus,
@@ -32,6 +32,7 @@ import {
   loadCashClosings,
   saveCashClosings,
   computeFinanceDaySummary,
+  toLocalIsoDate,
 } from '../../utils/financeOperations';
 
 type FinanceTab = 'cuadre' | 'egresos' | 'cierres';
@@ -48,6 +49,19 @@ export const FinanceModuleView: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'combustible' | ExpenseCategory>('all');
   const [financeExpenses, setFinanceExpenses] = useState<FinanceExpense[]>(() => loadFinanceExpenses());
   const [cashClosings, setCashClosings] = useState<DailyCashClosing[]>(() => loadCashClosings());
+
+  useEffect(() => {
+    const syncExpenses = () => setFinanceExpenses(loadFinanceExpenses());
+    const syncClosings = () => setCashClosings(loadCashClosings());
+    window.addEventListener('kh:finance-expenses-changed', syncExpenses);
+    window.addEventListener('storage', syncExpenses);
+    window.addEventListener('storage', syncClosings);
+    return () => {
+      window.removeEventListener('kh:finance-expenses-changed', syncExpenses);
+      window.removeEventListener('storage', syncExpenses);
+      window.removeEventListener('storage', syncClosings);
+    };
+  }, []);
 
   // Modal de registro de egreso / combustible
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -93,7 +107,7 @@ export const FinanceModuleView: React.FC = () => {
     const fuelItems = fuelExpenses
       .filter((f) => {
         if (scopeTenantId !== 'consolidated' && f.tenantId !== scopeTenantId) return false;
-        return f.createdAt.slice(0, 10) === selectedDate;
+        return toLocalIsoDate(f.createdAt) === selectedDate;
       })
       .map((f) => ({
         id: f.id,
@@ -111,7 +125,7 @@ export const FinanceModuleView: React.FC = () => {
     const otherItems = financeExpenses
       .filter((e) => {
         if (scopeTenantId !== 'consolidated' && e.tenantId !== scopeTenantId) return false;
-        return e.createdAt.slice(0, 10) === selectedDate;
+        return toLocalIsoDate(e.createdAt) === selectedDate;
       })
       .map((e) => ({
         id: e.id,
@@ -305,6 +319,9 @@ export const FinanceModuleView: React.FC = () => {
           </p>
           <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
             Efectivo: S/ {summary.cashRevenue.toFixed(2)} · Digital: S/ {summary.digitalRevenue.toFixed(2)}
+          </p>
+          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+            POS: S/ {summary.posRevenue.toFixed(2)} ({summary.posOrdersCount}) · Tienda: S/ {summary.storeRevenue.toFixed(2)} ({summary.storeOrdersCount})
           </p>
         </div>
 

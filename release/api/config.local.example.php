@@ -20,3 +20,6 @@ define('DB_NAME', 'tu_base_de_datos');
 
 // Token del bot de Telegram (@BotFather) para respuestas automáticas directas sin n8n/Make
 // define('TELEGRAM_BOT_TOKEN', '123456789:ABCdefGHIjklMNOpqrsTUVwxyz');
+
+// Ruta al JSON de la Service Account de Google Cloud para Google Wallet API (Loyalty Passes)
+// define('GOOGLE_WALLET_SERVICE_ACCOUNT_PATH', __DIR__ . '/storage/google-wallet-sa.json');

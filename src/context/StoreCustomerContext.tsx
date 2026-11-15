@@ -10,6 +10,7 @@ import { useOrderCatalog } from './OrderCatalogContext';
 import { useSettings } from './SettingsContext';
 import { soundSynth } from '../utils/audio';
 import { hashPassword, isHashedPassword, verifyPassword } from '../utils/passwordHash';
+import { syncGoogleWalletPointsInBackground } from '../utils/googleWallet';
 
 const ACCOUNTS_KEY = 'kh_store_customer_accounts_v1';
 const ACTIVE_ACCOUNT_ID_KEY = 'kh_store_active_customer_id_v1';
@@ -638,6 +639,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
       accountsRef.current = nextAccounts;
       setAccounts(nextAccounts);
       syncAccountToErpCrm(updated);
+      syncGoogleWalletPointsInBackground({ customerId: updated.id, points: nextPoints });
     },
     [activeCustomerId, syncAccountToErpCrm]
   );
@@ -668,6 +670,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
       accountsRef.current = nextAccounts;
       setAccounts(nextAccounts);
       syncAccountToErpCrm(updated);
+      syncGoogleWalletPointsInBackground({ customerId: updated.id, points: nextPoints });
       return true;
     },
     [activeCustomerId, syncAccountToErpCrm]
@@ -698,6 +701,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
       accountsRef.current = nextAccounts;
       setAccounts(nextAccounts);
       syncAccountToErpCrm(updated);
+      syncGoogleWalletPointsInBackground({ customerId: updated.id, points: nextPoints });
     },
     [syncAccountToErpCrm]
   );
