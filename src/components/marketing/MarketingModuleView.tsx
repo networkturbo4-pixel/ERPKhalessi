@@ -27,6 +27,7 @@ import {
   Globe2,
 } from 'lucide-react';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
+import { useStoreCustomer } from '../../context/StoreCustomerContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useBenefits } from '../../context/BenefitsContext';
 import { toProductSlug } from '../../types/storeBuilder';
@@ -121,8 +122,14 @@ function normalizePhoneForMatch(phone: string | undefined): string {
 
 function normalizePhoneForWhatsApp(phone: string | undefined): string {
   if (!phone) return '';
-  const digits = phone.replace(/\D/g, '');
+  let digits = phone.replace(/\D/g, '');
   if (!digits) return '';
+  if (digits.startsWith('0519') && digits.length === 12) {
+    digits = digits.slice(1);
+  }
+  if (digits.startsWith('51519') && digits.length === 13) {
+    digits = digits.slice(2);
+  }
   if (digits.length === 9 && digits.startsWith('9')) {
     return `51${digits}`;
   }
@@ -161,6 +168,7 @@ function getPlatformBadge(platform?: MarketingPlatform) {
 
 export const MarketingModuleView: React.FC = () => {
   const { orders, products, customers } = useOrderCatalog();
+  const { allCustomerAccounts } = useStoreCustomer();
   const { activeTenant, customization, dispatchToast, openNoticeModal } = useSettings();
   const { pointsConfig } = useBenefits();
 
@@ -260,6 +268,7 @@ export const MarketingModuleView: React.FC = () => {
       name: string;
       phone: string;
       email: string;
+      updatedAtMs: number;
       totalOrders: number;
       totalSpent: number;
       lastOrderAt: string;
@@ -267,31 +276,88 @@ export const MarketingModuleView: React.FC = () => {
     }
 
     const map = new Map<string, Acc>();
+    const idByPhone = new Map<string, string>();
+    const idByEmail = new Map<string, string>();
 
-    // Seed with CRM customers
+    const registerLookup = (id: string, phone: string, email: string) => {
+      const normP = normalizePhoneForMatch(phone);
+      if (normP) idByPhone.set(normP, id);
+      const normE = (email || '').trim().toLowerCase();
+      if (normE) idByEmail.set(normE, id);
+    };
+
+    // 1. Seed with ERP CRM customers
     for (const c of customers) {
-      const normPhone = normalizePhoneForMatch(c.whatsapp);
-      const key = normPhone || c.id;
-      map.set(key, {
+      const updatedAtMs = new Date(c.updatedAt || c.createdAt || 0).getTime();
+      map.set(c.id, {
         id: c.id,
         name: c.fullName,
         phone: c.whatsapp,
         email: c.email || '',
+        updatedAtMs,
         totalOrders: 0,
         totalSpent: 0,
         lastOrderAt: c.createdAt,
         productCounts: new Map(),
       });
+      registerLookup(c.id, c.whatsapp, c.email);
     }
 
+    // 2. Overlay latest Storefront Customer Accounts (always prefer newest updatedAt)
+    for (const acc of allCustomerAccounts) {
+      const accUpdatedMs = new Date(acc.updatedAt || acc.createdAt || 0).getTime();
+      const normP = normalizePhoneForMatch(acc.phone);
+      const normE = (acc.email || '').trim().toLowerCase();
+      const matchedId =
+        (acc.crmCustomerId && map.has(acc.crmCustomerId) ? acc.crmCustomerId : undefined) ||
+        (normE ? idByEmail.get(normE) : undefined) ||
+        (normP ? idByPhone.get(normP) : undefined) ||
+        acc.crmCustomerId ||
+        acc.id;
+
+      const existing = map.get(matchedId);
+      if (existing) {
+        if (accUpdatedMs >= existing.updatedAtMs) {
+          existing.name = acc.fullName || existing.name;
+          existing.phone = acc.phone || existing.phone;
+          existing.email = acc.email || existing.email;
+          existing.updatedAtMs = accUpdatedMs;
+        }
+        registerLookup(existing.id, existing.phone, existing.email);
+      } else {
+        map.set(matchedId, {
+          id: matchedId,
+          name: acc.fullName,
+          phone: acc.phone,
+          email: acc.email || '',
+          updatedAtMs: accUpdatedMs,
+          totalOrders: 0,
+          totalSpent: 0,
+          lastOrderAt: acc.createdAt,
+          productCounts: new Map(),
+        });
+        registerLookup(matchedId, acc.phone, acc.email);
+      }
+    }
+
+    // 3. Aggregate orders using customerId -> email -> phone so old order phones never overwrite current contact
     for (const order of scopedOrders) {
       const normPhone = normalizePhoneForMatch(order.customerPhone);
-      const key = normPhone || order.customerId || `anon-${order.customerName}`;
-      const existing = map.get(key) || {
-        id: order.customerId || key,
+      const normEmail = (order.customerEmail || '').trim().toLowerCase();
+      const matchedKey =
+        (order.customerId && map.has(order.customerId) ? order.customerId : undefined) ||
+        (normEmail ? idByEmail.get(normEmail) : undefined) ||
+        (normPhone ? idByPhone.get(normPhone) : undefined) ||
+        order.customerId ||
+        normPhone ||
+        `anon-${order.customerName}`;
+
+      const existing = map.get(matchedKey) || {
+        id: order.customerId || matchedKey,
         name: order.customerName || 'Cliente',
         phone: order.customerPhone || '',
         email: order.customerEmail || '',
+        updatedAtMs: 0,
         totalOrders: 0,
         totalSpent: 0,
         lastOrderAt: order.createdAt,
@@ -305,6 +371,7 @@ export const MarketingModuleView: React.FC = () => {
       }
       if (!existing.name && order.customerName) existing.name = order.customerName;
       if (!existing.phone && order.customerPhone) existing.phone = order.customerPhone;
+      if (!existing.email && order.customerEmail) existing.email = order.customerEmail;
 
       for (const item of order.items || []) {
         const pid = item.productId;
@@ -321,7 +388,8 @@ export const MarketingModuleView: React.FC = () => {
         existing.productCounts.set(pid, cur);
       }
 
-      map.set(key, existing);
+      map.set(matchedKey, existing);
+      registerLookup(existing.id, existing.phone, existing.email);
     }
 
     const nowMs = Date.now();
@@ -383,7 +451,7 @@ export const MarketingModuleView: React.FC = () => {
     }
 
     return list.sort((a, b) => b.totalSpent - a.totalSpent || b.totalOrders - a.totalOrders);
-  }, [orders, products, customers, pushStats, activeTenant.id, storeOrigin]);
+  }, [orders, products, customers, allCustomerAccounts, pushStats, activeTenant.id, storeOrigin]);
 
   const filteredInsights = useMemo(() => {
     const q = clientSearch.trim().toLowerCase();

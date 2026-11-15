@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useId } from 'react';
 import { PaymentMethod } from '../../types/catalog';
 import { AddressLabelType } from '../../types/storeCustomer';
-import { useStoreCustomer, detectCardBrand } from '../../context/StoreCustomerContext';
+import { useStoreCustomer, detectCardBrand, normalizePeruLocalPhone } from '../../context/StoreCustomerContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useBenefits } from '../../context/BenefitsContext';
 import {
@@ -577,8 +577,17 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                         >
                           Celular / WhatsApp *
                         </label>
-                        <div className="relative">
-                          <Phone className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500" />
+                        <div className="relative flex items-center">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-2.5 rounded-l-2xl text-xs font-bold border border-r-0 select-none ${
+                              isLightTheme
+                                ? 'bg-zinc-100 border-zinc-200 text-zinc-700'
+                                : 'bg-neutral-900 border-neutral-800 text-neutral-300'
+                            }`}
+                          >
+                            <Phone className="w-3.5 h-3.5 text-amber-500" />
+                            +51
+                          </span>
                           <input
                             id="store-signup-phone"
                             name="phone"
@@ -588,9 +597,9 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                             enterKeyHint="next"
                             required
                             value={signupPhone}
-                            onChange={e => setSignupPhone(e.target.value)}
-                            placeholder="999 888 777"
-                            className={`w-full pl-10 pr-3 py-2.5 rounded-2xl text-sm border focus:outline-none focus:border-amber-500 ${
+                            onChange={e => setSignupPhone(normalizePeruLocalPhone(e.target.value))}
+                            placeholder="999 888 777 (sin +51)"
+                            className={`w-full px-3 py-2.5 rounded-r-2xl text-sm border focus:outline-none focus:border-amber-500 ${
                               isLightTheme
                                 ? 'bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400'
                                 : 'bg-neutral-950 border-neutral-800 text-white placeholder-neutral-500'
@@ -971,20 +980,32 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                         >
                           Celular / WhatsApp
                         </label>
-                        <input
-                          id="prof-phone"
-                          type="tel"
-                          inputMode="tel"
-                          autoComplete="tel"
-                          required
-                          value={editPhone}
-                          onChange={e => setEditPhone(e.target.value)}
-                          className={`w-full px-3.5 py-2.5 rounded-2xl text-sm border focus:outline-none focus:border-amber-500 ${
-                            isLightTheme
-                              ? 'bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400'
-                              : 'bg-neutral-950 border-neutral-800 text-white placeholder-neutral-500'
-                          }`}
-                        />
+                        <div className="flex items-center">
+                          <span
+                            className={`inline-flex items-center px-3 py-2.5 rounded-l-2xl text-xs font-bold border border-r-0 select-none ${
+                              isLightTheme
+                                ? 'bg-zinc-100 border-zinc-200 text-zinc-700'
+                                : 'bg-neutral-900 border-neutral-800 text-neutral-300'
+                            }`}
+                          >
+                            +51
+                          </span>
+                          <input
+                            id="prof-phone"
+                            type="tel"
+                            inputMode="tel"
+                            autoComplete="tel"
+                            required
+                            value={editPhone}
+                            onChange={e => setEditPhone(normalizePeruLocalPhone(e.target.value))}
+                            placeholder="999 888 777"
+                            className={`w-full px-3.5 py-2.5 rounded-r-2xl text-sm border focus:outline-none focus:border-amber-500 ${
+                              isLightTheme
+                                ? 'bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400'
+                                : 'bg-neutral-950 border-neutral-800 text-white placeholder-neutral-500'
+                            }`}
+                          />
+                        </div>
                       </div>
 
                       <div>

@@ -20,6 +20,20 @@ function normalizeDigits(value: string): string {
   return value.replace(/\D/g, '').slice(-9);
 }
 
+export function normalizePeruLocalPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('519')) {
+    return digits.slice(2);
+  }
+  if (digits.length === 12 && digits.startsWith('0519')) {
+    return digits.slice(3);
+  }
+  if (digits.length === 9 && digits.startsWith('9')) {
+    return digits;
+  }
+  return raw.trim();
+}
+
 export function detectCardBrand(cardNumber: string): CardBrand {
   const clean = cardNumber.replace(/\D/g, '');
   if (/^4/.test(clean)) return 'Visa';
@@ -267,7 +281,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
   const registerCustomer = useCallback(
     async (data: RegisterPayload): Promise<{ ok: boolean; error?: string }> => {
       const emailClean = data.email.trim().toLowerCase();
-      const phoneClean = data.phone.trim();
+      const phoneClean = normalizePeruLocalPhone(data.phone);
       const phoneDigits = normalizeDigits(phoneClean);
 
       if (!data.fullName.trim() || !emailClean || !phoneClean || !data.password) {
@@ -410,7 +424,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
     (data: UpdateProfilePayload): { ok: boolean; error?: string } => {
       if (!currentCustomer) return { ok: false, error: 'No hay sesión activa.' };
       const emailClean = data.email.trim().toLowerCase();
-      const phoneClean = data.phone.trim();
+      const phoneClean = normalizePeruLocalPhone(data.phone);
       if (!data.fullName.trim() || !emailClean || !phoneClean) {
         return { ok: false, error: 'Nombre, correo y celular son obligatorios.' };
       }

@@ -1,8 +1,8 @@
 {
-  "buildId": "20261115040718",
-  "builtAt": "2026-11-15T04:07:18.737Z",
-  "commitSha": "aa6f4aa",
-  "message": "feat(marketing): add Marketing & Web Push module with cPanel Cron and customer pizza insights",
+  "buildId": "20261115042612",
+  "builtAt": "2026-11-15T04:26:12.538Z",
+  "commitSha": "e8bc6c4",
+  "message": "fix(marketing): record immediate web push campaigns in campaign history",
   "totalFiles": 97,
-  "manifestSha256": "e98e02813169f506d869731c6771705b3606eb85b0c09a2ade8e540721915b52"
+  "manifestSha256": "895783f83da302a906133b4cb82a166a020b512d7bbcc3a520406aabe1ce0ed2"
 }
