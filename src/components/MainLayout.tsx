@@ -30,6 +30,8 @@ const loadClientsCRMView = () =>
   import('./crm/ClientsCRMView').then(m => ({ default: m.ClientsCRMView }));
 const loadBenefitsModuleView = () =>
   import('./benefits/BenefitsModuleView').then(m => ({ default: m.BenefitsModuleView }));
+const loadMarketingModuleView = () =>
+  import('./marketing/MarketingModuleView').then(m => ({ default: m.MarketingModuleView }));
 const loadProductCatalogView = () =>
   import('./pos/ProductCatalogView').then(m => ({ default: m.ProductCatalogView }));
 const loadKioskSelfServiceView = () =>
@@ -56,6 +58,7 @@ const DeliveryView = lazy(loadDeliveryView);
 const OrdersManagementView = lazy(loadOrdersManagementView);
 const ClientsCRMView = lazy(loadClientsCRMView);
 const BenefitsModuleView = lazy(loadBenefitsModuleView);
+const MarketingModuleView = lazy(loadMarketingModuleView);
 const ProductCatalogView = lazy(loadProductCatalogView);
 const KioskSelfServiceView = lazy(loadKioskSelfServiceView);
 const PublicEmployeePortal = lazy(loadPublicEmployeePortal);
@@ -93,6 +96,7 @@ import {
   FileText,
   Receipt,
   Gift,
+  Megaphone,
   Smartphone,
   Boxes,
   FileImage,
@@ -113,6 +117,7 @@ export type MainModuleId =
   | 'orders'
   | 'clients'
   | 'benefits'
+  | 'marketing'
   | 'products'
   | 'media'
   | 'pages'
@@ -244,7 +249,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
       const saved = localStorage.getItem('kh_active_main_module') as MainModuleId;
       if (saved && [
         'pos', 'kitchen', 'delivery', 'orders', 'catalog', 'tables',
-        'kiosk', 'benefits', 'hr', 'crm', 'store_builder', 'settings', 'dashboard', 'inventory',
+        'kiosk', 'benefits', 'marketing', 'hr', 'crm', 'store_builder', 'settings', 'dashboard', 'inventory',
         'products', 'clients', 'media', 'pages', 'finance'
       ].includes(saved)) {
         return saved;
@@ -1451,6 +1456,36 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
               )}
             </button>
 
+            {/* Marketing & Web Push Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveMainModule('marketing');
+                setMobileMenuOpen(false);
+              }}
+              className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-all ${
+                sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
+              } ${
+                activeMainModule === 'marketing'
+                  ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
+              }`}
+              title="Marketing, Web Push & Campañas"
+            >
+              <Megaphone
+                className="h-4 w-4 shrink-0 transition-colors"
+                style={activeMainModule === 'marketing' ? { color: customization.primaryColor } : undefined}
+              />
+              {(!sidebarCollapsed || mobileMenuOpen) && (
+                <div className="flex items-center justify-between flex-1 min-w-0">
+                  <span className="truncate">Marketing</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold">
+                    Push
+                  </span>
+                </div>
+              )}
+            </button>
+
             {onNavigateToStore && (
               <div className="pt-2">
                 <button
@@ -1692,6 +1727,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 <ClientsCRMView />
               ) : activeMainModule === 'benefits' ? (
                 <BenefitsModuleView />
+              ) : activeMainModule === 'marketing' ? (
+                <MarketingModuleView />
               ) : activeMainModule === 'products' ? (
                 <ProductCatalogView />
               ) : activeMainModule === 'media' ? (

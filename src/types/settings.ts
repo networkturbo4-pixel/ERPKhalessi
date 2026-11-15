@@ -247,6 +247,7 @@ export type ErpModuleKey =
   | 'finances'
   | 'clients'
   | 'benefits'
+  | 'marketing'
   | 'quotes'
   | 'hr'
   | 'workspace'

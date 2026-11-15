@@ -31,5 +31,7 @@ public/api/.token_secret.php
 release/api/.token_secret.php
 public/api/.rate_limit/
 release/api/.rate_limit/
+public/api/storage/
+release/api/storage/
 
 data/

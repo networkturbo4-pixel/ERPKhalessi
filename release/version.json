@@ -1,8 +1,8 @@
 {
-  "buildId": "20261115032016",
-  "builtAt": "2026-11-15T03:20:16.978Z",
-  "commitSha": "7ecb230",
-  "message": "fix(wallet): enlarge stamp circles, support relative HTTPS paths and clear barcode with PUT",
-  "totalFiles": 94,
-  "manifestSha256": "aa4d01bbde084f7228c0aab07913e859ab13a39822f0a99263ec169453e3dc09"
+  "buildId": "20261115034644",
+  "builtAt": "2026-11-15T03:46:44.799Z",
+  "commitSha": "e48022b",
+  "message": "fix(wallet): add cache-buster to dynamic stamp heroImage",
+  "totalFiles": 97,
+  "manifestSha256": "feebcfc7514fea4c0e6d77cc1ed5161394a8511fc831a1398c9450c6de120031"
 }

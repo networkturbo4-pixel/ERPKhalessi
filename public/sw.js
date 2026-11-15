@@ -89,7 +89,8 @@ self.addEventListener('push', (event) => {
       body: payload.body,
       icon: payload.icon || '/api/favicon.php',
       badge: payload.icon || '/api/favicon.php',
-      tag: payload.tag,
+      ...(payload.image ? { image: payload.image } : {}),
+      tag: payload.tag || 'khalessi-marketing-push',
       data: { url: payload.url || '/' },
       renotify: true,
     })
@@ -120,8 +121,10 @@ self.addEventListener('notificationclick', (event) => {
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         if ('focus' in client) {
-          client.focus();
-          return;
+          if (targetUrl && targetUrl !== '/' && 'navigate' in client) {
+            return client.navigate(targetUrl).then((navigated) => (navigated ? navigated.focus() : client.focus()));
+          }
+          return client.focus();
         }
       }
       if (self.clients.openWindow) {

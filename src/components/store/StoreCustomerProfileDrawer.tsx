@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { LoyaltyCardView } from '../benefits/LoyaltyCardView';
 import { AddToGoogleWalletButton } from '../benefits/AddToGoogleWalletButton';
+import { WebPushOptInBanner } from '../marketing/WebPushOptInBanner';
 
 interface StoreCustomerProfileDrawerProps {
   isOpen: boolean;
@@ -790,6 +791,13 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                       customerName={currentCustomer.fullName}
                       customerPhone={currentCustomer.phone}
                       points={currentCustomer.points || 0}
+                    />
+
+                    <WebPushOptInBanner
+                      customerId={currentCustomer.id}
+                      customerName={currentCustomer.fullName}
+                      customerPhone={currentCustomer.phone}
+                      isLightTheme={isLightTheme}
                     />
 
                     {/* Premios Disponibles */}

@@ -20,6 +20,7 @@ export const ERP_MODULES_CATALOG: ErpModuleMeta[] = [
   { key: 'quotes', label: 'Cotizaciones & Eventos', shortDesc: 'Paquetes corporativos, catering y descuentos especiales', category: 'comercial' },
   { key: 'clients', label: 'Clientes CRM & Fidelización', shortDesc: 'Historial de pedidos, cartera y perfiles de clientes', category: 'comercial' },
   { key: 'benefits', label: 'Beneficios, Cupones & Puntos', shortDesc: 'Gestor de cupones promocionales, tarjetas de puntos y premios canjeables', category: 'comercial' },
+  { key: 'marketing', label: 'Marketing, Web Push & Campañas', shortDesc: 'Notificaciones Web Push (Android/iOS/Windows), segmentos y envíos programados', category: 'comercial' },
   { key: 'finances', label: 'Finanzas, Bancos & SUNAT', shortDesc: 'Facturación electrónica, cuentas bancarias y billeteras QR', category: 'comercial' },
   { key: 'hr', label: 'Recursos Humanos & Biométrico', shortDesc: 'Legajos sanitarios, reloj de asistencia, turnos, pre-planilla y TOTP', category: 'administracion' },
   { key: 'workspace', label: 'Multisucursal & Transferencias', shortDesc: 'Gestión de locales físicos y envíos entre tiendas', category: 'administracion' },
@@ -86,6 +87,10 @@ export const SYSTEM_PERMISSIONS: Permission[] = [
   { id: 'ben1', code: 'benefits:view', name: 'Ver Módulo Beneficios', description: 'Consultar cupones activos, tarjetas de puntos y premios', module: 'benefits', action: 'view' },
   { id: 'ben2', code: 'benefits:manage', name: 'Gestionar Cupones y Premios', description: 'Crear/editar cupones, configurar puntos por compra y premios', module: 'benefits', action: 'edit' },
 
+  // 10C. Marketing & Web Push
+  { id: 'mkt1', code: 'marketing:view', name: 'Ver Módulo Marketing', description: 'Analizar clientes VIP, inactivos, pizza favorita y campañas', module: 'marketing', action: 'view' },
+  { id: 'mkt2', code: 'marketing:manage', name: 'Enviar Campañas y Push', description: 'Crear y programar notificaciones Web Push, WhatsApp y Cron', module: 'marketing', action: 'edit' },
+
   // 11. Finanzas
   { id: 'p10', code: 'finances:view', name: 'Ver Flujo de Caja y Ventas', description: 'Consultar ingresos consolidados y márgenes', module: 'finances', action: 'view' },
   { id: 'fin2', code: 'finances:create', name: 'Registrar Egreso / Gasto Chica', description: 'Cargar pagos menores de tienda con sustento', module: 'finances', action: 'create' },
@@ -138,6 +143,7 @@ export const INITIAL_ROLES: Role[] = [
       'quotes:view', 'quotes:create', 'quotes:edit', 'quotes:approve',
       'clients:view', 'clients:create', 'clients:edit',
       'benefits:view', 'benefits:manage',
+      'marketing:view', 'marketing:manage',
       'finances:view', 'finances:create',
       'hr:view', 'hr:attendance', 'hr:schedules', 'hr:payroll',
       'workspace:access', 'workspace:transfer',
@@ -296,6 +302,9 @@ function loadSavedRBAC(): { roles: Role[]; currentUser: User } {
             }
             if (!nextPerms.some(p => p.startsWith('benefits:'))) {
               nextPerms = [...nextPerms, 'benefits:view', 'benefits:manage'];
+            }
+            if (!nextPerms.some(p => p.startsWith('marketing:'))) {
+              nextPerms = [...nextPerms, 'marketing:view', 'marketing:manage'];
             }
             return { ...r, permissions: nextPerms };
           }

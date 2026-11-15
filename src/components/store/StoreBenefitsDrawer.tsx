@@ -14,6 +14,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { StoreInteractiveGames } from './StoreInteractiveGames';
 import { LoyaltyCardView } from '../benefits/LoyaltyCardView';
 import { AddToGoogleWalletButton } from '../benefits/AddToGoogleWalletButton';
+import { WebPushOptInBanner } from '../marketing/WebPushOptInBanner';
 
 interface StoreBenefitsDrawerProps {
   isOpen: boolean;
@@ -201,6 +202,13 @@ export const StoreBenefitsDrawer: React.FC<StoreBenefitsDrawerProps> = ({
                         points={currentCustomer.points || 0}
                       />
                     )}
+
+                    <WebPushOptInBanner
+                      customerId={currentCustomer?.id}
+                      customerName={currentCustomer?.fullName}
+                      customerPhone={currentCustomer?.phone}
+                      isLightTheme={isLightTheme}
+                    />
 
                     {!currentCustomer && (
                       <div

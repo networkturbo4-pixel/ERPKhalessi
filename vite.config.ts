@@ -538,6 +538,307 @@ function diskStoragePlugin(): Plugin {
           }
         }
 
+        // Marketing Web Push API (dev mirror of public/api/marketing-push.php)
+        if (req.url?.split('?')[0] === '/api/marketing-push.php') {
+          res.setHeader('Content-Type', 'application/json; charset=utf-8')
+          res.setHeader('Cache-Control', 'no-store')
+
+          const dataDir = path.resolve(process.cwd(), 'data')
+          if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true })
+          const vapidFile = path.join(dataDir, 'marketing-vapid.json')
+          const subsFile = path.join(dataDir, 'marketing_push_subscriptions.json')
+          const campaignsFile = path.join(dataDir, 'marketing_scheduled_campaigns.json')
+          const cronKeyFile = path.join(dataDir, 'marketing-cron-key.txt')
+
+          const b64url = (input: Buffer | string) =>
+            Buffer.from(input).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+          const b64urlDecode = (str: string) => {
+            const pad = str.length % 4
+            const padded = pad ? str + '='.repeat(4 - pad) : str
+            return Buffer.from(padded.replace(/-/g, '+').replace(/_/g, '/'), 'base64')
+          }
+
+          const readJson = <T,>(filePath: string, fallback: T): T => {
+            try {
+              if (!fs.existsSync(filePath)) return fallback
+              return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as T
+            } catch {
+              return fallback
+            }
+          }
+          const writeJson = (filePath: string, val: unknown) => {
+            fs.writeFileSync(filePath, JSON.stringify(val, null, 2))
+          }
+
+          const getOrCreateCronKey = () => {
+            if (fs.existsSync(cronKeyFile)) {
+              const k = fs.readFileSync(cronKeyFile, 'utf-8').trim()
+              if (k) return k
+            }
+            const k = crypto.randomBytes(16).toString('hex')
+            fs.writeFileSync(cronKeyFile, k)
+            return k
+          }
+
+          const getOrCreateVapid = (): { publicKey: string; privatePem: string; publicPem: string } => {
+            const existing = readJson<{ publicKey?: string; privatePem?: string; publicPem?: string }>(vapidFile, {})
+            if (existing.publicKey && existing.privatePem && existing.publicPem) {
+              return { publicKey: existing.publicKey, privatePem: existing.privatePem, publicPem: existing.publicPem }
+            }
+            const { publicKey: pubKeyObj, privateKey: privKeyObj } = crypto.generateKeyPairSync('ec', {
+              namedCurve: 'prime256v1',
+            })
+            const privatePem = privKeyObj.export({ type: 'pkcs8', format: 'pem' }).toString()
+            const publicPem = pubKeyObj.export({ type: 'spki', format: 'pem' }).toString()
+            const jwk = pubKeyObj.export({ format: 'jwk' }) as { x: string; y: string }
+            const rawPub = Buffer.concat([Buffer.from([0x04]), b64urlDecode(jwk.x), b64urlDecode(jwk.y)])
+            const vapid = {
+              publicKey: b64url(rawPub),
+              privatePem,
+              publicPem,
+              createdAt: new Date().toISOString(),
+            }
+            writeJson(vapidFile, vapid)
+            return vapid
+          }
+
+          const encryptWebPush = (plaintext: string, uaPubB64: string, authB64: string): Buffer => {
+            const uaPub = b64urlDecode(uaPubB64)
+            const authSecret = b64urlDecode(authB64)
+            const ecdh = crypto.createECDH('prime256v1')
+            ecdh.generateKeys()
+            const asPub = ecdh.getPublicKey()
+            const sharedSecret = ecdh.computeSecret(uaPub)
+
+            const salt = crypto.randomBytes(16)
+            const prkKey = crypto.createHmac('sha256', authSecret).update(sharedSecret).digest()
+            const keyInfo = Buffer.concat([Buffer.from('WebPush: info\0', 'utf8'), uaPub, asPub, Buffer.from([0x01])])
+            const ikm = crypto.createHmac('sha256', prkKey).update(keyInfo).digest()
+
+            const prk = crypto.createHmac('sha256', salt).update(ikm).digest()
+            const cek = crypto
+              .createHmac('sha256', prk)
+              .update(Buffer.from('Content-Encoding: aes128gcm\0\x01', 'utf8'))
+              .digest()
+              .subarray(0, 16)
+            const nonce = crypto
+              .createHmac('sha256', prk)
+              .update(Buffer.from('Content-Encoding: nonce\0\x01', 'utf8'))
+              .digest()
+              .subarray(0, 12)
+
+            const cipher = crypto.createCipheriv('aes-128-gcm', cek, nonce)
+            const encrypted = Buffer.concat([cipher.update(Buffer.concat([Buffer.from(plaintext, 'utf8'), Buffer.from([0x02])])), cipher.final()])
+            const tag = cipher.getAuthTag()
+            const rs = Buffer.alloc(4)
+            rs.writeUInt32BE(4096, 0)
+            return Buffer.concat([salt, rs, Buffer.from([65]), asPub, encrypted, tag])
+          }
+
+          const signVapidJwt = (endpoint: string, privatePem: string) => {
+            const u = new URL(endpoint)
+            const aud = `${u.protocol}//${u.host}`
+            const head = b64url(JSON.stringify({ typ: 'JWT', alg: 'ES256' }))
+            const body = b64url(JSON.stringify({ aud, exp: Math.floor(Date.now() / 1000) + 43200, sub: 'mailto:marketing@pizzakhalessi.com' }))
+            const sig = crypto.sign('sha256', Buffer.from(`${head}.${body}`), { key: privatePem, dsaEncoding: 'ieee-p1363' })
+            return `${head}.${body}.${b64url(sig)}`
+          }
+
+          const dispatchPush = async (campaign: Record<string, unknown>) => {
+            type SubItem = { endpoint: string; keys: { p256dh: string; auth: string }; customerId?: string; customerPhone?: string }
+            const subs = readJson<SubItem[]>(subsFile, [])
+            if (subs.length === 0) return { sent: 0, failed: 0, total: 0 }
+            const targetCustId = String(campaign.targetCustomerId || '').trim()
+            const targetPhone = String(campaign.targetCustomerPhone || '').replace(/\D+/g, '')
+            const targets = subs.filter(s => {
+              if (!targetCustId && !targetPhone) return true
+              const subPhone = String(s.customerPhone || '').replace(/\D+/g, '')
+              return (targetCustId && s.customerId === targetCustId) || (targetPhone && subPhone && subPhone === targetPhone)
+            })
+            const vapid = getOrCreateVapid()
+            const jsonPayload = JSON.stringify({
+              title: String(campaign.title || 'Pizza Khalessi'),
+              body: String(campaign.body || ''),
+              url: String(campaign.targetUrl || '/'),
+              ...(campaign.imageUrl ? { image: String(campaign.imageUrl) } : {}),
+              tag: `khalessi-mkt-${String(campaign.id || Date.now())}`,
+            })
+            let sent = 0
+            let failed = 0
+            const expired = new Set<string>()
+            for (const sub of targets) {
+              try {
+                const jwt = signVapidJwt(sub.endpoint, vapid.privatePem)
+                const bodyBuf = encryptWebPush(jsonPayload, sub.keys.p256dh, sub.keys.auth)
+                const pushRes = await fetch(sub.endpoint, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/octet-stream',
+                    'Content-Encoding': 'aes128gcm',
+                    TTL: '86400',
+                    Urgency: 'high',
+                    Authorization: `vapid t=${jwt}, k=${vapid.publicKey}`,
+                  },
+                  body: new Uint8Array(bodyBuf),
+                })
+                if (pushRes.ok) sent++
+                else {
+                  failed++
+                  if (pushRes.status === 404 || pushRes.status === 410) expired.add(sub.endpoint)
+                }
+              } catch {
+                failed++
+              }
+            }
+            if (expired.size > 0) {
+              writeJson(subsFile, subs.filter(s => !expired.has(s.endpoint)))
+            }
+            return { sent, failed, total: targets.length }
+          }
+
+          const urlObj = new URL(req.url, 'http://localhost')
+          const queryAction = urlObj.searchParams.get('action') || 'stats'
+
+          if (req.method === 'GET') {
+            if (queryAction === 'vapid-public-key') {
+              const vapid = getOrCreateVapid()
+              res.statusCode = 200
+              res.end(JSON.stringify({ success: true, publicKey: vapid.publicKey }))
+              return
+            }
+            if (queryAction === 'stats') {
+              const subs = readJson<Array<Record<string, unknown>>>(subsFile, [])
+              const byPlatform = { android: 0, ios: 0, windows: 0, macos: 0, other: 0 }
+              for (const s of subs) {
+                const p = String(s.platform || 'other') as keyof typeof byPlatform
+                byPlatform[p in byPlatform ? p : 'other']++
+              }
+              res.statusCode = 200
+              res.end(JSON.stringify({ success: true, totalSubscribers: subs.length, byPlatform, subscribers: subs, cronKey: getOrCreateCronKey() }))
+              return
+            }
+            if (queryAction === 'campaigns') {
+              res.statusCode = 200
+              res.end(JSON.stringify({ success: true, campaigns: readJson(campaignsFile, []) }))
+              return
+            }
+            if (queryAction === 'run-scheduled') {
+              const campaigns = readJson<Array<Record<string, unknown>>>(campaignsFile, [])
+              const now = Date.now()
+              let processed = 0
+              let sent = 0
+              for (const c of campaigns) {
+                if (c.status === 'scheduled' && new Date(String(c.scheduledAt || '')).getTime() <= now) {
+                  processed++
+                  const r = await dispatchPush(c)
+                  c.status = 'sent'
+                  c.sentAt = new Date().toISOString()
+                  c.sentCount = r.sent
+                  c.failedCount = r.failed
+                  sent += r.sent
+                }
+              }
+              if (processed > 0) writeJson(campaignsFile, campaigns)
+              res.statusCode = 200
+              res.end(JSON.stringify({ success: true, processed, sent }))
+              return
+            }
+            res.statusCode = 400
+            res.end(JSON.stringify({ success: false, error: 'Acción GET no soportada.' }))
+            return
+          }
+
+          if (req.method === 'POST') {
+            const chunks: Buffer[] = []
+            req.on('data', c => chunks.push(Buffer.from(c)))
+            req.on('end', async () => {
+              try {
+                const body = JSON.parse(Buffer.concat(chunks).toString('utf-8') || '{}') as Record<string, unknown>
+                const action = String(body.action || '')
+                if (action === 'subscribe') {
+                  const sub = body.subscription as { endpoint?: string; keys?: { p256dh?: string; auth?: string } } | undefined
+                  if (!sub?.endpoint || !sub.keys?.p256dh || !sub.keys?.auth) {
+                    res.statusCode = 400
+                    res.end(JSON.stringify({ success: false, error: 'Suscripción inválida.' }))
+                    return
+                  }
+                  const subs = readJson<Array<Record<string, unknown>>>(subsFile, [])
+                  const rec = {
+                    id: `push-${crypto.createHash('sha1').update(sub.endpoint).digest('hex').slice(0, 12)}`,
+                    endpoint: sub.endpoint,
+                    keys: sub.keys,
+                    customerId: String(body.customerId || '').trim(),
+                    customerName: String(body.customerName || '').trim(),
+                    customerPhone: String(body.customerPhone || '').trim(),
+                    platform: String(body.platform || 'other'),
+                    tenantId: String(body.tenantId || '').trim(),
+                    createdAt: new Date().toISOString(),
+                  }
+                  const idx = subs.findIndex(s => s.endpoint === sub.endpoint)
+                  if (idx >= 0) subs[idx] = { ...subs[idx], ...rec }
+                  else subs.unshift(rec)
+                  writeJson(subsFile, subs)
+                  res.statusCode = 200
+                  res.end(JSON.stringify({ success: true, id: rec.id, totalSubscribers: subs.length }))
+                  return
+                }
+                if (action === 'send-push') {
+                  const r = await dispatchPush(body)
+                  res.statusCode = 200
+                  res.end(JSON.stringify({ success: true, ...r }))
+                  return
+                }
+                if (action === 'schedule') {
+                  const campaign = body.campaign as Record<string, unknown>
+                  const campaigns = readJson<Array<Record<string, unknown>>>(campaignsFile, [])
+                  campaigns.unshift(campaign)
+                  writeJson(campaignsFile, campaigns.slice(0, 100))
+                  res.statusCode = 200
+                  res.end(JSON.stringify({ success: true, campaign }))
+                  return
+                }
+                if (action === 'cancel' || action === 'delete') {
+                  const id = String(body.id || '')
+                  let campaigns = readJson<Array<Record<string, unknown>>>(campaignsFile, [])
+                  if (action === 'delete') campaigns = campaigns.filter(c => c.id !== id)
+                  else campaigns = campaigns.map(c => (c.id === id && c.status === 'scheduled' ? { ...c, status: 'cancelled' } : c))
+                  writeJson(campaignsFile, campaigns)
+                  res.statusCode = 200
+                  res.end(JSON.stringify({ success: true, campaigns }))
+                  return
+                }
+                if (action === 'run-scheduled') {
+                  const campaigns = readJson<Array<Record<string, unknown>>>(campaignsFile, [])
+                  const now = Date.now()
+                  let processed = 0
+                  let sent = 0
+                  for (const c of campaigns) {
+                    if (c.status === 'scheduled' && new Date(String(c.scheduledAt || '')).getTime() <= now) {
+                      processed++
+                      const r = await dispatchPush(c)
+                      c.status = 'sent'
+                      c.sentAt = new Date().toISOString()
+                      c.sentCount = r.sent
+                      c.failedCount = r.failed
+                      sent += r.sent
+                    }
+                  }
+                  if (processed > 0) writeJson(campaignsFile, campaigns)
+                  res.statusCode = 200
+                  res.end(JSON.stringify({ success: true, processed, sent }))
+                  return
+                }
+                res.statusCode = 400
+                res.end(JSON.stringify({ success: false, error: 'Acción POST no reconocida.' }))
+              } catch (err) {
+                res.statusCode = 500
+                res.end(JSON.stringify({ success: false, error: err instanceof Error ? err.message : 'Error interno' }))
+              }
+            })
+            return
+          }
+        }
+
         // Proxy para Factúralo PRO (resuelve bloqueo de CORS de api.facturalo.pe en el navegador)
         if (req.url?.startsWith('/api/facturalo-proxy')) {
           res.setHeader('Access-Control-Allow-Origin', '*')
