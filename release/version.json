@@ -1,8 +1,8 @@
 {
-  "buildId": "20261116213533",
-  "builtAt": "2026-11-16T21:35:33.439Z",
-  "commitSha": "261b22d",
-  "message": "perf(store): apply modern-web-guidance (LCP priority, top-layer backdrop, overscroll, checkout autofill) + release 20261116211233",
+  "buildId": "20261116213906",
+  "builtAt": "2026-11-16T21:39:06.295Z",
+  "commitSha": "9bbd2fd",
+  "message": "feat(store): polish storefront UX, animations, search, and active order tracker + release 20261116213533",
   "totalFiles": 101,
-  "manifestSha256": "9a50ba68044f9821b7425a72474856acd446086d3cb07d4b6f24084ddd126df2"
+  "manifestSha256": "771959f28ea3b320bd495143cd6343cdbac201fa4f7bcc729f4bc8b7398bf370"
 }

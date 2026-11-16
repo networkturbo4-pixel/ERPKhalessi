@@ -1002,6 +1002,25 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     }
   }, [activeCategory]);
 
+  // Avoid showing both the top order card and floating pill at the same time
+  const topOrderCardRef = useRef<HTMLButtonElement>(null);
+  const [isTopOrderCardVisible, setIsTopOrderCardVisible] = useState(true);
+  useEffect(() => {
+    const el = topOrderCardRef.current;
+    if (!el || activeCategory !== 'todos' || isBuilderOpen) {
+      setIsTopOrderCardVisible(false);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      entries => {
+        setIsTopOrderCardVisible(Boolean(entries[0]?.isIntersecting));
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [activeCategory, isBuilderOpen, latestActiveCustomerOrder?.id]);
+
   // Swipe-to-close gesture state for mobile Cart bottom sheet
   const cartTouchStartYRef = useRef<number | null>(null);
   const [cartSwipeOffset, setCartSwipeOffset] = useState(0);
@@ -1813,6 +1832,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
 
             return (
               <button
+                ref={topOrderCardRef}
                 type="button"
                 onClick={() => {
                   setFocusedOrderId(latestActiveCustomerOrder.id);
@@ -4402,39 +4422,41 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
         </div>
       )}
 
-      {/* Floating Live Active Order Tracker Pill (always visible while browsing) */}
-      {!isBuilderOpen && latestActiveCustomerOrder && (
-        <button
-          type="button"
-          onClick={() => {
-            setFocusedOrderId(latestActiveCustomerOrder.id);
-            setIsOrdersOpen(true);
-          }}
-          className={`fixed bottom-20 lg:bottom-6 right-4 z-30 flex items-center gap-2.5 pl-3 pr-3.5 py-2 rounded-full border shadow-xl backdrop-blur-md transition-transform active:scale-95 hover:scale-[1.02] ${
-            isLightTheme
-              ? 'bg-white/95 border-zinc-200 text-zinc-900'
-              : 'bg-neutral-900/95 border-neutral-700 text-white'
-          }`}
-        >
-          <span className="relative flex h-2.5 w-2.5 shrink-0">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-          </span>
-          <span className="text-xs font-black whitespace-nowrap tabular-nums">
-            #{latestActiveCustomerOrder.orderNumber} ·{' '}
-            {latestActiveCustomerOrder.status === 'recibido'
-              ? 'Recibido'
-              : latestActiveCustomerOrder.status === 'en_cocina'
-              ? 'En cocina'
-              : latestActiveCustomerOrder.status === 'en_horno'
-              ? 'En horno 🔥'
-              : latestActiveCustomerOrder.status === 'listo'
-              ? 'Listo ✨'
-              : 'En camino 🛵'}
-          </span>
-          <ArrowRight className="w-3.5 h-3.5 opacity-70 shrink-0" />
-        </button>
-      )}
+      {/* Floating Live Active Order Tracker Pill (shown only when top card is scrolled away or in another category) */}
+      {!isBuilderOpen &&
+        latestActiveCustomerOrder &&
+        (activeCategory !== 'todos' || !isTopOrderCardVisible) && (
+          <button
+            type="button"
+            onClick={() => {
+              setFocusedOrderId(latestActiveCustomerOrder.id);
+              setIsOrdersOpen(true);
+            }}
+            className={`fixed bottom-20 lg:bottom-6 right-4 z-30 flex items-center gap-2.5 pl-3 pr-3.5 py-2 rounded-full border shadow-xl backdrop-blur-md transition-transform active:scale-95 hover:scale-[1.02] ${
+              isLightTheme
+                ? 'bg-white/95 border-zinc-200 text-zinc-900'
+                : 'bg-neutral-900/95 border-neutral-700 text-white'
+            }`}
+          >
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+            </span>
+            <span className="text-xs font-black whitespace-nowrap tabular-nums">
+              #{latestActiveCustomerOrder.orderNumber.replace(/^#/, '')} ·{' '}
+              {latestActiveCustomerOrder.status === 'recibido'
+                ? 'Recibido'
+                : latestActiveCustomerOrder.status === 'en_cocina'
+                ? 'En cocina'
+                : latestActiveCustomerOrder.status === 'en_horno'
+                ? 'En horno 🔥'
+                : latestActiveCustomerOrder.status === 'listo'
+                ? 'Listo ✨'
+                : 'En camino 🛵'}
+            </span>
+            <ArrowRight className="w-3.5 h-3.5 opacity-70 shrink-0" />
+          </button>
+        )}
 
       {/* Active Order Push Notifications Prompt */}
       {!pwaBannerDismissed &&
