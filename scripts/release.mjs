@@ -51,6 +51,31 @@ fs.rmSync(path.join(release, 'api', 'storage', 'marketing-cron-key.txt'), { forc
 fs.rmSync(path.join(release, 'api', 'storage', 'marketing_push_subscriptions.json'), { force: true });
 fs.rmSync(path.join(release, 'api', 'storage', 'marketing_scheduled_campaigns.json'), { force: true });
 
+// Normalizar fin de línea LF en /release para que SHA-256 coincida byte-a-byte con GitHub raw
+const TEXT_EXTS = new Set([
+  '.php', '.js', '.mjs', '.cjs', '.css', '.html', '.json', '.svg',
+  '.txt', '.webmanifest', '.sql', '.md', '.ts', '.tsx', '.yml', '.yaml',
+]);
+normalizeReleaseLf(release);
+
+function normalizeReleaseLf(dir) {
+  for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = path.join(dir, item.name);
+    if (item.isDirectory()) {
+      normalizeReleaseLf(fullPath);
+    } else {
+      const ext = path.extname(item.name).toLowerCase();
+      if (TEXT_EXTS.has(ext) || item.name === '.htaccess') {
+        const raw = fs.readFileSync(fullPath);
+        const normalized = Buffer.from(raw.toString('utf8').replace(/\r\n/g, '\n'), 'utf8');
+        if (!raw.equals(normalized)) {
+          fs.writeFileSync(fullPath, normalized);
+        }
+      }
+    }
+  }
+}
+
 function buildManifestEntries(dir, baseDir = dir) {
   const entries = [];
   const items = fs.readdirSync(dir, { withFileTypes: true });

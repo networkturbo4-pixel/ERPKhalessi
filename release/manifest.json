@@ -1,8 +1,8 @@
 {
-  "buildId": "20261116195906",
-  "builtAt": "2026-11-16T19:59:06.915Z",
-  "commitSha": "1fa7899",
-  "message": "feat(hr): add Google Forms-style field controls (radio, multicheckbox, scale, file, time) + release 20261116172600",
+  "buildId": "20261116200157",
+  "builtAt": "2026-11-16T20:01:57.578Z",
+  "commitSha": "7cd9336",
+  "message": "fix(hr): expose sanitized jobPostings in public storage API for /trabaja SPA + release 20261116195906",
   "totalFiles": 101,
   "files": [
     {
@@ -87,8 +87,8 @@
     },
     {
       "path": "api/storage-lib.php",
-      "sha256": "0f9cbaf3814397b50742d10ce9681642502e78a86b177bf26a2fcc332785070c",
-      "size": 9753
+      "sha256": "519bd4fdbe149446acd32fc5f6f682ee2a062b49d041a98175c4ad80043c42dd",
+      "size": 9752
     },
     {
       "path": "api/storage.php",
