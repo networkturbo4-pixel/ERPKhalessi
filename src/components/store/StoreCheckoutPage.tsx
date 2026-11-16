@@ -853,13 +853,16 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
+                  <label htmlFor="checkout-customer-name" className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
                     Nombre y Apellidos *
                   </label>
                   <div className="relative">
                     <User className="w-4 h-4 absolute left-3 top-3 text-zinc-400" />
                     <input
+                      id="checkout-customer-name"
+                      name="name"
                       type="text"
+                      autoComplete="name"
                       required
                       placeholder="Tu nombre completo"
                       value={customerName}
@@ -872,13 +875,17 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
+                  <label htmlFor="checkout-customer-phone" className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
                     Teléfono Celular / WhatsApp *
                   </label>
                   <div className="relative">
                     <Phone className="w-4 h-4 absolute left-3 top-3 text-zinc-400" />
                     <input
+                      id="checkout-customer-phone"
+                      name="tel"
                       type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
                       required
                       placeholder="987 654 321"
                       value={customerPhone}
@@ -891,13 +898,16 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
+                  <label htmlFor="checkout-customer-email" className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
                     Correo Electrónico (Opcional para recibo)
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 absolute left-3 top-3 text-zinc-400" />
                     <input
+                      id="checkout-customer-email"
+                      name="email"
                       type="email"
+                      autoComplete="email"
                       placeholder="tu-correo@ejemplo.com"
                       value={customerEmail}
                       onChange={e => setCustomerEmail(e.target.value)}

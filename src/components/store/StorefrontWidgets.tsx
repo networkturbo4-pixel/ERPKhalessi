@@ -529,7 +529,8 @@ export const StoreSliderWidget: React.FC<StoreSliderWidgetProps> = ({
                         width={800}
                         height={resolvedHeight}
                         loading={idx === 0 && isHero ? 'eager' : 'lazy'}
-                        decoding="async"
+                        fetchPriority={idx === 0 && isHero ? 'high' : 'low'}
+                        decoding={idx === 0 && isHero ? 'sync' : 'async'}
                         className="absolute inset-0 w-full h-full object-cover"
                       />
                     </div>

@@ -1,8 +1,8 @@
 {
-  "buildId": "20261116200157",
-  "builtAt": "2026-11-16T20:01:57.578Z",
-  "commitSha": "7cd9336",
-  "message": "fix(hr): expose sanitized jobPostings in public storage API for /trabaja SPA + release 20261116195906",
+  "buildId": "20261116211233",
+  "builtAt": "2026-11-16T21:12:33.057Z",
+  "commitSha": "9b449d2",
+  "message": "fix(release): normalize LF in /release and add .gitattributes so SHA-256 matches GitHub raw",
   "totalFiles": 101,
-  "manifestSha256": "d03a145a7df92c0513ea2298060426b263c1c12ced552dcde709585e48263cd2"
+  "manifestSha256": "2e0c6a6a134089e081e3389de58c4c1c1cff52e6067a3332e28af95865f8d1c3"
 }

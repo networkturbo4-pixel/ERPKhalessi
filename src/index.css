@@ -736,6 +736,25 @@ dialog.store-responsive-drawer {
   border: 0;
   padding: 0;
   background: transparent;
+  overscroll-behavior: contain;
+}
+
+dialog.store-responsive-drawer::backdrop {
+  background-color: rgba(0, 0, 0, 0);
+  transition-property: background-color, display, overlay;
+  transition-duration: 0.25s;
+  transition-timing-function: ease-out;
+  transition-behavior: allow-discrete;
+}
+
+dialog.store-responsive-drawer[open]::backdrop {
+  background-color: rgba(0, 0, 0, 0.55);
+}
+
+@starting-style {
+  dialog.store-responsive-drawer[open]::backdrop {
+    background-color: rgba(0, 0, 0, 0);
+  }
 }
 
 @media (min-width: 768px) {
