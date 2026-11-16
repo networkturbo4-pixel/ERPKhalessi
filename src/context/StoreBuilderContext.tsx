@@ -1078,6 +1078,7 @@ interface StoreBuilderContextType {
         | 'buttonColor'
         | 'buttonTextColor'
         | 'autoButtonContrast'
+        | 'showHeaderCartButton'
       >
     >
   ) => void;
@@ -1276,6 +1277,7 @@ export const StoreBuilderProvider: React.FC<{ children: React.ReactNode }> = ({ 
           activeEditingPage.buttonTextColor ||
           getOptimalContrastHex(activeEditingPage.buttonColor || activeEditingPage.accentColor),
         autoButtonContrast: Boolean(activeEditingPage.autoButtonContrast),
+        showHeaderCartButton: activeEditingPage.showHeaderCartButton,
         blocks: activeEditingPage.blocks,
       };
     }
@@ -1444,6 +1446,7 @@ export const StoreBuilderProvider: React.FC<{ children: React.ReactNode }> = ({ 
         | 'buttonColor'
         | 'buttonTextColor'
         | 'autoButtonContrast'
+        | 'showHeaderCartButton'
       >
     >
   ) => {

@@ -469,6 +469,7 @@ export interface CustomPage {
   buttonColor?: string;
   buttonTextColor?: string;
   autoButtonContrast?: boolean;
+  showHeaderCartButton?: boolean;
   showStoreHeader: boolean;
   showStoreFooter: boolean;
   showInStoreNav?: boolean;
@@ -492,6 +493,7 @@ export interface StoreTemplate {
   buttonColor?: string;
   buttonTextColor?: string;
   autoButtonContrast?: boolean;
+  showHeaderCartButton?: boolean;
   blocks: StoreBlock[];
 }
 

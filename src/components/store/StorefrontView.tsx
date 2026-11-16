@@ -1660,24 +1660,26 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                   />
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => setIsCartOpen(true)}
-                  data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                  className="store-btn-solid relative h-10 flex items-center gap-2 px-4 rounded-full font-black text-xs sm:text-sm shadow-sm active:scale-95 transition-transform whitespace-nowrap shrink-0"
-                >
-                  <ShoppingBag aria-hidden="true" className="w-4 h-4" />
-                  <span>
-                    {totalCartUnits > 0 && cartSubtotal > 0
-                      ? `S/ ${resolvedPayableTotal.toFixed(2)}`
-                      : 'Carrito'}
-                  </span>
-                  {totalCartUnits > 0 && (
-                    <span className="bg-black/20 px-1.5 py-0.5 rounded-full text-[11px] font-black min-w-5 text-center">
-                      {totalCartUnits}
+                {activeTemplate.showHeaderCartButton !== false && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCartOpen(true)}
+                    data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+                    className="store-btn-solid relative h-10 flex items-center gap-2 px-4 rounded-full font-black text-xs sm:text-sm shadow-sm active:scale-95 transition-transform whitespace-nowrap shrink-0"
+                  >
+                    <ShoppingBag aria-hidden="true" className="w-4 h-4" />
+                    <span>
+                      {totalCartUnits > 0 && cartSubtotal > 0
+                        ? `S/ ${resolvedPayableTotal.toFixed(2)}`
+                        : 'Carrito'}
                     </span>
-                  )}
-                </button>
+                    {totalCartUnits > 0 && (
+                      <span className="bg-black/20 px-1.5 py-0.5 rounded-full text-[11px] font-black min-w-5 text-center">
+                        {totalCartUnits}
+                      </span>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           </div>

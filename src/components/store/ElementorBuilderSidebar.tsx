@@ -2692,6 +2692,38 @@ export const ElementorBuilderSidebar: React.FC = () => {
                 </div>
               </div>
 
+              {/* Header Cart Button Visibility Switcher */}
+              <div className="p-3.5 rounded-2xl border border-[#262a3b] bg-[#151823] flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="block text-[11px] font-bold text-white">
+                    Botón de Carrito en Cabecera
+                  </span>
+                  <span className="block text-[10px] text-zinc-400 leading-snug">
+                    Muestra u oculta el botón con el total y cantidad en la barra superior
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={activeTemplate.showHeaderCartButton !== false}
+                  aria-label="Mostrar botón de carrito en cabecera"
+                  onClick={() =>
+                    updateActiveTemplateMeta({
+                      showHeaderCartButton: activeTemplate.showHeaderCartButton === false,
+                    })
+                  }
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                    activeTemplate.showHeaderCartButton !== false ? 'bg-emerald-500' : 'bg-zinc-700'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      activeTemplate.showHeaderCartButton !== false ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
               {/* Toast Position Selector (Live Config for Alerts / Notifications) */}
               <div className="p-3.5 rounded-2xl border border-[#262a3b] bg-[#151823] space-y-2.5">
                 <div className="flex items-center justify-between">
