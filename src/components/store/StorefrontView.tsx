@@ -28,6 +28,7 @@ import {
   getNotificationPermissionState,
   requestOrderNotifications,
   showOrderStatusNotification,
+  applyStoreSeoAndOpenGraph,
 } from '../../utils/pwaManager';
 import { ToastContainer } from '../common/ToastContainer';
 import { SystemNoticeModal } from '../common/SystemNoticeModal';
@@ -294,6 +295,37 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  // Apply configured SEO, AI Search (JSON-LD) & Open Graph tags to Storefront <head>
+  useEffect(() => {
+    if (!customization.seoConfig) return;
+    applyStoreSeoAndOpenGraph({
+      seo: customization.seoConfig,
+      companyName: companyInfo.commercialName || customization.appName,
+      phone: activeTenant.operations?.phone || companyInfo.phone,
+      address: activeTenant.operations?.address || companyInfo.address,
+      logoUrl: customization.storeHeaderLogo || customization.logoLight || customization.logoDark,
+      topProducts: products
+        .filter(p => p.isAvailable)
+        .slice(0, 12)
+        .map(p => ({
+          name: p.name,
+          price: p.hasSizes ? (p.sizes.find(s => s.enabled)?.price ?? p.basePrice) : p.basePrice,
+        })),
+    });
+  }, [
+    customization.seoConfig,
+    customization.appName,
+    customization.storeHeaderLogo,
+    customization.logoLight,
+    customization.logoDark,
+    companyInfo.commercialName,
+    companyInfo.phone,
+    companyInfo.address,
+    activeTenant.operations?.phone,
+    activeTenant.operations?.address,
+    products,
+  ]);
 
   const effectiveViewport: BuilderViewport = isBuilderOpen ? previewViewport : windowViewport;
   const isLightTheme = activeTemplate.themeMode === 'light';

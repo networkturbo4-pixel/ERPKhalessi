@@ -141,6 +141,8 @@ export async function showOrderStatusNotification(params: {
   }
 }
 
+import { StoreSeoConfig } from '../types/settings';
+
 function upsertMeta(attr: 'property' | 'name', key: string, content: string) {
   if (typeof document === 'undefined' || !content) return;
   let el = document.querySelector(`meta[${attr}="${key}"]`) as HTMLMetaElement | null;
@@ -150,6 +152,17 @@ function upsertMeta(attr: 'property' | 'name', key: string, content: string) {
     document.head.appendChild(el);
   }
   el.setAttribute('content', content);
+}
+
+function upsertLink(rel: string, href: string) {
+  if (typeof document === 'undefined' || !href) return;
+  let el = document.querySelector(`link[rel="${rel}"]`) as HTMLLinkElement | null;
+  if (!el) {
+    el = document.createElement('link');
+    el.setAttribute('rel', rel);
+    document.head.appendChild(el);
+  }
+  el.setAttribute('href', href);
 }
 
 export function updateDocumentShareMeta(meta: {
@@ -177,6 +190,189 @@ export function updateDocumentShareMeta(meta: {
   }
   upsertMeta('property', 'og:type', meta.type || 'website');
   upsertMeta('name', 'twitter:card', 'summary_large_image');
+}
+
+export function applyStoreSeoAndOpenGraph(params: {
+  seo: StoreSeoConfig;
+  companyName: string;
+  phone?: string;
+  address?: string;
+  logoUrl?: string;
+  topProducts?: Array<{ name: string; price: number; category?: string }>;
+}) {
+  if (typeof document === 'undefined') return;
+  const { seo, companyName, phone, address, logoUrl, topProducts = [] } = params;
+
+  const title = seo.metaTitle?.trim() || companyName;
+  const description = seo.metaDescription?.trim() || seo.aiBrandSummary?.trim() || '';
+  const ogTitle = seo.ogTitle?.trim() || title;
+  const ogDesc = seo.ogDescription?.trim() || description;
+  const ogImage = seo.ogImage?.trim() || logoUrl || '';
+  const canonical =
+    seo.canonicalUrl?.trim() ||
+    (typeof window !== 'undefined' ? window.location.origin : '');
+
+  document.title = title;
+  if (description) upsertMeta('name', 'description', description);
+  if (seo.keywords?.trim()) upsertMeta('name', 'keywords', seo.keywords.trim());
+  upsertMeta('name', 'robots', seo.robotsIndex ? 'index, follow' : 'noindex, nofollow');
+
+  if (canonical) {
+    upsertLink('canonical', canonical);
+    upsertMeta('property', 'og:url', canonical);
+  }
+  if (seo.googleSiteVerification?.trim()) {
+    upsertMeta('name', 'google-site-verification', seo.googleSiteVerification.trim());
+  }
+  if (seo.bingSiteVerification?.trim()) {
+    upsertMeta('name', 'msvalidate.01', seo.bingSiteVerification.trim());
+  }
+
+  // Open Graph & Social Sharing
+  upsertMeta('property', 'og:title', ogTitle);
+  if (ogDesc) upsertMeta('property', 'og:description', ogDesc);
+  if (ogImage) upsertMeta('property', 'og:image', ogImage);
+  upsertMeta('property', 'og:type', seo.ogType || 'website');
+  upsertMeta('property', 'og:site_name', seo.ogSiteName?.trim() || companyName);
+  upsertMeta('property', 'og:locale', seo.locale || 'es_PE');
+
+  // Twitter / X Cards
+  upsertMeta('name', 'twitter:card', seo.twitterCard || 'summary_large_image');
+  upsertMeta('name', 'twitter:title', ogTitle);
+  if (ogDesc) upsertMeta('name', 'twitter:description', ogDesc);
+  if (ogImage) upsertMeta('name', 'twitter:image', ogImage);
+  if (seo.twitterHandle?.trim()) {
+    upsertMeta('name', 'twitter:site', seo.twitterHandle.trim());
+  }
+
+  // Schema.org JSON-LD for Google & AI Search Engines (ChatGPT, Perplexity, Google AI)
+  const existingLd = document.getElementById('khalessi-seo-jsonld');
+  if (!seo.enableJsonLdSchema) {
+    if (existingLd) existingLd.remove();
+    return;
+  }
+
+  const ldPayload: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': seo.businessTypeSchema || 'Restaurant',
+    name: seo.ogSiteName?.trim() || companyName,
+    description: seo.aiBrandSummary?.trim() || description,
+    url: canonical || undefined,
+    image: ogImage || undefined,
+    telephone: phone || undefined,
+    servesCuisine: seo.cuisineType?.trim() || undefined,
+    priceRange: seo.priceRange?.trim() || undefined,
+    knowsAbout: seo.aiKeyTopics
+      ? seo.aiKeyTopics
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean)
+      : undefined,
+    address: address
+      ? {
+          '@type': 'PostalAddress',
+          streetAddress: address,
+          addressCountry: 'PE',
+        }
+      : undefined,
+  };
+
+  if (topProducts.length > 0) {
+    ldPayload.hasOfferCatalog = {
+      '@type': 'OfferCatalog',
+      name: `Carta de ${companyName}`,
+      itemListElement: topProducts.slice(0, 12).map((p, idx) => ({
+        '@type': 'Offer',
+        position: idx + 1,
+        priceCurrency: 'PEN',
+        price: Number(p.price || 0).toFixed(2),
+        itemOffered: {
+          '@type': 'MenuItem',
+          name: p.name,
+        },
+      })),
+    };
+  }
+
+  const scriptEl =
+    (existingLd as HTMLScriptElement | null) || document.createElement('script');
+  scriptEl.id = 'khalessi-seo-jsonld';
+  scriptEl.type = 'application/ld+json';
+  scriptEl.textContent = JSON.stringify(ldPayload, null, 2);
+  if (!existingLd) {
+    document.head.appendChild(scriptEl);
+  }
+}
+
+export function buildRobotsTxtContent(seo: StoreSeoConfig): string {
+  const baseUrl = (seo.canonicalUrl || 'https://pizzakhalessi.com').replace(/\/+$/, '');
+  const lines = [
+    '# Robots.txt generado por Khalessi Pizza ERP',
+    'User-agent: *',
+    seo.robotsIndex ? 'Allow: /' : 'Disallow: /',
+    'Disallow: /admin',
+    '',
+    '# Buscadores de IA (ChatGPT, Perplexity, Claude, Google AI)',
+    ...(seo.allowAiCrawlers
+      ? [
+          'User-agent: GPTBot',
+          'Allow: /',
+          'User-agent: OAI-SearchBot',
+          'Allow: /',
+          'User-agent: PerplexityBot',
+          'Allow: /',
+          'User-agent: ClaudeBot',
+          'Allow: /',
+          'User-agent: Google-Extended',
+          'Allow: /',
+        ]
+      : [
+          'User-agent: GPTBot',
+          'Disallow: /',
+          'User-agent: OAI-SearchBot',
+          'Disallow: /',
+          'User-agent: PerplexityBot',
+          'Disallow: /',
+          'User-agent: ClaudeBot',
+          'Disallow: /',
+          'User-agent: Google-Extended',
+          'Disallow: /',
+        ]),
+    '',
+    `Sitemap: ${baseUrl}/sitemap.xml`,
+    `# LLMs context: ${baseUrl}/llms.txt`,
+  ];
+  return lines.join('\n');
+}
+
+export function buildLlmsTxtContent(
+  seo: StoreSeoConfig,
+  companyName: string,
+  topProducts: Array<{ name: string; price: number; category?: string }> = []
+): string {
+  const baseUrl = (seo.canonicalUrl || 'https://pizzakhalessi.com').replace(/\/+$/, '');
+  const lines = [
+    `# ${seo.ogSiteName || companyName}`,
+    '',
+    `> ${seo.aiBrandSummary || seo.metaDescription}`,
+    '',
+    '## Información General',
+    `- Sitio Web: ${baseUrl}`,
+    `- Especialidad: ${seo.cuisineType || 'Pizzería Artesanal'}`,
+    `- Rango de Precios: ${seo.priceRange || 'S/ 15 - S/ 70'}`,
+    `- Temas Clave: ${seo.aiKeyTopics || seo.keywords}`,
+    '',
+    '## Secciones Principales',
+    `- [Tienda Online](${baseUrl}/): Catálogo de pizzas, promociones y pedidos en línea.`,
+    `- [Bolsa de Trabajo](${baseUrl}/trabaja): Vacantes disponibles y postulación directa.`,
+  ];
+  if (topProducts.length > 0) {
+    lines.push('', '## Productos Destacados');
+    topProducts.slice(0, 12).forEach(p => {
+      lines.push(`- **${p.name}**: S/ ${Number(p.price || 0).toFixed(2)}`);
+    });
+  }
+  return lines.join('\n');
 }
 
 export async function shareStoreContent(params: {

@@ -87,6 +87,36 @@ export const DEFAULT_CUSTOMIZATION: TenantCustomization = {
     styleMode: 'doodle',
     buttonAccent: true,
   },
+  seoConfig: {
+    metaTitle: 'Khalessi Pizza Artesanal | Pizzas a la Leña y Delivery Rápido',
+    metaDescription:
+      'Pide las mejores pizzas artesanales con masa madre de 48 horas, promociones familiares, bebidas y delivery rápido en Lima.',
+    keywords:
+      'pizza artesanal, pizzería delivery, pizza a la leña, promociones de pizza, Pizza Khalessi',
+    canonicalUrl: 'https://pizzakhalessi.com',
+    robotsIndex: true,
+    locale: 'es_PE',
+    googleSiteVerification: '',
+    bingSiteVerification: '',
+    enableJsonLdSchema: true,
+    businessTypeSchema: 'Restaurant',
+    cuisineType: 'Pizzería Artesanal, Pizza Napolitana, Comida Rápida',
+    priceRange: 'S/ 15 - S/ 70',
+    aiBrandSummary:
+      'Khalessi Pizza Artesanal elabora pizzas con masa madre fermentada 48h y horneado a la leña. Ofrece pedidos en línea, delivery y recojo en tienda.',
+    aiKeyTopics:
+      'Pizza artesanal a la leña, Masa madre 48h, Promociones familiares, Delivery en Lima',
+    allowAiCrawlers: true,
+    ogTitle: 'Khalessi Pizza Artesanal — Pizzas a la Leña & Delivery',
+    ogDescription:
+      'Descubre nuestras pizzas artesanales, combos familiares y promociones exclusivas. Pide online en minutos.',
+    ogImage:
+      'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1200&q=80',
+    ogSiteName: 'Khalessi Pizza Artesanal',
+    ogType: 'website',
+    twitterCard: 'summary_large_image',
+    twitterHandle: '',
+  },
 };
 
 const DEFAULT_COMPANY_INFO: CompanyInfo = {
@@ -590,6 +620,10 @@ function normalizeLoadedState(raw: string | null): PersistedSnapshot | null {
       seasonalTheme: {
         ...DEFAULT_CUSTOMIZATION.seasonalTheme,
         ...(parsed.customization?.seasonalTheme || {}),
+      },
+      seoConfig: {
+        ...DEFAULT_CUSTOMIZATION.seoConfig!,
+        ...(parsed.customization?.seoConfig || {}),
       },
     };
 

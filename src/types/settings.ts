@@ -48,6 +48,34 @@ export interface SeasonalThemeConfig {
   buttonAccent?: boolean;
 }
 
+export interface StoreSeoConfig {
+  // 1. SEO Clásico (Google / Bing)
+  metaTitle: string;
+  metaDescription: string;
+  keywords: string;
+  canonicalUrl: string;
+  robotsIndex: boolean;
+  locale: string;
+  googleSiteVerification?: string;
+  bingSiteVerification?: string;
+  // 2. Buscadores de IA (GEO / ChatGPT / Perplexity / Google AI)
+  enableJsonLdSchema: boolean;
+  businessTypeSchema: 'Restaurant' | 'FastFoodRestaurant' | 'LocalBusiness';
+  cuisineType: string;
+  priceRange: string;
+  aiBrandSummary: string;
+  aiKeyTopics: string;
+  allowAiCrawlers: boolean;
+  // 3. Open Graph & Redes Sociales (WhatsApp, Facebook, X, Instagram)
+  ogTitle: string;
+  ogDescription: string;
+  ogImage: string;
+  ogSiteName: string;
+  ogType: 'website' | 'restaurant.restaurant';
+  twitterCard: 'summary_large_image' | 'summary';
+  twitterHandle?: string;
+}
+
 export interface TenantCustomization {
   appName: string;
   slogan?: string;
@@ -87,6 +115,7 @@ export interface TenantCustomization {
     slides: WelcomeSlide[];
   };
   seasonalTheme: SeasonalThemeConfig;
+  seoConfig?: StoreSeoConfig;
 }
 
 export interface BankAccount {
@@ -425,6 +454,7 @@ export type TabId =
   | 'identity'
   | 'appearance'
   | 'seasonal-themes'
+  | 'seo'
   | 'dialogs'
   | 'login'
   | 'company'
