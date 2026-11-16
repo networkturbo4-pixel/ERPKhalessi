@@ -20,6 +20,8 @@ const loadCustomPagePublicView = () =>
   import('./components/store/CustomPagePublicView').then(m => ({ default: m.CustomPagePublicView }));
 const loadKioskSelfServiceView = () =>
   import('./components/kiosk/KioskSelfServiceView').then(m => ({ default: m.KioskSelfServiceView }));
+const loadJobsLandingView = () =>
+  import('./components/hr/JobsLandingView').then(m => ({ default: m.JobsLandingView }));
 const loadHRProvider = () =>
   import('./context/HRContext').then(m => ({ default: m.HRProvider }));
 
@@ -28,6 +30,7 @@ const LoginScreen = lazy(loadLoginScreen);
 const StorefrontView = lazy(loadStorefrontView);
 const CustomPagePublicView = lazy(loadCustomPagePublicView);
 const KioskSelfServiceView = lazy(loadKioskSelfServiceView);
+const JobsLandingView = lazy(loadJobsLandingView);
 const LazyHRProvider = lazy(loadHRProvider);
 
 /**
@@ -46,6 +49,12 @@ export function preloadInitialRouteChunk(): void {
 
   if (path.startsWith('/p/')) {
     void loadCustomPagePublicView();
+    return;
+  }
+
+  if (path.startsWith('/trabaja')) {
+    void loadHRProvider();
+    void loadJobsLandingView();
     return;
   }
 
@@ -120,6 +129,10 @@ export function App() {
   const customPageSlugMatch = currentPath.match(/^\/p\/([^/]+)\/?$/);
   const customPageSlug = customPageSlugMatch ? decodeURIComponent(customPageSlugMatch[1]) : null;
 
+  const jobsRouteMatch = currentPath.match(/^\/trabaja(?:\/([^/]+))?\/?$/);
+  const isJobsRoute = Boolean(jobsRouteMatch);
+  const jobsSlugOrId = jobsRouteMatch?.[1] ? decodeURIComponent(jobsRouteMatch[1]) : null;
+
   return (
     <ErrorBoundary>
       <RBACProvider>
@@ -141,6 +154,15 @@ export function App() {
                             onNavigateToStore={() => navigate('/')}
                             onNavigateToKiosk={() => navigate('/kiosco')}
                           />
+                        ) : isJobsRoute ? (
+                          <LazyHRProvider>
+                            <JobsLandingView
+                              jobSlugOrId={jobsSlugOrId}
+                              onNavigate={navigate}
+                              onNavigateHome={() => navigate('/')}
+                              onNavigateToAdmin={() => navigate('/admin')}
+                            />
+                          </LazyHRProvider>
                         ) : customPageSlug ? (
                           <CustomPagePublicView
                             slug={customPageSlug}

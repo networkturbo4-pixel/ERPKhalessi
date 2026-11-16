@@ -10,6 +10,7 @@ import {
   ContractType,
 } from '../../types/hr';
 import { UnifiedJobApplicationModal } from './UnifiedJobApplicationModal';
+import { getJobPublicPath, getJobPublicUrl } from '../../utils/jobLinks';
 import {
   Briefcase,
   Plus,
@@ -28,6 +29,7 @@ import {
   Phone,
   Mail,
   ExternalLink,
+  Copy,
 } from 'lucide-react';
 
 const FIELD_TYPES: Array<{ value: CustomFieldType; label: string }> = [
@@ -245,6 +247,22 @@ export const ApplicantsTabView: React.FC = () => {
     setSelectedApp(null);
   };
 
+  const handleCopyJobLink = async (posting?: JobPostingFormConfig | null) => {
+    const url = getJobPublicUrl(posting);
+    try {
+      await navigator.clipboard.writeText(url);
+      dispatchToast(
+        'Enlace Copiado',
+        posting
+          ? `URL directa para "${posting.positionTitle}": ${url}`
+          : `URL del portal de empleos: ${url}`,
+        'success'
+      );
+    } catch {
+      dispatchToast('Enlace de Empleos', url, 'info');
+    }
+  };
+
   const handleConfirmDeleteApplicant = (app: JobApplication) => {
     openNoticeModal({
       title: `¿Eliminar ficha de ${app.fullName}?`,
@@ -302,6 +320,15 @@ export const ApplicantsTabView: React.FC = () => {
               <span>Constructor por Puestos ({jobPostings.length})</span>
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => handleCopyJobLink(null)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 shadow-sm transition-colors whitespace-nowrap shrink-0"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            <span>Copiar Enlace Portal</span>
+          </button>
 
           <button
             type="button"
@@ -572,7 +599,16 @@ export const ApplicantsTabView: React.FC = () => {
                     </h3>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleCopyJobLink(draftPosting)}
+                      title={`Copiar ${getJobPublicPath(draftPosting)}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 transition-colors whitespace-nowrap shrink-0"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                      <span>Copiar Enlace</span>
+                    </button>
                     {jobPostings.length > 1 && (
                       <button
                         type="button"

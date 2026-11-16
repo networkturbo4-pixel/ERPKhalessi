@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useId, useMemo } from 'react';
 import { useHR } from '../../context/HRContext';
 import { useSettings } from '../../context/SettingsContext';
+import { getJobPublicUrl } from '../../utils/jobLinks';
 import {
   Briefcase,
   CheckCircle2,
@@ -19,12 +20,14 @@ interface UnifiedJobApplicationModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialShowQr?: boolean;
+  initialPostingId?: string;
 }
 
 export const UnifiedJobApplicationModal: React.FC<UnifiedJobApplicationModalProps> = ({
   isOpen,
   onClose,
   initialShowQr = false,
+  initialPostingId,
 }) => {
   const { jobPostings, submitJobApplication } = useHR();
   const { tenants, activeTenant, companyInfo, customization, dispatchToast } = useSettings();
@@ -54,6 +57,12 @@ export const UnifiedJobApplicationModal: React.FC<UnifiedJobApplicationModalProp
   useEffect(() => {
     setShowQrPanel(initialShowQr);
   }, [initialShowQr, isOpen]);
+
+  useEffect(() => {
+    if (isOpen && initialPostingId && activePostings.some(p => p.id === initialPostingId)) {
+      setSelectedPostingId(initialPostingId);
+    }
+  }, [isOpen, initialPostingId, activePostings]);
 
   useEffect(() => {
     if (activePostings.length > 0 && !activePostings.some(p => p.id === selectedPostingId)) {
@@ -96,10 +105,7 @@ export const UnifiedJobApplicationModal: React.FC<UnifiedJobApplicationModalProp
     });
   }, [selectedPosting]);
 
-  const portalApplyUrl =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}/?postular=1`
-      : 'https://pizzakhalessi.com/?postular=1';
+  const portalApplyUrl = getJobPublicUrl();
 
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
     portalApplyUrl
