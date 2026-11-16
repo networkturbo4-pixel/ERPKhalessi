@@ -19,9 +19,16 @@
   # No hacer fallback a index.html para assets faltantes o archivos estáticos (evita MIME text/html en módulos JS)
   RewriteRule ^(assets/|.*\.(js|mjs|css|map|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|json)$) - [R=404,L]
 
-  # Open Graph dinámico para URLs cortas de páginas personalizadas (/p/{slug}) y productos (/producto/{slug})
+  # SEO dinámico: robots.txt y llms.txt para buscadores tradicionales e IA
+  RewriteRule ^robots\.txt$ api/store-og.php?route=robots [L,QSA]
+  RewriteRule ^llms\.txt$ api/store-og.php?route=llms [L,QSA]
+
+  # Open Graph dinámico para URLs cortas de páginas personalizadas (/p/{slug}), productos (/producto/{slug}), bolsa de trabajo (/trabaja) y tienda principal (/)
   RewriteRule ^p/([^/]+)/?$ api/page-og.php?slug=$1 [L,QSA]
   RewriteRule ^producto/([^/]+)/?$ api/product-og.php?slug=$1 [L,QSA]
+  RewriteRule ^trabaja/?$ api/store-og.php?route=jobs [L,QSA]
+  RewriteRule ^trabaja/([^/]+)/?$ api/store-og.php?route=jobs&slug=$1 [L,QSA]
+  RewriteRule ^$ api/store-og.php?route=home [L,QSA]
 
   # Redirigir todas las demás rutas a index.html (SPA Fallback)
   RewriteRule ^ index.html [L]

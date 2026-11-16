@@ -1,14 +1,14 @@
 {
-  "buildId": "20261116170459",
-  "builtAt": "2026-11-16T17:04:59.039Z",
-  "commitSha": "ec19780",
-  "message": "chore(release): build 20261116165620 (header cart switcher + SPA /trabaja)",
-  "totalFiles": 99,
+  "buildId": "20261116171756",
+  "builtAt": "2026-11-16T17:17:56.419Z",
+  "commitSha": "231eae3",
+  "message": "feat(settings): add SEO, AI search (GEO/JSON-LD) and Open Graph tab + release 20261116170459",
+  "totalFiles": 101,
   "files": [
     {
       "path": ".htaccess",
-      "sha256": "61e851ce4b957340191b2c3a472e44c2ca57e2ad07723ffb499eef34d8b7c400",
-      "size": 2407
+      "sha256": "e08c5e58535763db7b68f2ba6d0cb9eb6725e53a5c1a4b071ce8fac1bcd3e90d",
+      "size": 2856
     },
     {
       "path": "api/auth.php",
@@ -61,19 +61,24 @@
       "size": 21655
     },
     {
+      "path": "api/og-helper.php",
+      "sha256": "868242c1af125e333e881c2f8240bba85534e26d3c1b3bdaeff235f06b3a5bc1",
+      "size": 6106
+    },
+    {
       "path": "api/orders.php",
       "sha256": "aaf63e9ed800279ff57aa8292cb8028ef6987ef162c2886de3073687894a22ee",
       "size": 16037
     },
     {
       "path": "api/page-og.php",
-      "sha256": "0a4744e06729450e0e57c1d8d27a1e0152cbfb27f614831c05e0d97f495cdba2",
-      "size": 3285
+      "sha256": "233cc77881e23996bdf2748129d5f3ea7f773da7cb74bd2e0dabdd08de7117c6",
+      "size": 3562
     },
     {
       "path": "api/product-og.php",
-      "sha256": "31710b7c15cc8e6f7851db1b8fd306e8f47f4a4f0d8da69bab1a9d6bad9b2a32",
-      "size": 3518
+      "sha256": "070b0e3870d95d41a52606bebb8c751666363d742ff85e4d9c8456c576872e76",
+      "size": 4388
     },
     {
       "path": "api/products.php",
@@ -94,6 +99,11 @@
       "path": "api/storage/stream.php",
       "sha256": "528f146c1de8c931d24b4125e9edc8da4917409a7d6e7feaa562072b370e2f8d",
       "size": 554
+    },
+    {
+      "path": "api/store-og.php",
+      "sha256": "832817509dfedfab687222d8657b6122f48581afb23204d0108c59bb3b403825",
+      "size": 10750
     },
     {
       "path": "api/system-update.php",

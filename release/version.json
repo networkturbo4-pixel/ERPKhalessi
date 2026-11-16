@@ -1,8 +1,8 @@
 {
-  "buildId": "20261116170459",
-  "builtAt": "2026-11-16T17:04:59.039Z",
-  "commitSha": "ec19780",
-  "message": "chore(release): build 20261116165620 (header cart switcher + SPA /trabaja)",
-  "totalFiles": 99,
-  "manifestSha256": "67bd8fa666b6f99f4de6bf52541039c7325b91f276f2030da55619047cb6ba46"
+  "buildId": "20261116171756",
+  "builtAt": "2026-11-16T17:17:56.419Z",
+  "commitSha": "231eae3",
+  "message": "feat(settings): add SEO, AI search (GEO/JSON-LD) and Open Graph tab + release 20261116170459",
+  "totalFiles": 101,
+  "manifestSha256": "e10250e30c740bfcf82891faea19e3d3b00cfc438fcc3c8748a15a7cbaaaf704"
 }
