@@ -518,6 +518,7 @@ export const HRProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     users,
     tenants,
     activeTenant,
+    isAuthenticated,
     dispatchToast,
     openNoticeModal,
     logAuditEvent,
@@ -679,8 +680,9 @@ export const HRProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     });
   }, [users]);
 
-  // Persist HR state immediately so F5 reload never loses data
+  // Persist HR state immediately when authenticated (or when public data already synced)
   useEffect(() => {
+    if (!isAuthenticated) return;
     try {
       const payload: PersistedHRData = {
         profiles,
@@ -695,7 +697,7 @@ export const HRProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     } catch {
       // Ignore storage quota errors
     }
-  }, [profiles, attendanceRecords, weeklyShifts, payrollMovements, securityPolicy, jobPostings, jobApplications]);
+  }, [isAuthenticated, profiles, attendanceRecords, weeklyShifts, payrollMovements, securityPolicy, jobPostings, jobApplications]);
 
   // Real-time cross-device HR sync (attendance punches, job applications, shifts)
   useEffect(() => {

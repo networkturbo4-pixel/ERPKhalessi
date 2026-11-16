@@ -37,6 +37,7 @@ const KH_PUBLIC_READ_KEYS = [
     'kh_store_customer_accounts_v1',
     'kh_floor_tables_v1',
     'khalessi_erp_complaints_v1',
+    'khalessi_erp_hr_v1',
 ];
 
 // Claves operativas que tienda, KDS, Delivery y Libro de Reclamaciones pueden actualizar sin bloqueo 401
@@ -46,6 +47,7 @@ const KH_PUBLIC_WRITE_KEYS = [
     'kh_store_customer_accounts_v1',
     'kh_floor_tables_v1',
     'khalessi_erp_complaints_v1',
+    'khalessi_erp_hr_v1',
 ];
 
 const KH_SETTINGS_KEY = 'khalessi_erp_settings_v3';
@@ -89,6 +91,18 @@ function sanitizeSettingsForPublic(string $json): string {
     unset($data['users'], $data['driveConfig'], $data['geminiConfig']);
     $data['__public'] = true;
     return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+}
+
+function sanitizeHrForPublic(string $json): string {
+    $data = json_decode($json, true);
+    if (!is_array($data)) return $json;
+    $publicPayload = [
+        'jobPostings' => isset($data['jobPostings']) && is_array($data['jobPostings'])
+            ? $data['jobPostings']
+            : [],
+        '__public' => true,
+    ];
+    return json_encode($publicPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
 }
 
 // ----------------------------- Tokens -----------------------------

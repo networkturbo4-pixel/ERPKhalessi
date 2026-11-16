@@ -33,6 +33,7 @@ function readableFor(string $k, bool $isAuth): bool {
 
 function valueFor(string $k, string $v, bool $isAuth): string {
     if (!$isAuth && $k === KH_SETTINGS_KEY) return sanitizeSettingsForPublic($v);
+    if (!$isAuth && $k === 'khalessi_erp_hr_v1') return sanitizeHrForPublic($v);
     return $v;
 }
 
