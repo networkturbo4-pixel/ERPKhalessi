@@ -85,7 +85,7 @@ export const ApplicantsTabView: React.FC = () => {
     updateJobApplication,
     deleteJobApplication,
   } = useHR();
-  const { customization, openNoticeModal, activeTenant, branchScope } = useSettings();
+  const { customization, openNoticeModal, dispatchToast, activeTenant, branchScope } = useSettings();
 
   const [mode, setMode] = useState<'applications' | 'builder'>('applications');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);

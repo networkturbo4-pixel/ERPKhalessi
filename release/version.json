@@ -1,8 +1,8 @@
 {
-  "buildId": "20261115042612",
-  "builtAt": "2026-11-15T04:26:12.538Z",
-  "commitSha": "e8bc6c4",
-  "message": "fix(marketing): record immediate web push campaigns in campaign history",
-  "totalFiles": 97,
-  "manifestSha256": "895783f83da302a906133b4cb82a166a020b512d7bbcc3a520406aabe1ce0ed2"
+  "buildId": "20261116165620",
+  "builtAt": "2026-11-16T16:56:20.530Z",
+  "commitSha": "931791d",
+  "message": "feat(hr): render inline application form in SPA and remove public copy-link buttons",
+  "totalFiles": 98,
+  "manifestSha256": "bfc3a79d7e3d037f1233f4356050ba0d0172b5cf4b7d4785a5370d2d467fd9c0"
 }
