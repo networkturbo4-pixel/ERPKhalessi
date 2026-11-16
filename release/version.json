@@ -1,8 +1,8 @@
 {
-  "buildId": "20261116213906",
-  "builtAt": "2026-11-16T21:39:06.295Z",
-  "commitSha": "9bbd2fd",
-  "message": "feat(store): polish storefront UX, animations, search, and active order tracker + release 20261116213533",
+  "buildId": "20261116215324",
+  "builtAt": "2026-11-16T21:53:24.355Z",
+  "commitSha": "b925506",
+  "message": "fix(store): avoid duplicate active order tracker when top card is visible + release 20261116213906",
   "totalFiles": 101,
-  "manifestSha256": "771959f28ea3b320bd495143cd6343cdbac201fa4f7bcc729f4bc8b7398bf370"
+  "manifestSha256": "223b9ebf661baf38692c2e1f65dc63a060d5d1f2a7bc33dea260c502ecb989bc"
 }

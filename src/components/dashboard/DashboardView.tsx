@@ -296,24 +296,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateToSettin
       </div>
 
       {/* SaaS Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {kpis.map((kpi, idx) => {
           const Icon = kpi.icon;
           return (
             <div
               key={idx}
-              className="group saas-card hover:border-zinc-300 dark:hover:border-zinc-600 p-5 transition-colors flex flex-col justify-between gap-4"
+              className="group saas-card hover:border-zinc-300 dark:hover:border-zinc-600 p-3.5 sm:p-5 transition-colors flex flex-col justify-between gap-2.5 sm:gap-4"
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="text-[11px] sm:text-xs font-medium text-zinc-600 dark:text-zinc-300 truncate">
                   {kpi.title}
                 </span>
-                <Icon className="h-4 w-4 text-zinc-400 group-hover:text-zinc-700 dark:group-hover:text-zinc-200 transition-colors" />
+                <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-zinc-400 group-hover:text-zinc-700 dark:group-hover:text-zinc-200 transition-colors shrink-0" />
               </div>
 
-              <div className="space-y-3">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-2xl font-bold tracking-tight text-zinc-950 dark:text-white tabular-nums">
+              <div className="space-y-2 sm:space-y-3">
+                <div className="flex items-baseline justify-between gap-1.5 flex-wrap">
+                  <span className="text-lg sm:text-2xl font-bold tracking-tight text-zinc-950 dark:text-white tabular-nums">
                     {kpi.value}
                   </span>
                   <span

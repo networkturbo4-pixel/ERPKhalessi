@@ -308,59 +308,59 @@ export const FinanceModuleView: React.FC = () => {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="saas-card p-4 space-y-1.5">
-          <div className="flex items-center justify-between text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-            <span>Ingresos del Día</span>
-            <TrendingUp className="w-4 h-4 text-emerald-500" />
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
+        <div className="saas-card p-3 sm:p-4 space-y-1 sm:space-y-1.5">
+          <div className="flex items-center justify-between gap-1 text-[11px] sm:text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+            <span className="truncate">Ingresos del Día</span>
+            <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-500 shrink-0" />
           </div>
-          <p className="text-2xl font-black text-zinc-950 dark:text-white">
+          <p className="text-lg sm:text-2xl font-black text-zinc-950 dark:text-white tabular-nums truncate">
             S/ {summary.totalRevenue.toFixed(2)}
           </p>
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-            Efectivo: S/ {summary.cashRevenue.toFixed(2)} · Digital: S/ {summary.digitalRevenue.toFixed(2)}
+          <p className="text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-1">
+            Efec: S/ {summary.cashRevenue.toFixed(2)} · Dig: S/ {summary.digitalRevenue.toFixed(2)}
           </p>
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+          <p className="text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-1">
             POS: S/ {summary.posRevenue.toFixed(2)} ({summary.posOrdersCount}) · Tienda: S/ {summary.storeRevenue.toFixed(2)} ({summary.storeOrdersCount})
           </p>
         </div>
 
-        <div className="saas-card p-4 space-y-1.5">
-          <div className="flex items-center justify-between text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-            <span>Egresos Totales</span>
-            <ArrowDownRight className="w-4 h-4 text-rose-500" />
+        <div className="saas-card p-3 sm:p-4 space-y-1 sm:space-y-1.5">
+          <div className="flex items-center justify-between gap-1 text-[11px] sm:text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+            <span className="truncate">Egresos Totales</span>
+            <ArrowDownRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-500 shrink-0" />
           </div>
-          <p className="text-2xl font-black text-rose-600 dark:text-rose-400">
+          <p className="text-lg sm:text-2xl font-black text-rose-600 dark:text-rose-400 tabular-nums truncate">
             S/ {summary.totalOutflows.toFixed(2)}
           </p>
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+          <p className="text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-2">
             Combustible: S/ {summary.fuelExpensesTotal.toFixed(2)} · Otros: S/ {summary.otherExpensesTotal.toFixed(2)}
           </p>
         </div>
 
-        <div className="saas-card p-4 space-y-1.5">
-          <div className="flex items-center justify-between text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-            <span>Efectivo Esperado en Caja</span>
-            <Banknote className="w-4 h-4 text-amber-500" />
+        <div className="saas-card p-3 sm:p-4 space-y-1 sm:space-y-1.5">
+          <div className="flex items-center justify-between gap-1 text-[11px] sm:text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+            <span className="truncate">Efectivo Esperado</span>
+            <Banknote className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500 shrink-0" />
           </div>
-          <p className="text-2xl font-black text-zinc-950 dark:text-white">
+          <p className="text-lg sm:text-2xl font-black text-zinc-950 dark:text-white tabular-nums truncate">
             S/ {summary.expectedCashInDrawer.toFixed(2)}
           </p>
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-            Balance neto (Ingresos − Egresos): S/ {summary.netBalance.toFixed(2)}
+          <p className="text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-2">
+            Balance neto: S/ {summary.netBalance.toFixed(2)}
           </p>
         </div>
 
-        <div className="saas-card p-4 space-y-1.5">
-          <div className="flex items-center justify-between text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-            <span>Costo Operativo Delivery</span>
-            <Bike className="w-4 h-4 text-sky-500" />
+        <div className="saas-card p-3 sm:p-4 space-y-1 sm:space-y-1.5">
+          <div className="flex items-center justify-between gap-1 text-[11px] sm:text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+            <span className="truncate">Costo Delivery</span>
+            <Bike className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-sky-500 shrink-0" />
           </div>
-          <p className="text-2xl font-black text-zinc-950 dark:text-white">
-            S/ {summary.costPerDelivery.toFixed(2)} <span className="text-xs font-semibold text-zinc-400">/ envío</span>
+          <p className="text-lg sm:text-2xl font-black text-zinc-950 dark:text-white tabular-nums truncate">
+            S/ {summary.costPerDelivery.toFixed(2)} <span className="text-[10px] sm:text-xs font-semibold text-zinc-400">/ envío</span>
           </p>
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-            {summary.deliveredOrdersCount} entregas · Margen envío: S/ {summary.netDeliveryMargin.toFixed(2)}
+          <p className="text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-2">
+            {summary.deliveredOrdersCount} entregas · Margen: S/ {summary.netDeliveryMargin.toFixed(2)}
           </p>
         </div>
       </div>
@@ -411,8 +411,8 @@ export const FinanceModuleView: React.FC = () => {
                 No hay entregas completadas ni vales de combustible registrados para esta fecha.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
+              <div className="erp-table-wrapper overflow-x-auto">
+                <table className="erp-stack-table w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400">
                       <th className="py-2.5 pr-3 font-semibold">Motorizado</th>
@@ -426,14 +426,14 @@ export const FinanceModuleView: React.FC = () => {
                   <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
                     {summary.driverRows.map((row) => (
                       <tr key={row.driverId} className="text-zinc-800 dark:text-zinc-200">
-                        <td className="py-2.5 pr-3 font-bold">{row.driverName}</td>
-                        <td className="py-2.5 px-3 text-right">{row.deliveredCount}</td>
-                        <td className="py-2.5 px-3 text-right">S/ {row.cashCollected.toFixed(2)}</td>
-                        <td className="py-2.5 px-3 text-right text-rose-600 dark:text-rose-400">
+                        <th scope="row" className="py-2.5 px-3 sm:pl-0 font-bold text-left">{row.driverName}</th>
+                        <td data-label="Entregas" className="py-2.5 px-3 text-right tabular-nums">{row.deliveredCount}</td>
+                        <td data-label="Efectivo" className="py-2.5 px-3 text-right tabular-nums">S/ {row.cashCollected.toFixed(2)}</td>
+                        <td data-label="Gasolina" className="py-2.5 px-3 text-right tabular-nums text-rose-600 dark:text-rose-400">
                           S/ {row.fuelTotal.toFixed(2)}
                         </td>
-                        <td className="py-2.5 px-3 text-right">S/ {row.costPerDelivery.toFixed(2)}</td>
-                        <td className="py-2.5 pl-3 text-right font-black text-emerald-600 dark:text-emerald-400">
+                        <td data-label="Costo/Envío" className="py-2.5 px-3 text-right tabular-nums">S/ {row.costPerDelivery.toFixed(2)}</td>
+                        <td data-label="Neto a Rendir" className="py-2.5 px-3 sm:pr-0 text-right font-black tabular-nums text-emerald-600 dark:text-emerald-400">
                           S/ {row.netCashToSettle.toFixed(2)}
                         </td>
                       </tr>
@@ -522,8 +522,8 @@ export const FinanceModuleView: React.FC = () => {
               No hay egresos registrados para los filtros seleccionados.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+            <div className="erp-table-wrapper overflow-x-auto">
+              <table className="erp-stack-table w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400">
                     <th className="py-2.5 pr-3 font-semibold">Hora</th>
@@ -538,11 +538,11 @@ export const FinanceModuleView: React.FC = () => {
                 <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
                   {unifiedDayOutflows.map((item) => (
                     <tr key={item.id} className="text-zinc-800 dark:text-zinc-200">
-                      <td className="py-2.5 pr-3 font-mono text-[11px] text-zinc-500">
+                      <th scope="row" className="py-2.5 px-3 sm:pl-0 font-mono text-[11px] text-zinc-500 text-left">
                         {new Date(item.createdAt).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
-                      </td>
-                      <td className="py-2.5 px-3 font-semibold">{branchNameById(item.tenantId)}</td>
-                      <td className="py-2.5 px-3">
+                      </th>
+                      <td data-label="Sucursal" className="py-2.5 px-3 font-semibold">{branchNameById(item.tenantId)}</td>
+                      <td data-label="Categoría" className="py-2.5 px-3">
                         <span
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold ${
                             item.kind === 'combustible'
@@ -554,17 +554,17 @@ export const FinanceModuleView: React.FC = () => {
                           {item.categoryLabel}
                         </span>
                       </td>
-                      <td className="py-2.5 px-3 text-zinc-500 dark:text-zinc-400">{item.sourceLabel}</td>
-                      <td className="py-2.5 px-3">{item.description}</td>
-                      <td className="py-2.5 px-3 text-right font-bold text-rose-600 dark:text-rose-400">
+                      <td data-label="Origen" className="py-2.5 px-3 text-zinc-500 dark:text-zinc-400">{item.sourceLabel}</td>
+                      <td data-label="Detalle" className="py-2.5 px-3">{item.description}</td>
+                      <td data-label="Monto" className="py-2.5 px-3 text-right font-bold tabular-nums text-rose-600 dark:text-rose-400">
                         S/ {item.amount.toFixed(2)}
                       </td>
-                      <td className="py-2.5 pl-3 text-right">
+                      <td data-label="Acción" className="py-2.5 px-3 sm:pr-0 text-right">
                         {item.canDelete ? (
                           <button
                             type="button"
                             onClick={() => handleDeleteExpense(item.id, item.description, item.amount)}
-                            className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                            className="p-2 rounded-lg text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
                             title="Eliminar egreso"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -593,8 +593,8 @@ export const FinanceModuleView: React.FC = () => {
               Aún no hay cierres de caja registrados.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+            <div className="erp-table-wrapper overflow-x-auto">
+              <table className="erp-stack-table w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-zinc-200 dark:border-zinc-800 text-zinc-500 dark:text-zinc-400">
                     <th className="py-2.5 pr-3 font-semibold">Fecha</th>
@@ -610,20 +610,20 @@ export const FinanceModuleView: React.FC = () => {
                 <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
                   {filteredClosings.map((c) => (
                     <tr key={c.id} className="text-zinc-800 dark:text-zinc-200">
-                      <td className="py-2.5 pr-3 font-bold">{c.date}</td>
-                      <td className="py-2.5 px-3">{c.tenantName}</td>
-                      <td className="py-2.5 px-3 text-right">S/ {c.totalRevenue.toFixed(2)}</td>
-                      <td className="py-2.5 px-3 text-right text-amber-600 dark:text-amber-400">
+                      <th scope="row" className="py-2.5 px-3 sm:pl-0 font-bold text-left">{c.date}</th>
+                      <td data-label="Sucursal" className="py-2.5 px-3">{c.tenantName}</td>
+                      <td data-label="Ingresos" className="py-2.5 px-3 text-right tabular-nums">S/ {c.totalRevenue.toFixed(2)}</td>
+                      <td data-label="Combustible" className="py-2.5 px-3 text-right tabular-nums text-amber-600 dark:text-amber-400">
                         S/ {c.fuelExpensesTotal.toFixed(2)}
                       </td>
-                      <td className="py-2.5 px-3 text-right text-rose-600 dark:text-rose-400">
+                      <td data-label="Otros Egresos" className="py-2.5 px-3 text-right tabular-nums text-rose-600 dark:text-rose-400">
                         S/ {c.otherExpensesTotal.toFixed(2)}
                       </td>
-                      <td className="py-2.5 px-3 text-right font-bold">S/ {c.expectedCashInDrawer.toFixed(2)}</td>
-                      <td className="py-2.5 px-3 text-right font-black text-emerald-600 dark:text-emerald-400">
+                      <td data-label="Gaveta" className="py-2.5 px-3 text-right font-bold tabular-nums">S/ {c.expectedCashInDrawer.toFixed(2)}</td>
+                      <td data-label="Balance" className="py-2.5 px-3 text-right font-black tabular-nums text-emerald-600 dark:text-emerald-400">
                         S/ {c.netBalance.toFixed(2)}
                       </td>
-                      <td className="py-2.5 pl-3 text-zinc-500 dark:text-zinc-400">{c.closedBy}</td>
+                      <td data-label="Cerrado por" className="py-2.5 px-3 sm:pr-0 text-zinc-500 dark:text-zinc-400">{c.closedBy}</td>
                     </tr>
                   ))}
                 </tbody>

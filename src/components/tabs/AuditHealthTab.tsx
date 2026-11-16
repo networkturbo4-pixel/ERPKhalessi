@@ -110,7 +110,7 @@ export const AuditHealthTab: React.FC = () => {
       </div>
 
       {/* 1. Real-Time Resilience & Consistency KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-4">
         <div className="saas-card p-4 flex items-center justify-between gap-3">
           <div>
             <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">

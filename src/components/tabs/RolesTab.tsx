@@ -280,7 +280,7 @@ export const RolesTab: React.FC = () => {
 
       <PermissionGate permission="settings:roles">
         {/* 1. Horizontal Compact Role Cards Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3.5">
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
           {roles.map(role => {
             const isSelected = selectedRole.id === role.id;
             const coveragePct = Math.round((role.permissions.length / permissions.length) * 100);

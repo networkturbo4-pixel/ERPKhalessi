@@ -131,6 +131,25 @@ export interface MainLayoutProps {
   onNavigateToKiosk?: () => void;
 }
 
+const MODULE_MOBILE_LABELS: Record<MainModuleId, string> = {
+  dashboard: 'Inicio',
+  pos: 'Caja POS',
+  kiosk: 'Kiosco',
+  kitchen: 'Cocina KDS',
+  delivery: 'Delivery',
+  orders: 'Pedidos',
+  clients: 'Clientes CRM',
+  benefits: 'Beneficios',
+  marketing: 'Marketing',
+  products: 'Catálogo',
+  media: 'Galería',
+  pages: 'Páginas',
+  inventory: 'Inventario',
+  hr: 'RRHH',
+  finance: 'Finanzas',
+  settings: 'Configuración',
+};
+
 export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNavigateToKiosk }) => {
   const {
     customization,
@@ -1681,30 +1700,60 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
 
       {/* 2. HEADERLESS PC INSET WORKSPACE CANVAS */}
       <div className="flex-1 flex flex-col min-w-0 h-full lg:pr-2">
-        {/* MOBILE-ONLY COMPACT BAR (HIDDEN ON PC / DESKTOP!) */}
-        <div className="lg:hidden flex items-center justify-between h-14 px-4 erp-canvas-surface border-b border-zinc-200 dark:border-zinc-800 shrink-0">
-          <div className="flex items-center gap-2.5 min-w-0">
+        {/* MOBILE-ONLY APP TOP BAR (HIDDEN ON PC / DESKTOP!) */}
+        <header className="lg:hidden sticky top-0 z-30 erp-mobile-safe-top erp-canvas-surface/95 backdrop-blur-md border-b border-zinc-200/90 dark:border-zinc-800 shrink-0">
+          <div className="flex items-center justify-between h-14 px-3.5 gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(true)}
+                className="min-h-[40px] min-w-[40px] px-2 -ml-1 rounded-xl text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 active:scale-95 transition-all flex items-center gap-1.5"
+                aria-label="Abrir menú"
+              >
+                <Menu className="h-5 w-5 shrink-0" />
+                {activeMainModule === 'pos' && (
+                  <span className="text-xs font-bold whitespace-nowrap">Menú</span>
+                )}
+              </button>
+              <div className="min-w-0">
+                <span className="font-bold text-[15px] text-zinc-900 dark:text-white truncate block leading-tight">
+                  {MODULE_MOBILE_LABELS[activeMainModule]}
+                </span>
+                <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 truncate block leading-tight">
+                  {customization.appName}
+                </span>
+              </div>
+            </div>
+
             <button
               type="button"
-              onClick={() => setMobileMenuOpen(true)}
-              className="p-1.5 -ml-1.5 rounded-lg text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-              aria-label="Abrir menú"
+              onClick={() => {
+                if (isSuperAdminOrManager) {
+                  setMobileMenuOpen(true);
+                  setTenantMenuOpen(true);
+                }
+              }}
+              className="min-h-[34px] text-[11px] font-semibold px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800/90 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-700 dark:text-zinc-200 truncate max-w-[155px] flex items-center gap-1 active:scale-95 transition-transform"
             >
-              <Menu className="h-5 w-5" />
+              {branchScope === 'consolidated' ? (
+                <Globe2 className="h-3 w-3 shrink-0" style={{ color: customization.primaryColor }} />
+              ) : (
+                <Store className="h-3 w-3 shrink-0" style={{ color: customization.primaryColor }} />
+              )}
+              <span className="truncate">{activeBranchLabel}</span>
             </button>
-            <span className="font-semibold text-sm text-zinc-900 dark:text-white truncate">
-              {customization.appName}
-            </span>
           </div>
-
-          <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 truncate max-w-[150px]">
-            {activeBranchLabel}
-          </span>
-        </div>
+        </header>
 
         {/* ELEVATED SAAS MAIN SURFACE (1600PX WORKSPACE) */}
         <main className="flex-1 w-full min-w-0 saas-scroll erp-canvas-surface lg:rounded-2xl lg:border lg:border-zinc-200/90 dark:lg:border-zinc-800 lg:shadow-sm">
-          <div className="max-w-[1600px] mx-auto w-full px-3 py-4 sm:px-5 sm:py-5 lg:px-5 lg:py-5 xl:px-8 xl:py-7">
+          <div
+            className={`max-w-[1600px] mx-auto w-full px-3 pt-4 sm:px-5 sm:pt-5 lg:px-5 lg:py-5 xl:px-8 xl:py-7 ${
+              activeMainModule !== 'pos'
+                ? 'pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))] lg:pb-5'
+                : 'pb-24 lg:pb-5'
+            }`}
+          >
             <Suspense fallback={<ModuleWorkspaceSkeleton />}>
               {activeMainModule === 'dashboard' ? (
                 <DashboardView onNavigateToSettings={() => setActiveMainModule('settings')} />
@@ -1747,9 +1796,100 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
         </main>
       </div>
 
+      {/* MOBILE BOTTOM APP TAB BAR (1-thumb navigation across ERP modules, hidden in POS so POS cart bar owns bottom edge) */}
+      {activeMainModule !== 'pos' && !isEditProfileModalOpen && (() => {
+        const pendingOrdersBadge = orders.filter(
+          o =>
+            (branchScope === 'consolidated' || !o.tenantId || o.tenantId === activeTenant.id) &&
+            o.status !== 'entregado' &&
+            o.status !== 'cancelado'
+        ).length;
+        const canPos = hasPermission('pos:use') || isSuperAdminOrManager;
+        const canKitchen = hasPermission('kitchen:view') || isSuperAdminOrManager;
+        const canDelivery = hasPermission('delivery:view') || isSuperAdminOrManager;
+
+        const navItems: {
+          id: MainModuleId | 'more';
+          label: string;
+          icon: React.ComponentType<{ className?: string }>;
+          badge?: number;
+        }[] = [
+          { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard },
+          ...(canPos ? [{ id: 'pos' as MainModuleId, label: 'POS', icon: Pizza }] : []),
+          {
+            id: 'orders',
+            label: 'Pedidos',
+            icon: ClipboardList,
+            badge: pendingOrdersBadge > 0 ? pendingOrdersBadge : undefined,
+          },
+          ...(canKitchen
+            ? [{ id: 'kitchen' as MainModuleId, label: 'Cocina', icon: Flame }]
+            : canDelivery
+            ? [{ id: 'delivery' as MainModuleId, label: 'Ruta', icon: Bike }]
+            : []),
+          { id: 'more', label: 'Más', icon: Menu },
+        ];
+
+        return (
+          <nav
+            aria-label="Navegación rápida móvil"
+            className="lg:hidden fixed bottom-0 inset-x-0 z-30 erp-mobile-safe-bottom bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl border-t border-zinc-200/90 dark:border-zinc-800 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_-8px_24px_rgba(0,0,0,0.45)]"
+          >
+            <div className="grid grid-flow-col auto-cols-fr items-center px-2 pt-1.5">
+              {navItems.map(item => {
+                const Icon = item.icon;
+                const isActive = item.id !== 'more' && activeMainModule === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      if (item.id === 'more') {
+                        setMobileMenuOpen(true);
+                      } else {
+                        setActiveMainModule(item.id);
+                      }
+                    }}
+                    className={`relative min-h-[48px] flex flex-col items-center justify-center gap-0.5 rounded-2xl text-[10px] transition-all active:scale-95 ${
+                      isActive
+                        ? 'font-bold text-zinc-950 dark:text-white'
+                        : 'font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    <span
+                      className={`relative flex items-center justify-center w-9 h-6 rounded-full transition-colors ${
+                        isActive ? 'bg-zinc-900/10 dark:bg-white/15' : ''
+                      }`}
+                      style={isActive ? { color: customization.primaryColor } : undefined}
+                    >
+                      <Icon className="w-[18px] h-[18px]" />
+                      {typeof item.badge === 'number' && (
+                        <span
+                          className="absolute -top-1 -right-1.5 min-w-[16px] h-[16px] px-1 rounded-full text-white text-[9px] font-black flex items-center justify-center tabular-nums shadow-xs"
+                          style={{ backgroundColor: customization.primaryColor }}
+                        >
+                          {item.badge > 99 ? '99+' : item.badge}
+                        </span>
+                      )}
+                    </span>
+                    <span className="truncate max-w-[64px]">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+        );
+      })()}
+
       {/* FLOATING SAAS CHECKPOINT BAR (Fully Responsive for Mobile, Tablet & Desktop) */}
       {isDirty && (
-        <div className="fixed bottom-3 sm:bottom-5 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-1.5rem)] sm:w-auto max-w-xl flex items-center justify-between sm:justify-start gap-2 sm:gap-3 px-3.5 py-2 sm:pl-4 sm:pr-2 sm:py-2 rounded-2xl sm:rounded-full bg-zinc-900/95 dark:bg-zinc-100/95 text-white dark:text-zinc-900 shadow-2xl ring-1 ring-white/10 dark:ring-zinc-900/10 backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-200">
+        <div
+          className={`fixed left-1/2 -translate-x-1/2 z-40 w-[calc(100%-1.5rem)] sm:w-auto max-w-xl flex items-center justify-between sm:justify-start gap-2 sm:gap-3 px-3.5 py-2 sm:pl-4 sm:pr-2 sm:py-2 rounded-2xl sm:rounded-full bg-zinc-900/95 dark:bg-zinc-100/95 text-white dark:text-zinc-900 shadow-2xl ring-1 ring-white/10 dark:ring-zinc-900/10 backdrop-blur-md animate-in fade-in slide-in-from-bottom-4 duration-200 ${
+            activeMainModule !== 'pos'
+              ? 'bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] lg:bottom-5'
+              : 'bottom-3 sm:bottom-5'
+          }`}
+        >
           <span className="flex items-center gap-2 text-xs font-medium truncate min-w-0">
             <span
               className="h-2 w-2 rounded-full animate-pulse shrink-0"

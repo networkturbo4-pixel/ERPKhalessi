@@ -910,8 +910,8 @@ export const MarketingModuleView: React.FC = () => {
           </div>
 
           <div className="saas-card rounded-2xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+            <div className="erp-table-wrapper overflow-x-auto">
+              <table className="erp-stack-table w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-zinc-200 dark:border-zinc-800 text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 bg-zinc-50/70 dark:bg-zinc-900/60">
                     <th className="py-3 px-4 font-semibold">Cliente</th>
@@ -935,15 +935,15 @@ export const MarketingModuleView: React.FC = () => {
                         key={c.id}
                         className="hover:bg-zinc-50/70 dark:hover:bg-zinc-800/30 transition-colors"
                       >
-                        <td className="py-3 px-4">
+                        <th scope="row" className="py-3 px-4 text-left font-normal">
                           <div className="font-semibold text-zinc-900 dark:text-white">
                             {c.name}
                           </div>
                           <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
                             {c.phone || 'Sin teléfono'}
                           </div>
-                        </td>
-                        <td className="py-3 px-4">
+                        </th>
+                        <td data-label="Segmento" className="py-3 px-4">
                           {c.segment === 'vip' && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-300">
                               <Crown className="w-3 h-3" /> VIP
@@ -965,8 +965,8 @@ export const MarketingModuleView: React.FC = () => {
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-4">
-                          <div className="font-semibold text-zinc-900 dark:text-white">
+                        <td data-label="Recurrencia" className="py-3 px-4">
+                          <div className="font-semibold text-zinc-900 dark:text-white tabular-nums">
                             {c.totalOrders} pedidos · S/ {c.totalSpent.toFixed(2)}
                           </div>
                           <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
@@ -975,7 +975,7 @@ export const MarketingModuleView: React.FC = () => {
                               : 'Sin pedidos registrados'}
                           </div>
                         </td>
-                        <td className="py-3 px-4">
+                        <td data-label="Favorita" className="py-3 px-4">
                           {c.favoriteProductName ? (
                             <div className="flex items-center gap-2.5">
                               {c.favoriteProductImage ? (
@@ -1012,14 +1012,14 @@ export const MarketingModuleView: React.FC = () => {
                             <span className="text-zinc-400 text-[11px]">Sin historial aún</span>
                           )}
                         </td>
-                        <td className="py-3 px-4">
+                        <td data-label="Canal Push" className="py-3 px-4">
                           {c.hasWebPush ? (
                             getPlatformBadge(c.webPushPlatform)
                           ) : (
                             <span className="text-[11px] text-zinc-400">Sin suscripción Push</span>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-right">
+                        <td data-label="Acciones" className="py-3 px-4 text-right">
                           <div className="inline-flex items-center gap-1.5">
                             <button
                               type="button"

@@ -156,7 +156,7 @@ export const SettingsView: React.FC = () => {
         </div>
 
         {/* Mobile Horizontal Pill Scroller */}
-        <div className="flex lg:hidden gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+        <div className="erp-pill-tabs lg:hidden pb-1 -mx-1 px-1">
           {filteredTabs.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -165,9 +165,9 @@ export const SettingsView: React.FC = () => {
                 key={tab.id}
                 type="button"
                 onClick={() => tryChangeTab(tab.id)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-colors ${
+                className={`inline-flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-medium whitespace-nowrap shrink-0 transition-all active:scale-95 ${
                   isActive
-                    ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-semibold'
+                    ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-semibold shadow-xs'
                     : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
                 }`}
               >

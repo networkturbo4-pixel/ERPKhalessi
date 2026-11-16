@@ -665,7 +665,7 @@ export const HRModuleView: React.FC = () => {
 
       {/* 2. KPI SUMMARY CARDS (VISIBLE FOR ADMINS/MANAGERS) */}
       {canManageHR && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
           <div className="saas-card p-4 space-y-1.5">
             <div className="flex items-center justify-between text-xs font-semibold text-zinc-500 dark:text-zinc-400">
               <span>Personal Habilitado</span>
@@ -1211,8 +1211,8 @@ export const HRModuleView: React.FC = () => {
             </div>
           </div>
 
-          <div tabIndex={0} role="region" aria-label="Cuadrante semanal de turnos" className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse min-w-[780px]">
+          <div tabIndex={0} role="region" aria-label="Cuadrante semanal de turnos" className="erp-table-wrapper overflow-x-auto">
+            <table className="erp-stack-table w-full text-left text-xs border-collapse sm:min-w-[780px]">
               <thead className="bg-zinc-100/95 dark:bg-zinc-900/95 text-[11px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                 <tr>
                   <th scope="col" className="px-4 py-3 font-bold w-52">Colaborador</th>
@@ -1251,7 +1251,7 @@ export const HRModuleView: React.FC = () => {
                         const assignedBranch = tenants.find(t => t.id === cell.branchId);
 
                         return (
-                          <td key={day.idx} className="p-1.5 text-center align-middle">
+                          <td key={day.idx} data-label={day.full} className="p-1.5 text-center align-middle">
                             <button
                               type="button"
                               onClick={() =>

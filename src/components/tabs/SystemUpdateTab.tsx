@@ -391,7 +391,7 @@ export const SystemUpdateTab: React.FC = () => {
         </div>
 
         {/* Server Metrics Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
           {/* CPU */}
           <div className="saas-card p-5">
             <div className="flex items-center justify-between text-zinc-600 dark:text-zinc-300 text-xs mb-2">

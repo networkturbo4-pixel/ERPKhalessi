@@ -296,8 +296,8 @@ export const UsersTab: React.FC = () => {
 
         {/* Users Table */}
         <div className="saas-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <div className="erp-table-wrapper overflow-x-auto">
+            <table className="erp-stack-table w-full text-left text-xs">
               <thead className="bg-zinc-50 dark:bg-[#202026] text-zinc-600 dark:text-zinc-300 uppercase tracking-wider font-semibold border-b border-zinc-200 dark:border-zinc-700/80">
                 <tr>
                   <th className="px-4 py-3.5">Colaborador</th>
@@ -318,7 +318,7 @@ export const UsersTab: React.FC = () => {
                 ) : (
                   filteredUsers.map(user => (
                     <tr key={user.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors">
-                      <td className="px-4 py-3.5">
+                      <th scope="row" className="px-4 py-3.5 text-left font-normal">
                         <div className="flex items-center gap-3">
                           <img
                             src={user.avatarUrl}
@@ -334,20 +334,20 @@ export const UsersTab: React.FC = () => {
                             </span>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-4 py-3.5">
+                      </th>
+                      <td data-label="Sucursal" className="px-4 py-3.5">
                         <span className="inline-flex items-center gap-1.5 text-xs text-zinc-700 dark:text-zinc-200 font-medium">
                           <Store className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
                           {formatUserBranches(user)}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td data-label="Rol" className="px-4 py-3.5">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold saas-subcard text-zinc-800 dark:text-zinc-200">
                           <Shield className="h-3 w-3" style={{ color: customization.primaryColor }} />
                           {user.roleName}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td data-label="Login" className="px-4 py-3.5">
                         <span className="font-mono saas-subcard px-2.5 py-1 rounded-lg text-[11px] font-bold text-zinc-800 dark:text-zinc-200 inline-flex items-center gap-1.5">
                           <span className="text-[10px] font-sans font-semibold text-zinc-500 dark:text-zinc-400">
                             {user.documentType || `${user.pin.length}d`}
@@ -358,7 +358,7 @@ export const UsersTab: React.FC = () => {
                           </span>
                         </span>
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td data-label="Estado" className="px-4 py-3.5">
                         {user.status === 'active' ? (
                           <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 ring-1 ring-inset ring-emerald-500/30 px-2.5 py-0.5 rounded-full">
                             <CheckCircle className="h-3 w-3" /> Activo
@@ -369,7 +369,7 @@ export const UsersTab: React.FC = () => {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3.5 text-right">
+                      <td data-label="Acciones" className="px-4 py-3.5 text-right">
                         <div className="inline-flex items-center gap-1">
                           <button
                             type="button"

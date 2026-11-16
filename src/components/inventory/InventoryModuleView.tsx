@@ -301,8 +301,8 @@ export const InventoryModuleView: React.FC = () => {
           </div>
 
           {/* Table */}
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
-            <table className="w-full text-left text-sm">
+          <div className="erp-table-wrapper bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
+            <table className="erp-stack-table w-full text-left text-sm">
               <thead className="bg-zinc-50 dark:bg-zinc-800/60 text-xs font-bold text-zinc-500 uppercase tracking-wider border-b border-zinc-200 dark:border-zinc-800">
                 <tr>
                   <th className="p-4">Insumo / SKU</th>
@@ -323,7 +323,7 @@ export const InventoryModuleView: React.FC = () => {
 
                   return (
                     <tr key={item.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                      <td className="p-4">
+                      <th scope="row" className="p-4 text-left font-normal">
                         <div className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                           {item.name}
                           {item.isPrepared && (
@@ -335,22 +335,22 @@ export const InventoryModuleView: React.FC = () => {
                         <div className="text-[11px] text-zinc-500 font-mono">
                           SKU: {item.sku} • Barra: {item.barcode}
                         </div>
-                      </td>
-                      <td className="p-4 text-xs font-semibold capitalize text-zinc-600 dark:text-zinc-400">
+                      </th>
+                      <td data-label="Categoría" className="p-4 text-xs font-semibold capitalize text-zinc-600 dark:text-zinc-400">
                         {item.category}
                       </td>
-                      <td className="p-4 font-mono font-bold text-xs">
+                      <td data-label="Stock" className="p-4 font-mono font-bold text-xs tabular-nums">
                         <span className={`text-base ${isOut ? 'text-rose-500' : isLow ? 'text-amber-500' : 'text-zinc-900 dark:text-white'}`}>
                           {stock}
                         </span> {item.unit}
                       </td>
-                      <td className="p-4 text-xs font-mono text-zinc-500">
+                      <td data-label="Mínimo" className="p-4 text-xs font-mono text-zinc-500 tabular-nums">
                         Min: {item.minStock} / Reorden: {item.reorderPoint}
                       </td>
-                      <td className="p-4 text-xs font-mono font-semibold text-zinc-900 dark:text-white">
+                      <td data-label="Costo Prom." className="p-4 text-xs font-mono font-semibold tabular-nums text-zinc-900 dark:text-white">
                         S/ {avgCost.toFixed(2)}
                       </td>
-                      <td className="p-4 text-center">
+                      <td data-label="Estado" className="p-4 text-center">
                         <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                           isOut
                             ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
@@ -361,7 +361,7 @@ export const InventoryModuleView: React.FC = () => {
                           {isOut ? 'Agotado' : isLow ? 'Stock Bajo' : 'Óptimo'}
                         </span>
                       </td>
-                      <td className="p-4 text-right">
+                      <td data-label="Acciones" className="p-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
@@ -370,7 +370,7 @@ export const InventoryModuleView: React.FC = () => {
                               setMovementModal({ isOpen: true, item, type: 'ingreso' });
                               setMovCost(item.costPerUnit);
                             }}
-                            className="p-1.5 rounded-lg text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors"
+                            className="p-2 rounded-lg text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors"
                           >
                             <ArrowDownLeft className="w-4 h-4" />
                           </button>
@@ -380,7 +380,7 @@ export const InventoryModuleView: React.FC = () => {
                             onClick={() => {
                               setMovementModal({ isOpen: true, item, type: 'merma' });
                             }}
-                            className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                            className="p-2 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
                           >
                             <TrendingDown className="w-4 h-4" />
                           </button>
@@ -388,7 +388,7 @@ export const InventoryModuleView: React.FC = () => {
                             type="button"
                             title="Imprimir Etiquetas Adhesivas"
                             onClick={() => setLabelModalData({ item })}
-                            className="p-1.5 rounded-lg text-zinc-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
+                            className="p-2 rounded-lg text-zinc-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
                           >
                             <Printer className="w-4 h-4" />
                           </button>
@@ -406,7 +406,7 @@ export const InventoryModuleView: React.FC = () => {
       {/* TAB 2: LOTES FEFO */}
       {activeTab === 'lots' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4">
             <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/50">
               <span className="text-xs font-bold text-rose-700 dark:text-rose-400 block mb-1">Vencidos</span>
               <span className="text-2xl font-black font-mono text-rose-700 dark:text-rose-300">
@@ -433,8 +433,8 @@ export const InventoryModuleView: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
-            <table className="w-full text-left text-sm">
+          <div className="erp-table-wrapper bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
+            <table className="erp-stack-table w-full text-left text-sm">
               <thead className="bg-zinc-50 dark:bg-zinc-800/60 text-xs font-bold text-zinc-500 uppercase tracking-wider border-b border-zinc-200 dark:border-zinc-800">
                 <tr>
                   <th className="p-4">Código Lote</th>
@@ -453,28 +453,28 @@ export const InventoryModuleView: React.FC = () => {
 
                   return (
                     <tr key={lot.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                      <td className="p-4 font-mono font-bold text-xs text-amber-600 dark:text-amber-400">
+                      <th scope="row" className="p-4 text-left font-mono font-bold text-xs text-amber-600 dark:text-amber-400">
                         {lot.code}
-                      </td>
-                      <td className="p-4">
+                      </th>
+                      <td data-label="Insumo" className="p-4">
                         <div className="font-semibold text-zinc-900 dark:text-white">{itm?.name}</div>
                         <div className="text-[11px] text-zinc-500 font-mono">{itm?.sku}</div>
                       </td>
-                      <td className="p-4 font-mono font-bold text-xs">
+                      <td data-label="Restante" className="p-4 font-mono font-bold text-xs tabular-nums">
                         {lot.quantity} / {lot.initialQuantity} {itm?.unit}
                       </td>
-                      <td className="p-4 text-xs text-zinc-500">
+                      <td data-label="Elaboración" className="p-4 text-xs text-zinc-500">
                         {new Date(lot.producedAt).toLocaleDateString()}
                       </td>
-                      <td className="p-4 text-xs font-semibold">
+                      <td data-label="Vencimiento" className="p-4 text-xs font-semibold">
                         <span className={isExp ? 'text-rose-500 font-bold' : 'text-zinc-700 dark:text-zinc-300'}>
                           {lot.expiresAt ? new Date(lot.expiresAt).toLocaleDateString() : 'Sin caducidad'}
                         </span>
                       </td>
-                      <td className="p-4 capitalize text-xs text-zinc-500">
+                      <td data-label="Origen" className="p-4 capitalize text-xs text-zinc-500">
                         {lot.source}
                       </td>
-                      <td className="p-4 text-right">
+                      <td data-label="Etiqueta" className="p-4 text-right">
                         {itm && (
                           <button
                             type="button"
@@ -497,8 +497,8 @@ export const InventoryModuleView: React.FC = () => {
 
       {/* TAB 3: KARDEX & MERMAS */}
       {activeTab === 'kardex' && (
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
-          <table className="w-full text-left text-sm">
+        <div className="erp-table-wrapper bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
+          <table className="erp-stack-table w-full text-left text-sm">
             <thead className="bg-zinc-50 dark:bg-zinc-800/60 text-xs font-bold text-zinc-500 uppercase tracking-wider border-b border-zinc-200 dark:border-zinc-800">
               <tr>
                 <th className="p-4">Fecha & Hora</th>
@@ -523,14 +523,14 @@ export const InventoryModuleView: React.FC = () => {
 
                   return (
                     <tr key={m.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">
-                      <td className="p-4 text-xs text-zinc-500 font-mono">
+                      <th scope="row" className="p-4 text-left text-xs text-zinc-500 font-mono font-normal">
                         {new Date(m.createdAt).toLocaleString()}
-                      </td>
-                      <td className="p-4">
+                      </th>
+                      <td data-label="Insumo" className="p-4">
                         <div className="font-semibold text-zinc-900 dark:text-white">{itm?.name}</div>
                         <div className="text-[11px] text-zinc-500 font-mono">{itm?.sku}</div>
                       </td>
-                      <td className="p-4">
+                      <td data-label="Movimiento" className="p-4">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                           m.type === 'ingreso' || m.type === 'produccion_in' || m.type === 'reposicion'
                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
@@ -541,15 +541,15 @@ export const InventoryModuleView: React.FC = () => {
                           {m.type.replace('_', ' ')}
                         </span>
                       </td>
-                      <td className="p-4 font-mono font-bold text-xs">
+                      <td data-label="Cantidad" className="p-4 font-mono font-bold text-xs tabular-nums">
                         <span className={isPositive ? 'text-emerald-500' : 'text-rose-500'}>
                           {isPositive ? `+${m.quantity}` : m.quantity} {itm?.unit}
                         </span>
                       </td>
-                      <td className="p-4 font-mono text-xs text-zinc-500">
+                      <td data-label="Costo U." className="p-4 font-mono text-xs text-zinc-500 tabular-nums">
                         S/ {m.unitCost.toFixed(2)}
                       </td>
-                      <td className="p-4 text-xs text-zinc-600 dark:text-zinc-400">
+                      <td data-label="Nota" className="p-4 text-xs text-zinc-600 dark:text-zinc-400">
                         <div>{m.note || '--'}</div>
                         <div className="text-[10px] text-zinc-400 font-mono">Por: {m.userName}</div>
                       </td>
