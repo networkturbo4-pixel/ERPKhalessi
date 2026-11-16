@@ -194,8 +194,8 @@ const ProgressiveStoreImage: React.FC<ProgressiveStoreImageProps> = ({
         decoding="async"
         onLoad={() => setLoaded(true)}
         onError={() => setLoaded(true)}
-        className={`${className} transition-opacity duration-200 ${
-          loaded ? 'opacity-100' : 'opacity-0'
+        className={`${className} transition-[opacity,filter,transform] duration-300 ease-out ${
+          loaded ? 'opacity-100 blur-0 scale-100' : 'opacity-0 blur-md scale-[1.03]'
         }`}
       />
     </>
@@ -1140,6 +1140,8 @@ interface StoreProductGridWidgetProps {
   searchQuery: string;
   onSelectProduct: (product: Product, imgEl?: HTMLImageElement | null) => void;
   onQuickViewProduct: (product: Product) => void;
+  onResetCategory?: () => void;
+  onOpenLocationModal?: () => void;
   isAboveFold?: boolean;
 }
 
@@ -1154,6 +1156,8 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
   searchQuery,
   onSelectProduct,
   onQuickViewProduct,
+  onResetCategory,
+  onOpenLocationModal,
   isAboveFold = false,
 }) => {
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -1164,18 +1168,19 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
   }, [block.maxInitialProducts, activeCategory, block.categoryFilter]);
 
   const matchingProducts = useMemo(() => {
-    const available = products.filter(p => p.isAvailable);
+    // Keep available products first, unavailable last (shown clearly as "Agotado" without breaking the grid)
+    const sorted = [...products].sort((a, b) => Number(b.isAvailable) - Number(a.isAvailable));
 
     // 1. Check Manual IDs filter if specified (supports 1-based index like "1, 4, 7" OR product IDs)
     const rawManual = (block.manualIds || '').trim();
-    let pool = available;
+    let pool = sorted;
     if (rawManual) {
       const tokens = rawManual
         .split(',')
         .map(s => s.trim())
         .filter(Boolean);
       if (tokens.length > 0) {
-        pool = available.filter((p, idx) => {
+        pool = sorted.filter((p, idx) => {
           const oneBased = String(idx + 1);
           return tokens.includes(oneBased) || tokens.includes(p.id);
         });
@@ -1854,16 +1859,28 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
     // CARD STYLES: 'elegante' | 'clasica' | 'minimalista'
     const isMinimal = block.cardStyle === 'minimalista';
     const isClassic = block.cardStyle === 'clasica';
+    const isUnavailable = !product.isAvailable;
+    const comparePrice =
+      typeof product.compareAtPrice === 'number' && product.compareAtPrice > lowestPrice
+        ? product.compareAtPrice
+        : null;
+    const discountPct = comparePrice
+      ? Math.max(1, Math.round((1 - lowestPrice / comparePrice) * 100))
+      : 0;
 
     return (
       <div
         key={product.id}
+        aria-disabled={isUnavailable || undefined}
         onClick={e => {
+          if (isUnavailable) return;
           const img = e.currentTarget.querySelector('img');
           onSelectProduct(product, img);
         }}
         style={isClassic ? { borderTopWidth: '4px', borderTopColor: accentColor } : undefined}
-        className={`kh-cq-card group rounded-3xl overflow-hidden flex flex-col justify-between cursor-pointer transition-all duration-300 hover:-translate-y-0.5 ${
+        className={`kh-cq-card group rounded-3xl overflow-hidden flex flex-col justify-between transition-all duration-300 ${
+          isUnavailable ? 'opacity-65 cursor-not-allowed' : 'cursor-pointer hover:-translate-y-0.5'
+        } ${
           isMinimal
             ? isLightTheme
               ? 'bg-transparent border border-zinc-200 hover:bg-white hover:shadow-md text-zinc-900'
@@ -1876,7 +1893,7 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
         <div className={block.bleedImages ? '' : isDense ? 'p-2 pb-0' : 'p-3 pb-0'}>
           <div
             className={`relative ${
-              block.squareImage ? 'aspect-square' : isDense ? 'h-36 sm:h-40' : 'h-44 sm:h-48'
+              block.squareImage ? 'aspect-square' : 'aspect-[4/3]'
             } w-full overflow-hidden ${
               isLightTheme ? 'bg-zinc-100' : 'bg-neutral-950'
             } ${block.bleedImages ? '' : 'rounded-2xl'}`}
@@ -1885,22 +1902,45 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
               src={product.imageUrl}
               alt={product.name}
               width={400}
-              height={block.squareImage ? 400 : 220}
+              height={block.squareImage ? 400 : 300}
               isLightTheme={isLightTheme}
               lazyLoad={shouldLazyLoadImg}
               className={`w-full h-full ${
                 block.imageFit === 'contain' ? 'object-contain' : 'object-cover'
-              } group-hover:scale-105 transition-transform duration-500`}
+              } ${
+                isUnavailable ? 'grayscale opacity-75' : 'group-hover:scale-105'
+              } transition-transform duration-500`}
             />
 
-            {product.badge && (
-              <span
-                data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                className="store-btn-solid absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow-sm truncate max-w-[80%]"
-              >
-                {product.badge}
-              </span>
-            )}
+            {/* Top-left badges: Agotado / % OFF / Solo en local / Badge */}
+            <div className="absolute top-2.5 left-2.5 flex flex-wrap items-center gap-1.5 max-w-[82%]">
+              {isUnavailable ? (
+                <span className="px-2.5 py-0.5 rounded-full bg-zinc-950/90 text-white border border-white/15 text-[10px] font-black uppercase tracking-wider shadow-sm">
+                  Agotado
+                </span>
+              ) : (
+                <>
+                  {discountPct > 0 && (
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider shadow-sm tabular-nums">
+                      -{discountPct}% OFF
+                    </span>
+                  )}
+                  {product.dineInOnly && (
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500 text-zinc-950 text-[9px] font-black uppercase tracking-wider shadow-sm">
+                      Solo en local
+                    </span>
+                  )}
+                  {product.badge && (
+                    <span
+                      data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+                      className="store-btn-solid px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow-sm truncate"
+                    >
+                      {product.badge}
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
 
             {block.quickViewButton && (
               <button
@@ -1970,9 +2010,20 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
                 >
                   {product.hasSizes ? 'Desde' : 'Precio'}
                 </span>
-                <span className="kh-cq-price font-black" style={{ color: accentColor }}>
-                  S/ {lowestPrice.toFixed(2)}
-                </span>
+                <div className="flex items-baseline gap-1.5 flex-wrap">
+                  <span className="kh-cq-price font-black tabular-nums" style={{ color: accentColor }}>
+                    S/ {lowestPrice.toFixed(2)}
+                  </span>
+                  {comparePrice && (
+                    <span
+                      className={`text-[11px] font-semibold line-through tabular-nums ${
+                        isLightTheme ? 'text-zinc-400' : 'text-neutral-500'
+                      }`}
+                    >
+                      S/ {comparePrice.toFixed(2)}
+                    </span>
+                  )}
+                </div>
               </div>
             ) : (
               <span className="text-xs font-semibold opacity-70">Personalizable</span>
@@ -1980,17 +2031,31 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
 
             <button
               type="button"
+              disabled={isUnavailable}
               onClick={e => {
                 e.stopPropagation();
+                if (isUnavailable) return;
                 const cardEl = e.currentTarget.closest('.group');
                 const img = cardEl?.querySelector('img') as HTMLImageElement | null;
                 onSelectProduct(product, img);
               }}
               data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-              className="kh-cq-cta store-btn-solid flex items-center gap-1 px-3.5 py-2 rounded-2xl font-black text-xs active:scale-95 transition-transform shadow-sm whitespace-nowrap shrink-0"
+              className={`kh-cq-cta flex items-center gap-1 px-3.5 py-2 rounded-2xl font-black text-xs transition-transform shadow-sm whitespace-nowrap shrink-0 ${
+                isUnavailable
+                  ? isLightTheme
+                    ? 'bg-zinc-200 text-zinc-500 cursor-not-allowed'
+                    : 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
+                  : 'store-btn-solid active:scale-95'
+              }`}
             >
-              <Plus className="w-3.5 h-3.5 shrink-0" />
-              <span>Elegir</span>
+              {isUnavailable ? (
+                <span>Agotado</span>
+              ) : (
+                <>
+                  <Plus className="w-3.5 h-3.5 shrink-0" />
+                  <span>Elegir</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -2063,13 +2128,45 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
 
       {displayedProducts.length === 0 ? (
         <div
-          className={`p-8 rounded-2xl border text-center text-sm ${
+          className={`p-8 rounded-3xl border text-center space-y-3 ${
             isLightTheme
-              ? 'bg-white border-zinc-200 text-zinc-500'
-              : 'bg-neutral-900/50 border-neutral-800 text-neutral-400'
+              ? 'bg-white border-zinc-200 text-zinc-600'
+              : 'bg-neutral-900/60 border-neutral-800 text-neutral-300'
           }`}
         >
-          No se encontraron productos para este bloque con los filtros actuales.
+          <p className="text-sm font-black">
+            No encontramos productos disponibles con los filtros actuales
+          </p>
+          <p className={`text-xs ${isLightTheme ? 'text-zinc-500' : 'text-neutral-400'}`}>
+            Prueba viendo toda la carta o cambiando a otra sucursal cercana.
+          </p>
+          {(onResetCategory || onOpenLocationModal) && (
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+              {onResetCategory && (
+                <button
+                  type="button"
+                  onClick={onResetCategory}
+                  data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+                  className="store-btn-solid px-4 py-2 rounded-xl text-xs font-black active:scale-95 transition-transform whitespace-nowrap"
+                >
+                  Ver todo el menú
+                </button>
+              )}
+              {onOpenLocationModal && (
+                <button
+                  type="button"
+                  onClick={onOpenLocationModal}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold border active:scale-95 transition-all whitespace-nowrap ${
+                    isLightTheme
+                      ? 'bg-zinc-100 border-zinc-200 text-zinc-800 hover:bg-zinc-200'
+                      : 'bg-neutral-800 border-neutral-700 text-neutral-200 hover:bg-neutral-700'
+                  }`}
+                >
+                  Cambiar de sucursal
+                </button>
+              )}
+            </div>
+          )}
         </div>
       ) : block.horizontalCarousel ? (
         <div
@@ -3364,6 +3461,8 @@ export const StoreBlockRenderer: React.FC<{
   onQuickViewProduct?: (product: Product) => void;
   onSubmitLead?: (lead: { fullName: string; phone: string; email?: string; message?: string }) => void;
   onCtaClick?: () => void;
+  onResetCategory?: () => void;
+  onOpenLocationModal?: () => void;
 }> = ({
   block,
   index = 0,
@@ -3380,6 +3479,8 @@ export const StoreBlockRenderer: React.FC<{
   onQuickViewProduct = () => {},
   onSubmitLead,
   onCtaClick,
+  onResetCategory,
+  onOpenLocationModal,
 }) => {
   const isLight = themeMode === 'light';
 
@@ -3423,6 +3524,8 @@ export const StoreBlockRenderer: React.FC<{
           searchQuery={searchQuery}
           onSelectProduct={onSelectProduct}
           onQuickViewProduct={onQuickViewProduct}
+          onResetCategory={onResetCategory}
+          onOpenLocationModal={onOpenLocationModal}
           isAboveFold={index <= 2}
         />
       );

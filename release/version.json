@@ -1,8 +1,8 @@
 {
-  "buildId": "20261116211233",
-  "builtAt": "2026-11-16T21:12:33.057Z",
-  "commitSha": "9b449d2",
-  "message": "fix(release): normalize LF in /release and add .gitattributes so SHA-256 matches GitHub raw",
+  "buildId": "20261116213533",
+  "builtAt": "2026-11-16T21:35:33.439Z",
+  "commitSha": "261b22d",
+  "message": "perf(store): apply modern-web-guidance (LCP priority, top-layer backdrop, overscroll, checkout autofill) + release 20261116211233",
   "totalFiles": 101,
-  "manifestSha256": "2e0c6a6a134089e081e3389de58c4c1c1cff52e6067a3332e28af95865f8d1c3"
+  "manifestSha256": "9a50ba68044f9821b7425a72474856acd446086d3cb07d4b6f24084ddd126df2"
 }

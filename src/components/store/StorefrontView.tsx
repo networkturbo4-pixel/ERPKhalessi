@@ -971,6 +971,59 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     [cartItems]
   );
 
+  // Kinetic cart pop feedback when items are added
+  const prevCartUnitsRef = useRef(totalCartUnits);
+  const [isCartPopping, setIsCartPopping] = useState(false);
+  useEffect(() => {
+    if (totalCartUnits > prevCartUnitsRef.current) {
+      setIsCartPopping(true);
+      const timer = window.setTimeout(() => setIsCartPopping(false), 450);
+      prevCartUnitsRef.current = totalCartUnits;
+      return () => window.clearTimeout(timer);
+    }
+    prevCartUnitsRef.current = totalCartUnits;
+  }, [totalCartUnits]);
+
+  // Micro-state for 1-tap upsell buttons ("+ Sumar" -> "✓ Agregado")
+  const [recentUpsellIds, setRecentUpsellIds] = useState<Record<string, boolean>>({});
+
+  // Sliding pill indicator for sticky category switcher
+  const catSwitcherRef = useRef<HTMLDivElement>(null);
+  const [catPillStyle, setCatPillStyle] = useState<{ left: number; width: number } | null>(null);
+  useEffect(() => {
+    const container = catSwitcherRef.current;
+    if (!container) return;
+    const activeBtn = container.querySelector<HTMLButtonElement>('[data-cat-active="true"]');
+    if (activeBtn) {
+      setCatPillStyle({ left: activeBtn.offsetLeft, width: activeBtn.offsetWidth });
+      activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+    } else {
+      setCatPillStyle(null);
+    }
+  }, [activeCategory]);
+
+  // Swipe-to-close gesture state for mobile Cart bottom sheet
+  const cartTouchStartYRef = useRef<number | null>(null);
+  const [cartSwipeOffset, setCartSwipeOffset] = useState(0);
+  const handleCartTouchStart = (e: React.TouchEvent) => {
+    if (window.innerWidth >= 768) return;
+    cartTouchStartYRef.current = e.touches[0]?.clientY ?? null;
+  };
+  const handleCartTouchMove = (e: React.TouchEvent) => {
+    if (cartTouchStartYRef.current === null) return;
+    const delta = (e.touches[0]?.clientY ?? 0) - cartTouchStartYRef.current;
+    if (delta > 0) {
+      setCartSwipeOffset(Math.min(delta, 240));
+    }
+  };
+  const handleCartTouchEnd = () => {
+    if (cartSwipeOffset > 80) {
+      setIsCartOpen(false);
+    }
+    cartTouchStartYRef.current = null;
+    setCartSwipeOffset(0);
+  };
+
   // Active branch real-time distance & dynamic delivery fee by km bracket
   const activeBranchDistanceKm = useMemo(
     () => branchesWithDistance.find(b => b.tenant.id === activeTenant.id)?.distanceKm ?? null,
@@ -1063,6 +1116,10 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     };
     addToCart(quickItem);
     dispatchSeasonalBurst();
+    setRecentUpsellIds(prev => ({ ...prev, [prod.id]: true }));
+    window.setTimeout(() => {
+      setRecentUpsellIds(prev => ({ ...prev, [prod.id]: false }));
+    }, 900);
     dispatchToast('¡Sumado al pedido!', `Se agregó ${prod.name} a tu bolsa.`, 'success');
   };
 
@@ -1309,6 +1366,8 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
         navigateToProductSlug(prod, (imgEl as HTMLImageElement | null | undefined) ?? null)
       }
       onQuickViewProduct={prod => setQuickViewProduct(prod)}
+      onResetCategory={() => navigateToCategory('todos')}
+      onOpenLocationModal={() => setIsLocationModalOpen(true)}
       onSubmitLead={lead => {
         upsertCustomer({
           dni: '',
@@ -1697,16 +1756,18 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                     type="button"
                     onClick={() => setIsCartOpen(true)}
                     data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                    className="store-btn-solid relative h-10 flex items-center gap-2 px-4 rounded-full font-black text-xs sm:text-sm shadow-sm active:scale-95 transition-transform whitespace-nowrap shrink-0"
+                    className={`store-btn-solid relative h-10 flex items-center gap-2 px-4 rounded-full font-black text-xs sm:text-sm shadow-sm active:scale-95 transition-transform whitespace-nowrap shrink-0 ${
+                      isCartPopping ? 'kh-cart-pop' : ''
+                    }`}
                   >
                     <ShoppingBag aria-hidden="true" className="w-4 h-4" />
-                    <span>
+                    <span className="tabular-nums">
                       {totalCartUnits > 0 && cartSubtotal > 0
                         ? `S/ ${resolvedPayableTotal.toFixed(2)}`
                         : 'Carrito'}
                     </span>
                     {totalCartUnits > 0 && (
-                      <span className="bg-black/20 px-1.5 py-0.5 rounded-full text-[11px] font-black min-w-5 text-center">
+                      <span className="bg-black/20 px-1.5 py-0.5 rounded-full text-[11px] font-black min-w-5 text-center tabular-nums">
                         {totalCartUnits}
                       </span>
                     )}
@@ -1906,23 +1967,33 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                       </div>
                     </div>
 
-                    {/* Horizontal quick category switcher */}
-                    <div className="mt-2.5 flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
+                    {/* Horizontal quick category switcher with sliding active pill */}
+                    <div
+                      ref={catSwitcherRef}
+                      className="relative mt-2.5 flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5"
+                    >
+                      {catPillStyle && (
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            left: `${catPillStyle.left}px`,
+                            width: `${catPillStyle.width}px`,
+                            backgroundColor: accentColor,
+                          }}
+                          className="absolute top-0 bottom-0.5 rounded-full shadow-sm transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] pointer-events-none"
+                        />
+                      )}
                       {allCats.map(cat => {
                         const isCurrent = cat.id === activeCategory;
                         return (
                           <button
                             key={cat.id}
                             type="button"
+                            data-cat-active={isCurrent ? 'true' : undefined}
                             onClick={() => navigateToCategory(cat.id)}
-                            style={
+                            className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors whitespace-nowrap shrink-0 ${
                               isCurrent
-                                ? { backgroundColor: accentColor, borderColor: accentColor }
-                                : undefined
-                            }
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all whitespace-nowrap shrink-0 ${
-                              isCurrent
-                                ? 'text-white shadow-sm'
+                                ? 'text-white border-transparent'
                                 : isLightTheme
                                 ? 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
                                 : 'bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10'
@@ -2278,14 +2349,24 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
       >
         {isCartOpen && (
           <div
-            className={`rounded-t-3xl md:rounded-none border-t md:border-t-0 md:border-l shadow-2xl flex flex-col max-h-[88svh] md:h-full md:max-h-none overflow-hidden transition-colors ${
+            style={
+              cartSwipeOffset > 0
+                ? { transform: `translateY(${cartSwipeOffset}px)`, transition: 'none' }
+                : undefined
+            }
+            className={`rounded-t-3xl md:rounded-none border-t md:border-t-0 md:border-l shadow-2xl flex flex-col max-h-[88svh] md:h-full md:max-h-none overflow-hidden transition-[colors,transform] duration-200 ${
               isLightTheme
                 ? 'bg-zinc-50 border-zinc-200 text-zinc-900'
                 : 'bg-neutral-900 border-neutral-800 text-neutral-100'
             }`}
           >
-            {/* App Drag Handle (Mobile Only) */}
-            <div className="pt-3 pb-1 flex justify-center md:hidden">
+            {/* App Drag Handle (Mobile Only — supports swipe-down to close) */}
+            <div
+              onTouchStart={handleCartTouchStart}
+              onTouchMove={handleCartTouchMove}
+              onTouchEnd={handleCartTouchEnd}
+              className="pt-3 pb-1 flex justify-center md:hidden touch-none cursor-grab active:cursor-grabbing"
+            >
               <div
                 className={`w-11 h-1.5 rounded-full ${
                   isLightTheme ? 'bg-zinc-300' : 'bg-neutral-700'
@@ -2294,6 +2375,9 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
             </div>
 
             <div
+              onTouchStart={handleCartTouchStart}
+              onTouchMove={handleCartTouchMove}
+              onTouchEnd={handleCartTouchEnd}
               className={`px-5 py-3 border-b flex items-center justify-between ${
                 isLightTheme ? 'bg-white border-zinc-200' : 'bg-neutral-900 border-neutral-800'
               }`}
@@ -2632,10 +2716,23 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                             type="button"
                             onClick={() => handleQuickAddUpsell(sug)}
                             data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                            className="store-btn-solid px-3 py-1.5 rounded-xl text-[11px] font-black inline-flex items-center gap-1 active:scale-95 transition-transform whitespace-nowrap shrink-0 shadow-xs"
+                            className={`px-3 py-1.5 rounded-xl text-[11px] font-black inline-flex items-center gap-1 active:scale-95 transition-all whitespace-nowrap shrink-0 shadow-xs ${
+                              recentUpsellIds[sug.id]
+                                ? 'bg-emerald-600 text-white'
+                                : 'store-btn-solid'
+                            }`}
                           >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Sumar</span>
+                            {recentUpsellIds[sug.id] ? (
+                              <>
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Agregado</span>
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Sumar</span>
+                              </>
+                            )}
                           </button>
                         </div>
                       );
@@ -3971,6 +4068,8 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
             accentColor={accentColor}
             autoButtonContrast={autoButtonContrast}
             isLightTheme={isLightTheme}
+            onResetToAllMenu={() => navigateToCategory('todos')}
+            onOpenLocationModal={() => setIsLocationModalOpen(true)}
           />
         </Suspense>
       )}
@@ -4225,12 +4324,14 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                 onClick={() => setIsCartOpen(true)}
                 data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
                 style={{ touchAction: 'manipulation' }}
-                className="store-btn-solid relative w-12 h-12 rounded-full shadow-md flex items-center justify-center active:scale-95 transition-transform"
+                className={`store-btn-solid relative w-12 h-12 rounded-full shadow-md flex items-center justify-center active:scale-95 transition-transform ${
+                  isCartPopping ? 'kh-cart-pop' : ''
+                }`}
               >
                 <ShoppingBag aria-hidden="true" className="w-5 h-5" />
                 {totalCartUnits > 0 && (
                   <span
-                    className={`absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-zinc-950 text-white ring-2 text-[9px] font-black flex items-center justify-center ${
+                    className={`absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-zinc-950 text-white ring-2 text-[9px] font-black flex items-center justify-center tabular-nums ${
                       isLightTheme ? 'ring-white' : 'ring-neutral-900'
                     }`}
                   >
@@ -4299,6 +4400,40 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
             </button>
           </nav>
         </div>
+      )}
+
+      {/* Floating Live Active Order Tracker Pill (always visible while browsing) */}
+      {!isBuilderOpen && latestActiveCustomerOrder && (
+        <button
+          type="button"
+          onClick={() => {
+            setFocusedOrderId(latestActiveCustomerOrder.id);
+            setIsOrdersOpen(true);
+          }}
+          className={`fixed bottom-20 lg:bottom-6 right-4 z-30 flex items-center gap-2.5 pl-3 pr-3.5 py-2 rounded-full border shadow-xl backdrop-blur-md transition-transform active:scale-95 hover:scale-[1.02] ${
+            isLightTheme
+              ? 'bg-white/95 border-zinc-200 text-zinc-900'
+              : 'bg-neutral-900/95 border-neutral-700 text-white'
+          }`}
+        >
+          <span className="relative flex h-2.5 w-2.5 shrink-0">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+          </span>
+          <span className="text-xs font-black whitespace-nowrap tabular-nums">
+            #{latestActiveCustomerOrder.orderNumber} ·{' '}
+            {latestActiveCustomerOrder.status === 'recibido'
+              ? 'Recibido'
+              : latestActiveCustomerOrder.status === 'en_cocina'
+              ? 'En cocina'
+              : latestActiveCustomerOrder.status === 'en_horno'
+              ? 'En horno 🔥'
+              : latestActiveCustomerOrder.status === 'listo'
+              ? 'Listo ✨'
+              : 'En camino 🛵'}
+          </span>
+          <ArrowRight className="w-3.5 h-3.5 opacity-70 shrink-0" />
+        </button>
       )}
 
       {/* Active Order Push Notifications Prompt */}

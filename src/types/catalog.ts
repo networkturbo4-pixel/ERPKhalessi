@@ -88,6 +88,8 @@ export interface Product {
   productType?: ProductType;
   imageUrl: string;
   badge?: string;
+  compareAtPrice?: number;
+  dineInOnly?: boolean;
   isAvailable: boolean;
   hasSizes: boolean;
   basePrice: number; // Used if hasSizes is false

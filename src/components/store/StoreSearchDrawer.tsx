@@ -12,7 +12,20 @@ interface StoreSearchDrawerProps {
   accentColor: string;
   autoButtonContrast: boolean;
   isLightTheme?: boolean;
+  onResetToAllMenu?: () => void;
+  onOpenLocationModal?: () => void;
 }
+
+const QUICK_SUGGESTIONS = ['Pepperoni', '2x1', 'Bebidas', 'Combo', 'Familiar'];
+const TAG_FILTERS: { id: string; label: string }[] = [
+  { id: 'all', label: 'Todos' },
+  { id: 'pizzas', label: '🍕 Pizzas' },
+  { id: 'combos', label: '🔥 Combos' },
+  { id: 'entradas', label: '🧀 Entradas' },
+  { id: 'bebidas', label: '🥤 Bebidas' },
+  { id: 'postres', label: '🍰 Postres' },
+  { id: 'promos', label: '🏷️ Promos' },
+];
 
 const RECENT_KEY = 'store_recent_searches_v1'; // device-local (no "kh" prefix → never synced across devices)
 const DEBOUNCE_MS = 160;
@@ -87,6 +100,8 @@ export const StoreSearchDrawer: React.FC<StoreSearchDrawerProps> = ({
   accentColor,
   autoButtonContrast,
   isLightTheme = false,
+  onResetToAllMenu,
+  onOpenLocationModal,
 }) => {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -96,6 +111,7 @@ export const StoreSearchDrawer: React.FC<StoreSearchDrawerProps> = ({
 
   const [debouncedQuery, setDebouncedQuery] = useState(searchQuery);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [activeTag, setActiveTag] = useState<string>('all');
   const [recent, setRecent] = useState<string[]>(() => loadRecent());
 
   // AJAX-style debounce: results refresh ~160ms after the user stops typing, with a visible "searching" state
@@ -121,7 +137,18 @@ export const StoreSearchDrawer: React.FC<StoreSearchDrawerProps> = ({
     }
   }, [isOpen]);
 
-  const available = useMemo(() => products.filter(p => p.isAvailable), [products]);
+  const available = useMemo(() => {
+    const base = products.filter(p => p.isAvailable);
+    if (activeTag === 'all') return base;
+    if (activeTag === 'promos') {
+      return base.filter(
+        p =>
+          Boolean(p.compareAtPrice && p.compareAtPrice > p.basePrice) ||
+          /2x1|off|ahorro|promo|descuento|combo/i.test(`${p.badge || ''} ${p.name} ${p.category}`)
+      );
+    }
+    return base.filter(p => p.category === activeTag);
+  }, [products, activeTag]);
 
   const results = useMemo(() => {
     const q = normalize(debouncedQuery.trim());
@@ -294,6 +321,34 @@ export const StoreSearchDrawer: React.FC<StoreSearchDrawerProps> = ({
               </button>
             </div>
 
+            {/* Quick tag/category filter pills */}
+            <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+              {TAG_FILTERS.map(tag => {
+                const isSelected = activeTag === tag.id;
+                return (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveTag(tag.id);
+                      setActiveIndex(0);
+                      inputRef.current?.focus();
+                    }}
+                    style={
+                      isSelected
+                        ? { backgroundColor: accentColor, borderColor: accentColor }
+                        : undefined
+                    }
+                    className={`px-3 py-1 rounded-full text-[11px] font-bold border transition-all whitespace-nowrap shrink-0 ${
+                      isSelected ? 'text-white shadow-sm' : surface.chip
+                    }`}
+                  >
+                    {tag.label}
+                  </button>
+                );
+              })}
+            </div>
+
             {/* Live status line (announced to screen readers) */}
             <div
               role="status"
@@ -352,6 +407,32 @@ export const StoreSearchDrawer: React.FC<StoreSearchDrawerProps> = ({
             )}
 
             {!hasQuery && (
+              <div className="px-1.5 pb-3">
+                <span
+                  className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider mb-2 ${surface.muted}`}
+                >
+                  <TrendingUp aria-hidden="true" className="w-3 h-3" />
+                  Sugerencias rápidas
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {QUICK_SUGGESTIONS.map(term => (
+                    <button
+                      key={term}
+                      type="button"
+                      onClick={() => {
+                        onChangeSearch(term);
+                        inputRef.current?.focus();
+                      }}
+                      className={`min-h-[32px] px-3 rounded-full border text-xs font-bold whitespace-nowrap transition-transform active:scale-95 ${surface.chip}`}
+                    >
+                      {term}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!hasQuery && (
               <span
                 className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-1.5 mb-1.5 ${surface.muted}`}
               >
@@ -360,13 +441,46 @@ export const StoreSearchDrawer: React.FC<StoreSearchDrawerProps> = ({
               </span>
             )}
 
-            {hasQuery && !isSearching && results.length === 0 ? (
-              <div className="py-12 px-4 text-center">
-                <SearchX aria-hidden="true" className={`w-10 h-10 mx-auto mb-3 ${surface.muted}`} />
-                <p className="text-sm font-black">No encontramos “{searchQuery.trim()}”</p>
-                <p className={`text-xs mt-1 ${surface.muted}`}>
-                  Prueba con otra palabra, por ejemplo “pepperoni”, “combo” o “bebida”.
-                </p>
+            {(hasQuery || activeTag !== 'all') && !isSearching && visibleList.length === 0 ? (
+              <div className="py-10 px-4 text-center space-y-3">
+                <SearchX aria-hidden="true" className={`w-10 h-10 mx-auto ${surface.muted}`} />
+                <div>
+                  <p className="text-sm font-black">
+                    {hasQuery
+                      ? `No encontramos “${searchQuery.trim()}”`
+                      : 'Sin productos en esta etiqueta'}
+                  </p>
+                  <p className={`text-xs mt-1 ${surface.muted}`}>
+                    Prueba con otra palabra (ej. “pepperoni”, “combo”) o explora toda la carta.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTag('all');
+                      onChangeSearch('');
+                      onResetToAllMenu?.();
+                      onClose();
+                    }}
+                    data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+                    className="store-btn-solid px-4 py-2 rounded-xl text-xs font-black active:scale-95 transition-transform whitespace-nowrap"
+                  >
+                    Ver todo el menú
+                  </button>
+                  {onOpenLocationModal && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenLocationModal();
+                      }}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold border active:scale-95 transition-all whitespace-nowrap ${surface.chip}`}
+                    >
+                      Cambiar de sucursal
+                    </button>
+                  )}
+                </div>
               </div>
             ) : hasQuery && isSearching && results.length === 0 ? (
               <div aria-hidden="true" className="space-y-2 px-1">
@@ -419,7 +533,7 @@ export const StoreSearchDrawer: React.FC<StoreSearchDrawerProps> = ({
                         <span className={`text-[11px] line-clamp-1 ${surface.muted}`}>
                           {prod.description}
                         </span>
-                        <span className="text-xs font-black mt-0.5 block" style={{ color: accentColor }}>
+                        <span className="text-xs font-black mt-0.5 block tabular-nums" style={{ color: accentColor }}>
                           {prod.hasSizes ? 'Desde ' : ''}S/ {price.toFixed(2)}
                         </span>
                       </div>

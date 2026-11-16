@@ -2164,7 +2164,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
             <span className="truncate">
               {selectionValidation.valid ? 'Agregar al Pedido' : selectionValidation.reason}
             </span>
-            <span className="shrink-0 px-2 sm:px-2.5 py-0.5 rounded-lg bg-black/15 font-black text-xs sm:text-sm">
+            <span className="shrink-0 px-2 sm:px-2.5 py-0.5 rounded-lg bg-black/15 font-black text-xs sm:text-sm tabular-nums">
               S/&nbsp;{totalPrice.toFixed(2)}
             </span>
           </button>

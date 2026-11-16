@@ -1450,7 +1450,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
               </div>
 
               {/* Breakdown */}
-              <div className="space-y-2 text-xs mb-5">
+              <div className="space-y-2 text-xs mb-5 tabular-nums">
                 <div className="flex justify-between text-zinc-500 dark:text-neutral-400">
                   <span>Subtotal</span>
                   <span>S/ {cartSubtotal.toFixed(2)}</span>
@@ -1500,7 +1500,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
                 style={{ backgroundColor: accentColor }}
               >
                 <span>{isSubmitting ? 'Procesando Pedido...' : 'Confirmar y Pedir Ahora'}</span>
-                <span className="font-black tracking-tight">S/ {payableTotal.toFixed(2)} →</span>
+                <span className="font-black tracking-tight tabular-nums">S/ {payableTotal.toFixed(2)} →</span>
               </button>
             </div>
           </div>
@@ -1523,7 +1523,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
           style={{ backgroundColor: accentColor }}
         >
           <span>{isSubmitting ? 'Procesando Pedido...' : 'Confirmar y Pedir Ahora'}</span>
-          <span className="font-black tracking-tight">S/ {payableTotal.toFixed(2)} →</span>
+          <span className="font-black tracking-tight tabular-nums">S/ {payableTotal.toFixed(2)} →</span>
         </button>
       </div>
 
