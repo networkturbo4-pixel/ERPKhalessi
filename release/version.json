@@ -1,8 +1,8 @@
 {
-  "buildId": "20261116171756",
-  "builtAt": "2026-11-16T17:17:56.419Z",
-  "commitSha": "231eae3",
-  "message": "feat(settings): add SEO, AI search (GEO/JSON-LD) and Open Graph tab + release 20261116170459",
+  "buildId": "20261116172600",
+  "builtAt": "2026-11-16T17:26:00.655Z",
+  "commitSha": "d86c686",
+  "message": "fix(seo): SSR Open Graph & image proxy for products, /trabaja, and storefront",
   "totalFiles": 101,
-  "manifestSha256": "e10250e30c740bfcf82891faea19e3d3b00cfc438fcc3c8748a15a7cbaaaf704"
+  "manifestSha256": "4dbd343d21aa2a23b1f064c39085debc682dc3133381addba7b1ebf16a90dcee"
 }

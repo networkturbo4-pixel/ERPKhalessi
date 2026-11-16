@@ -34,12 +34,18 @@ import {
 
 const FIELD_TYPES: Array<{ value: CustomFieldType; label: string }> = [
   { value: 'text', label: 'Texto Corto' },
-  { value: 'textarea', label: 'Párrafo / Experiencia' },
-  { value: 'select', label: 'Lista Desplegable (Opciones)' },
+  { value: 'textarea', label: 'Párrafo / Respuesta Larga' },
+  { value: 'radio', label: 'Opción Múltiple (Selección Única)' },
+  { value: 'multicheckbox', label: 'Casillas de Selección Múltiple' },
+  { value: 'select', label: 'Lista Desplegable (Dropdown)' },
+  { value: 'scale', label: 'Escala Lineal (1 al 5 / 1 al 10)' },
+  { value: 'file', label: 'Subir Archivo / CV (PDF o Imagen)' },
   { value: 'checkbox', label: 'Casilla de Verificación (Sí / No)' },
   { value: 'number', label: 'Número' },
   { value: 'date', label: 'Fecha (Ej. Vencimiento SOAT)' },
+  { value: 'time', label: 'Hora (Disponibilidad)' },
   { value: 'tel', label: 'Teléfono' },
+  { value: 'email', label: 'Correo Electrónico' },
   { value: 'url', label: 'Enlace Web / Portafolio' },
 ];
 
@@ -216,6 +222,17 @@ export const ApplicantsTabView: React.FC = () => {
       ...draftPosting,
       fields: draftPosting.fields.filter(f => f.id !== fieldId),
     });
+  };
+
+  const handleDuplicateField = (field: JobFormField, index: number) => {
+    if (!draftPosting) return;
+    const copy = [...draftPosting.fields];
+    copy.splice(index + 1, 0, {
+      ...structuredClone(field),
+      id: `fld-${Date.now()}`,
+      label: `${field.label} (copia)`,
+    });
+    setDraftPosting({ ...draftPosting, fields: copy });
   };
 
   const handleSaveCurrentPosting = (e: React.FormEvent) => {
@@ -755,6 +772,14 @@ export const ApplicantsTabView: React.FC = () => {
                             <div className="flex items-center gap-1">
                               <button
                                 type="button"
+                                onClick={() => handleDuplicateField(field, index)}
+                                className="p-1 rounded text-zinc-400 hover:text-zinc-800 dark:hover:text-white"
+                                title="Duplicar pregunta"
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
                                 disabled={index === 0}
                                 onClick={() => handleMoveField(index, -1)}
                                 className="p-1 rounded text-zinc-400 hover:text-zinc-800 dark:hover:text-white disabled:opacity-30"
@@ -817,27 +842,104 @@ export const ApplicantsTabView: React.FC = () => {
                               </select>
                             </div>
 
-                            {field.type === 'select' ? (
-                              <div className="sm:col-span-9">
-                                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 mb-1">
-                                  Opciones Desplegables (separadas por coma)
+                            {field.type === 'select' || field.type === 'radio' || field.type === 'multicheckbox' ? (
+                              <div className="sm:col-span-9 space-y-2">
+                                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300">
+                                  Opciones de Respuesta ({field.type === 'multicheckbox' ? 'Selección múltiple' : 'Selección única'})
                                 </label>
-                                <input
-                                  type="text"
-                                  value={(field.options || []).join(', ')}
-                                  onChange={e =>
-                                    handleUpdateField(field.id, {
-                                      options: e.target.value
-                                        .split(',')
-                                        .map(s => s.trim())
-                                        .filter(Boolean),
-                                    })
-                                  }
-                                  placeholder="Opción A, Opción B, Opción C"
-                                  className="w-full px-3 py-1.5 rounded-lg saas-input text-xs"
-                                />
+                                <div className="space-y-1.5">
+                                  {(field.options && field.options.length > 0 ? field.options : ['Opción 1']).map((opt, optIdx) => (
+                                    <div key={optIdx} className="flex items-center gap-2">
+                                      <span className="text-[10px] font-mono text-zinc-400 w-4 text-center">
+                                        {field.type === 'multicheckbox' ? '☐' : field.type === 'radio' ? '○' : `${optIdx + 1}.`}
+                                      </span>
+                                      <input
+                                        type="text"
+                                        value={opt}
+                                        onChange={e => {
+                                          const nextOpts = [...(field.options || ['Opción 1'])];
+                                          nextOpts[optIdx] = e.target.value;
+                                          handleUpdateField(field.id, { options: nextOpts });
+                                        }}
+                                        placeholder={`Opción ${optIdx + 1}`}
+                                        className="flex-1 px-3 py-1.5 rounded-lg saas-input text-xs"
+                                      />
+                                      {(field.options?.length || 0) > 1 && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const nextOpts = (field.options || []).filter((_, i) => i !== optIdx);
+                                            handleUpdateField(field.id, { options: nextOpts });
+                                          }}
+                                          className="p-1 rounded text-zinc-400 hover:text-rose-500"
+                                          title="Quitar opción"
+                                        >
+                                          <X className="h-3.5 w-3.5" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  ))}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const current = field.options || [];
+                                      handleUpdateField(field.id, {
+                                        options: [...current, `Opción ${current.length + 1}`],
+                                      });
+                                    }}
+                                    className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline pt-0.5"
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                    <span>Añadir opción</span>
+                                  </button>
+                                </div>
                               </div>
-                            ) : field.type !== 'checkbox' ? (
+                            ) : field.type === 'scale' ? (
+                              <div className="sm:col-span-9 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                <div>
+                                  <label className="block text-[10px] font-semibold text-zinc-500 mb-1">Mínimo</label>
+                                  <select
+                                    value={field.scaleMin ?? 1}
+                                    onChange={e => handleUpdateField(field.id, { scaleMin: Number(e.target.value) })}
+                                    className="w-full px-2.5 py-1.5 rounded-lg saas-input text-xs"
+                                  >
+                                    <option value={0}>0</option>
+                                    <option value={1}>1</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-semibold text-zinc-500 mb-1">Máximo</label>
+                                  <select
+                                    value={field.scaleMax ?? 5}
+                                    onChange={e => handleUpdateField(field.id, { scaleMax: Number(e.target.value) })}
+                                    className="w-full px-2.5 py-1.5 rounded-lg saas-input text-xs"
+                                  >
+                                    <option value={5}>5</option>
+                                    <option value={10}>10</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-semibold text-zinc-500 mb-1">Etiqueta Mín.</label>
+                                  <input
+                                    type="text"
+                                    value={field.scaleMinLabel || ''}
+                                    onChange={e => handleUpdateField(field.id, { scaleMinLabel: e.target.value })}
+                                    placeholder="Ej: Básico"
+                                    className="w-full px-2.5 py-1.5 rounded-lg saas-input text-xs"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-semibold text-zinc-500 mb-1">Etiqueta Máx.</label>
+                                  <input
+                                    type="text"
+                                    value={field.scaleMaxLabel || ''}
+                                    onChange={e => handleUpdateField(field.id, { scaleMaxLabel: e.target.value })}
+                                    placeholder="Ej: Experto"
+                                    className="w-full px-2.5 py-1.5 rounded-lg saas-input text-xs"
+                                  />
+                                </div>
+                              </div>
+                            ) : field.type !== 'checkbox' && field.type !== 'file' ? (
                               <div className="sm:col-span-9">
                                 <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 mb-1">
                                   Texto de Ejemplo (Placeholder)
@@ -853,19 +955,10 @@ export const ApplicantsTabView: React.FC = () => {
                                 />
                               </div>
                             ) : (
-                              <div className="sm:col-span-9">
-                                <label className="block text-[11px] font-semibold text-zinc-600 dark:text-zinc-300 mb-1">
-                                  Texto de Ayuda Opcional
-                                </label>
-                                <input
-                                  type="text"
-                                  value={field.helperText || ''}
-                                  onChange={e =>
-                                    handleUpdateField(field.id, { helperText: e.target.value })
-                                  }
-                                  placeholder="Aclaración adicional debajo de la casilla..."
-                                  className="w-full px-3 py-1.5 rounded-lg saas-input text-xs"
-                                />
+                              <div className="sm:col-span-9 flex items-center text-[11px] text-zinc-500">
+                                {field.type === 'file'
+                                  ? 'El postulante podrá adjuntar un PDF o imagen (máx. 2 MB).'
+                                  : 'Casilla de verificación Sí / No.'}
                               </div>
                             )}
 
@@ -881,6 +974,18 @@ export const ApplicantsTabView: React.FC = () => {
                                 />
                                 <span>Obligatorio</span>
                               </label>
+                            </div>
+
+                            <div className="sm:col-span-12">
+                              <input
+                                type="text"
+                                value={field.helperText || ''}
+                                onChange={e =>
+                                  handleUpdateField(field.id, { helperText: e.target.value })
+                                }
+                                placeholder="Descripción o texto de ayuda opcional debajo de la pregunta..."
+                                className="w-full px-3 py-1.5 rounded-lg saas-input text-[11px] text-zinc-500"
+                              />
                             </div>
                           </div>
                         </div>

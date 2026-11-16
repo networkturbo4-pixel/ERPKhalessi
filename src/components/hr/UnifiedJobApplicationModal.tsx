@@ -597,6 +597,138 @@ export const UnifiedJobApplicationModal: React.FC<UnifiedJobApplicationModalProp
                                   </option>
                                 ))}
                               </select>
+                            ) : field.type === 'radio' ? (
+                              <div className="space-y-2 pt-1">
+                                {(field.options || []).map(opt => (
+                                  <label
+                                    key={opt}
+                                    className="flex items-center gap-2.5 p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 hover:border-emerald-500/50 cursor-pointer transition-colors"
+                                  >
+                                    <input
+                                      type="radio"
+                                      name={field.id}
+                                      value={opt}
+                                      required={field.required}
+                                      checked={val === opt}
+                                      onChange={() =>
+                                        setDynamicValues(prev => ({ ...prev, [field.id]: opt }))
+                                      }
+                                      className="h-4 w-4 accent-emerald-600"
+                                    />
+                                    <span className="text-xs sm:text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                                      {opt}
+                                    </span>
+                                  </label>
+                                ))}
+                              </div>
+                            ) : field.type === 'multicheckbox' ? (
+                              <div className="space-y-2 pt-1">
+                                {(field.options || []).map(opt => {
+                                  const selectedArr = val
+                                    ? val.split(',').map(s => s.trim()).filter(Boolean)
+                                    : [];
+                                  const isChecked = selectedArr.includes(opt);
+                                  return (
+                                    <label
+                                      key={opt}
+                                      className="flex items-center gap-2.5 p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 hover:border-emerald-500/50 cursor-pointer transition-colors"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={e => {
+                                          const next = e.target.checked
+                                            ? [...selectedArr, opt]
+                                            : selectedArr.filter(x => x !== opt);
+                                          setDynamicValues(prev => ({
+                                            ...prev,
+                                            [field.id]: next.join(', '),
+                                          }));
+                                        }}
+                                        className="h-4 w-4 rounded accent-emerald-600"
+                                      />
+                                      <span className="text-xs sm:text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                                        {opt}
+                                      </span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            ) : field.type === 'scale' ? (
+                              (() => {
+                                const min = field.scaleMin ?? 1;
+                                const max = field.scaleMax ?? 5;
+                                const steps = Array.from(
+                                  { length: Math.max(2, max - min + 1) },
+                                  (_, i) => min + i
+                                );
+                                return (
+                                  <div className="p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 space-y-2">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      {steps.map(num => {
+                                        const active = val === String(num);
+                                        return (
+                                          <button
+                                            key={num}
+                                            type="button"
+                                            onClick={() =>
+                                              setDynamicValues(prev => ({
+                                                ...prev,
+                                                [field.id]: String(num),
+                                              }))
+                                            }
+                                            className={`w-9 h-9 rounded-full text-xs font-black border transition-all ${
+                                              active
+                                                ? 'bg-emerald-600 text-white border-emerald-600 scale-105 shadow-sm'
+                                                : 'bg-zinc-50 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-emerald-500'
+                                            }`}
+                                          >
+                                            {num}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                    {(field.scaleMinLabel || field.scaleMaxLabel) && (
+                                      <div className="flex items-center justify-between text-[11px] text-zinc-500">
+                                        <span>{field.scaleMinLabel || ''}</span>
+                                        <span>{field.scaleMaxLabel || ''}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()
+                            ) : field.type === 'file' ? (
+                              <div className="space-y-1.5">
+                                <input
+                                  id={inputId}
+                                  name={field.id}
+                                  type="file"
+                                  accept=".pdf,image/*"
+                                  required={field.required && !val}
+                                  onChange={e => {
+                                    const file = e.target.files?.[0];
+                                    if (!file) return;
+                                    if (file.size > 2 * 1024 * 1024) {
+                                      dispatchToast(
+                                        'Archivo muy grande',
+                                        'Adjunta un archivo de máximo 2 MB.',
+                                        'warning'
+                                      );
+                                      return;
+                                    }
+                                    setDynamicValues(prev => ({
+                                      ...prev,
+                                      [field.id]: `Archivo adjunto: ${file.name} (${Math.round(file.size / 1024)} KB)`,
+                                    }));
+                                  }}
+                                  className="w-full px-3 py-2 rounded-xl saas-input text-xs file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-500/15 file:text-emerald-700 dark:file:text-emerald-300"
+                                />
+                                {val && (
+                                  <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 block">
+                                    ✓ {val}
+                                  </span>
+                                )}
+                              </div>
                             ) : (
                               <input
                                 id={inputId}

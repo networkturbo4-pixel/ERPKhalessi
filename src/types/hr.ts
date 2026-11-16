@@ -116,7 +116,12 @@ export type CustomFieldType =
   | 'tel'
   | 'email'
   | 'date'
+  | 'time'
   | 'select'
+  | 'radio'
+  | 'multicheckbox'
+  | 'scale'
+  | 'file'
   | 'checkbox'
   | 'url';
 
@@ -128,6 +133,10 @@ export interface JobFormField {
   required: boolean;
   options?: string[];
   helperText?: string;
+  scaleMin?: number;
+  scaleMax?: number;
+  scaleMinLabel?: string;
+  scaleMaxLabel?: string;
 }
 
 export interface JobPostingFormConfig {
