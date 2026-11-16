@@ -21,6 +21,8 @@ interface UnifiedJobApplicationModalProps {
   onClose: () => void;
   initialShowQr?: boolean;
   initialPostingId?: string;
+  mode?: 'modal' | 'inline';
+  hidePositionSelector?: boolean;
 }
 
 export const UnifiedJobApplicationModal: React.FC<UnifiedJobApplicationModalProps> = ({
@@ -28,6 +30,8 @@ export const UnifiedJobApplicationModal: React.FC<UnifiedJobApplicationModalProp
   onClose,
   initialShowQr = false,
   initialPostingId,
+  mode = 'modal',
+  hidePositionSelector = false,
 }) => {
   const { jobPostings, submitJobApplication } = useHR();
   const { tenants, activeTenant, companyInfo, customization, dispatchToast } = useSettings();
@@ -71,6 +75,7 @@ export const UnifiedJobApplicationModal: React.FC<UnifiedJobApplicationModalProp
   }, [activePostings, selectedPostingId]);
 
   useEffect(() => {
+    if (mode !== 'modal') return;
     const dialog = dialogRef.current;
     if (!dialog) return;
     if (isOpen) {
@@ -78,7 +83,7 @@ export const UnifiedJobApplicationModal: React.FC<UnifiedJobApplicationModalProp
     } else if (dialog.open) {
       dialog.close();
     }
-  }, [isOpen]);
+  }, [isOpen, mode]);
 
   const selectedPosting = useMemo(
     () => activePostings.find(p => p.id === selectedPostingId) || activePostings[0],
@@ -180,61 +185,63 @@ export const UnifiedJobApplicationModal: React.FC<UnifiedJobApplicationModalProp
     onClose();
   };
 
-  return (
-    <dialog
-      ref={dialogRef}
-      aria-labelledby={titleId}
-      onClose={() => {
-        if (dialogRef.current) dialogRef.current.returnValue = '';
-        onClose();
-      }}
-      className="w-full max-w-2xl bg-transparent p-2 sm:p-4 outline-none backdrop:bg-black/60 backdrop:backdrop-blur-xs"
+  const isInline = mode === 'inline';
+
+  const cardContent = (
+    <div
+      className={`w-full rounded-3xl bg-white dark:bg-[#14151b] text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-800 overflow-hidden flex flex-col ${
+        isInline ? 'shadow-sm' : 'shadow-2xl max-h-[92vh]'
+      }`}
     >
-      {isOpen && (
-        <div className="w-full rounded-3xl bg-white dark:bg-[#14151b] text-zinc-900 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-800 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
-          {/* Header */}
-          <div className="px-5 py-4 bg-gradient-to-r from-emerald-950 via-zinc-900 to-zinc-950 text-white flex items-center justify-between gap-3 shrink-0 border-b border-emerald-500/20">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="h-10 w-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 shrink-0">
-                <Briefcase className="h-5 w-5" />
-              </div>
-              <div className="min-w-0">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 block truncate">
-                  BOLSA DE TRABAJO OFICIAL • {companyInfo.commercialName}
-                </span>
-                <h2 id={titleId} className="text-sm sm:text-base font-black truncate">
-                  ¡Trabaja con Nosotros! — Formulario de Postulación
-                </h2>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowQrPanel(prev => !prev)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors whitespace-nowrap shrink-0 ${
-                  showQrPanel
-                    ? 'bg-emerald-500 text-zinc-950 border-emerald-400'
-                    : 'bg-white/10 text-white border-white/15 hover:bg-white/20'
-                }`}
-              >
-                <QrCode className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{showQrPanel ? 'Ver Formulario' : 'Código QR'}</span>
-                <span className="sm:hidden">{showQrPanel ? 'Form' : 'QR'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={resetAndClose}
-                aria-label="Cerrar ventana de postulación"
-                className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      {/* Header */}
+      <div className="px-5 py-4 bg-gradient-to-r from-emerald-950 via-zinc-900 to-zinc-950 text-white flex items-center justify-between gap-3 shrink-0 border-b border-emerald-500/20">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="h-10 w-10 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 shrink-0">
+            <Briefcase className="h-5 w-5" />
           </div>
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 block truncate">
+              BOLSA DE TRABAJO OFICIAL • {companyInfo.commercialName}
+            </span>
+            <h2 id={titleId} className="text-sm sm:text-base font-black truncate">
+              {hidePositionSelector && selectedPosting
+                ? `Postular a: ${selectedPosting.positionTitle}`
+                : '¡Trabaja con Nosotros! — Formulario de Postulación'}
+            </h2>
+          </div>
+        </div>
 
-          {/* Body */}
-          <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1">
+        <div className="flex items-center gap-2 shrink-0">
+          {!isInline && (
+            <button
+              type="button"
+              onClick={() => setShowQrPanel(prev => !prev)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-colors whitespace-nowrap shrink-0 ${
+                showQrPanel
+                  ? 'bg-emerald-500 text-zinc-950 border-emerald-400'
+                  : 'bg-white/10 text-white border-white/15 hover:bg-white/20'
+              }`}
+            >
+              <QrCode className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">{showQrPanel ? 'Ver Formulario' : 'Código QR'}</span>
+              <span className="sm:hidden">{showQrPanel ? 'Form' : 'QR'}</span>
+            </button>
+          )}
+          {!isInline && (
+            <button
+              type="button"
+              onClick={resetAndClose}
+              aria-label="Cerrar ventana de postulación"
+              className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className={`p-4 sm:p-6 space-y-5 flex-1 ${isInline ? '' : 'overflow-y-auto'}`}>
             {submittedCode ? (
               <div className="py-8 text-center space-y-4">
                 <div className="h-16 w-16 rounded-full bg-emerald-500/15 text-emerald-500 border border-emerald-500/30 mx-auto flex items-center justify-center">
@@ -299,7 +306,8 @@ export const UnifiedJobApplicationModal: React.FC<UnifiedJobApplicationModalProp
             ) : (
               <form id="unified-job-form" onSubmit={handleSubmit} className="space-y-5">
                 {/* 1. Position Selector */}
-                <fieldset className="space-y-2.5">
+                {!hidePositionSelector && (
+                  <fieldset className="space-y-2.5">
                   <legend className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
                     <Sparkles className="h-3.5 w-3.5 text-emerald-500" />
                     1. Elige el Puesto al que deseas postular ({activePostings.length} disponibles)
@@ -340,6 +348,7 @@ export const UnifiedJobApplicationModal: React.FC<UnifiedJobApplicationModalProp
                     })}
                   </div>
                 </fieldset>
+                )}
 
                 {/* 2. General Candidate Info */}
                 <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800 space-y-3.5">
@@ -622,13 +631,15 @@ export const UnifiedJobApplicationModal: React.FC<UnifiedJobApplicationModalProp
                 Tus datos son tratados confidencialmente por RR.HH.
               </span>
               <div className="flex items-center gap-2.5 ml-auto w-full sm:w-auto justify-end">
-                <button
-                  type="button"
-                  onClick={resetAndClose}
-                  className="px-4 py-2 rounded-xl text-xs font-bold border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 whitespace-nowrap shrink-0 transition-colors"
-                >
-                  Cancelar
-                </button>
+                {!isInline && (
+                  <button
+                    type="button"
+                    onClick={resetAndClose}
+                    className="px-4 py-2 rounded-xl text-xs font-bold border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 whitespace-nowrap shrink-0 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                )}
                 <button
                   type="submit"
                   form="unified-job-form"
@@ -640,8 +651,24 @@ export const UnifiedJobApplicationModal: React.FC<UnifiedJobApplicationModalProp
               </div>
             </div>
           )}
-        </div>
-      )}
+    </div>
+  );
+
+  if (isInline) {
+    return cardContent;
+  }
+
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={titleId}
+      onClose={() => {
+        if (dialogRef.current) dialogRef.current.returnValue = '';
+        onClose();
+      }}
+      className="w-full max-w-2xl bg-transparent p-2 sm:p-4 outline-none backdrop:bg-black/60 backdrop:backdrop-blur-xs"
+    >
+      {isOpen && cardContent}
     </dialog>
   );
 };
