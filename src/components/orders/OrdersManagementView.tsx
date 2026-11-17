@@ -213,18 +213,13 @@ export const OrdersManagementView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-[1600px] mx-auto w-full space-y-5 touch-surface">
+    <div className="w-full space-y-5 touch-surface">
       {/* Header + Real-Time Sync */}
-      <div className="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-black text-zinc-950 dark:text-white flex items-center gap-2">
-            <ClipboardList className="w-6 h-6 text-amber-500 shrink-0" />
-            <span>Central Multisucursal de Pedidos</span>
-          </h2>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Control unificado en tiempo real de Salón, Para Llevar, Delivery POS y Tienda Virtual.
-          </p>
-        </div>
+      <div className="px-4 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-zinc-950 dark:text-white flex items-center gap-2">
+          <ClipboardList className="w-5 h-5 text-zinc-500 dark:text-zinc-400 shrink-0" />
+          <span>Central Multisucursal de Pedidos</span>
+        </h2>
 
         <div className="flex flex-wrap items-center gap-2.5">
           <button

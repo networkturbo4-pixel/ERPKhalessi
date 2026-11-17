@@ -582,20 +582,16 @@ export const HRModuleView: React.FC = () => {
   };
 
   return (
-    <div className="w-full space-y-6 animate-in fade-in duration-200">
+    <div className="w-full space-y-5 animate-in fade-in duration-200">
       {/* 1. HEADER & MULTISUCURSAL FILTER PILLS */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold saas-subcard text-zinc-700 dark:text-zinc-300">
-            <BadgeCheck className="h-3.5 w-3.5" style={{ color: customization.primaryColor }} />
-            <span>Módulo Principal Fase 1 · Gestión de Talento Gastronómico</span>
+      <div className="px-4 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+            <Users className="w-5 h-5" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950 dark:text-white">
+          <h1 className="text-lg font-semibold tracking-tight text-zinc-950 dark:text-white">
             Recursos Humanos, Biométrico y Accesos
           </h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Control de carnets sanitarios, reloj de asistencia, turnos multisucursal, pre-planilla y desbloqueo por Google Authenticator.
-          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -603,7 +599,7 @@ export const HRModuleView: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsNewStaffOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white shadow-sm hover:opacity-95 active:scale-[0.98] transition-all whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white shadow-sm hover:opacity-95 transition-opacity whitespace-nowrap shrink-0"
               style={{ backgroundColor: customization.primaryColor }}
             >
               <UserPlus className="h-4 w-4 shrink-0" />

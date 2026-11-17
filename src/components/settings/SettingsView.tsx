@@ -134,14 +134,9 @@ export const SettingsView: React.FC = () => {
     <div className="w-full flex flex-col lg:flex-row gap-8 lg:gap-10 items-start animate-in fade-in duration-200">
       {/* Modern SaaS Settings Rail (Clean, Grouped, No Heavy Boxes) */}
       <aside className="w-full lg:w-56 xl:w-60 shrink-0 lg:sticky lg:top-0 space-y-5">
-        <div className="space-y-1">
-          <h1 className="text-lg font-semibold tracking-tight text-zinc-950 dark:text-white">
-            Configuración
-          </h1>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Ajustes globales del ecosistema ERP
-          </p>
-        </div>
+        <h1 className="text-lg font-semibold tracking-tight text-zinc-950 dark:text-white">
+          Configuración
+        </h1>
 
         {/* Clean Filter Input */}
         <div className="relative">

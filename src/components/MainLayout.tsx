@@ -1271,6 +1271,36 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
               )}
             </button>
 
+            {/* Marketing & Web Push Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveMainModule('marketing');
+                setMobileMenuOpen(false);
+              }}
+              className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-all ${
+                sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
+              } ${
+                activeMainModule === 'marketing'
+                  ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
+              }`}
+              title="Marketing, Web Push & Campañas"
+            >
+              <Megaphone
+                className="h-4 w-4 shrink-0 transition-colors"
+                style={activeMainModule === 'marketing' ? { color: customization.primaryColor } : undefined}
+              />
+              {(!sidebarCollapsed || mobileMenuOpen) && (
+                <div className="flex items-center justify-between flex-1 min-w-0">
+                  <span className="truncate">Marketing</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold">
+                    Push
+                  </span>
+                </div>
+              )}
+            </button>
+
             <button
               type="button"
               onClick={() => {
@@ -1470,36 +1500,6 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                   <span className="truncate">Beneficios</span>
                   <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold">
                     Puntos
-                  </span>
-                </div>
-              )}
-            </button>
-
-            {/* Marketing & Web Push Button */}
-            <button
-              type="button"
-              onClick={() => {
-                setActiveMainModule('marketing');
-                setMobileMenuOpen(false);
-              }}
-              className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-all ${
-                sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
-              } ${
-                activeMainModule === 'marketing'
-                  ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
-                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
-              }`}
-              title="Marketing, Web Push & Campañas"
-            >
-              <Megaphone
-                className="h-4 w-4 shrink-0 transition-colors"
-                style={activeMainModule === 'marketing' ? { color: customization.primaryColor } : undefined}
-              />
-              {(!sidebarCollapsed || mobileMenuOpen) && (
-                <div className="flex items-center justify-between flex-1 min-w-0">
-                  <span className="truncate">Marketing</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold">
-                    Push
                   </span>
                 </div>
               )}

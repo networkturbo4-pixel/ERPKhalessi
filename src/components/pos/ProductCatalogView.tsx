@@ -92,7 +92,7 @@ const QUICK_CATEGORY_ICONS = ['🍕', '🔥', '🥖', '🥤', '🍰', '🍝', '�
 export const ProductCatalogView: React.FC = () => {
   const { products, createProduct, updateProduct, deleteProduct, toggleProductAvailability } =
     useOrderCatalog();
-  const { dispatchToast, openNoticeModal } = useSettings();
+  const { customization, dispatchToast, openNoticeModal } = useSettings();
 
   // Dynamic Categories state
   const loadStoredCategories = (): ProductCategoryItem[] => {
@@ -1178,20 +1178,15 @@ export const ProductCatalogView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-[1600px] mx-auto p-4 sm:p-6 text-zinc-900 dark:text-zinc-100">
+    <div className="w-full space-y-5 text-zinc-900 dark:text-zinc-100">
       {!(isEditModalOpen && tempProduct) ? (
         <>
       {/* Header Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm">
-        <div>
-          <h2 className="text-xl font-black text-zinc-900 dark:text-white flex items-center gap-2.5">
-            <Package className="w-6 h-6 text-amber-500" />
-            <span>Productos</span>
-          </h2>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-            Administra tu catálogo oficial de productos, categorías, recetas, tamaños, precios y modificadores.
-          </p>
-        </div>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm">
+        <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
+          <Package className="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
+          <span>Productos</span>
+        </h2>
 
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Search Box */}
@@ -1202,7 +1197,7 @@ export const ProductCatalogView: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Buscar producto..."
-              className="w-full pl-8 pr-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-medium text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:border-amber-500"
+              className="w-full pl-8 pr-3 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-medium text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:border-zinc-400"
             />
           </div>
 
@@ -1210,9 +1205,9 @@ export const ProductCatalogView: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsCategoryModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-bold shadow-xs transition-colors whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium shadow-xs transition-colors whitespace-nowrap shrink-0"
           >
-            <FolderPlus className="w-3.5 h-3.5 text-amber-500" />
+            <FolderPlus className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
             <span>+ Categoría</span>
           </button>
 
@@ -1220,7 +1215,8 @@ export const ProductCatalogView: React.FC = () => {
           <button
             type="button"
             onClick={handleOpenCreate}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black shadow-sm transition-colors whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-xs font-semibold shadow-sm transition-opacity hover:opacity-95 whitespace-nowrap shrink-0"
+            style={{ backgroundColor: customization.primaryColor }}
           >
             <Plus className="w-4 h-4" />
             <span>Nuevo Producto</span>
@@ -1233,14 +1229,15 @@ export const ProductCatalogView: React.FC = () => {
         <button
           type="button"
           onClick={() => setActiveTab('todos')}
-          className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+          className={`px-3.5 py-2 rounded-xl text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-1.5 ${
             activeTab === 'todos'
-              ? 'bg-amber-500 text-zinc-950 shadow-sm font-black'
+              ? 'text-white shadow-sm font-semibold'
               : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
           }`}
+          style={activeTab === 'todos' ? { backgroundColor: customization.primaryColor } : undefined}
         >
           <span>Todos</span>
-          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/10 dark:bg-white/10">
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/15 dark:bg-white/15">
             {products.length}
           </span>
         </button>
@@ -1253,11 +1250,12 @@ export const ProductCatalogView: React.FC = () => {
               key={cat.id}
               type="button"
               onClick={() => setActiveTab(cat.id)}
-              className={`px-3.5 py-2 rounded-xl text-xs font-bold capitalize transition-all whitespace-nowrap flex items-center gap-1.5 ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-medium capitalize transition-colors whitespace-nowrap flex items-center gap-1.5 ${
                 isSelected
-                  ? 'bg-amber-500 text-zinc-950 shadow-sm font-black'
+                  ? 'text-white shadow-sm font-semibold'
                   : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
               }`}
+              style={isSelected ? { backgroundColor: customization.primaryColor } : undefined}
             >
               <span>{cat.icon || '🏷️'}</span>
               <span>{cat.name}</span>

@@ -49,7 +49,7 @@ export const InventoryModuleView: React.FC = () => {
     getExpiringLotsSummary,
   } = useInventory();
 
-  const { activeTenant, tenants, dispatchToast, openNoticeModal } = useSettings();
+  const { activeTenant, tenants, customization, dispatchToast, openNoticeModal } = useSettings();
   const { hasPermission } = useRBAC();
 
   const [activeTab, setActiveTab] = useState<InventoryTabId>('stock');
@@ -191,21 +191,16 @@ export const InventoryModuleView: React.FC = () => {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="w-full space-y-5">
       {/* Top Banner / Navigation */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-2xl">
-            <Boxes className="w-8 h-8" />
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl px-4 py-3 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl">
+            <Boxes className="w-5 h-5" />
           </div>
-          <div>
-            <h1 className="text-2xl font-black text-zinc-900 dark:text-white flex items-center gap-2">
-              Inventario, Recetas & Trazabilidad
-            </h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Control de existencias multisede, escandallos BOM, rotación FEFO, compras y etiquetas térmicas.
-            </p>
-          </div>
+          <h1 className="text-lg sm:text-xl font-semibold text-zinc-900 dark:text-white">
+            Inventario, Recetas &amp; Trazabilidad
+          </h1>
         </div>
 
         {/* Global Barcode / QR Scanner Input */}
@@ -215,7 +210,7 @@ export const InventoryModuleView: React.FC = () => {
       </div>
 
       {/* Main Tabs Navigation */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
         {[
           { id: 'stock', label: 'Existencias & Almacén', icon: Boxes },
           { id: 'lots', label: `Lotes FEFO ${expiringSummary.expired.length > 0 ? `(${expiringSummary.expired.length} Vencidos)` : ''}`, icon: Layers },
@@ -228,16 +223,18 @@ export const InventoryModuleView: React.FC = () => {
           { id: 'reports', label: 'Reportes & Métricas', icon: BarChart3 },
         ].map(tab => {
           const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id as InventoryTabId)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap shrink-0 transition-all ${
-                activeTab === tab.id
-                  ? 'bg-amber-600 text-white shadow-md shadow-amber-600/20'
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium whitespace-nowrap shrink-0 transition-colors ${
+                isActive
+                  ? 'text-white shadow-sm'
                   : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
               }`}
+              style={isActive ? { backgroundColor: customization.primaryColor } : undefined}
             >
               <Icon className="w-4 h-4" />
               {tab.label}
@@ -293,7 +290,8 @@ export const InventoryModuleView: React.FC = () => {
                 });
                 setIsEditingItem(true);
               }}
-              className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm whitespace-nowrap shrink-0 transition-colors"
+              className="px-4 py-2 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm whitespace-nowrap shrink-0 transition-opacity hover:opacity-95"
+              style={{ backgroundColor: customization.primaryColor }}
             >
               <Plus className="w-4 h-4" />
               Nuevo Insumo
@@ -803,7 +801,8 @@ export const InventoryModuleView: React.FC = () => {
               <button
                 type="button"
                 onClick={handleSaveItem}
-                className="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-lg shadow-amber-600/20 whitespace-nowrap shrink-0 transition-all"
+                className="px-5 py-2 rounded-xl text-white font-semibold text-xs shadow-sm whitespace-nowrap shrink-0 transition-opacity hover:opacity-95"
+                style={{ backgroundColor: customization.primaryColor }}
               >
                 Guardar Insumo
               </button>

@@ -21,7 +21,7 @@ import { formatBytes } from '../../utils/imageCompressor';
 
 export const MediaGalleryView: React.FC = () => {
   const { mediaItems, isProcessing, uploadFiles, uploadBase64, deleteMediaItems } = useMediaGallery();
-  const { openNoticeModal, dispatchToast } = useSettings();
+  const { customization, openNoticeModal, dispatchToast } = useSettings();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -163,35 +163,30 @@ export const MediaGalleryView: React.FC = () => {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="space-y-6 max-w-[1600px] mx-auto p-4 sm:p-6 text-zinc-900 dark:text-zinc-100"
+      className="w-full space-y-5 text-zinc-900 dark:text-zinc-100"
     >
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-500 shrink-0">
-            <FileImage className="w-6 h-6" />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300 shrink-0">
+            <FileImage className="w-5 h-5" />
           </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black text-zinc-950 dark:text-white">
-              Galería de Medios
-            </h1>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Biblioteca centralizada de fotos de productos, ingredientes y complementos con compresión automática.
-            </p>
-          </div>
+          <h1 className="text-lg sm:text-xl font-semibold text-zinc-950 dark:text-white">
+            Galería de Medios
+          </h1>
         </div>
 
         {/* Global Statistics Badges */}
-        <div className="flex items-center gap-3">
-          <div className="px-3.5 py-2 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-amber-500" />
-            <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+        <div className="flex items-center gap-2.5">
+          <div className="px-3 py-1.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 flex items-center gap-2">
+            <Sparkles className="w-3.5 h-3.5 text-zinc-400" />
+            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 tabular-nums">
               {mediaItems.length} Archivos
             </span>
           </div>
-          <div className="px-3.5 py-2 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 flex items-center gap-2">
-            <HardDrive className="w-4 h-4 text-emerald-500" />
-            <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+          <div className="px-3 py-1.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 flex items-center gap-2">
+            <HardDrive className="w-3.5 h-3.5 text-zinc-400" />
+            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300 tabular-nums">
               {formatBytes(totalBytes)} en Uso
             </span>
           </div>
@@ -228,7 +223,8 @@ export const MediaGalleryView: React.FC = () => {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isProcessing}
-            className="px-4 py-2 rounded-2xl bg-amber-500 hover:bg-amber-600 text-zinc-950 text-xs font-black flex items-center gap-2 transition-colors whitespace-nowrap shrink-0 shadow-xs"
+            className="px-4 py-2 rounded-xl text-white text-xs font-semibold flex items-center gap-2 transition-opacity hover:opacity-95 whitespace-nowrap shrink-0 shadow-sm"
+            style={{ backgroundColor: customization.primaryColor }}
           >
             {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
             <span>Seleccionar Archivos</span>

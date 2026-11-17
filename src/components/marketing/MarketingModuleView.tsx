@@ -752,24 +752,16 @@ export const MarketingModuleView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="w-full space-y-5 pb-10">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-sm"
-            style={{ backgroundColor: customization.primaryColor || '#db0021' }}
-          >
+      <div className="px-4 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 shrink-0">
             <Megaphone className="w-5 h-5" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-zinc-900 dark:text-white tracking-tight">
-              Marketing &amp; Web Push Inteligente
-            </h1>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              Segmentación por pizza favorita, campañas Android/iOS/Windows y Cron automático para cPanel.
-            </p>
-          </div>
+          <h1 className="text-lg font-semibold text-zinc-900 dark:text-white tracking-tight">
+            Marketing &amp; Web Push Inteligente
+          </h1>
         </div>
 
         <button
@@ -888,9 +880,10 @@ export const MarketingModuleView: React.FC = () => {
                   onClick={() => setSegmentFilter(seg.id as typeof segmentFilter)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                     segmentFilter === seg.id
-                      ? 'bg-amber-500 text-white'
+                      ? 'text-white'
                       : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
                   }`}
+                  style={segmentFilter === seg.id ? { backgroundColor: customization.primaryColor || '#db0021' } : undefined}
                 >
                   {seg.label}
                 </button>

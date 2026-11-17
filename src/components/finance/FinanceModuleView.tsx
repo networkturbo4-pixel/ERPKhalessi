@@ -40,7 +40,7 @@ type NewExpenseKind = 'operativo' | 'combustible';
 
 export const FinanceModuleView: React.FC = () => {
   const { orders, fuelExpenses, recordFuelExpense } = useOrderCatalog();
-  const { activeTenant, branchScope, tenants, users, openNoticeModal, dispatchToast } = useSettings();
+  const { activeTenant, branchScope, tenants, users, customization, openNoticeModal, dispatchToast } = useSettings();
   const { currentUser } = useRBAC();
   const { profiles } = useHR();
 
@@ -263,21 +263,16 @@ export const FinanceModuleView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-5">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-              <Wallet className="w-5 h-5" />
-            </div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-zinc-950 dark:text-white">
-              Finanzas &amp; Control de Caja
-            </h1>
+      <div className="px-4 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+            <Wallet className="w-5 h-5" />
           </div>
-          <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-            Consolidado de ingresos, egresos por sucursal, combustible de motorizados y cierre automático.
-          </p>
+          <h1 className="text-lg font-semibold tracking-tight text-zinc-950 dark:text-white">
+            Finanzas &amp; Control de Caja
+          </h1>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -299,7 +294,8 @@ export const FinanceModuleView: React.FC = () => {
           <button
             type="button"
             onClick={openCreateModal}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 text-xs font-bold hover:opacity-90 transition-opacity whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white text-xs font-semibold shadow-sm hover:opacity-95 transition-opacity whitespace-nowrap shrink-0"
+            style={{ backgroundColor: customization.primaryColor }}
           >
             <Plus className="w-4 h-4" />
             Registrar Egreso
@@ -379,11 +375,12 @@ export const FinanceModuleView: React.FC = () => {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap shrink-0 ${
+              className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors whitespace-nowrap shrink-0 ${
                 active
-                  ? 'bg-zinc-950 dark:bg-white text-white dark:text-zinc-950'
+                  ? 'text-white shadow-sm'
                   : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/70'
               }`}
+              style={active ? { backgroundColor: customization.primaryColor } : undefined}
             >
               <Icon className="w-3.5 h-3.5" />
               {tab.label}
@@ -487,7 +484,8 @@ export const FinanceModuleView: React.FC = () => {
             <button
               type="button"
               onClick={handleCloseDailyCash}
-              className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors whitespace-nowrap shrink-0"
+              className="w-full py-2.5 px-4 rounded-xl text-white text-xs font-semibold hover:opacity-95 transition-opacity whitespace-nowrap shrink-0"
+              style={{ backgroundColor: customization.primaryColor }}
             >
               Cerrar Caja del Día
             </button>
@@ -807,7 +805,8 @@ export const FinanceModuleView: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 text-xs font-bold hover:opacity-90 whitespace-nowrap shrink-0"
+                  className="px-4 py-2 rounded-xl text-white text-xs font-semibold hover:opacity-95 transition-opacity whitespace-nowrap shrink-0"
+                  style={{ backgroundColor: customization.primaryColor }}
                 >
                   Guardar Registro
                 </button>
