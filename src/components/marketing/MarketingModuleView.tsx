@@ -34,6 +34,10 @@ import { useSettings } from '../../context/SettingsContext';
 import { useBenefits } from '../../context/BenefitsContext';
 import { toProductSlug } from '../../types/storeBuilder';
 import {
+  findBotPreferencesForCustomer,
+  hydrateBotPreferencesFromServer,
+} from '../../utils/orderBotEngine';
+import {
   MarketingCampaign,
   MarketingChannel,
   MarketingPlatform,
@@ -179,6 +183,10 @@ export const MarketingModuleView: React.FC = () => {
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
   const [loadingBackend, setLoadingBackend] = useState(false);
   const [showKpis, setShowKpis] = useState(false);
+
+  useEffect(() => {
+    void hydrateBotPreferencesFromServer();
+  }, []);
 
   // Clients & Intelligence filters
   const [segmentFilter, setSegmentFilter] = useState<'all' | 'vip' | 'regular' | 'at_risk' | 'inactive'>('all');
@@ -986,41 +994,61 @@ export const MarketingModuleView: React.FC = () => {
                           </div>
                         </td>
                         <td data-label="Favorita" className="py-3 px-4">
-                          {c.favoriteProductName ? (
-                            <div className="flex items-center gap-2.5">
-                              {c.favoriteProductImage ? (
-                                <img
-                                  src={c.favoriteProductImage}
-                                  alt={c.favoriteProductName}
-                                  className="w-9 h-9 rounded-lg object-cover border border-zinc-200 dark:border-zinc-700 shrink-0"
-                                />
-                              ) : (
-                                <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-600 shrink-0">
-                                  <Pizza className="w-4 h-4" />
-                                </div>
-                              )}
-                              <div className="min-w-0">
-                                <div className="font-semibold text-zinc-900 dark:text-white truncate max-w-[180px]">
-                                  {c.favoriteProductName}
-                                </div>
-                                <div className="flex items-center gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
-                                  <span>{c.favoriteProductCount}x pedida</span>
-                                  {c.favoriteProductUrl && (
-                                    <a
-                                      href={c.favoriteProductUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400 hover:underline font-medium"
-                                    >
-                                      Ver producto <ExternalLink className="w-2.5 h-2.5" />
-                                    </a>
-                                  )}
-                                </div>
+                          {(() => {
+                            const botPrefs = findBotPreferencesForCustomer([c.phone, c.email]);
+                            return (
+                              <div className="space-y-1.5">
+                                {c.favoriteProductName ? (
+                                  <div className="flex items-center gap-2.5">
+                                    {c.favoriteProductImage ? (
+                                      <img
+                                        src={c.favoriteProductImage}
+                                        alt={c.favoriteProductName}
+                                        className="w-9 h-9 rounded-lg object-cover border border-zinc-200 dark:border-zinc-700 shrink-0"
+                                      />
+                                    ) : (
+                                      <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-600 shrink-0">
+                                        <Pizza className="w-4 h-4" />
+                                      </div>
+                                    )}
+                                    <div className="min-w-0">
+                                      <div className="font-semibold text-zinc-900 dark:text-white truncate max-w-[180px]">
+                                        {c.favoriteProductName}
+                                      </div>
+                                      <div className="flex items-center gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+                                        <span>{c.favoriteProductCount}x pedida</span>
+                                        {c.favoriteProductUrl && (
+                                          <a
+                                            href={c.favoriteProductUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400 hover:underline font-medium"
+                                          >
+                                            Ver producto <ExternalLink className="w-2.5 h-2.5" />
+                                          </a>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-zinc-400 text-[11px]">Sin historial aún</span>
+                                )}
+                                {botPrefs && botPrefs.favoriteFlavors.length > 0 && (
+                                  <div className="flex items-center gap-1 flex-wrap">
+                                    <span className="text-[10px] text-zinc-400">Bot:</span>
+                                    {botPrefs.favoriteFlavors.slice(0, 3).map(fl => (
+                                      <span
+                                        key={fl}
+                                        className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 capitalize"
+                                      >
+                                        {fl}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                          ) : (
-                            <span className="text-zinc-400 text-[11px]">Sin historial aún</span>
-                          )}
+                            );
+                          })()}
                         </td>
                         <td data-label="Canal Push" className="py-3 px-4">
                           {c.hasWebPush ? (

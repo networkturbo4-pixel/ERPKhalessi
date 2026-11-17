@@ -4,6 +4,11 @@ import { useOrderCatalog } from '../../context/OrderCatalogContext';
 import { useSettings } from '../../context/SettingsContext';
 import { lookupPersonByDni } from '../../utils/dniLookup';
 import {
+  extractTastesFromOrders,
+  findBotPreferencesForCustomer,
+  hydrateBotPreferencesFromServer,
+} from '../../utils/orderBotEngine';
+import {
   Users,
   Search,
   UserPlus,
@@ -30,6 +35,11 @@ export const ClientsCRMView: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showKpis, setShowKpis] = useState(false);
+  const [prefsTick, setPrefsTick] = useState(0);
+
+  useEffect(() => {
+    void hydrateBotPreferencesFromServer().then(() => setPrefsTick(t => t + 1));
+  }, []);
   const [branchFilter, setBranchFilter] = useState<string>(
     branchScope === 'consolidated' ? 'all' : activeTenant.id
   );
@@ -315,6 +325,12 @@ export const ClientsCRMView: React.FC = () => {
                   const waHref = waClean
                     ? `https://wa.me/${waClean.startsWith('51') ? waClean : `51${waClean}`}`
                     : null;
+                  const botPrefs = findBotPreferencesForCustomer([customer.id, customer.whatsapp]);
+                  const resolvedFlavors =
+                    botPrefs && botPrefs.favoriteFlavors.length > 0
+                      ? botPrefs.favoriteFlavors
+                      : extractTastesFromOrders(custOrders);
+                  void prefsTick;
 
                   return (
                     <tr
@@ -339,6 +355,19 @@ export const ClientsCRMView: React.FC = () => {
                             {getBranchName(customer.tenantId)}
                           </span>
                         </div>
+                        {resolvedFlavors.length > 0 && (
+                          <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                            <span className="text-[10px] font-medium text-zinc-400">Gustos:</span>
+                            {resolvedFlavors.slice(0, 3).map(fl => (
+                              <span
+                                key={fl}
+                                className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-700 dark:text-amber-300 capitalize"
+                              >
+                                {fl}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </td>
 
                       <td data-label="Contacto" className="px-4 py-3 align-top text-zinc-600 dark:text-zinc-300">

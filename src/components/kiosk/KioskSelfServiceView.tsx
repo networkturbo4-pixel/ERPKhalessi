@@ -1922,11 +1922,28 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
             products={availableProducts}
             categories={kioskCategories.map(c => ({ id: c.id, name: c.label }))}
             storeName={companyInfo.commercialName || customization.appName}
+            branchName={activeTenant.name}
+            branchAddress={activeTenant.operations?.address}
             accentColor={customization.primaryColor || '#f97316'}
             isLightTheme={false}
-            cartCount={kioskCart.reduce((acc, i) => acc + i.quantity, 0)}
+            cartItems={kioskCart}
+            cartSubtotal={kioskSubtotal}
             bottomOffsetClass={kioskCart.length > 0 ? 'bottom-24' : 'bottom-6'}
             mode="kiosk"
+            isRegistered={true}
+            requireRegistration={false}
+            userKey={`kiosk-${activeTenant.id}`}
+            defaultCustomerName={customerAlias}
+            defaultCustomerPhone={customerPhone}
+            onSubmitOrder={payload => {
+              touchActivity();
+              setDiningMode(payload.orderMode === 'takeaway' ? 'takeaway' : 'salon');
+              setCustomerAlias(payload.customerName);
+              setCustomerPhone(payload.customerPhone);
+              setStep('checkout');
+              setIsCulqiSandboxOpen(true);
+              return null;
+            }}
             onAddToCart={item => {
               touchActivity();
               setKioskCart(prev => [...prev, item]);

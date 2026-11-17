@@ -23,3 +23,7 @@ define('DB_NAME', 'tu_base_de_datos');
 
 // Ruta al JSON de la Service Account de Google Cloud para Google Wallet API (Loyalty Passes)
 // define('GOOGLE_WALLET_SERVICE_ACCOUNT_PATH', __DIR__ . '/storage/google-wallet-sa.json');
+
+// API Key de Google Gemini (servidor, nunca expuesta al navegador) para el Bot Asistente de Pedidos
+// define('GEMINI_API_KEY', '');
+// define('GEMINI_MODEL', 'gemini-2.5-flash');

@@ -4475,16 +4475,115 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
               products={products}
               categories={getStoreCategories().map(c => ({ id: c.id, name: c.label }))}
               storeName={companyInfo.commercialName || customization.appName}
+              branchName={activeTenant.name}
+              branchAddress={activeTenant.operations?.address}
               accentColor={buttonColor}
               isLightTheme={isLightTheme}
-              cartCount={totalCartUnits}
+              cartItems={cartItems}
+              cartSubtotal={cartSubtotal}
+              deliveryFee={resolvedDeliveryFee}
               bottomOffsetClass="bottom-[88px] lg:bottom-6"
               isOpen={isOrderBotOpen}
               onOpenChange={setIsOrderBotOpen}
               mode="store"
-              onAddToCart={item => {
-                addToCart(item);
+              isRegistered={Boolean(currentCustomer)}
+              requireRegistration={true}
+              userKey={currentCustomer?.id || currentCustomer?.phone || 'guest'}
+              defaultCustomerName={currentCustomer?.fullName || ''}
+              defaultCustomerPhone={currentCustomer?.phone || ''}
+              defaultCustomerDni={currentCustomer?.dni || ''}
+              defaultAddress={
+                currentCustomer?.addresses?.find(a => a.isDefault)?.streetAddress ||
+                currentCustomer?.addresses?.[0]?.streetAddress ||
+                ''
+              }
+              defaultReference={
+                currentCustomer?.addresses?.find(a => a.isDefault)?.reference ||
+                currentCustomer?.addresses?.[0]?.reference ||
+                ''
+              }
+              activeOrder={latestActiveCustomerOrder}
+              activeOrders={customerOrders.filter(
+                o =>
+                  o.status === 'recibido' ||
+                  o.status === 'en_cocina' ||
+                  o.status === 'en_horno' ||
+                  o.status === 'listo' ||
+                  o.status === 'en_ruta'
+              )}
+              lastOrder={orders.find(o => o.customerPhone === currentCustomer?.phone) || null}
+              onOpenAuth={() => setIsProfileOpen(true)}
+              onValidateCoupon={(code, sub) => {
+                const res = validateCoupon(code, sub);
+                return {
+                  valid: res.valid,
+                  discountSoles: res.discountAmount,
+                  error: res.error,
+                };
+              }}
+              onSubmitOrder={payload => {
+                const isDelivery = payload.orderMode === 'delivery';
+                const couponEval = payload.couponCode
+                  ? validateCoupon(payload.couponCode, cartSubtotal)
+                  : null;
+                const discount = couponEval?.valid ? couponEval.discountAmount || 0 : 0;
+                const fee = isDelivery ? resolvedDeliveryFee : 0;
+                const total = Math.max(0, cartSubtotal + fee - discount);
+                const newOrder = createOrder({
+                  channel: 'online',
+                  tenantId: activeTenant.id,
+                  customerId: currentCustomer?.crmCustomerId,
+                  customerDni: payload.customerDni || currentCustomer?.dni || undefined,
+                  customerName: payload.customerName,
+                  customerPhone: payload.customerPhone,
+                  customerEmail: currentCustomer?.email || undefined,
+                  deliveryAddress: isDelivery
+                    ? payload.deliveryAddress || 'Dirección por confirmar'
+                    : `Para Llevar — Recojo en ${activeTenant.name}`,
+                  deliveryReference: isDelivery ? payload.deliveryReference : undefined,
+                  paymentMethod: payload.paymentMethod,
+                  paymentStatus:
+                    payload.paymentMethod === 'yape_plin' || payload.paymentMethod === 'culqi'
+                      ? 'pagado'
+                      : 'pendiente',
+                  invoiceType: payload.customerDni?.length === 8 ? 'boleta_dni' : 'boleta_simple',
+                  invoiceDocument: payload.customerDni,
+                  couponCode: couponEval?.valid ? couponEval.coupon?.code : undefined,
+                  items: cartItems,
+                  subtotal: cartSubtotal,
+                  deliveryFee: fee,
+                  discount,
+                  total,
+                  estimatedMinutes: isDelivery ? 35 : 20,
+                });
+                recordStoreOrder(newOrder.id);
+                if (couponEval?.valid && couponEval.coupon) {
+                  registerCouponUsage(couponEval.coupon.code);
+                }
+                if (
+                  currentCustomer &&
+                  pointsConfig.enabled &&
+                  pointsConfig.status !== 'paused' &&
+                  cartSubtotal >= pointsConfig.minPurchaseAmountForPoint
+                ) {
+                  awardCustomerPoints(
+                    pointsConfig.pointsPerPurchase,
+                    `Compra Web ${newOrder.orderNumber}`,
+                    newOrder.orderNumber
+                  );
+                }
+                clearCart();
                 dispatchSeasonalBurst();
+                dispatchToast(
+                  '¡Pedido Confirmado!',
+                  `Orden ${newOrder.orderNumber} enviada a cocina.`,
+                  'success'
+                );
+                return newOrder;
+              }}
+              onAddToCart={(item, origin) => {
+                addToCart(item);
+                dispatchSeasonalBurst(origin ? { x: origin.x, y: origin.y } : undefined);
                 dispatchToast(
                   'Agregado a tu Pedido',
                   `${item.quantity}× ${item.productName} listo en tu carrito.`,
@@ -4493,6 +4592,10 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
               }}
               onCustomizeProduct={prod => navigateToProductSlug(prod)}
               onOpenCart={() => setIsCartOpen(true)}
+              onInspectOrder={orderId => {
+                setFocusedOrderId(orderId);
+                setIsOrdersOpen(true);
+              }}
             />
           </Suspense>
         )}
