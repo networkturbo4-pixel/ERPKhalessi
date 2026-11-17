@@ -1,8 +1,8 @@
 {
-  "buildId": "20261117035345",
-  "builtAt": "2026-11-17T03:53:45.372Z",
-  "commitSha": "cfd055b",
-  "message": "feat(store,kiosk): asistente bot de pedidos configurable desde Apariencia y ajuste de navbar movil",
-  "totalFiles": 102,
-  "manifestSha256": "4b165b6eedcc92823764de2c30df6f9b105c1b993bf428670fa9753508c781bb"
+  "buildId": "20261117043500",
+  "builtAt": "2026-11-17T04:35:00.555Z",
+  "commitSha": "3b3f049",
+  "message": "feat(bot): checkout conversacional, cards paso a paso, voz, GPS, Gemini proxy y sync CRM",
+  "totalFiles": 104,
+  "manifestSha256": "8c27d0d00905dd7e502096c52335caeaebd34213343993b4b5cd2078b1f4a604"
 }
