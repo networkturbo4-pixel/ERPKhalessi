@@ -1,8 +1,8 @@
 {
-  "buildId": "20261116215324",
-  "builtAt": "2026-11-16T21:53:24.355Z",
-  "commitSha": "b925506",
-  "message": "fix(store): avoid duplicate active order tracker when top card is visible + release 20261116213906",
+  "buildId": "20261117012348",
+  "builtAt": "2026-11-17T01:23:48.833Z",
+  "commitSha": "b53316c",
+  "message": "ui(erp): unificar ancho, cabeceras compactas, botones primarios, sidebar y tabla CRM",
   "totalFiles": 101,
-  "manifestSha256": "223b9ebf661baf38692c2e1f65dc63a060d5d1f2a7bc33dea260c502ecb989bc"
+  "manifestSha256": "2dfad3f0bf5eced7c6c384284f27e8e80f8356df2d6e038eb219a5f9bb19382e"
 }
