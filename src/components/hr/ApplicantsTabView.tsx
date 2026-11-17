@@ -30,6 +30,8 @@ import {
   Mail,
   ExternalLink,
   Copy,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 const FIELD_TYPES: Array<{ value: CustomFieldType; label: string }> = [
@@ -95,6 +97,7 @@ export const ApplicantsTabView: React.FC = () => {
 
   const [mode, setMode] = useState<'applications' | 'builder'>('applications');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [showKpis, setShowKpis] = useState(false);
 
   // Applications list state
   const [statusFilter, setStatusFilter] = useState<'all' | ApplicantStatus>('all');
@@ -295,66 +298,64 @@ export const ApplicantsTabView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-200">
+    <div className="space-y-4 animate-in fade-in duration-200">
       {/* Top Sub-Header & Mode Switcher */}
-      <div className="saas-card p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <Briefcase className="h-5 w-5" style={{ color: customization.primaryColor }} />
-            <h2 className="text-base sm:text-lg font-bold text-zinc-950 dark:text-white">
-              Reclutamiento, Postulantes & Constructor de Formularios
-            </h2>
-          </div>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
-            Diseña preguntas personalizadas para cada puesto de pizzería y recíbelas unificadas desde el botón «¡Trabaja con Nosotros!» del Footer Web.
-          </p>
+      <div className="saas-card p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <Briefcase className="h-4 w-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
+          <h2 className="text-sm sm:text-base font-semibold text-zinc-950 dark:text-white truncate">
+            Reclutamiento &amp; Postulantes
+          </h2>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex p-1 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto">
+          <div className="grid grid-cols-2 sm:inline-flex p-1 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 w-full sm:w-auto min-w-0">
             <button
               type="button"
               onClick={() => setMode('applications')}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
+              className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap min-w-0 ${
                 mode === 'applications'
                   ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-sm'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
               }`}
             >
-              <Users className="h-3.5 w-3.5" />
-              <span>Postulantes Recibidos ({jobApplications.length})</span>
+              <Users className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Postulantes ({jobApplications.length})</span>
             </button>
             <button
               type="button"
               onClick={() => setMode('builder')}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap shrink-0 ${
+              className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap min-w-0 ${
                 mode === 'builder'
                   ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-sm'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
               }`}
             >
-              <Settings2 className="h-3.5 w-3.5" />
-              <span>Constructor por Puestos ({jobPostings.length})</span>
+              <Settings2 className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Constructor ({jobPostings.length})</span>
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => handleCopyJobLink(null)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 shadow-sm transition-colors whitespace-nowrap shrink-0"
-          >
-            <Copy className="h-3.5 w-3.5" />
-            <span>Copiar Enlace Portal</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => handleCopyJobLink(null)}
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 shadow-xs transition-colors whitespace-nowrap shrink-0"
+            >
+              <Copy className="h-3.5 w-3.5" />
+              <span>Copiar Enlace</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setIsPreviewOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-colors whitespace-nowrap shrink-0"
-          >
-            <Eye className="h-3.5 w-3.5" />
-            <span>Probar Formulario del Footer</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setIsPreviewOpen(true)}
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-white shadow-sm hover:opacity-95 transition-opacity whitespace-nowrap shrink-0"
+              style={{ backgroundColor: customization.primaryColor }}
+            >
+              <Eye className="h-3.5 w-3.5" />
+              <span>Probar Formulario</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -362,34 +363,46 @@ export const ApplicantsTabView: React.FC = () => {
           MODE A: BANDEJA DE POSTULANTES RECIBIDOS
          ======================================================================== */}
       {mode === 'applications' && (
-        <div className="space-y-4">
+        <div className="space-y-3">
+          {/* Mobile KPI Summary Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowKpis(v => !v)}
+            className="w-full sm:hidden px-3.5 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-200 flex items-center justify-between gap-2"
+          >
+            <span className="tabular-nums truncate">
+              {jobApplications.length} candidatos · {jobApplications.filter(a => a.status === 'nuevo').length} nuevos · {jobPostings.filter(p => p.isActive).length}/{jobPostings.length} puestos
+            </span>
+            {showKpis ? <ChevronUp className="w-3.5 h-3.5 text-zinc-400 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />}
+          </button>
+
           {/* KPIs */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            <div className="saas-card p-3.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Total Candidatos</span>
-              <span className="text-xl font-black text-zinc-950 dark:text-white mt-0.5 block">{jobApplications.length}</span>
+          <div className={`${showKpis ? 'grid' : 'hidden sm:grid'} grid-cols-2 sm:grid-cols-5 gap-2.5`}>
+            <div className="saas-card p-3">
+              <span className="text-xs font-medium text-zinc-500 block">Total candidatos</span>
+              <span className="text-xl font-semibold text-zinc-950 dark:text-white mt-0.5 block tabular-nums">{jobApplications.length}</span>
             </div>
-            <div className="saas-card p-3.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block">Nuevos</span>
-              <span className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5 block">
+            <div className="saas-card p-3">
+              <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 block">Nuevos</span>
+              <span className="text-xl font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5 block tabular-nums">
                 {jobApplications.filter(a => a.status === 'nuevo').length}
               </span>
             </div>
-            <div className="saas-card p-3.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block">Entrevista</span>
-              <span className="text-xl font-black text-amber-600 dark:text-amber-400 mt-0.5 block">
+            <div className="saas-card p-3">
+              <span className="text-xs font-medium text-amber-600 dark:text-amber-400 block">Entrevista</span>
+              <span className="text-xl font-semibold text-amber-600 dark:text-amber-400 mt-0.5 block tabular-nums">
                 {jobApplications.filter(a => a.status === 'entrevista').length}
               </span>
             </div>
-            <div className="saas-card p-3.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 block">Contratados</span>
-              <span className="text-xl font-black text-violet-600 dark:text-violet-400 mt-0.5 block">
+            <div className="saas-card p-3">
+              <span className="text-xs font-medium text-violet-600 dark:text-violet-400 block">Contratados</span>
+              <span className="text-xl font-semibold text-violet-600 dark:text-violet-400 mt-0.5 block tabular-nums">
                 {jobApplications.filter(a => a.status === 'contratado').length}
               </span>
             </div>
-            <div className="saas-card p-3.5 col-span-2 sm:col-span-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Puestos Activos</span>
-              <span className="text-xl font-black text-zinc-950 dark:text-white mt-0.5 block">
+            <div className="saas-card p-3 col-span-2 sm:col-span-1">
+              <span className="text-xs font-medium text-zinc-500 block">Puestos activos</span>
+              <span className="text-xl font-semibold text-zinc-950 dark:text-white mt-0.5 block tabular-nums">
                 {jobPostings.filter(p => p.isActive).length} / {jobPostings.length}
               </span>
             </div>

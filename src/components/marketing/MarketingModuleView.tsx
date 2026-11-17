@@ -25,6 +25,8 @@ import {
   Play,
   Wallet,
   Globe2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
 import { useStoreCustomer } from '../../context/StoreCustomerContext';
@@ -176,6 +178,7 @@ export const MarketingModuleView: React.FC = () => {
   const [pushStats, setPushStats] = useState<WebPushStatsResponse | null>(null);
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
   const [loadingBackend, setLoadingBackend] = useState(false);
+  const [showKpis, setShowKpis] = useState(false);
 
   // Clients & Intelligence filters
   const [segmentFilter, setSegmentFilter] = useState<'all' | 'vip' | 'regular' | 'at_risk' | 'inactive'>('all');
@@ -752,15 +755,16 @@ export const MarketingModuleView: React.FC = () => {
   };
 
   return (
-    <div className="w-full space-y-5 pb-10">
+    <div className="w-full space-y-4 pb-10">
       {/* Header */}
-      <div className="px-4 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
+      <div className="px-4 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
           <div className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 shrink-0">
             <Megaphone className="w-5 h-5" />
           </div>
-          <h1 className="text-lg font-semibold text-zinc-900 dark:text-white tracking-tight">
-            Marketing &amp; Web Push Inteligente
+          <h1 className="text-base sm:text-lg font-semibold text-zinc-900 dark:text-white tracking-tight truncate">
+            <span className="sm:hidden">Marketing</span>
+            <span className="hidden sm:inline">Marketing &amp; Web Push Inteligente</span>
           </h1>
         </div>
 
@@ -768,15 +772,28 @@ export const MarketingModuleView: React.FC = () => {
           type="button"
           onClick={loadBackendData}
           disabled={loadingBackend}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 whitespace-nowrap shrink-0"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loadingBackend ? 'animate-spin' : ''}`} />
-          Sincronizar Suscriptores
+          <span className="hidden sm:inline">Sincronizar Suscriptores</span>
+          <span className="sm:hidden">Sincronizar</span>
         </button>
       </div>
 
+      {/* Mobile KPI Summary Toggle */}
+      <button
+        type="button"
+        onClick={() => setShowKpis((v) => !v)}
+        className="w-full md:hidden px-3.5 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-200 flex items-center justify-between gap-2"
+      >
+        <span className="tabular-nums truncate">
+          {kpiSummary.totalSubscribers} suscriptores · {kpiSummary.vip} VIP · {campaigns.filter(c => c.status === 'scheduled').length} programadas
+        </span>
+        {showKpis ? <ChevronUp className="w-3.5 h-3.5 text-zinc-400 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />}
+      </button>
+
       {/* KPI Strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className={`${showKpis ? 'grid' : 'hidden md:grid'} grid-cols-2 lg:grid-cols-4 gap-3`}>
         <div className="saas-card p-4 rounded-2xl">
           <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 font-medium">
             <span>Suscriptores Web Push</span>

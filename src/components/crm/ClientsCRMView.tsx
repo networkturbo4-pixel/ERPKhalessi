@@ -20,6 +20,8 @@ import {
   X,
   MessageCircle,
   IdCard,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 export const ClientsCRMView: React.FC = () => {
@@ -27,6 +29,7 @@ export const ClientsCRMView: React.FC = () => {
   const { activeTenant, branchScope, tenants, customization, dispatchToast, openNoticeModal } = useSettings();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [showKpis, setShowKpis] = useState(false);
   const [branchFilter, setBranchFilter] = useState<string>(
     branchScope === 'consolidated' ? 'all' : activeTenant.id
   );
@@ -185,28 +188,30 @@ export const ClientsCRMView: React.FC = () => {
   const verifiedDniCount = filteredCustomers.filter((c) => c.dni.length === 8).length;
 
   return (
-    <div className="w-full space-y-5 touch-surface">
+    <div className="w-full space-y-4 touch-surface">
       {/* Header */}
-      <div className="px-4 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-zinc-950 dark:text-white flex items-center gap-2">
+      <div className="px-4 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between gap-2">
+        <h2 className="text-base sm:text-lg font-semibold text-zinc-950 dark:text-white flex items-center gap-2 min-w-0">
           <Users className="w-5 h-5 text-zinc-500 dark:text-zinc-400 shrink-0" />
-          <span>Directorio de Clientes CRM</span>
+          <span className="truncate sm:hidden">Clientes CRM</span>
+          <span className="hidden sm:inline truncate">Directorio de Clientes CRM</span>
         </h2>
 
         <button
           type="button"
           onClick={openNewCustomerModal}
-          className="px-4 py-2 rounded-xl text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-sm transition-opacity hover:opacity-95 whitespace-nowrap shrink-0"
+          className="px-3.5 py-2 rounded-xl text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-opacity hover:opacity-95 whitespace-nowrap shrink-0"
           style={{ backgroundColor: customization.primaryColor }}
         >
           <UserPlus className="w-4 h-4 shrink-0" />
-          <span>Registrar Cliente (DNI / Manual)</span>
+          <span className="hidden sm:inline">Registrar Cliente (DNI / Manual)</span>
+          <span className="sm:hidden">Registrar</span>
         </button>
       </div>
 
       {/* KPI Strip + Filters */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
-        <div className="lg:col-span-5 grid grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-center">
+        <div className={`lg:col-span-5 ${showKpis ? 'grid' : 'hidden md:grid'} grid-cols-3 gap-2.5`}>
           <div className="p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
             <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block">
               Total clientes
@@ -233,29 +238,29 @@ export const ClientsCRMView: React.FC = () => {
           </div>
         </div>
 
-        <div className="lg:col-span-7 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-          <div className="relative flex-1">
+        <div className="lg:col-span-7 flex flex-wrap sm:flex-nowrap items-center gap-2">
+          <div className="relative flex-1 min-w-[160px]">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
             <input
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar por DNI, nombres, WhatsApp, correo o dirección..."
+              placeholder="Buscar DNI, nombre, WhatsApp..."
               aria-label="Buscar cliente"
-              className="w-full min-h-[44px] pl-10 pr-4 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs sm:text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
+              className="w-full min-h-[40px] pl-10 pr-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs sm:text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-zinc-400"
             />
           </div>
 
-          <div className="flex items-center gap-2 px-3 min-h-[44px] rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shrink-0">
-            <Store className="w-4 h-4 text-amber-500 shrink-0" />
+          <div className="flex items-center gap-2 px-2.5 min-h-[40px] rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shrink-0">
+            <Store className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
             <select
               aria-label="Filtrar por sucursal"
               value={branchFilter}
               onChange={(e) => setBranchFilter(e.target.value)}
-              className="bg-transparent text-xs font-bold text-zinc-900 dark:text-white focus:outline-none"
+              className="bg-transparent text-xs font-medium text-zinc-900 dark:text-white focus:outline-none max-w-[130px] sm:max-w-none"
             >
               <option value="all" className="bg-white dark:bg-zinc-900">
-                Todas las Sucursales
+                Todas las Sedes
               </option>
               {tenants.map((t) => (
                 <option key={t.id} value={t.id} className="bg-white dark:bg-zinc-900">
@@ -264,6 +269,15 @@ export const ClientsCRMView: React.FC = () => {
               ))}
             </select>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setShowKpis((v) => !v)}
+            className="md:hidden min-h-[40px] px-2.5 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
+          >
+            <span className="tabular-nums">{filteredCustomers.length}</span>
+            {showKpis ? <ChevronUp className="w-3.5 h-3.5 text-zinc-400" /> : <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />}
+          </button>
         </div>
       </div>
 

@@ -27,6 +27,8 @@ import {
   UserCheck,
   Filter,
   RotateCcw,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { ImageLightboxModal } from '../common/ImageLightboxModal';
 
@@ -42,7 +44,7 @@ const STATUS_OPTIONS: { value: OrderStatus; label: string }[] = [
 
 export const OrdersManagementView: React.FC = () => {
   const { orders, updateOrderStatus, markOrderPaid, lastRealtimeSyncAt } = useOrderCatalog();
-  const { activeTenant, branchScope, tenants, switchTenant, openNoticeModal } = useSettings();
+  const { activeTenant, branchScope, tenants, switchTenant, customization, openNoticeModal } = useSettings();
 
   const [selectedBranch, setSelectedBranch] = useState<string>(
     branchScope === 'consolidated' ? 'all' : activeTenant.id
@@ -57,6 +59,17 @@ export const OrdersManagementView: React.FC = () => {
 
   const [inspectedOrderId, setInspectedOrderId] = useState<string | null>(null);
   const [isThermalModalOpen, setIsThermalModalOpen] = useState(false);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [showBreakdown, setShowBreakdown] = useState(false);
+
+  const activeFiltersCount = [
+    channelFilter !== 'all',
+    statusFilter !== 'all',
+    Boolean(startDate),
+    Boolean(endDate),
+    driverFilter !== 'all',
+    hourRangeFilter !== 'all',
+  ].filter(Boolean).length;
 
   const [lightboxState, setLightboxState] = useState<{
     isOpen: boolean;
@@ -213,126 +226,37 @@ export const OrdersManagementView: React.FC = () => {
   };
 
   return (
-    <div className="w-full space-y-5 touch-surface">
-      {/* Header + Real-Time Sync */}
-      <div className="px-4 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-zinc-950 dark:text-white flex items-center gap-2">
+    <div className="w-full space-y-4 touch-surface">
+      {/* Compact Header + Real-Time Sync */}
+      <div className="px-4 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
           <ClipboardList className="w-5 h-5 text-zinc-500 dark:text-zinc-400 shrink-0" />
-          <span>Central Multisucursal de Pedidos</span>
-        </h2>
-
-        <div className="flex flex-wrap items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => setIsThermalModalOpen(true)}
-            className="min-h-[38px] px-3.5 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors shadow-xs"
-          >
-            <Printer className="w-4 h-4 text-amber-500" />
-            <span>Constructor Térmico 🖨️</span>
-          </button>
-          <div className="px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-bold text-zinc-800 dark:text-zinc-200">
-            Ventas Filtradas:{' '}
-            <span className="font-black text-emerald-600 dark:text-emerald-400">
-              S/ {totalRevenue.toFixed(2)}
-            </span>
-          </div>
-          <div className="px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-xs font-bold text-amber-800 dark:text-amber-300">
-            En Curso: {inProgressCount}
-          </div>
-          <div
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs font-bold text-emerald-800 dark:text-emerald-300"
+          <h2 className="text-base sm:text-lg font-semibold text-zinc-950 dark:text-white truncate">
+            Central Multisucursal de Pedidos
+          </h2>
+          <span
+            className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-xs font-medium shrink-0"
             title={`Última sincronización: ${new Date(lastRealtimeSyncAt).toLocaleTimeString()}`}
           >
-            <Radio className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
+            <Radio className="w-3 h-3 text-emerald-500" />
             <span>Sincronizado</span>
-          </div>
+          </span>
         </div>
-      </div>
 
-      {/* Apartados de Totales y Costos (Breakdown Multi-métrica) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs">
-          <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 block">
-            Subtotal Productos
-          </span>
-          <span className="text-base sm:text-lg font-black text-zinc-900 dark:text-white mt-0.5 block">
-            S/ {totalSubtotal.toFixed(2)}
-          </span>
-        </div>
-        <div className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs">
-          <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 block">
-            Fletes Delivery
-          </span>
-          <span className="text-base sm:text-lg font-black text-amber-600 dark:text-amber-400 mt-0.5 block">
-            S/ {totalDeliveryFees.toFixed(2)}
-          </span>
-        </div>
-        <div className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs">
-          <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 block">
-            Descuentos Aplicados
-          </span>
-          <span className="text-base sm:text-lg font-black text-rose-500 mt-0.5 block">
-            - S/ {totalDiscounts.toFixed(2)}
-          </span>
-        </div>
-        <div className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs">
-          <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 block">
-            Total General Cobrado
-          </span>
-          <span className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5 block">
-            S/ {totalRevenue.toFixed(2)}
-          </span>
-        </div>
-      </div>
-
-      {/* Sucursal Quick Pills */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
         <button
           type="button"
-          onClick={() => {
-            setSelectedBranch('all');
-            switchTenant('consolidated');
-          }}
-          className={`min-h-[42px] px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all whitespace-nowrap shrink-0 ${
-            selectedBranch === 'all'
-              ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-950 border-zinc-900 dark:border-white shadow-sm'
-              : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-          }`}
+          onClick={() => setIsThermalModalOpen(true)}
+          className="px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
         >
-          <Globe2 className="w-3.5 h-3.5 text-emerald-500" />
-          <span>Todas las Sedes ({orders.length})</span>
+          <Printer className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+          <span className="hidden sm:inline">Constructor Térmico</span>
+          <span className="sm:hidden">Ticket</span>
         </button>
-
-        {tenants.map((t) => {
-          const count = orders.filter((o) => o.tenantId === t.id).length;
-          const active = selectedBranch === t.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => {
-                setSelectedBranch(t.id);
-                switchTenant(t.id);
-              }}
-              className={`min-h-[42px] px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all whitespace-nowrap shrink-0 ${
-                active
-                  ? 'bg-amber-500 text-zinc-950 border-amber-500 shadow-sm'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-              }`}
-            >
-              <Store className="w-3.5 h-3.5" />
-              <span>{t.name.replace('Khalessi Pizza - ', '')}</span>
-              <span className="px-1.5 py-0.5 rounded-full bg-black/10 dark:bg-white/10 text-[10px]">
-                {count}
-              </span>
-            </button>
-          );
-        })}
       </div>
 
-      {/* Search + Channel + Status Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5">
-        <div className="md:col-span-6 relative">
+      {/* Compact Action Strip: Search + Totals Toggle + Filters Drawer Trigger */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+        <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
           <input
             type="search"
@@ -340,122 +264,296 @@ export const OrdersManagementView: React.FC = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar #KH-1021, cliente, DNI, mesa o dirección..."
             aria-label="Buscar pedido"
-            className="w-full min-h-[44px] pl-10 pr-4 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs sm:text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
+            className="w-full min-h-[42px] pl-10 pr-4 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs sm:text-sm text-zinc-900 dark:text-white focus:outline-none focus:border-zinc-400"
           />
         </div>
 
-        <div className="md:col-span-3">
-          <select
-            aria-label="Filtrar por canal"
-            value={channelFilter}
-            onChange={(e) => setChannelFilter(e.target.value as 'all' | OrderChannel)}
-            className="w-full min-h-[44px] px-3.5 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
-          >
-            <option value="all">Todos los Canales</option>
-            <option value="kiosco-salon">Kiosco Autoservicio (Salón)</option>
-            <option value="kiosco-takeaway">Kiosco Autoservicio (Para Llevar)</option>
-            <option value="pos-salon">Salón (Mesas)</option>
-            <option value="pos-takeaway">Para Llevar</option>
-            <option value="pos-delivery">Delivery POS</option>
-            <option value="online">Tienda Online</option>
-          </select>
-        </div>
-
-        <div className="md:col-span-3">
-          <select
-            aria-label="Filtrar por estado"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as 'all' | OrderStatus)}
-            className="w-full min-h-[44px] px-3.5 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
-          >
-            <option value="all">Todos los Estados</option>
-            {STATUS_OPTIONS.map((st) => (
-              <option key={st.value} value={st.value}>
-                {st.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Advanced Filters: Fecha Desde / Hasta, Rango Horario, y Motorizado / Autorizador */}
-      <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-900/60 border border-zinc-200 dark:border-zinc-800 flex flex-wrap items-center gap-3 text-xs">
-        <div className="flex items-center gap-1.5 text-zinc-500 font-bold shrink-0">
-          <Filter className="w-3.5 h-3.5 text-amber-500" />
-          <span>Filtros Avanzados:</span>
-        </div>
-
-        {/* Fecha Desde */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] text-zinc-500 font-semibold">Desde:</span>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 text-xs font-medium text-zinc-900 dark:text-zinc-100"
-          />
-        </div>
-
-        {/* Fecha Hasta */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] text-zinc-500 font-semibold">Hasta:</span>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 text-xs font-medium text-zinc-900 dark:text-zinc-100"
-          />
-        </div>
-
-        {/* Horario / Turno */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] text-zinc-500 font-semibold">Horario:</span>
-          <select
-            value={hourRangeFilter}
-            onChange={(e) => setHourRangeFilter(e.target.value)}
-            className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 text-xs font-medium text-zinc-900 dark:text-zinc-100"
-          >
-            <option value="all">Todas las Horas</option>
-            <option value="morning">Turno Mañana (06:00 - 14:00)</option>
-            <option value="afternoon">Turno Tarde (14:00 - 19:00)</option>
-            <option value="night">Turno Noche / Cena (19:00 - 05:59)</option>
-          </select>
-        </div>
-
-        {/* Motorizado / Quien entrega o autoriza */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] text-zinc-500 font-semibold">Entregador / Autoriza:</span>
-          <select
-            value={driverFilter}
-            onChange={(e) => setDriverFilter(e.target.value)}
-            className="px-2.5 py-1.5 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 text-xs font-medium text-zinc-900 dark:text-zinc-100 max-w-[200px]"
-          >
-            <option value="all">Todos los Operadores</option>
-            {availableDrivers.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {(startDate || endDate || driverFilter !== 'all' || hourRangeFilter !== 'all' || searchQuery) && (
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={() => {
-              setStartDate('');
-              setEndDate('');
-              setDriverFilter('all');
-              setHourRangeFilter('all');
-              setSearchQuery('');
-            }}
-            className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-semibold whitespace-nowrap shrink-0 transition-colors"
+            onClick={() => setShowBreakdown((v) => !v)}
+            className="flex-1 sm:flex-initial min-h-[42px] px-3.5 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/70 text-xs font-medium text-zinc-800 dark:text-zinc-200 inline-flex items-center justify-between sm:justify-center gap-2 whitespace-nowrap transition-colors"
           >
-            <RotateCcw className="w-3 h-3" />
-            <span>Restablecer Filtros</span>
+            <span className="tabular-nums">
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                S/ {totalRevenue.toFixed(2)}
+              </span>
+              <span className="text-zinc-400 mx-1.5">·</span>
+              <span className="text-zinc-600 dark:text-zinc-300">{inProgressCount} en curso</span>
+            </span>
+            {showBreakdown ? (
+              <ChevronUp className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+            )}
           </button>
-        )}
+
+          <button
+            type="button"
+            onClick={() => setIsFiltersOpen(true)}
+            className="min-h-[42px] px-3.5 py-2 rounded-xl text-white text-xs font-semibold inline-flex items-center gap-1.5 shadow-sm hover:opacity-95 transition-opacity whitespace-nowrap shrink-0"
+            style={{ backgroundColor: customization.primaryColor }}
+          >
+            <Filter className="w-3.5 h-3.5" />
+            <span>Filtros</span>
+            {activeFiltersCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-md bg-black/20 text-[11px] font-mono tabular-nums">
+                {activeFiltersCount}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
+
+      {/* Collapsible Multi-Metric Breakdown */}
+      {showBreakdown && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block">
+              Subtotal Productos
+            </span>
+            <span className="text-base font-semibold text-zinc-900 dark:text-white mt-0.5 block tabular-nums">
+              S/ {totalSubtotal.toFixed(2)}
+            </span>
+          </div>
+          <div className="p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block">
+              Fletes Delivery
+            </span>
+            <span className="text-base font-semibold text-zinc-900 dark:text-white mt-0.5 block tabular-nums">
+              S/ {totalDeliveryFees.toFixed(2)}
+            </span>
+          </div>
+          <div className="p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block">
+              Descuentos Aplicados
+            </span>
+            <span className="text-base font-semibold text-rose-500 mt-0.5 block tabular-nums">
+              - S/ {totalDiscounts.toFixed(2)}
+            </span>
+          </div>
+          <div className="p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+            <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 block">
+              Total General Cobrado
+            </span>
+            <span className="text-base font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5 block tabular-nums">
+              S/ {totalRevenue.toFixed(2)}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Slide-over / Bottom-sheet Filters Drawer */}
+      {isFiltersOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-stretch sm:justify-end"
+          onClick={() => setIsFiltersOpen(false)}
+        >
+          <div
+            className="w-full sm:max-w-md bg-white dark:bg-zinc-900 border-t sm:border-t-0 sm:border-l border-zinc-200 dark:border-zinc-800 rounded-t-3xl sm:rounded-none p-5 flex flex-col max-h-[85dvh] sm:max-h-full shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                <h3 className="text-sm font-semibold text-zinc-950 dark:text-white">
+                  Filtros de Pedidos
+                </h3>
+              </div>
+              <button
+                type="button"
+                aria-label="Cerrar filtros"
+                onClick={() => setIsFiltersOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto py-4 space-y-4 text-xs">
+              {/* Sucursal */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 block">
+                  Sucursal
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedBranch('all');
+                      switchTenant('consolidated');
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 border transition-colors whitespace-nowrap ${
+                      selectedBranch === 'all'
+                        ? 'text-white border-transparent'
+                        : 'bg-zinc-50 dark:bg-zinc-950 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800'
+                    }`}
+                    style={selectedBranch === 'all' ? { backgroundColor: customization.primaryColor } : undefined}
+                  >
+                    <Globe2 className="w-3.5 h-3.5" />
+                    <span>Todas ({orders.length})</span>
+                  </button>
+                  {tenants.map((t) => {
+                    const count = orders.filter((o) => o.tenantId === t.id).length;
+                    const active = selectedBranch === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedBranch(t.id);
+                          switchTenant(t.id);
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 border transition-colors whitespace-nowrap ${
+                          active
+                            ? 'text-white border-transparent'
+                            : 'bg-zinc-50 dark:bg-zinc-950 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800'
+                        }`}
+                        style={active ? { backgroundColor: customization.primaryColor } : undefined}
+                      >
+                        <Store className="w-3.5 h-3.5" />
+                        <span>{t.name.replace('Khalessi Pizza - ', '')} ({count})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Canal & Estado */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 block">
+                    Canal
+                  </label>
+                  <select
+                    aria-label="Filtrar por canal"
+                    value={channelFilter}
+                    onChange={(e) => setChannelFilter(e.target.value as 'all' | OrderChannel)}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-900 dark:text-white"
+                  >
+                    <option value="all">Todos los Canales</option>
+                    <option value="kiosco-salon">Kiosco Autoservicio (Salón)</option>
+                    <option value="kiosco-takeaway">Kiosco Autoservicio (Para Llevar)</option>
+                    <option value="pos-salon">Salón (Mesas)</option>
+                    <option value="pos-takeaway">Para Llevar</option>
+                    <option value="pos-delivery">Delivery POS</option>
+                    <option value="online">Tienda Online</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 block">
+                    Estado
+                  </label>
+                  <select
+                    aria-label="Filtrar por estado"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as 'all' | OrderStatus)}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-900 dark:text-white"
+                  >
+                    <option value="all">Todos los Estados</option>
+                    {STATUS_OPTIONS.map((st) => (
+                      <option key={st.value} value={st.value}>
+                        {st.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Fechas */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 block">
+                    Desde
+                  </label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-900 dark:text-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 block">
+                    Hasta
+                  </label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              {/* Horario & Entregador */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 block">
+                    Horario
+                  </label>
+                  <select
+                    value={hourRangeFilter}
+                    onChange={(e) => setHourRangeFilter(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-900 dark:text-white"
+                  >
+                    <option value="all">Todas las Horas</option>
+                    <option value="morning">Turno Mañana (06:00 - 14:00)</option>
+                    <option value="afternoon">Turno Tarde (14:00 - 19:00)</option>
+                    <option value="night">Turno Noche / Cena (19:00 - 05:59)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400 block">
+                    Entregador / Autoriza
+                  </label>
+                  <select
+                    value={driverFilter}
+                    onChange={(e) => setDriverFilter(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-900 dark:text-white"
+                  >
+                    <option value="all">Todos los Operadores</option>
+                    {availableDrivers.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setChannelFilter('all');
+                  setStatusFilter('all');
+                  setStartDate('');
+                  setEndDate('');
+                  setDriverFilter('all');
+                  setHourRangeFilter('all');
+                  setSearchQuery('');
+                }}
+                className="px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Restablecer</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsFiltersOpen(false)}
+                className="px-4 py-2 rounded-xl text-white text-xs font-semibold whitespace-nowrap shrink-0 hover:opacity-95 transition-opacity"
+                style={{ backgroundColor: customization.primaryColor }}
+              >
+                Ver {filteredOrders.length} pedidos
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Orders List (Cards on Mobile, Crisp Table/Rows on Desktop) */}
       {filteredOrders.length === 0 ? (

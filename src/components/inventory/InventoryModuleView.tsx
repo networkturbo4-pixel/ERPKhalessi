@@ -30,6 +30,7 @@ import {
   Search,
   CheckCircle2,
   Trash2,
+  ScanBarcode,
 } from 'lucide-react';
 
 type InventoryTabId = 'stock' | 'lots' | 'kardex' | 'production' | 'recipes' | 'purchases' | 'transfers' | 'audit' | 'reports';
@@ -55,6 +56,7 @@ export const InventoryModuleView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<InventoryTabId>('stock');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [showMobileScanner, setShowMobileScanner] = useState(false);
 
   // Label Designer Modal
   const [labelModalData, setLabelModalData] = useState<{ item: InventoryItem; lot?: InventoryLot } | null>(null);
@@ -191,26 +193,44 @@ export const InventoryModuleView: React.FC = () => {
   };
 
   return (
-    <div className="w-full space-y-5">
+    <div className="w-full space-y-4">
       {/* Top Banner / Navigation */}
-      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl px-4 py-3 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl">
-            <Boxes className="w-5 h-5" />
+      <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl px-4 py-3 shadow-sm flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-2 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl shrink-0">
+              <Boxes className="w-5 h-5" />
+            </div>
+            <h1 className="text-base sm:text-lg font-semibold text-zinc-900 dark:text-white truncate">
+              Inventario, Recetas &amp; Trazabilidad
+            </h1>
           </div>
-          <h1 className="text-lg sm:text-xl font-semibold text-zinc-900 dark:text-white">
-            Inventario, Recetas &amp; Trazabilidad
-          </h1>
+
+          <button
+            type="button"
+            onClick={() => setShowMobileScanner((v) => !v)}
+            className="md:hidden px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-200 inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
+          >
+            <ScanBarcode className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+            <span>Escanear</span>
+          </button>
+
+          {/* Global Barcode / QR Scanner Input (Desktop inline) */}
+          <div className="hidden md:block w-80 shrink-0">
+            <ScanInput onScan={handleScanCode} />
+          </div>
         </div>
 
-        {/* Global Barcode / QR Scanner Input */}
-        <div className="w-full md:w-80">
-          <ScanInput onScan={handleScanCode} />
-        </div>
+        {/* Mobile collapsible scanner */}
+        {showMobileScanner && (
+          <div className="md:hidden">
+            <ScanInput onScan={handleScanCode} />
+          </div>
+        )}
       </div>
 
       {/* Main Tabs Navigation */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
         {[
           { id: 'stock', label: 'Existencias & Almacén', icon: Boxes },
           { id: 'lots', label: `Lotes FEFO ${expiringSummary.expired.length > 0 ? `(${expiringSummary.expired.length} Vencidos)` : ''}`, icon: Layers },
@@ -229,14 +249,14 @@ export const InventoryModuleView: React.FC = () => {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id as InventoryTabId)}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-medium whitespace-nowrap shrink-0 transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap shrink-0 transition-colors ${
                 isActive
                   ? 'text-white shadow-sm'
                   : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800'
               }`}
               style={isActive ? { backgroundColor: customization.primaryColor } : undefined}
             >
-              <Icon className="w-4 h-4" />
+              <Icon className="w-3.5 h-3.5" />
               {tab.label}
             </button>
           );
@@ -245,12 +265,12 @@ export const InventoryModuleView: React.FC = () => {
 
       {/* TAB 1: STOCK & ALMACÉN */}
       {activeTab === 'stock' && (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Controls: Search, Categories, New Insumo */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <div className="relative flex-1 sm:w-64">
-                <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-3" />
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <div className="relative flex-1 min-w-[140px]">
+                <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Buscar insumo o SKU..."
@@ -263,9 +283,9 @@ export const InventoryModuleView: React.FC = () => {
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold"
+                className="w-36 sm:w-44 px-2.5 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-medium shrink-0"
               >
-                <option value="all">Todas las categorías</option>
+                <option value="all">Categorías</option>
                 <option value="masas">Masas & Harinas</option>
                 <option value="quesos">Quesos</option>
                 <option value="salsas">Salsas</option>
@@ -290,11 +310,12 @@ export const InventoryModuleView: React.FC = () => {
                 });
                 setIsEditingItem(true);
               }}
-              className="px-4 py-2 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-sm whitespace-nowrap shrink-0 transition-opacity hover:opacity-95"
+              className="px-3.5 py-2 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm whitespace-nowrap shrink-0 transition-opacity hover:opacity-95"
               style={{ backgroundColor: customization.primaryColor }}
             >
               <Plus className="w-4 h-4" />
-              Nuevo Insumo
+              <span className="hidden sm:inline">Nuevo Insumo</span>
+              <span className="sm:hidden">Nuevo</span>
             </button>
           </div>
 

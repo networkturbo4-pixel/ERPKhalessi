@@ -1178,19 +1178,19 @@ export const ProductCatalogView: React.FC = () => {
   };
 
   return (
-    <div className="w-full space-y-5 text-zinc-900 dark:text-zinc-100">
+    <div className="w-full space-y-4 text-zinc-900 dark:text-zinc-100">
       {!(isEditModalOpen && tempProduct) ? (
         <>
       {/* Header Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-4 py-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm">
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2">
-          <Package className="w-5 h-5 text-zinc-500 dark:text-zinc-400" />
-          <span>Productos</span>
+      <div className="flex items-center justify-between gap-2 px-4 py-3 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm">
+        <h2 className="text-base sm:text-lg font-semibold text-zinc-900 dark:text-white flex items-center gap-2 min-w-0">
+          <Package className="w-5 h-5 text-zinc-500 dark:text-zinc-400 shrink-0" />
+          <span className="truncate">Productos</span>
         </h2>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Search Box */}
-          <div className="relative min-w-[220px]">
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Search Box (Desktop inline) */}
+          <div className="relative hidden md:block w-56">
             <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -1205,27 +1205,41 @@ export const ProductCatalogView: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsCategoryModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium shadow-xs transition-colors whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium shadow-xs transition-colors whitespace-nowrap shrink-0"
           >
             <FolderPlus className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
-            <span>+ Categoría</span>
+            <span className="hidden sm:inline">+ Categoría</span>
+            <span className="sm:hidden">Categoría</span>
           </button>
 
           {/* New Product Button */}
           <button
             type="button"
             onClick={handleOpenCreate}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white text-xs font-semibold shadow-sm transition-opacity hover:opacity-95 whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-white text-xs font-semibold shadow-sm transition-opacity hover:opacity-95 whitespace-nowrap shrink-0"
             style={{ backgroundColor: customization.primaryColor }}
           >
             <Plus className="w-4 h-4" />
-            <span>Nuevo Producto</span>
+            <span className="hidden sm:inline">Nuevo Producto</span>
+            <span className="sm:hidden">Nuevo</span>
           </button>
         </div>
       </div>
 
+      {/* Mobile Search Box */}
+      <div className="relative md:hidden">
+        <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Buscar producto..."
+          className="w-full min-h-[40px] pl-10 pr-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-medium text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:border-zinc-400"
+        />
+      </div>
+
       {/* Category Filter Tabs Bar */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
         <button
           type="button"
           onClick={() => setActiveTab('todos')}

@@ -14,6 +14,8 @@ import {
   Building2,
   X,
   Banknote,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
 import { useSettings } from '../../context/SettingsContext';
@@ -46,6 +48,7 @@ export const FinanceModuleView: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<FinanceTab>('cuadre');
   const [selectedDate, setSelectedDate] = useState<string>(() => getLocalIsoDate());
+  const [showKpis, setShowKpis] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'combustible' | ExpenseCategory>('all');
   const [financeExpenses, setFinanceExpenses] = useState<FinanceExpense[]>(() => loadFinanceExpenses());
   const [cashClosings, setCashClosings] = useState<DailyCashClosing[]>(() => loadCashClosings());
@@ -263,25 +266,26 @@ export const FinanceModuleView: React.FC = () => {
   };
 
   return (
-    <div className="w-full space-y-5">
+    <div className="w-full space-y-4">
       {/* Header */}
-      <div className="px-4 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+      <div className="px-4 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 shrink-0">
             <Wallet className="w-5 h-5" />
           </div>
-          <h1 className="text-lg font-semibold tracking-tight text-zinc-950 dark:text-white">
-            Finanzas &amp; Control de Caja
+          <h1 className="text-base sm:text-lg font-semibold tracking-tight text-zinc-950 dark:text-white truncate">
+            <span className="sm:hidden">Finanzas</span>
+            <span className="hidden sm:inline">Finanzas &amp; Control de Caja</span>
           </h1>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="hidden lg:inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs font-medium text-zinc-700 dark:text-zinc-200">
             <Building2 className="w-3.5 h-3.5 text-zinc-400" />
             <span>{branchScope === 'consolidated' ? 'Todas las Sucursales' : branchNameById(activeTenant.id)}</span>
           </div>
 
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+          <div className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
             <Calendar className="w-3.5 h-3.5 text-zinc-400" />
             <input
               type="date"
@@ -294,17 +298,41 @@ export const FinanceModuleView: React.FC = () => {
           <button
             type="button"
             onClick={openCreateModal}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white text-xs font-semibold shadow-sm hover:opacity-95 transition-opacity whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-white text-xs font-semibold shadow-sm hover:opacity-95 transition-opacity whitespace-nowrap shrink-0"
             style={{ backgroundColor: customization.primaryColor }}
           >
             <Plus className="w-4 h-4" />
-            Registrar Egreso
+            <span className="hidden sm:inline">Registrar Egreso</span>
+            <span className="sm:hidden">Egreso</span>
           </button>
         </div>
       </div>
 
+      {/* Mobile Date + Summary Toggle */}
+      <div className="flex sm:hidden items-center gap-2">
+        <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+          <Calendar className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="bg-transparent text-xs font-medium text-zinc-800 dark:text-zinc-100 focus:outline-none"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowKpis((v) => !v)}
+          className="flex-1 min-h-[38px] px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-200 inline-flex items-center justify-between gap-2 whitespace-nowrap"
+        >
+          <span className="tabular-nums truncate">
+            Ingresos: <span className="font-semibold text-emerald-600 dark:text-emerald-400">S/ {summary.totalRevenue.toFixed(2)}</span>
+          </span>
+          {showKpis ? <ChevronUp className="w-3.5 h-3.5 text-zinc-400 shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 text-zinc-400 shrink-0" />}
+        </button>
+      </div>
+
       {/* KPIs */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
+      <div className={`${showKpis ? 'grid' : 'hidden sm:grid'} grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4`}>
         <div className="saas-card p-3 sm:p-4 space-y-1 sm:space-y-1.5">
           <div className="flex items-center justify-between gap-1 text-[11px] sm:text-xs font-semibold text-zinc-500 dark:text-zinc-400">
             <span className="truncate">Ingresos del Día</span>
