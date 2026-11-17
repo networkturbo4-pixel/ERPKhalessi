@@ -1,8 +1,8 @@
 {
-  "buildId": "20261117033103",
-  "builtAt": "2026-11-17T03:31:03.205Z",
-  "commitSha": "47fcd33",
-  "message": "ui(store): cabecera estacional de ancho completo",
-  "totalFiles": 101,
-  "manifestSha256": "a75d6369fdfbe66fde367f2541ec7befa34e5c21149c5c4fa1225319ba963ac4"
+  "buildId": "20261117035345",
+  "builtAt": "2026-11-17T03:53:45.372Z",
+  "commitSha": "cfd055b",
+  "message": "feat(store,kiosk): asistente bot de pedidos configurable desde Apariencia y ajuste de navbar movil",
+  "totalFiles": 102,
+  "manifestSha256": "4b165b6eedcc92823764de2c30df6f9b105c1b993bf428670fa9753508c781bb"
 }
