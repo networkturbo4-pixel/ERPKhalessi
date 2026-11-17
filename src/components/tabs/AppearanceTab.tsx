@@ -599,6 +599,39 @@ export const AppearanceTab: React.FC = () => {
                 })}
               </div>
             </div>
+
+            <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3">
+              <div>
+                <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 block">
+                  Asistente Bot de Pedidos (Tienda &amp; Kiosko)
+                </span>
+                <span className="text-[11px] text-zinc-500 dark:text-zinc-400 block">
+                  Muestra un asistente interactivo para recomendar pizzas, promos y agregar al carrito.
+                </span>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={customization.enableOrderBot ?? true}
+                onClick={() =>
+                  updateCustomization({ enableOrderBot: !(customization.enableOrderBot ?? true) })
+                }
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                  (customization.enableOrderBot ?? true) ? '' : 'bg-zinc-300 dark:bg-zinc-700'
+                }`}
+                style={
+                  (customization.enableOrderBot ?? true)
+                    ? { backgroundColor: customization.primaryColor }
+                    : undefined
+                }
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                    (customization.enableOrderBot ?? true) ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
           </div>
         </div>
       </PermissionGate>

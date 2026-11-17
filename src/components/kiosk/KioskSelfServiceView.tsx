@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useId } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useId, Suspense, lazy } from 'react';
 import {
   Product,
   OrderItem,
@@ -17,6 +17,10 @@ import { getStoreCategories } from '../store/StorefrontWidgets';
 import { ToastContainer } from '../common/ToastContainer';
 import { SystemNoticeModal } from '../common/SystemNoticeModal';
 import { SeasonalOverlay } from '../common/SeasonalOverlay';
+
+const StoreOrderBotDrawer = lazy(() =>
+  import('../store/StoreOrderBotDrawer').then(m => ({ default: m.StoreOrderBotDrawer }))
+);
 import {
   UtensilsCrossed,
   ShoppingBag,
@@ -1911,6 +1915,35 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
           finalizeKioskOrderAfterCulqi(result);
         }}
       />
+
+      {(customization.enableOrderBot ?? true) && step === 'catalog' && (
+        <Suspense fallback={null}>
+          <StoreOrderBotDrawer
+            products={availableProducts}
+            categories={kioskCategories.map(c => ({ id: c.id, name: c.label }))}
+            storeName={companyInfo.commercialName || customization.appName}
+            accentColor={customization.primaryColor || '#f97316'}
+            isLightTheme={false}
+            cartCount={kioskCart.reduce((acc, i) => acc + i.quantity, 0)}
+            bottomOffsetClass={kioskCart.length > 0 ? 'bottom-24' : 'bottom-6'}
+            mode="kiosk"
+            onAddToCart={item => {
+              touchActivity();
+              setKioskCart(prev => [...prev, item]);
+              dispatchToast(
+                'Agregado al Kiosco',
+                `${item.quantity}× ${item.productName} sumado a tu pedido.`,
+                'success'
+              );
+            }}
+            onCustomizeProduct={prod => openProductCustomizer(prod)}
+            onOpenCart={() => {
+              touchActivity();
+              setStep('checkout');
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   );
 };

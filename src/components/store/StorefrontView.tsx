@@ -56,6 +56,8 @@ const loadElementorBuilderSidebar = () =>
   import('./ElementorBuilderSidebar').then(m => ({ default: m.ElementorBuilderSidebar }));
 const loadStorefrontFooter = () =>
   import('./StorefrontFooter').then(m => ({ default: m.StorefrontFooter }));
+const loadStoreOrderBotDrawer = () =>
+  import('./StoreOrderBotDrawer').then(m => ({ default: m.StoreOrderBotDrawer }));
 
 const StoreProductDetailPage = lazy(loadStoreProductDetailPage);
 const StoreCheckoutPage = lazy(loadStoreCheckoutPage);
@@ -67,6 +69,7 @@ const StoreBenefitsDrawer = lazy(loadStoreBenefitsDrawer);
 const StoreCulqiSandboxDialog = lazy(loadStoreCulqiSandboxDialog);
 const ElementorBuilderSidebar = lazy(loadElementorBuilderSidebar);
 const StorefrontFooter = lazy(loadStorefrontFooter);
+const StoreOrderBotDrawer = lazy(loadStoreOrderBotDrawer);
 
 function useHasOpened(isOpen: boolean): boolean {
   const [opened, setOpened] = useState(isOpen);
@@ -117,6 +120,7 @@ import {
   AlertTriangle,
   FileText,
   Bell,
+  MessageCircle,
 } from 'lucide-react';
 
 interface StorefrontViewProps {
@@ -776,6 +780,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isOrdersOpen, setIsOrdersOpen] = useState(false);
+  const [isOrderBotOpen, setIsOrderBotOpen] = useState(false);
   const [focusedOrderId, setFocusedOrderId] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isBenefitsOpen, setIsBenefitsOpen] = useState(false);
@@ -4422,42 +4427,6 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
         </div>
       )}
 
-      {/* Floating Live Active Order Tracker Pill (shown only when top card is scrolled away or in another category) */}
-      {!isBuilderOpen &&
-        latestActiveCustomerOrder &&
-        (activeCategory !== 'todos' || !isTopOrderCardVisible) && (
-          <button
-            type="button"
-            onClick={() => {
-              setFocusedOrderId(latestActiveCustomerOrder.id);
-              setIsOrdersOpen(true);
-            }}
-            className={`fixed bottom-20 lg:bottom-6 right-4 z-30 flex items-center gap-2.5 pl-3 pr-3.5 py-2 rounded-full border shadow-xl backdrop-blur-md transition-transform active:scale-95 hover:scale-[1.02] ${
-              isLightTheme
-                ? 'bg-white/95 border-zinc-200 text-zinc-900'
-                : 'bg-neutral-900/95 border-neutral-700 text-white'
-            }`}
-          >
-            <span className="relative flex h-2.5 w-2.5 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-            </span>
-            <span className="text-xs font-black whitespace-nowrap tabular-nums">
-              #{latestActiveCustomerOrder.orderNumber.replace(/^#/, '')} ·{' '}
-              {latestActiveCustomerOrder.status === 'recibido'
-                ? 'Recibido'
-                : latestActiveCustomerOrder.status === 'en_cocina'
-                ? 'En cocina'
-                : latestActiveCustomerOrder.status === 'en_horno'
-                ? 'En horno 🔥'
-                : latestActiveCustomerOrder.status === 'listo'
-                ? 'Listo ✨'
-                : 'En camino 🛵'}
-            </span>
-            <ArrowRight className="w-3.5 h-3.5 opacity-70 shrink-0" />
-          </button>
-        )}
-
       {/* Active Order Push Notifications Prompt */}
       {!pwaBannerDismissed &&
         !isBuilderOpen &&
@@ -4498,6 +4467,34 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
+        )}
+
+        {(customization.enableOrderBot ?? true) && !isBuilderOpen && (
+          <Suspense fallback={null}>
+            <StoreOrderBotDrawer
+              products={products}
+              categories={getStoreCategories().map(c => ({ id: c.id, name: c.label }))}
+              storeName={companyInfo.commercialName || customization.appName}
+              accentColor={buttonColor}
+              isLightTheme={isLightTheme}
+              cartCount={totalCartUnits}
+              bottomOffsetClass="bottom-[88px] lg:bottom-6"
+              isOpen={isOrderBotOpen}
+              onOpenChange={setIsOrderBotOpen}
+              mode="store"
+              onAddToCart={item => {
+                addToCart(item);
+                dispatchSeasonalBurst();
+                dispatchToast(
+                  'Agregado a tu Pedido',
+                  `${item.quantity}× ${item.productName} listo en tu carrito.`,
+                  'success'
+                );
+              }}
+              onCustomizeProduct={prod => navigateToProductSlug(prod)}
+              onOpenCart={() => setIsCartOpen(true)}
+            />
+          </Suspense>
         )}
     </div>
   );

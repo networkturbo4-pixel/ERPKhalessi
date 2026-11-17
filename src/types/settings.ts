@@ -116,6 +116,7 @@ export interface TenantCustomization {
   };
   seasonalTheme: SeasonalThemeConfig;
   seoConfig?: StoreSeoConfig;
+  enableOrderBot?: boolean;
 }
 
 export interface BankAccount {

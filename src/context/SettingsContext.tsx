@@ -51,6 +51,7 @@ export const DEFAULT_CUSTOMIZATION: TenantCustomization = {
   toastAudioTheme: 'chime',
   modalStyle: 'halo',
   enforceNoNativeDialogs: true,
+  enableOrderBot: true,
   loginConfig: {
     layout: 'split',
     glassmorphism: true,
