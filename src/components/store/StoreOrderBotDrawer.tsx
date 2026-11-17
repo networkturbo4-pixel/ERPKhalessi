@@ -174,7 +174,9 @@ export const StoreOrderBotDrawer: React.FC<StoreOrderBotDrawerProps> = ({
   const [configStep, setConfigStep] = useState<'size' | 'sub' | 'extras' | 'confirm' | null>(null);
   const [configSubIndex, setConfigSubIndex] = useState<number>(0);
   const [cfgSizeId, setCfgSizeId] = useState<string>('');
-  const [cfgSubChoices, setCfgSubChoices] = useState<Record<string, string>>({});
+  const [cfgSubSingle, setCfgSubSingle] = useState<Record<string, string[]>>({});
+  const [cfgSubQuantities, setCfgSubQuantities] = useState<Record<string, number>>({});
+  const [cfgNestedSelected, setCfgNestedSelected] = useState<Record<string, string[]>>({});
   const [cfgExtraIds, setCfgExtraIds] = useState<Record<string, boolean>>({});
   const [cfgQty, setCfgQty] = useState<number>(1);
   const [cfgNotes, setCfgNotes] = useState<string>('');
@@ -443,12 +445,32 @@ export const StoreOrderBotDrawer: React.FC<StoreOrderBotDrawerProps> = ({
     }
   };
 
-  const advanceFromSubStep = (product: Product, nextSubIdx: number) => {
-    const enabledSubs = product.subOptions.filter(g => g.enabled);
-    if (nextSubIdx < enabledSubs.length) {
+  const getVisibleSubGroups = (
+    product: Product,
+    singleMap: Record<string, string[]>,
+    qtyMap: Record<string, number>
+  ) => {
+    const selectedIds = new Set<string>();
+    Object.values(singleMap).forEach(arr => arr.forEach(id => selectedIds.add(id)));
+    Object.entries(qtyMap).forEach(([cid, q]) => {
+      if (q > 0) selectedIds.add(cid);
+    });
+    return product.subOptions.filter(
+      g => g.enabled && (!g.conditionOptionId || selectedIds.has(g.conditionOptionId))
+    );
+  };
+
+  const advanceFromSubStep = (
+    product: Product,
+    nextSubIdx: number,
+    singleMap = cfgSubSingle,
+    qtyMap = cfgSubQuantities
+  ) => {
+    const visibleSubs = getVisibleSubGroups(product, singleMap, qtyMap);
+    if (nextSubIdx < visibleSubs.length) {
       setConfigSubIndex(nextSubIdx);
       setConfigStep('sub');
-      pushBotMessage(`Elige ${enabledSubs[nextSubIdx].name}:`);
+      pushBotMessage(`Elige ${visibleSubs[nextSubIdx].name}:`);
       return;
     }
     const enabledExtras = (product.allowedExtras || []).filter(ex => ex.enabled);
@@ -472,27 +494,51 @@ export const StoreOrderBotDrawer: React.FC<StoreOrderBotDrawerProps> = ({
       enabledSizes.find(s => s.isDefault) ||
       enabledSizes[0];
 
-    const initialSubs: Record<string, string> = {};
-    const enabledSubs = product.subOptions.filter(g => g.enabled);
-    enabledSubs.forEach(g => {
-      const def = g.choices.find(c => c.isDefault) || g.choices[0];
-      if (def) initialSubs[g.id] = def.id;
+    const initialSingle: Record<string, string[]> = {};
+    const initialQty: Record<string, number> = {};
+    const initialNested: Record<string, string[]> = {};
+    const initialExtras: Record<string, boolean> = {};
+
+    product.subOptions
+      .filter(g => g.enabled)
+      .forEach(g => {
+        const singles = g.choices
+          .filter(c => !c.isMultiple && (c.isDefault || c.isIncluded))
+          .map(c => c.id);
+        if (singles.length > 0) {
+          initialSingle[g.id] = singles.slice(0, g.maxSelection || 1);
+        }
+        g.choices.forEach(c => {
+          if (c.isMultiple && (c.isIncluded || c.isDefault)) {
+            initialQty[c.id] = Math.max(1, c.freeQuantity || 1);
+          }
+          if (c.nestedChoices && c.nestedChoices.length > 0) {
+            initialNested[c.id] = [c.nestedChoices[0].id];
+          }
+        });
+      });
+
+    (product.allowedExtras || []).forEach(ex => {
+      if (ex.enabled && ex.isIncluded) initialExtras[ex.id] = true;
     });
 
     setCfgSizeId(defaultSize ? defaultSize.id : '');
-    setCfgSubChoices(initialSubs);
-    setCfgExtraIds({});
+    setCfgSubSingle(initialSingle);
+    setCfgSubQuantities(initialQty);
+    setCfgNestedSelected(initialNested);
+    setCfgExtraIds(initialExtras);
     setCfgQty(1);
     setCfgNotes('');
     setConfigSubIndex(0);
     setConfiguringProduct(product);
 
+    const visibleSubs = getVisibleSubGroups(product, initialSingle, initialQty);
     if (product.hasSizes && enabledSizes.length > 0) {
       setConfigStep('size');
       pushBotMessage(`¿Qué tamaño prefieres para tu ${product.name}?`);
-    } else if (enabledSubs.length > 0) {
+    } else if (visibleSubs.length > 0) {
       setConfigStep('sub');
-      pushBotMessage(`Elige ${enabledSubs[0].name}:`);
+      pushBotMessage(`Elige ${visibleSubs[0].name}:`);
     } else if ((product.allowedExtras || []).some(ex => ex.enabled)) {
       setConfigStep('extras');
       pushBotMessage(`¿Deseas agregar algún extra a tu ${product.name}?`);
@@ -501,45 +547,87 @@ export const StoreOrderBotDrawer: React.FC<StoreOrderBotDrawerProps> = ({
     }
   };
 
-  const handleConfirmInlineConfig = (ev: React.MouseEvent<HTMLButtonElement>) => {
-    if (!configuringProduct) return;
-    const rect = ev.currentTarget.getBoundingClientRect();
-    const origin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-
-    const sizeObj = configuringProduct.hasSizes
-      ? configuringProduct.sizes.find(s => s.id === cfgSizeId)
+  const computeBotConfigPricing = (product: Product) => {
+    const sizeObj = product.hasSizes
+      ? product.sizes.find(s => s.id === cfgSizeId)
       : undefined;
-    const base = sizeObj ? sizeObj.price : configuringProduct.basePrice;
+    const base = sizeObj ? sizeObj.price : product.basePrice;
+    const visibleSubs = getVisibleSubGroups(product, cfgSubSingle, cfgSubQuantities);
 
-    const chosenSubs = configuringProduct.subOptions
-      .filter(g => g.enabled)
-      .flatMap(g => {
-        const cid = cfgSubChoices[g.id];
-        const ch = g.choices.find(c => c.id === cid);
-        if (!ch) return [];
-        return [
-          {
+    let subDelta = 0;
+    const chosenSubs: Array<{
+      groupId: string;
+      groupName: string;
+      choiceId: string;
+      choiceName: string;
+      priceDelta: number;
+      quantity?: number;
+    }> = [];
+
+    visibleSubs.forEach(g => {
+      const singleIds = cfgSubSingle[g.id] || [];
+      g.choices.forEach(ch => {
+        if (ch.isMultiple) {
+          const qty = cfgSubQuantities[ch.id] || 0;
+          if (qty > 0) {
+            const freeQty = ch.isIncluded ? Math.max(1, ch.freeQuantity || 1) : ch.freeQuantity || 0;
+            const chargeable = Math.max(0, qty - freeQty);
+            const delta = ch.hidePrice ? 0 : chargeable * ch.priceDelta;
+            subDelta += delta;
+            chosenSubs.push({
+              groupId: g.id,
+              groupName: g.name,
+              choiceId: ch.id,
+              choiceName: qty > 1 ? `${qty}× ${ch.name}` : ch.name,
+              priceDelta: delta,
+              quantity: qty,
+            });
+          }
+        } else if (singleIds.includes(ch.id)) {
+          const delta = ch.hidePrice || ch.isIncluded ? 0 : ch.priceDelta;
+          subDelta += delta;
+
+          const nestedIds = cfgNestedSelected[ch.id] || [];
+          const nestedNames: string[] = [];
+          (ch.nestedChoices || []).forEach(nest => {
+            if (nestedIds.includes(nest.id)) {
+              const nDelta = nest.hidePrice ? 0 : nest.priceDelta;
+              subDelta += nDelta;
+              nestedNames.push(nest.name);
+            }
+          });
+
+          chosenSubs.push({
             groupId: g.id,
             groupName: g.name,
             choiceId: ch.id,
-            choiceName: ch.name,
-            priceDelta: ch.priceDelta,
-          },
-        ];
+            choiceName: nestedNames.length > 0 ? `${ch.name} (${nestedNames.join(', ')})` : ch.name,
+            priceDelta: delta,
+          });
+        }
       });
+    });
 
-    const chosenExtras = (configuringProduct.allowedExtras || [])
+    const chosenExtras = (product.allowedExtras || [])
       .filter(ex => ex.enabled && cfgExtraIds[ex.id])
       .map(ex => ({
         id: ex.id,
         name: ex.name,
-        price: ex.price,
+        price: ex.isIncluded ? 0 : ex.price,
         quantity: 1,
       }));
 
-    const subDelta = chosenSubs.reduce((s, c) => s + c.priceDelta, 0);
     const extrasDelta = chosenExtras.reduce((s, e) => s + e.price * e.quantity, 0);
     const unitPrice = base + subDelta + extrasDelta;
+    return { sizeObj, chosenSubs, chosenExtras, unitPrice, totalPrice: unitPrice * cfgQty };
+  };
+
+  const handleConfirmInlineConfig = (ev: React.MouseEvent<HTMLButtonElement>) => {
+    if (!configuringProduct) return;
+    const rect = ev.currentTarget.getBoundingClientRect();
+    const origin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    const { sizeObj, chosenSubs, chosenExtras, unitPrice, totalPrice } =
+      computeBotConfigPricing(configuringProduct);
 
     const item: OrderItem = {
       itemId: `bot-cfg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -559,7 +647,7 @@ export const StoreOrderBotDrawer: React.FC<StoreOrderBotDrawerProps> = ({
       notes: cfgNotes.trim() || undefined,
       unitPrice,
       quantity: cfgQty,
-      totalPrice: unitPrice * cfgQty,
+      totalPrice,
     };
 
     onAddToCart(item, origin);
@@ -1021,21 +1109,12 @@ export const StoreOrderBotDrawer: React.FC<StoreOrderBotDrawerProps> = ({
               {/* STEP-BY-STEP CONVERSATIONAL CARDS FOR PRODUCT DETAILS */}
               {configuringProduct && configStep && (() => {
                 const enabledSizes = configuringProduct.sizes.filter(s => s.enabled);
-                const enabledSubs = configuringProduct.subOptions.filter(g => g.enabled);
+                const visibleSubs = getVisibleSubGroups(configuringProduct, cfgSubSingle, cfgSubQuantities);
                 const enabledExtras = (configuringProduct.allowedExtras || []).filter(ex => ex.enabled);
-                const activeSize = configuringProduct.hasSizes
-                  ? enabledSizes.find(s => s.id === cfgSizeId)
-                  : undefined;
-                const basePrice = activeSize ? activeSize.price : configuringProduct.basePrice;
-                const subDelta = enabledSubs.reduce((sum, g) => {
-                  const ch = g.choices.find(c => c.id === cfgSubChoices[g.id]);
-                  return sum + (ch?.priceDelta || 0);
-                }, 0);
-                const extrasDelta = enabledExtras.reduce(
-                  (sum, ex) => sum + (cfgExtraIds[ex.id] ? ex.price : 0),
-                  0
-                );
-                const liveTotal = (basePrice + subDelta + extrasDelta) * cfgQty;
+                const pricing = computeBotConfigPricing(configuringProduct);
+                const activeSize = pricing.sizeObj;
+                const liveTotal = pricing.totalPrice;
+                const currentGroup = visibleSubs[configSubIndex];
 
                 return (
                   <div className="space-y-2.5">
@@ -1071,42 +1150,205 @@ export const StoreOrderBotDrawer: React.FC<StoreOrderBotDrawerProps> = ({
                       </div>
                     )}
 
-                    {configStep === 'sub' && enabledSubs[configSubIndex] && (
-                      <div className="grid grid-cols-2 gap-2">
-                        {enabledSubs[configSubIndex].choices.map(ch => {
-                          const group = enabledSubs[configSubIndex];
-                          return (
-                            <button
-                              key={ch.id}
-                              type="button"
-                              onClick={() => {
-                                setCfgSubChoices(prev => ({ ...prev, [group.id]: ch.id }));
-                                setMessages(prev => [
-                                  ...prev,
-                                  {
-                                    id: `user-sub-${Date.now()}`,
-                                    sender: 'user',
-                                    text: ch.name,
-                                  },
-                                ]);
-                                advanceFromSubStep(configuringProduct, configSubIndex + 1);
-                              }}
-                              className={`p-3 rounded-2xl border text-left transition-colors hover:border-zinc-400 dark:hover:border-zinc-500 ${subSurfaceBg}`}
-                            >
-                              <span className="text-xs font-semibold block truncate">{ch.name}</span>
-                              {ch.description && (
-                                <span className={`text-[11px] line-clamp-1 ${mutedText}`}>
-                                  {ch.description}
-                                </span>
-                              )}
-                              <span className={`text-[11px] font-medium tabular-nums block mt-1 ${mutedText}`}>
-                                {ch.priceDelta > 0 ? `+ S/ ${ch.priceDelta.toFixed(2)}` : 'Incluido'}
+                    {configStep === 'sub' && currentGroup && (() => {
+                      const hasMultipleChoices = currentGroup.choices.some(c => c.isMultiple);
+                      const isMultiGroup = (currentGroup.maxSelection || 1) > 1 || hasMultipleChoices;
+                      const singleSelected = cfgSubSingle[currentGroup.id] || [];
+                      const activeNestedChoice = currentGroup.choices.find(
+                        c => !c.isMultiple && singleSelected.includes(c.id) && (c.nestedChoices?.length || 0) > 0
+                      );
+
+                      return (
+                        <div className="space-y-2.5">
+                          <div className="grid grid-cols-2 gap-2">
+                            {currentGroup.choices.map(ch => {
+                              if (ch.isMultiple) {
+                                const qty = cfgSubQuantities[ch.id] || 0;
+                                const minQty = ch.isIncluded ? Math.max(1, ch.freeQuantity || 1) : 0;
+                                const maxQty = ch.maxQuantity || 10;
+                                return (
+                                  <div
+                                    key={ch.id}
+                                    className={`p-3 rounded-2xl border flex flex-col justify-between gap-2 ${
+                                      qty > 0 ? 'border-emerald-500/60' : ''
+                                    } ${subSurfaceBg}`}
+                                  >
+                                    <div>
+                                      <span className="text-xs font-semibold block truncate">{ch.name}</span>
+                                      <span className={`text-[11px] tabular-nums block ${mutedText}`}>
+                                        {ch.isIncluded
+                                          ? 'Incluido'
+                                          : ch.hidePrice
+                                          ? 'Opcional'
+                                          : ch.priceDelta > 0
+                                          ? `+ S/ ${ch.priceDelta.toFixed(2)}`
+                                          : 'Sin costo'}
+                                      </span>
+                                    </div>
+                                    <div className="inline-flex items-center justify-between border border-zinc-200 dark:border-zinc-700 rounded-xl px-2 py-1 text-xs">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setCfgSubQuantities(prev => ({
+                                            ...prev,
+                                            [ch.id]: Math.max(minQty, (prev[ch.id] || 0) - 1),
+                                          }))
+                                        }
+                                        className="px-1.5 font-semibold"
+                                      >
+                                        -
+                                      </button>
+                                      <span className="tabular-nums font-semibold">{qty}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setCfgSubQuantities(prev => ({
+                                            ...prev,
+                                            [ch.id]: Math.min(maxQty, (prev[ch.id] || 0) + 1),
+                                          }))
+                                        }
+                                        className="px-1.5 font-semibold"
+                                      >
+                                        +
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              const active = singleSelected.includes(ch.id);
+                              const priceLabel = ch.isIncluded
+                                ? 'Incluido'
+                                : ch.hidePrice
+                                ? ''
+                                : ch.priceDelta > 0
+                                ? `+ S/ ${ch.priceDelta.toFixed(2)}`
+                                : 'Incluido';
+
+                              return (
+                                <button
+                                  key={ch.id}
+                                  type="button"
+                                  onClick={() => {
+                                    let nextIds: string[];
+                                    if (isMultiGroup) {
+                                      const maxSel = currentGroup.maxSelection || 99;
+                                      if (active) {
+                                        nextIds = singleSelected.filter(id => id !== ch.id);
+                                      } else {
+                                        nextIds =
+                                          singleSelected.length >= maxSel
+                                            ? [...singleSelected.slice(1), ch.id]
+                                            : [...singleSelected, ch.id];
+                                      }
+                                    } else {
+                                      nextIds = [ch.id];
+                                    }
+                                    const nextSingleMap = { ...cfgSubSingle, [currentGroup.id]: nextIds };
+                                    setCfgSubSingle(nextSingleMap);
+
+                                    const hasNested = (ch.nestedChoices?.length || 0) > 0;
+                                    if (!isMultiGroup && !hasNested) {
+                                      setMessages(prev => [
+                                        ...prev,
+                                        { id: `user-sub-${Date.now()}`, sender: 'user', text: ch.name },
+                                      ]);
+                                      advanceFromSubStep(
+                                        configuringProduct,
+                                        configSubIndex + 1,
+                                        nextSingleMap,
+                                        cfgSubQuantities
+                                      );
+                                    }
+                                  }}
+                                  className={`p-3 rounded-2xl border text-left transition-colors ${
+                                    active
+                                      ? 'border-transparent text-white'
+                                      : `${subSurfaceBg} hover:border-zinc-400 dark:hover:border-zinc-500`
+                                  }`}
+                                  style={active ? { backgroundColor: accentColor } : undefined}
+                                >
+                                  <span className="text-xs font-semibold block truncate">{ch.name}</span>
+                                  {ch.description && (
+                                    <span className={`text-[11px] line-clamp-1 ${active ? 'text-white/80' : mutedText}`}>
+                                      {ch.description}
+                                    </span>
+                                  )}
+                                  {priceLabel && (
+                                    <span className={`text-[11px] font-medium tabular-nums block mt-1 ${active ? 'text-white/90' : mutedText}`}>
+                                      {priceLabel}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Nested Sub-options (when active choice has nestedChoices) */}
+                          {activeNestedChoice && activeNestedChoice.nestedChoices && (
+                            <div className="space-y-1.5 pt-1">
+                              <span className={`text-[11px] font-medium block ${mutedText}`}>
+                                Elige detalle de {activeNestedChoice.name}:
                               </span>
+                              <div className="grid grid-cols-2 gap-2">
+                                {activeNestedChoice.nestedChoices.map(nest => {
+                                  const selectedArr = cfgNestedSelected[activeNestedChoice.id] || [];
+                                  const isNestActive = selectedArr.includes(nest.id);
+                                  return (
+                                    <button
+                                      key={nest.id}
+                                      type="button"
+                                      onClick={() => {
+                                        const nextArr = nest.isMultiple
+                                          ? isNestActive
+                                            ? selectedArr.filter(id => id !== nest.id)
+                                            : [...selectedArr, nest.id]
+                                          : [nest.id];
+                                        setCfgNestedSelected(prev => ({
+                                          ...prev,
+                                          [activeNestedChoice.id]: nextArr,
+                                        }));
+                                      }}
+                                      className={`p-2.5 rounded-xl border text-left text-xs ${
+                                        isNestActive
+                                          ? 'border-transparent text-white'
+                                          : subSurfaceBg
+                                      }`}
+                                      style={isNestActive ? { backgroundColor: accentColor } : undefined}
+                                    >
+                                      <span className="font-medium block truncate">{nest.name}</span>
+                                      {!nest.hidePrice && nest.priceDelta > 0 && (
+                                        <span className={`text-[11px] tabular-nums ${isNestActive ? 'text-white/90' : mutedText}`}>
+                                          + S/ {nest.priceDelta.toFixed(2)}
+                                        </span>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {(isMultiGroup || Boolean(activeNestedChoice)) && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                advanceFromSubStep(
+                                  configuringProduct,
+                                  configSubIndex + 1,
+                                  cfgSubSingle,
+                                  cfgSubQuantities
+                                )
+                              }
+                              className="w-full py-2.5 rounded-xl text-white text-xs font-semibold"
+                              style={{ backgroundColor: accentColor }}
+                            >
+                              Continuar · S/ {liveTotal.toFixed(2)}
                             </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {configStep === 'extras' && (
                       <div className="space-y-2.5">
@@ -1118,7 +1360,9 @@ export const StoreOrderBotDrawer: React.FC<StoreOrderBotDrawerProps> = ({
                                 key={ex.id}
                                 type="button"
                                 onClick={() =>
-                                  setCfgExtraIds(prev => ({ ...prev, [ex.id]: !prev[ex.id] }))
+                                  ex.isIncluded
+                                    ? undefined
+                                    : setCfgExtraIds(prev => ({ ...prev, [ex.id]: !prev[ex.id] }))
                                 }
                                 className={`p-3 rounded-2xl border text-left transition-colors ${
                                   active
@@ -1133,7 +1377,7 @@ export const StoreOrderBotDrawer: React.FC<StoreOrderBotDrawerProps> = ({
                                     active ? 'text-white/90' : mutedText
                                   }`}
                                 >
-                                  + S/ {ex.price.toFixed(2)}
+                                  {ex.isIncluded ? 'Incluido' : `+ S/ ${ex.price.toFixed(2)}`}
                                 </span>
                               </button>
                             );
