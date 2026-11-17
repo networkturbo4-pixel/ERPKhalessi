@@ -1,8 +1,8 @@
 {
-  "buildId": "20261117043500",
-  "builtAt": "2026-11-17T04:35:00.555Z",
-  "commitSha": "3b3f049",
-  "message": "feat(bot): checkout conversacional, cards paso a paso, voz, GPS, Gemini proxy y sync CRM",
+  "buildId": "20261117044056",
+  "builtAt": "2026-11-17T04:40:56.870Z",
+  "commitSha": "e1c03b8",
+  "message": "feat(bot): soporte completo de reglas de modificadores (multiple, incluido, ocultar precio, condicional y sub-opciones anidadas)",
   "totalFiles": 104,
-  "manifestSha256": "8c27d0d00905dd7e502096c52335caeaebd34213343993b4b5cd2078b1f4a604"
+  "manifestSha256": "e6ec7511f28470f6c59ef28bbf924e7338a0a7e9602a52b7fea36ec7e74a077f"
 }
