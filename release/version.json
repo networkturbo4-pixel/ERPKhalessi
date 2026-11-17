@@ -1,8 +1,8 @@
 {
-  "buildId": "20261117012348",
-  "builtAt": "2026-11-17T01:23:48.833Z",
-  "commitSha": "b53316c",
-  "message": "ui(erp): unificar ancho, cabeceras compactas, botones primarios, sidebar y tabla CRM",
+  "buildId": "20261117013819",
+  "builtAt": "2026-11-17T01:38:19.063Z",
+  "commitSha": "8546c83",
+  "message": "ui(mobile): compactar cabeceras, drawer de filtros en Pedidos y controles en Inventario, CRM, Productos, Finanzas, Marketing y Postulantes",
   "totalFiles": 101,
-  "manifestSha256": "2dfad3f0bf5eced7c6c384284f27e8e80f8356df2d6e038eb219a5f9bb19382e"
+  "manifestSha256": "33f3acd493bae20c8a988bede8379c726f7f49a677f99f371ce0da04704edee1"
 }
