@@ -1,8 +1,8 @@
 {
-  "buildId": "20261117013819",
-  "builtAt": "2026-11-17T01:38:19.063Z",
-  "commitSha": "8546c83",
-  "message": "ui(mobile): compactar cabeceras, drawer de filtros en Pedidos y controles en Inventario, CRM, Productos, Finanzas, Marketing y Postulantes",
+  "buildId": "20261117033103",
+  "builtAt": "2026-11-17T03:31:03.205Z",
+  "commitSha": "47fcd33",
+  "message": "ui(store): cabecera estacional de ancho completo",
   "totalFiles": 101,
-  "manifestSha256": "33f3acd493bae20c8a988bede8379c726f7f49a677f99f371ce0da04704edee1"
+  "manifestSha256": "a75d6369fdfbe66fde367f2541ec7befa34e5c21149c5c4fa1225319ba963ac4"
 }
