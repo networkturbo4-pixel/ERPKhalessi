@@ -715,11 +715,11 @@ export const SeasonalOverlay: React.FC<SeasonalOverlayProps> = ({
         isDoodleHeader ? (
           <div
             className={`${
-              contained ? 'relative px-2 pt-2' : 'relative z-40 px-3 sm:px-6 pt-2 pb-1'
+              contained ? 'relative' : 'relative z-40'
             } w-full`}
           >
             <div
-              className={`max-w-5xl mx-auto rounded-full bg-gradient-to-r ${meta.bannerBgClass} text-white px-4 sm:px-6 py-2 shadow-lg ring-1 ring-white/25 overflow-hidden flex items-center justify-between gap-3`}
+              className={`w-full bg-gradient-to-r ${meta.bannerBgClass} text-white px-4 sm:px-6 py-2 shadow-sm overflow-hidden flex items-center justify-between gap-3`}
             >
               {renderDoodleCornerSvg('left')}
               <div className="flex-1 flex items-center justify-center gap-2 text-center min-w-0">
