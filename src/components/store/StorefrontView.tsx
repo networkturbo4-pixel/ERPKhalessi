@@ -657,15 +657,6 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
   );
   const catalogHeadingRef = useRef<HTMLHeadingElement>(null);
 
-  useEffect(() => {
-    const onPopState = () => {
-      setActiveProductSlug(parseSlugFromPath(window.location.pathname));
-      setActiveCategory(parseCategoryFromPath(window.location.pathname) || 'todos');
-    };
-    window.addEventListener('popstate', onPopState);
-    return () => window.removeEventListener('popstate', onPopState);
-  }, []);
-
   const activeSlugProduct = useMemo(() => {
     if (!activeProductSlug) return null;
     return (
@@ -736,6 +727,10 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     }
   }, []);
 
+  const [activeCategory, setActiveCategory] = useState<string>(() =>
+    typeof window !== 'undefined' ? parseCategoryFromPath(window.location.pathname) || 'todos' : 'todos'
+  );
+
   const navigateToCategory = useCallback(
     (catId: string) => {
       const target = catId || 'todos';
@@ -767,9 +762,14 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
   );
 
   // Catalog, Quick View, Off-Canvas / Bottom-Sheet Drawers State
-  const [activeCategory, setActiveCategory] = useState<string>(() =>
-    typeof window !== 'undefined' ? parseCategoryFromPath(window.location.pathname) || 'todos' : 'todos'
-  );
+  useEffect(() => {
+    const onPopState = () => {
+      setActiveProductSlug(parseSlugFromPath(window.location.pathname));
+      setActiveCategory(parseCategoryFromPath(window.location.pathname) || 'todos');
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
   const [searchQuery, setSearchQuery] = useState('');
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);

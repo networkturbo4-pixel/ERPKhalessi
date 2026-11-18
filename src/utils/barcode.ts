@@ -1,6 +1,15 @@
 import QRCode from 'qrcode';
 import JsBarcode from 'jsbarcode';
 
+function escapeHtmlText(str: string): string {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /**
  * Generates an SVG string representation of a Code128 barcode
  */
@@ -19,7 +28,29 @@ export function generateBarcodeSvg(value: string, options?: { height?: number; d
     return svgNode.outerHTML;
   } catch (err) {
     console.error('Error generating barcode SVG:', err);
-    return `<div style="font-family:monospace;font-size:10px;padding:4px;border:1px dashed #ccc;">[BARCODE ERROR: ${value}]</div>`;
+    return `<div style="font-family:monospace;font-size:10px;padding:4px;border:1px dashed #ccc;">[BARCODE ERROR: ${escapeHtmlText(value)}]</div>`;
+  }
+}
+
+/**
+ * Generates a safe SVG DataURL for rendering Code128 barcodes in <img> tags without innerHTML
+ */
+export function generateBarcodeDataUrl(value: string, options?: { height?: number; displayValue?: boolean }): string {
+  try {
+    const svgNode = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    JsBarcode(svgNode, value, {
+      format: 'CODE128',
+      width: 1.5,
+      height: options?.height || 36,
+      displayValue: options?.displayValue ?? true,
+      fontSize: 10,
+      font: 'monospace',
+      margin: 2,
+    });
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgNode.outerHTML)}`;
+  } catch (err) {
+    console.error('Error generating barcode DataURL:', err);
+    return '';
   }
 }
 

@@ -115,6 +115,8 @@ export const ThermalTicketBuilderModal: React.FC<ThermalTicketBuilderModalProps>
     }
   }, [isOpen]);
 
+  const [previewNow] = useState(() => new Date());
+
   if (!isOpen) return null;
 
   const handleSave = () => {
@@ -132,7 +134,7 @@ export const ThermalTicketBuilderModal: React.FC<ThermalTicketBuilderModalProps>
   const sampleOrder = {
     id: 'demo-sample-1',
     orderNumber: '#KH-1028',
-    createdAt: new Date().toISOString(),
+    createdAt: previewNow.toISOString(),
     customerName: 'Cesar Alexander',
     customerDni: '72849102',
     channel: 'pos-salon' as const,
@@ -801,7 +803,7 @@ export const ThermalTicketBuilderModal: React.FC<ThermalTicketBuilderModalProps>
                     {config.receipt.showDateTime && (
                       <div className="flex justify-between">
                         <span>FECHA:</span>
-                        <span className="font-mono">{new Date().toLocaleDateString()} {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className="font-mono">{previewNow.toLocaleDateString()} {previewNow.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                     )}
                     {config.receipt.showChannel && (
@@ -921,7 +923,7 @@ export const ThermalTicketBuilderModal: React.FC<ThermalTicketBuilderModalProps>
                     {config.comanda.showOrderTime && (
                       <div className="flex justify-between">
                         <span>HORA:</span>
-                        <span>{new Date().toLocaleTimeString()}</span>
+                        <span>{previewNow.toLocaleTimeString()}</span>
                       </div>
                     )}
                     {config.comanda.showChannelBadge && (

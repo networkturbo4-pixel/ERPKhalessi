@@ -133,7 +133,9 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const [accounts, setAccounts] = useState<StoreCustomerAccount[]>(loadAccounts);
   const accountsRef = useRef<StoreCustomerAccount[]>(accounts);
-  accountsRef.current = accounts;
+  useEffect(() => {
+    accountsRef.current = accounts;
+  }, [accounts]);
   const [activeCustomerId, setActiveCustomerId] = useState<string | null>(loadActiveCustomerId);
   const [guestOrderIds, setGuestOrderIds] = useState<string[]>(loadGuestOrderIds);
 
@@ -164,18 +166,6 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
       // ignore
     }
   }, [guestOrderIds]);
-
-  // Cross-tab sync for customer profile & orders
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === ACCOUNTS_KEY) setAccounts(loadAccounts());
-      if (e.key === ACTIVE_ACCOUNT_ID_KEY) setActiveCustomerId(loadActiveCustomerId());
-      if (e.key === GUEST_ORDER_IDS_KEY) setGuestOrderIds(loadGuestOrderIds());
-      if (e.key === OWN_ORDERS_SNAPSHOT_KEY) setOwnSnapshots(loadOwnSnapshots());
-    };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, []);
 
   const currentCustomer = useMemo(
     () => accounts.find(a => a.id === activeCustomerId) || null,
@@ -753,6 +743,18 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
   // Respaldo local por dispositivo: si el servidor tarda o la lista compartida se reemplaza,
   // el pedido del cliente (con o sin cuenta) NUNCA desaparece de "Mis pedidos".
   const [ownSnapshots, setOwnSnapshots] = useState<Order[]>(loadOwnSnapshots);
+
+  // Cross-tab sync for customer profile & orders
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === ACCOUNTS_KEY) setAccounts(loadAccounts());
+      if (e.key === ACTIVE_ACCOUNT_ID_KEY) setActiveCustomerId(loadActiveCustomerId());
+      if (e.key === GUEST_ORDER_IDS_KEY) setGuestOrderIds(loadGuestOrderIds());
+      if (e.key === OWN_ORDERS_SNAPSHOT_KEY) setOwnSnapshots(loadOwnSnapshots());
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   useEffect(() => {
     if (liveCustomerOrders.length === 0) return;

@@ -561,7 +561,8 @@ const OrderCatalogContext = createContext<OrderCatalogContextType | undefined>(u
 
 export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { dispatchToast, activeTenant, tenants, customization } = useSettings();
-  const tabInstanceIdRef = useRef(`tab-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
+  const [tabInstanceId] = useState(() => `tab-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
+  const tabInstanceIdRef = useRef(tabInstanceId);
   const broadcastRef = useRef<BroadcastChannel | null>(null);
   const [lastRealtimeSyncAt, setLastRealtimeSyncAt] = useState<string>(() => new Date().toISOString());
   const [offlineStatus, setOfflineStatus] = useState<OfflineSyncStatus>(() => getOfflineStatusSnapshot());

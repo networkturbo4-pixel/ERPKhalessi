@@ -62,6 +62,9 @@ export const PublicEmployeePortal: React.FC<PublicEmployeePortalProps> = ({
     }
   }, [currentUser, isRestrictedToSelf]);
 
+  const [currentPeriodLabel] = useState(() =>
+    new Date().toLocaleDateString('es-PE', { month: 'long', year: 'numeric' }).toUpperCase()
+  );
   const [activeTab, setActiveTab] = useState<'voucher' | 'movements' | 'profile' | 'schedule'>('voucher');
   const printAreaRef = useRef<HTMLDivElement>(null);
 
@@ -277,11 +280,10 @@ export const PublicEmployeePortal: React.FC<PublicEmployeePortalProps> = ({
             {/* =====================================================================
                 TAB 1: OFFICIAL PRINTABLE VOUCHER / BOLETA DE PAGO (PERÚ D.L. 728 / MYPE)
                ===================================================================== */}
-            {(activeTab === 'voucher' || true) && (
-              <div
-                ref={printAreaRef}
-                className={`${activeTab !== 'voucher' ? 'hidden print:block' : 'block'} saas-card !rounded-3xl p-6 sm:p-10 space-y-6 print:border-none print:shadow-none print:p-0 print:m-0 print:text-black bg-white dark:bg-[#18181c] print:bg-white`}
-              >
+            <div
+              ref={printAreaRef}
+              className={`${activeTab !== 'voucher' ? 'hidden print:block' : 'block'} saas-card !rounded-3xl p-6 sm:p-10 space-y-6 print:border-none print:shadow-none print:p-0 print:m-0 print:text-black bg-white dark:bg-[#18181c] print:bg-white`}
+            >
                 {/* VOUCHER HEADER */}
                 <div className="border-b-2 border-zinc-900 dark:border-zinc-700 print:border-black pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3.5">
@@ -317,7 +319,7 @@ export const PublicEmployeePortal: React.FC<PublicEmployeePortalProps> = ({
                       VOUCHER DE REMUNERACIÓN
                     </span>
                     <span className="text-xs font-mono text-zinc-600 dark:text-zinc-400 print:text-zinc-700 block">
-                      Periodo: {new Date().toLocaleDateString('es-PE', { month: 'long', year: 'numeric' }).toUpperCase()}
+                      Periodo: {currentPeriodLabel}
                     </span>
                   </div>
                 </div>
@@ -505,7 +507,6 @@ export const PublicEmployeePortal: React.FC<PublicEmployeePortalProps> = ({
                   </div>
                 </div>
               </div>
-            )}
 
             {/* =====================================================================
                 TAB 2: REGISTRO DE PAGOS & HISTORIAL DE MOVIMIENTOS

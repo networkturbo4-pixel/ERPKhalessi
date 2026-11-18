@@ -154,9 +154,13 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
 
   useEffect(() => {
     if (!currentCustomer && selectedPointsAccount) {
-      if (!customerName.trim()) setCustomerName(selectedPointsAccount.fullName);
-      if (!customerPhone.trim() && selectedPointsAccount.phone) setCustomerPhone(selectedPointsAccount.phone);
-      if (!customerEmail.trim() && selectedPointsAccount.email) setCustomerEmail(selectedPointsAccount.email);
+      setCustomerName(prev => (prev.trim() ? prev : selectedPointsAccount.fullName));
+      if (selectedPointsAccount.phone) {
+        setCustomerPhone(prev => (prev.trim() ? prev : selectedPointsAccount.phone));
+      }
+      if (selectedPointsAccount.email) {
+        setCustomerEmail(prev => (prev.trim() ? prev : selectedPointsAccount.email));
+      }
     }
   }, [currentCustomer, selectedPointsAccount]);
 
@@ -203,16 +207,6 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
       dialog.close();
     }
   }, [isAuthModalOpen]);
-
-  // Synchronize with active customer
-  useEffect(() => {
-    if (currentCustomer) {
-      if (!customerName) setCustomerName(currentCustomer.fullName || '');
-      if (!customerPhone) setCustomerPhone(currentCustomer.phone || '');
-      if (!customerEmail) setCustomerEmail(currentCustomer.email || '');
-      if (!invoiceDocument && currentCustomer.dni) setInvoiceDocument(currentCustomer.dni);
-    }
-  }, [currentCustomer]);
 
   // Delivery Specifics
   const [deliveryReference, setDeliveryReference] = useState('');
@@ -273,6 +267,18 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
   const [invoiceDocument, setInvoiceDocument] = useState(currentCustomer?.dni || '');
   const [invoiceBusinessName, setInvoiceBusinessName] = useState('');
   const [invoiceFiscalAddress, setInvoiceFiscalAddress] = useState('');
+
+  // Synchronize with active customer
+  useEffect(() => {
+    if (currentCustomer) {
+      setCustomerName(prev => prev || currentCustomer.fullName || '');
+      setCustomerPhone(prev => prev || currentCustomer.phone || '');
+      setCustomerEmail(prev => prev || currentCustomer.email || '');
+      if (currentCustomer.dni) {
+        setInvoiceDocument(prev => prev || currentCustomer.dni);
+      }
+    }
+  }, [currentCustomer]);
 
   // Coupon & Rewards
   const [couponCodeInput, setCouponCodeInput] = useState(initialCouponCode || '');

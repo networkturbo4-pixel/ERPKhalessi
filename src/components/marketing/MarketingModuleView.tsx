@@ -231,6 +231,7 @@ export const MarketingModuleView: React.FC = () => {
     }
   }, [automations]);
 
+  const [marketingNowMs] = useState(() => Date.now());
   const storeOrigin = useMemo(() => {
     if (typeof window !== 'undefined' && window.location?.origin) {
       return window.location.origin;
@@ -403,7 +404,7 @@ export const MarketingModuleView: React.FC = () => {
       registerLookup(existing.id, existing.phone, existing.email);
     }
 
-    const nowMs = Date.now();
+    const nowMs = marketingNowMs;
     const list: CustomerMarketingInsight[] = [];
 
     for (const acc of map.values()) {
@@ -462,7 +463,7 @@ export const MarketingModuleView: React.FC = () => {
     }
 
     return list.sort((a, b) => b.totalSpent - a.totalSpent || b.totalOrders - a.totalOrders);
-  }, [orders, products, customers, allCustomerAccounts, pushStats, activeTenant.id, storeOrigin]);
+  }, [orders, products, customers, allCustomerAccounts, pushStats, activeTenant.id, storeOrigin, marketingNowMs]);
 
   const filteredInsights = useMemo(() => {
     const q = clientSearch.trim().toLowerCase();

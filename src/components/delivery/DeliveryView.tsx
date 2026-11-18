@@ -107,9 +107,15 @@ export const DeliveryView: React.FC = () => {
     return found ? found.name.replace('Khalessi Pizza - ', '') : tenantId;
   };
 
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 30000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const getElapsedMinutes = (isoDate?: string) => {
     if (!isoDate) return 1;
-    return Math.max(1, Math.floor((Date.now() - new Date(isoDate).getTime()) / 60000));
+    return Math.max(1, Math.floor((nowMs - new Date(isoDate).getTime()) / 60000));
   };
 
   const cleanPhoneDigits = (phone: string) => {

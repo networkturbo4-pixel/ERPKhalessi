@@ -25,6 +25,8 @@ import {
   Share2,
 } from 'lucide-react';
 
+const createCartItemId = () => `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
 interface StoreProductDetailPageProps {
   product: Product;
   isLightTheme: boolean;
@@ -509,7 +511,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
     });
 
     const item: OrderItem = {
-      itemId: `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      itemId: createCartItemId(),
       productId: product.id,
       productName: product.name,
       productImage:

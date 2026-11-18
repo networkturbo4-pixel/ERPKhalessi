@@ -250,18 +250,22 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
     };
   }, [stationCashKey]);
 
-  // Live "ventas de hoy" per branch computed from real orders (updates in real time via SSE, no stale mock numbers)
-  const liveSalesByTenant = React.useMemo(() => {
+  const [todayStartMs] = useState(() => {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
+    return startOfToday.getTime();
+  });
+
+  // Live "ventas de hoy" per branch computed from real orders (updates in real time via SSE, no stale mock numbers)
+  const liveSalesByTenant = React.useMemo(() => {
     const totals: Record<string, number> = {};
     for (const o of orders) {
       if (o.status === 'cancelado') continue;
-      if (new Date(o.createdAt).getTime() < startOfToday.getTime()) continue;
+      if (new Date(o.createdAt).getTime() < todayStartMs) continue;
       totals[o.tenantId] = (totals[o.tenantId] || 0) + (o.total || 0);
     }
     return totals;
-  }, [orders]);
+  }, [orders, todayStartMs]);
 
   const [activeMainModule, setActiveMainModule] = useState<MainModuleId>(() => {
     try {

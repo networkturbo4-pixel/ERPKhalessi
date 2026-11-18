@@ -59,8 +59,14 @@ export const KitchenKDSView: React.FC = () => {
     return found ? found.name.replace('Khalessi Pizza - ', '') : tenantId;
   };
 
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 30000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const getElapsedMinutes = (createdAt: string) => {
-    const elapsedMs = Date.now() - new Date(createdAt).getTime();
+    const elapsedMs = nowMs - new Date(createdAt).getTime();
     return Math.max(1, Math.floor(elapsedMs / (1000 * 60)));
   };
 

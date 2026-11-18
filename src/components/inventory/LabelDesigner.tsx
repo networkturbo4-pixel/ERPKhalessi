@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { LabelConfig, LabelPreset, BarcodeSymbology } from '../../types/labels';
 import { InventoryItem, InventoryLot } from '../../types/inventory';
 import { printInventoryLabels } from '../../utils/labelPrinter';
-import { generateBarcodeSvg, generateQrDataUrl } from '../../utils/barcode';
+import { generateBarcodeDataUrl, generateQrDataUrl } from '../../utils/barcode';
 import { useSettings } from '../../context/SettingsContext';
 import { Printer, Sliders, X } from 'lucide-react';
 
@@ -44,10 +44,15 @@ export const LabelDesigner: React.FC<LabelDesignerProps> = ({
   const [showPriceOrCost, setShowPriceOrCost] = useState(false);
 
   // Live preview generators
-  const [previewBarcodeSvg, setPreviewBarcodeSvg] = useState<string>('');
   const [previewQrDataUrl, setPreviewQrDataUrl] = useState<string>('');
+  const [todayLabel] = useState(() => new Date().toLocaleDateString());
 
   const currentBranchName = tenants.find(t => t.id === activeTenant?.id)?.name || activeTenant?.name || 'Sede Principal';
+
+  const previewBarcodeDataUrl = useMemo(() => {
+    const code = lot ? lot.code : item.barcode || item.sku;
+    return generateBarcodeDataUrl(code, { height: heightMm <= 25 ? 24 : 32 });
+  }, [item, lot, heightMm]);
 
   // Update dimensions when changing preset
   const handlePresetChange = (p: LabelPreset) => {
@@ -59,15 +64,18 @@ export const LabelDesigner: React.FC<LabelDesignerProps> = ({
   };
 
   useEffect(() => {
-    const code = lot ? lot.code : item.barcode || item.sku;
-    setPreviewBarcodeSvg(generateBarcodeSvg(code, { height: heightMm <= 25 ? 24 : 32 }));
-
+    let cancelled = false;
     const qrData = lot
       ? JSON.stringify({ t: 'lot', c: lot.code, sku: item.sku, exp: lot.expiresAt })
       : JSON.stringify({ t: 'item', sku: item.sku, b: item.barcode });
 
-    generateQrDataUrl(qrData, 120).then(setPreviewQrDataUrl);
-  }, [item, lot, heightMm]);
+    generateQrDataUrl(qrData, 120).then(url => {
+      if (!cancelled) setPreviewQrDataUrl(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [item, lot]);
 
   if (!isOpen) return null;
 
@@ -281,7 +289,7 @@ export const LabelDesigner: React.FC<LabelDesignerProps> = ({
                   {showBranchName && <div><strong>SEDE:</strong> {currentBranchName}</div>}
                   {showSkuBarcode && <div><strong>SKU:</strong> {item.sku}</div>}
                   {showLotCode && lot && <div><strong>LOTE:</strong> {lot.code}</div>}
-                  {showProductionDate && <div><strong>ELAB:</strong> {new Date().toLocaleDateString()}</div>}
+                  {showProductionDate && <div><strong>ELAB:</strong> {todayLabel}</div>}
                   {showExpiryDate && (
                     <div className="font-bold text-black">
                       <strong>VENCE:</strong> {lot?.expiresAt ? new Date(lot.expiresAt).toLocaleDateString() : '30 DÍAS'}
@@ -297,11 +305,10 @@ export const LabelDesigner: React.FC<LabelDesignerProps> = ({
                 )}
               </div>
 
-              {(symbology === 'code128' || symbology === 'both') && previewBarcodeSvg && (
-                <div
-                  className="w-full flex justify-center mt-1"
-                  dangerouslySetInnerHTML={{ __html: previewBarcodeSvg }}
-                />
+              {(symbology === 'code128' || symbology === 'both') && previewBarcodeDataUrl && (
+                <div className="w-full flex justify-center mt-1">
+                  <img src={previewBarcodeDataUrl} alt="Barcode Preview" className="max-w-full h-auto" />
+                </div>
               )}
             </div>
 

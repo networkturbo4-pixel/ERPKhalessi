@@ -497,7 +497,7 @@ const DEFAULT_DRIVE_CONFIG: GoogleDriveConfig = {
 };
 
 const DEFAULT_GEMINI_CONFIG: GeminiAiConfig = {
-  apiKey: 'AIzaSyA88941_MockGeminiProKeySecret',
+  apiKey: 'DEMO_GEMINI_API_KEY_CONFIGURE_IN_SETTINGS',
   defaultModel: 'gemini-3.8-flash',
   temperature: 0.7,
   status: 'connected',

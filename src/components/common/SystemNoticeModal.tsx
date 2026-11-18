@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useId } from 'react';
+import React, { useEffect, useRef, useId, useCallback } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import {
   CheckCircle2,
@@ -13,10 +13,10 @@ export const SystemNoticeModal: React.FC = () => {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
 
-  const handleConfirm = async () => {
+  const handleConfirm = useCallback(async () => {
     await noticeModal?.onConfirm?.();
     closeNoticeModal();
-  };
+  }, [noticeModal, closeNoticeModal]);
 
   const handleCancel = () => {
     noticeModal?.onCancel?.();
@@ -40,7 +40,9 @@ export const SystemNoticeModal: React.FC = () => {
   // Registered in the CAPTURE phase on `document` so nested editors/dialogs that call
   // stopPropagation() on keydown (e.g. product editor, checkout drawer) can never swallow it.
   const confirmRef = useRef(handleConfirm);
-  confirmRef.current = handleConfirm;
+  useEffect(() => {
+    confirmRef.current = handleConfirm;
+  }, [handleConfirm]);
 
   useEffect(() => {
     if (!noticeModal) return;

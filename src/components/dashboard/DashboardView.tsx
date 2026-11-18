@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
 import { TabId } from '../../types/settings';
@@ -69,6 +69,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateToSettin
   const totalSalesToday = currentBranchProfile.salesTodaySoles + liveOrdersSales;
   const totalPizzasToday = currentBranchProfile.pizzasToday + livePizzasCount;
 
+  const [nowMs] = useState(() => Date.now());
+
   const liveOrdersKdsStream = useMemo(() => {
     if (scopedOrders.length === 0) return currentBranchProfile.liveOrders;
 
@@ -85,7 +87,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateToSettin
         else if (o.status === 'en_ruta') statusStr = 'En ruta';
         else if (o.status === 'entregado') statusStr = 'Entregado';
 
-        const diffMin = Math.max(1, Math.round((Date.now() - new Date(o.createdAt).getTime()) / 60000));
+        const diffMin = Math.max(1, Math.round((nowMs - new Date(o.createdAt).getTime()) / 60000));
         const itemsSummary = (o.items || []).map(i => `${i.quantity}x ${i.productName}`).join(' · ');
 
         return {
@@ -98,7 +100,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateToSettin
           timeAgo: `hace ${diffMin}m`,
         };
       });
-  }, [scopedOrders, tenants, currentBranchProfile.liveOrders]);
+  }, [scopedOrders, tenants, currentBranchProfile.liveOrders, nowMs]);
 
   const activeUsersInScope =
     branchScope === 'consolidated'

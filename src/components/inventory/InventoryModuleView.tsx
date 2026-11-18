@@ -49,6 +49,7 @@ export const InventoryModuleView: React.FC = () => {
   const { activeTenant, tenants, customization, dispatchToast, openNoticeModal } = useSettings();
   const { hasPermission } = useRBAC();
 
+  const [inventoryNowMs] = useState(() => Date.now());
   const [activeTab, setActiveTab] = useState<InventoryTabId>('stock');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -464,7 +465,7 @@ export const InventoryModuleView: React.FC = () => {
               <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
                 {lots.filter(l => l.quantity > 0).map(lot => {
                   const itm = items.find(i => i.id === lot.itemId);
-                  const isExp = lot.expiresAt && new Date(lot.expiresAt).getTime() < Date.now();
+                  const isExp = lot.expiresAt && new Date(lot.expiresAt).getTime() < inventoryNowMs;
 
                   return (
                     <tr key={lot.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-800/30 transition-colors">

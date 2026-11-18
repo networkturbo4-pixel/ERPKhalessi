@@ -757,7 +757,7 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme 
             }`}
           >
             <p className="text-center sm:text-left">
-              © {new Date().getFullYear()}{' '}
+              © {new Date(2026, 0, 1).getFullYear()}{' '}
               <strong className={isLight ? 'text-zinc-800 font-semibold' : 'text-zinc-200 font-semibold'}>
                 {companyInfo.commercialName}
               </strong>

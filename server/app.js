@@ -10,9 +10,77 @@ const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
 const MAX_CLIENTS = Number.parseInt(process.env.ERP_MAX_SSE_CLIENTS || '2000', 10);
+const MAX_CLIENTS_PER_IP = Number.parseInt(process.env.ERP_MAX_SSE_PER_IP || '30', 10);
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_REQ = Number.parseInt(process.env.ERP_RATE_LIMIT_PER_MIN || '120', 10);
 const MAX_BODY_BYTES = 5 * 1024 * 1024;
-const ALLOWED_ORIGIN = process.env.CORS_ALLOWED_ORIGIN || '*';
-const clients = new Map(); // clientId -> { res, branchId, connectedAt }
+const RAW_ALLOWED_ORIGIN = String(process.env.CORS_ALLOWED_ORIGIN || '').trim();
+const ALLOWED_ORIGINS = RAW_ALLOWED_ORIGIN
+  ? RAW_ALLOWED_ORIGIN.split(',').map(s => s.trim()).filter(Boolean)
+  : [];
+const clients = new Map(); // clientId -> { res, branchId, ip, connectedAt }
+const ipRateWindows = new Map(); // ip -> { count, resetAt }
+
+function getClientIp(req) {
+  const fwd = req.headers['x-forwarded-for'];
+  if (typeof fwd === 'string' && fwd.trim()) {
+    return fwd.split(',')[0].trim().slice(0, 64);
+  }
+  return String(req.socket?.remoteAddress || 'unknown').slice(0, 64);
+}
+
+function isLocalIp(ip) {
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+}
+
+function isRateLimited(ip) {
+  if (isLocalIp(ip)) return false;
+  const now = Date.now();
+  const entry = ipRateWindows.get(ip);
+  if (!entry || now >= entry.resetAt) {
+    ipRateWindows.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+  entry.count += 1;
+  return entry.count > RATE_LIMIT_MAX_REQ;
+}
+
+function countClientsForIp(ip) {
+  let count = 0;
+  for (const client of clients.values()) {
+    if (client.ip === ip) count += 1;
+  }
+  return count;
+}
+
+function resolveAllowedCorsOrigin(req) {
+  const reqOrigin = typeof req.headers.origin === 'string' ? req.headers.origin.trim() : '';
+  if (ALLOWED_ORIGINS.includes('*')) {
+    return '*';
+  }
+  if (ALLOWED_ORIGINS.length > 0) {
+    return reqOrigin && ALLOWED_ORIGINS.includes(reqOrigin) ? reqOrigin : '';
+  }
+  // Sin CORS_ALLOWED_ORIGIN explícito: permitir únicamente mismo origen (host == origin host)
+  if (reqOrigin && req.headers.host) {
+    try {
+      const originHost = new URL(reqOrigin).host;
+      if (originHost === req.headers.host) {
+        return reqOrigin;
+      }
+    } catch {
+      return '';
+    }
+  }
+  return '';
+}
+
+function applySecurityHeaders(res) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+}
 
 function safeTokenEquals(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length === 0 || b.length === 0) {
@@ -24,9 +92,15 @@ function safeTokenEquals(a, b) {
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
-// Heartbeat cada 20 segundos
+// Heartbeat cada 20 segundos y limpieza de ventanas de rate limit expiradas
 const heartbeatTimer = setInterval(() => {
-  const pingData = `: ping ${Date.now()}\n\n`;
+  const now = Date.now();
+  for (const [ip, entry] of ipRateWindows.entries()) {
+    if (now >= entry.resetAt) {
+      ipRateWindows.delete(ip);
+    }
+  }
+  const pingData = `: ping ${now}\n\n`;
   for (const [clientId, client] of clients.entries()) {
     try {
       client.res.write(pingData);
@@ -40,11 +114,19 @@ heartbeatTimer.unref();
 const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url || '/', true);
   const pathname = (parsedUrl.pathname || '/').toLowerCase().replace(/\/+$/, '') || '/';
+  const clientIp = getClientIp(req);
 
-  // Cabeceras CORS globales
-  res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Id, X-ERP-Token');
+  // Cabeceras de seguridad y CORS restrictivo
+  applySecurityHeaders(res);
+  const corsOrigin = resolveAllowedCorsOrigin(req);
+  if (corsOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', corsOrigin);
+    if (corsOrigin !== '*') {
+      res.setHeader('Vary', 'Origin');
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Id, X-ERP-Token');
+  }
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -52,9 +134,33 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  const isBroadcastRoute = (pathname === '/broadcast' || pathname === '/realtime/broadcast') && req.method === 'POST';
+  if (!isBroadcastRoute && isRateLimited(clientIp)) {
+    res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '60' });
+    res.end(JSON.stringify({ success: false, error: 'Too many requests' }));
+    return;
+  }
+
   // 1. CANAL SSE STREAMING (rutas exactas)
   if ((pathname === '/stream' || pathname === '/realtime/stream') && req.method === 'GET') {
-    if (clients.size >= MAX_CLIENTS) {
+    const streamTokenSecret = String(
+      process.env.ERP_STREAM_TOKEN ||
+      (process.env.ERP_SSE_REQUIRE_TOKEN === 'true' ? process.env.ERP_REALTIME_SECRET || '' : '')
+    ).trim();
+    if (streamTokenSecret) {
+      const providedStreamToken = String(
+        parsedUrl.query.token || req.headers['x-erp-token'] || req.headers['authorization'] || ''
+      )
+        .replace(/^Bearer\s+/i, '')
+        .trim();
+      if (!safeTokenEquals(providedStreamToken, streamTokenSecret)) {
+        res.writeHead(401, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Unauthorized SSE stream' }));
+        return;
+      }
+    }
+
+    if (clients.size >= MAX_CLIENTS || countClientsForIp(clientIp) >= MAX_CLIENTS_PER_IP) {
       res.writeHead(503, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ success: false, error: 'Too many active SSE connections' }));
       return;
@@ -85,7 +191,7 @@ const server = http.createServer((req, res) => {
     // Enviar frame de conexión
     res.write(`data: ${JSON.stringify({ action: 'connected', clientId, connectedAt: new Date().toISOString() })}\n\n`);
 
-    clients.set(clientId, { res, branchId, connectedAt: Date.now() });
+    clients.set(clientId, { res, branchId, ip: clientIp, connectedAt: Date.now() });
 
     const cleanup = () => {
       const current = clients.get(clientId);
