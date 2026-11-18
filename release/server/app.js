@@ -30,7 +30,7 @@ const heartbeatTimer = setInterval(() => {
   for (const [clientId, client] of clients.entries()) {
     try {
       client.res.write(pingData);
-    } catch (err) {
+    } catch  {
       clients.delete(clientId);
     }
   }
@@ -60,9 +60,9 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    const rawClientId = String(parsedUrl.query.clientId || '').replace(/[^A-Za-z0-9_\-]/g, '').slice(0, 64);
+    const rawClientId = String(parsedUrl.query.clientId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
     const clientId = rawClientId || `cli_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-    const branchId = String(parsedUrl.query.branchId || 'all').replace(/[^A-Za-z0-9_\-]/g, '').slice(0, 64) || 'all';
+    const branchId = String(parsedUrl.query.branchId || 'all').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64) || 'all';
 
     // Cerrar conexión anterior si el mismo clientId se reconecta
     const existingClient = clients.get(clientId);
@@ -158,14 +158,14 @@ const server = http.createServer((req, res) => {
           try {
             client.res.write(rawMessage);
             delivered++;
-          } catch (err) {
+          } catch  {
             clients.delete(clientId);
           }
         }
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, delivered, totalClients: clients.size }));
-      } catch (err) {
+      } catch  {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
       }

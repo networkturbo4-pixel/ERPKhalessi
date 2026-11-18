@@ -1,8 +1,8 @@
 {
-  "buildId": "20261118034201",
-  "builtAt": "2026-11-18T03:42:01.314Z",
-  "commitSha": "6754518",
-  "message": "fix(auth): secreto de token estable cuando .token_secret.php no es escribible; motivo en escrituras ignoradas",
+  "buildId": "20261118035301",
+  "builtAt": "2026-11-18T03:53:01.517Z",
+  "commitSha": "b451d97",
+  "message": "chore(lint): limpiar imports, variables sin usar y ajustes menores en servidor y vite",
   "totalFiles": 104,
-  "manifestSha256": "6406ba1a9427c4ad57fd44a80aa030b8c1184c1937dce11ff71b36b6d685a125"
+  "manifestSha256": "b746478a1a45a60a19180bcc0f8735250923dc9d65290443ae2155efe55f9160"
 }

@@ -1,8 +1,8 @@
 {
-  "buildId": "20261118034201",
-  "builtAt": "2026-11-18T03:42:01.314Z",
-  "commitSha": "6754518",
-  "message": "fix(auth): secreto de token estable cuando .token_secret.php no es escribible; motivo en escrituras ignoradas",
+  "buildId": "20261118035301",
+  "builtAt": "2026-11-18T03:53:01.517Z",
+  "commitSha": "b451d97",
+  "message": "chore(lint): limpiar imports, variables sin usar y ajustes menores en servidor y vite",
   "totalFiles": 104,
   "files": [
     {
@@ -512,8 +512,8 @@
     },
     {
       "path": "server/app.js",
-      "sha256": "471d3debab7f401cb06a2cacbc4d323db1ddb4e2e16394f9800c329a2e350cc1",
-      "size": 7228
+      "sha256": "634f30b4ea63f0a06ac7b260ffcbcadaf752b7d308dd6c7dfea0f9ae01e4c6d3",
+      "size": 7211
     },
     {
       "path": "server/package.json",
