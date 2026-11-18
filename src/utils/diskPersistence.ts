@@ -44,6 +44,23 @@ const SERVER_SYNC_KEYS = [
   'khalessi_delivery_fuel_v1',
   'khalessi_erp_finance_expenses_v1',
   'khalessi_erp_cash_closings_v1',
+  'kh_inv_audits_v1',
+  'kh_inv_items_v1',
+  'kh_inv_lots_v1',
+  'kh_inv_movements_v1',
+  'kh_inv_purchases_v1',
+  'kh_inv_recipes_v1',
+  'kh_inv_settings_v1',
+  'kh_inv_stock_v1',
+  'kh_inv_suppliers_v1',
+  'kh_inv_transfers_v1',
+  'kh_media_gallery_v1',
+  'kh_label_config_v1',
+  'kh_marketing_automations_v1',
+  'khalessi_loyalty_v1',
+  'kh_facturalo_api_config_v1',
+  'kh_reniec_api_config',
+  'khalessi_mapbox_settings_v1',
 ];
 
 const SERVER_SYNC_SET = new Set<string>(SERVER_SYNC_KEYS);
@@ -536,6 +553,23 @@ function enqueueServerSync(
             failedSyncValues.delete(key);
           }
           if (resJson?.ignored) {
+            // El servidor descartó la escritura (sin token válido). Reautenticar y reintentar una vez;
+            // si sigue sin aceptarla, conservarla como pendiente para que se reenvíe después.
+            const onAdminSurface =
+              originalGetItemFn?.('khalessi_erp_auth_v1') === 'authenticated' && isErpAdminSurface();
+            if (!isPublicWritable && onAdminSurface) {
+              const activePin = resolveAuthenticatedUserPin();
+              if (activePin && (await authenticateServer(activePin, true))) {
+                const retry = await doPost(true);
+                const retryJson = retry.ok ? await retry.json().catch(() => null) : null;
+                if (retry.ok && !retryJson?.ignored) {
+                  if (memoryMirror.get(key) === op.value) failedSyncValues.delete(key);
+                  return;
+                }
+              }
+              failedSyncValues.set(key, op);
+              void saveOfflineSnapshot(key, op.value);
+            }
             console.warn(`[Storage] Server ignored write for key "${key}" (check auth or server allowlist).`);
             return;
           }

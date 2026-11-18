@@ -1,8 +1,8 @@
 {
-  "buildId": "20261117044056",
-  "builtAt": "2026-11-17T04:40:56.870Z",
-  "commitSha": "e1c03b8",
-  "message": "feat(bot): soporte completo de reglas de modificadores (multiple, incluido, ocultar precio, condicional y sub-opciones anidadas)",
+  "buildId": "20261118032639",
+  "builtAt": "2026-11-18T03:26:39.966Z",
+  "commitSha": "f721df1",
+  "message": "chore(release): release 20261117044056",
   "totalFiles": 104,
-  "manifestSha256": "e6ec7511f28470f6c59ef28bbf924e7338a0a7e9602a52b7fea36ec7e74a077f"
+  "manifestSha256": "377f438186e6cff783776e4d7d0411fb1c2e46a56536a99dc0ade80eec4d01ef"
 }

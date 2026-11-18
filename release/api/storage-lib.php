@@ -22,6 +22,23 @@ const KH_SYNC_KEYS = [
     'khalessi_delivery_fuel_v1',
     'khalessi_erp_finance_expenses_v1',
     'khalessi_erp_cash_closings_v1',
+    'kh_inv_audits_v1',
+    'kh_inv_items_v1',
+    'kh_inv_lots_v1',
+    'kh_inv_movements_v1',
+    'kh_inv_purchases_v1',
+    'kh_inv_recipes_v1',
+    'kh_inv_settings_v1',
+    'kh_inv_stock_v1',
+    'kh_inv_suppliers_v1',
+    'kh_inv_transfers_v1',
+    'kh_media_gallery_v1',
+    'kh_label_config_v1',
+    'kh_marketing_automations_v1',
+    'khalessi_loyalty_v1',
+    'kh_facturalo_api_config_v1',
+    'kh_reniec_api_config',
+    'khalessi_mapbox_settings_v1',
 ];
 
 // Claves que terminales operativas y tienda pueden LEER (ajustes siempre sanitizado sin claves ni PINs)
