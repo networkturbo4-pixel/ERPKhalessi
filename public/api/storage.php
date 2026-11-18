@@ -246,7 +246,7 @@ if ($method === 'POST' || $method === 'DELETE') {
     }
 
     if ($admin === null && !$isPublicWritable) {
-        sendResponse(['success' => true, 'ignored' => true]);
+        sendResponse(['success' => true, 'ignored' => true, 'reason' => $token === '' ? 'no-token' : 'invalid-token']);
     }
 
     if ($method === 'DELETE') {

@@ -1,8 +1,8 @@
 {
-  "buildId": "20261118032639",
-  "builtAt": "2026-11-18T03:26:39.966Z",
-  "commitSha": "f721df1",
-  "message": "chore(release): release 20261117044056",
+  "buildId": "20261118033731",
+  "builtAt": "2026-11-18T03:37:31.948Z",
+  "commitSha": "cfa7c4e",
+  "message": "fix(sync): sincronizar inventario/galeria/config y reintentar escrituras ignoradas por el servidor (foto de perfil)",
   "totalFiles": 104,
-  "manifestSha256": "377f438186e6cff783776e4d7d0411fb1c2e46a56536a99dc0ade80eec4d01ef"
+  "manifestSha256": "94346c1bffdd231ebf8679958a823d49a6d90383278289d4e786928d903d3330"
 }

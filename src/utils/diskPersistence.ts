@@ -570,7 +570,7 @@ function enqueueServerSync(
               failedSyncValues.set(key, op);
               void saveOfflineSnapshot(key, op.value);
             }
-            console.warn(`[Storage] Server ignored write for key "${key}" (check auth or server allowlist).`);
+            console.warn(`[Storage] Server ignored write for key "${key}" (check auth or server allowlist). Motivo: ${resJson?.reason || 'desconocido'}`);
             return;
           }
 

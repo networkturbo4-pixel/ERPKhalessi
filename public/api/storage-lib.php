@@ -140,7 +140,11 @@ function tokenSecret(): string {
         }
     }
     $generated = bin2hex(random_bytes(32));
-    @file_put_contents($secretFile, "<?php\nreturn " . var_export($generated, true) . ";\n", LOCK_EX);
+    if (@file_put_contents($secretFile, "<?php\nreturn " . var_export($generated, true) . ";\n", LOCK_EX) === false) {
+        // Sin permiso de escritura: secreto estable derivado de las credenciales de BD (evita tokens que nunca validan)
+        $seed = (defined('DB_NAME') ? DB_NAME : '') . '|' . (defined('DB_USER') ? DB_USER : '') . '|' . (defined('DB_PASS') ? DB_PASS : '');
+        if ($seed !== '||') return hash_hmac('sha256', 'khalessi-token-v1', $seed);
+    }
     return $generated;
 }
 
