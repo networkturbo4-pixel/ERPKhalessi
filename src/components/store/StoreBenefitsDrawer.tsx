@@ -5,7 +5,6 @@ import {
   Sparkles,
   Ticket,
   X,
-  Star,
   Copy,
 } from 'lucide-react';
 import { useBenefits } from '../../context/BenefitsContext';

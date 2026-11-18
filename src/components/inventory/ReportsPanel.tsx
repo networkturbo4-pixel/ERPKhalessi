@@ -1,7 +1,7 @@
 import React from 'react';
 import { useInventory } from '../../context/InventoryContext';
 import { useSettings } from '../../context/SettingsContext';
-import { BarChart3, TrendingDown, PieChart, AlertTriangle, Layers, DollarSign } from 'lucide-react';
+import { BarChart3, TrendingDown, AlertTriangle, Layers, DollarSign } from 'lucide-react';
 
 export const ReportsPanel: React.FC = () => {
   const { movements, items, stockLevels, lots } = useInventory();

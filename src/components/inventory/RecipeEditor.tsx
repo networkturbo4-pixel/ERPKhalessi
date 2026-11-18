@@ -4,7 +4,7 @@ import { useOrderCatalog } from '../../context/OrderCatalogContext';
 import { useSettings } from '../../context/SettingsContext';
 import { Recipe, RecipeLine } from '../../types/inventory';
 import { resolveRecipeLines, calculateRecipeCostAndMargin } from '../../utils/inventoryEngine';
-import { ChefHat, Plus, Trash2, Scale, Percent, AlertTriangle, Sparkles, Check, ArrowRight } from 'lucide-react';
+import { ChefHat, Plus, Trash2, Scale, Percent, AlertTriangle, Sparkles, Check } from 'lucide-react';
 
 export const RecipeEditor: React.FC = () => {
   const { recipes, saveRecipe, deleteRecipe, items, stockLevels } = useInventory();

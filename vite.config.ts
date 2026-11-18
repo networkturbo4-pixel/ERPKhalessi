@@ -135,7 +135,7 @@ function diskStoragePlugin(): Plugin {
           }
 
           const sanitizeId = (val: string) =>
-            val.replace(/[^A-Za-z0-9_.\-]/g, '_').replace(/^_+|_+$/g, '').slice(0, 64) || 'item'
+            val.replace(/[^A-Za-z0-9_.-]/g, '_').replace(/^_+|_+$/g, '').slice(0, 64) || 'item'
 
           if (req.method === 'GET') {
             const sa = findServiceAccount()

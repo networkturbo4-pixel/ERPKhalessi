@@ -33,7 +33,6 @@ import {
   Layers,
   Power,
   ExternalLink,
-  ShieldCheck,
 } from 'lucide-react';
 
 export const CompanyTab: React.FC = () => {

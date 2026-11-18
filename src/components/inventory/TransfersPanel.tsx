@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { useInventory } from '../../context/InventoryContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useRBAC } from '../../context/RBACContext';
-import { StockTransfer } from '../../types/inventory';
-import { ArrowLeftRight, Send, CheckCircle, PackageCheck, Clock, MapPin } from 'lucide-react';
+import { ArrowLeftRight, Send, PackageCheck, MapPin } from 'lucide-react';
 
 export const TransfersPanel: React.FC = () => {
   const { transfers, createStockTransfer, shipTransfer, receiveTransfer, items, getItemStock } = useInventory();

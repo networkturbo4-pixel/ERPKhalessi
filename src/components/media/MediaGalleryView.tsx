@@ -13,7 +13,6 @@ import {
   FileImage,
   X,
   HardDrive,
-  Filter,
 } from 'lucide-react';
 import { useMediaGallery, MediaItem } from '../../context/MediaGalleryContext';
 import { useSettings } from '../../context/SettingsContext';

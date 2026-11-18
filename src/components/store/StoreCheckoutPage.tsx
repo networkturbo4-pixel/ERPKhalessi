@@ -1,4 +1,4 @@
-import React, { useState, useId, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Tenant, CompanyInfo, TenantCustomization } from '../../types/settings';
 import { OrderItem, PaymentMethod } from '../../types/catalog';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
@@ -7,8 +7,8 @@ import { useBenefits } from '../../context/BenefitsContext';
 import { PointReward } from '../../types/benefits';
 import { useSettings } from '../../context/SettingsContext';
 import { lookupPersonByDni } from '../../utils/dniLookup';
-import { lookupRucFacturalo, lookupDniFacturalo, emitInvoiceFacturalo } from '../../utils/facturaloApi';
-import { isRealCulqiPublicKey, openOfficialCulqiCheckout, resolveCulqiPublicKey } from '../../utils/culqiCheckout';
+import { lookupRucFacturalo, emitInvoiceFacturalo } from '../../utils/facturaloApi';
+import { isRealCulqiPublicKey, openOfficialCulqiCheckout } from '../../utils/culqiCheckout';
 import {
   ArrowLeft,
   ShieldCheck,
@@ -18,13 +18,10 @@ import {
   CreditCard,
   Banknote,
   QrCode,
-  FileText,
   CheckCircle2,
   Clock,
-  Flame,
   AlertTriangle,
   Sparkles,
-  Tag,
   Gift,
   User,
   Phone,
@@ -32,9 +29,7 @@ import {
   Lock,
   Eye,
   EyeOff,
-  ChevronRight,
   ShoppingBag,
-  ExternalLink,
   X,
   Search,
   Building2,

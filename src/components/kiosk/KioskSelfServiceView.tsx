@@ -24,7 +24,6 @@ const StoreOrderBotDrawer = lazy(() =>
 import {
   UtensilsCrossed,
   ShoppingBag,
-  Sparkles,
   Flame,
   Plus,
   Minus,

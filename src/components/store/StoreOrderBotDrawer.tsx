@@ -4,7 +4,6 @@ import {
   X,
   Send,
   Plus,
-  SlidersHorizontal,
   ShoppingBag,
   Bot,
   CheckCircle2,

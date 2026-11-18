@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useInventory } from '../../context/InventoryContext';
 import { useSettings } from '../../context/SettingsContext';
-import { PurchaseOrder, Supplier } from '../../types/inventory';
+import { PurchaseOrder } from '../../types/inventory';
 import { calculateReplenishmentSuggestion } from '../../utils/inventoryEngine';
-import { ShoppingCart, Plus, CheckCircle, Truck, Calendar, Clock, DollarSign, ArrowUpRight, AlertCircle, FileText } from 'lucide-react';
+import { Plus, Truck, Clock, ArrowUpRight, FileText } from 'lucide-react';
 
 export const PurchasesPanel: React.FC = () => {
   const {

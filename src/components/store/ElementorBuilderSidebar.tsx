@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useStoreBuilder } from '../../context/StoreBuilderContext';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
 import { useSettings } from '../../context/SettingsContext';
-import { STORE_CATEGORIES, getStoreCategories } from './StorefrontWidgets';
+import { getStoreCategories } from './StorefrontWidgets';
 import {
   StoreBlock,
   StoreBlockType,

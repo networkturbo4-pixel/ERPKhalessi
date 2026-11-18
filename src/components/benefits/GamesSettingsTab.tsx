@@ -1,19 +1,15 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   Gamepad2,
   Sparkles,
   Plus,
   Trash2,
   Edit3,
-  Check,
   X,
   RotateCw,
   Trophy,
-  Palette,
   Sliders,
-  Settings,
   AlertCircle,
-  HelpCircle,
 } from 'lucide-react';
 import { useBenefits } from '../../context/BenefitsContext';
 import { useSettings } from '../../context/SettingsContext';

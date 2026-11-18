@@ -1,11 +1,8 @@
 import {
   resolveRecipeLines,
-  explodeOrderItem,
   allocateFEFO,
   calculateWeightedAvgCost,
-  calculateRecipeCostAndMargin,
   calculateReplenishmentSuggestion,
-  categorizeExpiringLots,
 } from '../src/utils/inventoryEngine.ts';
 
 console.log('🧪 Iniciando verificación del motor de Inventario y Recetas...');

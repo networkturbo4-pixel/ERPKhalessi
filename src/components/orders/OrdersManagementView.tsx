@@ -23,7 +23,6 @@ import {
   Printer,
   Flame,
   Camera,
-  Calendar,
   UserCheck,
   Filter,
   RotateCcw,

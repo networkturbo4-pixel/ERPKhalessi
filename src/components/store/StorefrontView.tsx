@@ -109,7 +109,6 @@ import {
   Store,
   ChevronDown,
   Bike,
-  PackageCheck,
   LocateFixed,
   Receipt,
   Star,
@@ -120,7 +119,6 @@ import {
   AlertTriangle,
   FileText,
   Bell,
-  MessageCircle,
 } from 'lucide-react';
 
 interface StorefrontViewProps {

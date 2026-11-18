@@ -23,9 +23,8 @@ import {
   allocateFEFO,
   calculateWeightedAvgCost,
   categorizeExpiringLots,
-  checkProductsStockAvailability,
 } from '../utils/inventoryEngine';
-import { generateSku, generateLotCode } from '../utils/barcode';
+import { generateLotCode } from '../utils/barcode';
 
 // Default seeded items for Italian Craft Pizzeria
 const DEFAULT_ITEMS: InventoryItem[] = [

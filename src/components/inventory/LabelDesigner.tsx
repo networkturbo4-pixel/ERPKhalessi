@@ -4,7 +4,7 @@ import { InventoryItem, InventoryLot } from '../../types/inventory';
 import { printInventoryLabels } from '../../utils/labelPrinter';
 import { generateBarcodeSvg, generateQrDataUrl } from '../../utils/barcode';
 import { useSettings } from '../../context/SettingsContext';
-import { Printer, Settings2, Sliders, X, CheckCircle2 } from 'lucide-react';
+import { Printer, Sliders, X } from 'lucide-react';
 
 interface LabelDesignerProps {
   item: InventoryItem;

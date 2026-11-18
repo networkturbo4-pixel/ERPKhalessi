@@ -10,7 +10,6 @@ import {
   Bike,
   AlertTriangle,
   Loader2,
-  Store,
 } from 'lucide-react';
 import { DeliveryTariffConfig } from '../../types/settings';
 import { calculateDynamicDeliveryFee } from '../../utils/culqiCheckout';

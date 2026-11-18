@@ -23,7 +23,6 @@ import {
   Save,
   MapPin,
   Receipt,
-  Building2,
   Search,
   ExternalLink,
   Copy,

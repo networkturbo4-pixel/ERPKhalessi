@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, Upload, Check, X, AlertCircle, RefreshCw } from 'lucide-react';
+import { Camera, Check, X, AlertCircle, RefreshCw } from 'lucide-react';
 import { compressPhotoEvidence } from '../../utils/imageCompressor';
 
 interface ProofPhotoCaptureModalProps {

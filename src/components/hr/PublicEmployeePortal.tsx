@@ -1,29 +1,22 @@
-import React, { useState, useEffect, useRef, useId } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { useRBAC } from '../../context/RBACContext';
 import { useHR, SHIFT_META } from '../../context/HRContext';
 import { User } from '../../types/settings';
 import { ToastContainer } from '../common/ToastContainer';
 import {
-  FileText,
   User as UserIcon,
   Cake,
   Calendar,
-  DollarSign,
   Download,
   Printer,
-  ShieldCheck,
   Store,
-  Clock,
   CheckCircle2,
   ArrowLeft,
   Search,
-  ExternalLink,
   Receipt,
   Wallet,
-  Building2,
   Phone,
-  Mail,
   CreditCard,
   HeartPulse,
 } from 'lucide-react';

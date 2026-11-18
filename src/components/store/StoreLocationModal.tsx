@@ -13,13 +13,10 @@ import {
   Clock,
   CheckCircle2,
   ChevronRight,
-  ExternalLink,
   MapPin,
   Compass,
   AlertCircle,
-  Plus,
-  Minus,
-  Sparkles
+  Minus
 } from 'lucide-react';
 
 interface StoreLocationModalProps {

@@ -22,7 +22,6 @@ import {
   TrendingUp,
   FileText,
   CheckCircle2,
-  ExternalLink,
 } from 'lucide-react';
 import { emitInvoiceFacturalo, FacturaloEmissionResult } from '../../utils/facturaloApi';
 

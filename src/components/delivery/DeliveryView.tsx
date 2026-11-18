@@ -21,7 +21,6 @@ import {
   User,
   Compass,
   Camera,
-  Image as ImageIcon,
 } from 'lucide-react';
 
 type MobileDeliveryTab = 'listo' | 'en_ruta' | 'cocina' | 'entregado';

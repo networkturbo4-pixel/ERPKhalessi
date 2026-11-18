@@ -2,16 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Sparkles,
   Trophy,
-  Gift,
   RotateCcw,
   CheckCircle2,
-  Volume2,
   VolumeX,
   Puzzle,
-  Play,
   ArrowRight,
 } from 'lucide-react';
-import { useBenefits } from '../../context/BenefitsContext';
 import { useStoreCustomer } from '../../context/StoreCustomerContext';
 import { useSettings } from '../../context/SettingsContext';
 

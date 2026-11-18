@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { X, ZoomIn, Download, ExternalLink } from 'lucide-react';
+import { X, ZoomIn, Download } from 'lucide-react';
 
 interface ImageLightboxModalProps {
   isOpen: boolean;

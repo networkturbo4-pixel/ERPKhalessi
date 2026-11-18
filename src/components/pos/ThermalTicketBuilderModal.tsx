@@ -16,11 +16,9 @@ import {
   Check,
   Sliders,
   QrCode,
-  Wifi,
   Store,
   Eye,
   Layers,
-  Sparkles,
 } from 'lucide-react';
 
 interface ThermalTicketBuilderModalProps {
