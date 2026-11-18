@@ -4,7 +4,7 @@ import { useHR } from '../../context/HRContext';
 import { User } from '../../types/settings';
 import { AttendanceEventType } from '../../types/hr';
 import { soundSynth } from '../../utils/audio';
-import { authenticateAndHydrateServer } from '../../utils/diskPersistence';
+import { authenticateAndHydrateServer, authenticateServer } from '../../utils/diskPersistence';
 import { ToastContainer } from '../common/ToastContainer';
 import { SystemNoticeModal } from '../common/SystemNoticeModal';
 import {
@@ -49,6 +49,7 @@ export const LoginScreen: React.FC<{ onNavigateToStore?: () => void }> = ({ onNa
     verifyLoginCredentials,
     completeAuthenticatedSession,
     logAuditEvent,
+    dispatchToast,
   } = useSettings();
 
   const {
@@ -172,6 +173,18 @@ export const LoginScreen: React.FC<{ onNavigateToStore?: () => void }> = ({ onNa
       setErrorMsg(credResult.error || 'Credencial inválida.');
       inputRef.current?.focus();
       return;
+    }
+
+    // Validación local correcta: igualmente pedir token al servidor para que los cambios se sincronicen.
+    if (credResult.ok && credResult.user) {
+      const serverOk = await authenticateServer(clean, true);
+      if (!serverOk) {
+        dispatchToast(
+          'Usuario sin sincronizar',
+          'Este PIN no está registrado en el servidor: tus cambios solo se guardarán en este equipo. Pide a otro administrador que edite o vuelva a crear tu usuario.',
+          'warning'
+        );
+      }
     }
 
     if (matchedUser.status === 'suspended') {
