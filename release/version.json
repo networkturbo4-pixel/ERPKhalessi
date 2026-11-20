@@ -1,8 +1,8 @@
 {
-  "buildId": "20261120030442",
-  "builtAt": "2026-11-20T03:04:42.247Z",
-  "commitSha": "03ea07b",
-  "message": "feat(storefront,pos,modules): actualizar diseño storefront, operaciones POS y módulos de facturación y reservas",
-  "totalFiles": 108,
-  "manifestSha256": "32604e90f9a36e12f6fc51fa0c39381e97392cae5e012b6b25bbb14f895c4df4"
+  "buildId": "20261120032121",
+  "builtAt": "2026-11-20T03:21:21.139Z",
+  "commitSha": "27868a5",
+  "message": "feat(storefront): personalizar colores, textos y visibilidad de cabecera y footer del theme",
+  "totalFiles": 109,
+  "manifestSha256": "d65810693a4b2732d95f9f2349e0f1d1b9e683280ea7b811771fb2ddb9e6f944"
 }
