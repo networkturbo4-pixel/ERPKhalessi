@@ -34,6 +34,7 @@ import { ToastContainer } from '../common/ToastContainer';
 import { SystemNoticeModal } from '../common/SystemNoticeModal';
 import { StorefrontSkeleton } from '../common/AppSurfaceSkeleton';
 import { StoreBlockRenderer, getStoreCategories } from './StorefrontWidgets';
+import { StorefrontThemeHeader } from './StorefrontThemeHeader';
 import { StoreAccountMenu } from './StoreAccountMenu';
 
 const loadStoreProductDetailPage = () =>
@@ -331,6 +332,8 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
 
   const effectiveViewport: BuilderViewport = isBuilderOpen ? previewViewport : windowViewport;
   const isLightTheme = activeTemplate.themeMode === 'light';
+  const headerVariant = activeTemplate.headerVariant || 'default';
+  const footerVariant = activeTemplate.footerVariant || 'default';
 
   // Si la plantilla activa tiene el color ámbar predeterminado (#f59e0b) o está vacía,
   // hereda dinámicamente el color primario de marca configurado en el ERP
@@ -1374,6 +1377,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
   const renderBlockContent = (block: StoreBlock, idx = 0) => (
     <StoreBlockRenderer
       block={block}
+      isBuilderMode={isBuilderOpen}
       index={idx}
       viewport={effectiveViewport}
       themeMode={activeTemplate.themeMode}
@@ -1489,8 +1493,10 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     ) : (
       <div
         style={storeThemeVars}
-        className={`min-h-dvh flex flex-col font-sans transition-colors ${
-          isLightTheme
+        className={`min-h-dvh w-full max-w-full overflow-x-clip flex flex-col font-sans transition-colors ${
+          headerVariant === 'flame_grill'
+            ? 'bg-[#F5EBDC] text-[#502314] selection:bg-[#D62300] selection:text-white'
+            : isLightTheme
             ? 'bg-zinc-50 text-zinc-900 selection:bg-amber-500 selection:text-white'
             : 'bg-neutral-950 text-neutral-100 selection:bg-amber-500 selection:text-neutral-950'
         } ${!isBuilderOpen ? 'pb-24 lg:pb-0' : ''}`}
@@ -1516,7 +1522,31 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
           </div>
         )}
 
-        {/* 1. Responsive 3-Tier App Header (Mobile / Tablet / Desktop PC) */}
+        {/* 1. Responsive App Header (Theme-Specific Structural Layout or Default) */}
+        {headerVariant !== 'default' ? (
+          <StorefrontThemeHeader
+            variant={headerVariant}
+            logoUrl={headerLogoUrl}
+            brandName={companyInfo.commercialName || customization.appName || 'Pizza Khalessi'}
+            phone={activeTenant.operations?.phone || companyInfo.phone}
+            branchName={activeTenant.name.replace('Khalessi Pizza - ', '')}
+            deliveryAddress={deliveryAddress || activeTenant.operations?.address}
+            cartTotal={cartSubtotal}
+            cartUnits={totalCartUnits}
+            customerName={currentCustomer?.fullName}
+            showCartButton={activeTemplate.showHeaderCartButton !== false}
+            onGoHome={() => navigateToCategory('todos')}
+            onSelectCategory={(cat) => navigateToCategory(cat)}
+            onOpenSearch={() => setIsSearchOpen(true)}
+            onOpenLocation={() => setIsLocationModalOpen(true)}
+            onOpenAccount={() => setIsProfileOpen(true)}
+            onOpenCart={() => setIsCartOpen(true)}
+            onOpenOrders={() => setIsOrdersOpen(true)}
+            onOpenBenefits={() => setIsBenefitsOpen(true)}
+            onToggleBuilder={() => setIsBuilderOpen(!isBuilderOpen)}
+            canEditBuilder={Boolean(isAuthenticated && onNavigateToAdmin)}
+          />
+        ) : (
         <header
           className={`sticky top-0 z-30 border-b px-3.5 sm:px-6 lg:px-8 py-2 sm:py-2.5 transition-colors ${
             isLightTheme
@@ -1799,9 +1829,10 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
             </div>
           </div>
         </header>
+        )}
 
         {/* 2. Dynamic Elementor Block Canvas + Live Order Tracker */}
-        <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-3.5 sm:pt-5 pb-28 lg:pb-14 w-full space-y-4 flex-1">
+        <main className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pt-3.5 sm:pt-5 pb-28 lg:pb-14 w-full min-w-0 space-y-4 flex-1">
           {/* Live Rappi-Style Order Status Pill (updates automatically without F5 reload) */}
           {!isBuilderOpen && activeCategory === 'todos' && latestActiveCustomerOrder && (() => {
             const isPickup =
@@ -2166,7 +2197,11 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
         {/* 3. Solid Corporate & Fiscal Footer (deferred below the fold) */}
         <div className="store-below-fold-footer">
           <Suspense fallback={<div className="h-48" />}>
-            <StorefrontFooter footerTheme={activeTemplate.footerTheme} />
+            <StorefrontFooter
+              footerTheme={activeTemplate.footerTheme}
+              footerVariant={footerVariant}
+              accentColor={accentColor}
+            />
           </Suspense>
         </div>
       </div>
@@ -2178,7 +2213,13 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
       : undefined;
 
   return (
-    <div style={storeThemeVars} data-seasonal-doodle={seasonalDoodleTheme} className="min-h-dvh flex flex-col bg-[#0b0c10]">
+    <div
+      style={storeThemeVars}
+      data-seasonal-doodle={seasonalDoodleTheme}
+      className={`min-h-dvh w-full max-w-full overflow-x-clip flex flex-col bg-[#0b0c10] ${
+        isBuilderOpen && !activeSlugProduct && !isCheckoutPageOpen ? 'lg:h-dvh lg:overflow-hidden' : ''
+      }`}
+    >
       <SeasonalOverlay surface="storefront" />
       <ToastContainer />
       <SystemNoticeModal />
@@ -2285,7 +2326,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
           BUILDER SPLIT WORKSPACE OR FULL LIVE STOREFRONT
           ===================================================================== */}
       {isBuilderOpen ? (
-        <div className="flex-1 flex flex-col lg:flex-row h-[calc(100dvh-49px)] overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
           <Suspense
             fallback={
               <div className="w-full lg:w-[370px] shrink-0 bg-[#11131c] border-r border-[#24283b] p-4 space-y-3 animate-pulse">
@@ -2401,32 +2442,52 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
               onTouchStart={handleCartTouchStart}
               onTouchMove={handleCartTouchMove}
               onTouchEnd={handleCartTouchEnd}
-              className={`px-5 py-3 border-b flex items-center justify-between ${
+              className={`px-5 py-3.5 border-b flex items-center justify-between gap-3 shrink-0 ${
                 isLightTheme ? 'bg-white border-zinc-200' : 'bg-neutral-900 border-neutral-800'
               }`}
             >
-              <div className="flex items-center gap-2.5">
-                <ShoppingBag className="w-5 h-5" style={{ color: accentColor }} />
-                <div>
-                  <h3
-                    id={cartTitleId}
-                    className={`font-black text-base leading-tight ${
-                      isLightTheme ? 'text-zinc-900' : 'text-white'
-                    }`}
-                  >
-                    Tu Pedido ({totalCartUnits})
-                  </h3>
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${
+                    isLightTheme
+                      ? 'bg-zinc-50 border-zinc-200/80'
+                      : 'bg-neutral-950 border-neutral-800'
+                  }`}
+                >
+                  <ShoppingBag className="w-5 h-5" style={{ color: accentColor }} />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3
+                      id={cartTitleId}
+                      className={`font-black text-base leading-tight tracking-tight ${
+                        isLightTheme ? 'text-zinc-900' : 'text-white'
+                      }`}
+                    >
+                      Tu Pedido
+                    </h3>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[11px] font-black tabular-nums ${
+                        totalCartUnits > 0
+                          ? isLightTheme
+                            ? 'bg-zinc-900 text-white'
+                            : 'bg-white text-zinc-950'
+                          : isLightTheme
+                          ? 'bg-zinc-100 text-zinc-500'
+                          : 'bg-neutral-800 text-neutral-400'
+                      }`}
+                    >
+                      {totalCartUnits}
+                    </span>
+                  </div>
                   <p
-                    className={`text-[11px] ${
+                    className={`text-[11px] truncate ${
                       isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
                     }`}
                   >
-                    {qrTableContext
-                      ? `🍽️ Consumo en Mesa · ${qrTableContext.tableName}`
-                      : deliveryType === 'delivery'
-                      ? '🛵 Delivery'
-                      : '🛍️ Para Llevar'}{' '}
-                    • {activeTenant.name.replace('Khalessi Pizza - ', '')}
+                    {totalCartUnits === 0
+                      ? 'Agrega tus pizzas o promos favoritas'
+                      : `${totalCartUnits} ${totalCartUnits === 1 ? 'producto' : 'productos'} en tu bolsa`}
                   </p>
                 </div>
               </div>
@@ -2434,7 +2495,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                 type="button"
                 aria-label="Cerrar carrito"
                 onClick={() => setIsCartOpen(false)}
-                className={`p-2 rounded-full transition-colors ${
+                className={`p-2 rounded-full transition-colors shrink-0 ${
                   isLightTheme
                     ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-600'
                     : 'bg-neutral-800 hover:bg-neutral-700 text-neutral-300'
@@ -2444,28 +2505,46 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
               </button>
             </div>
 
-            {/* Clean delivery/pickup/table summary banner (eliminates clutter from cart) */}
+            {/* Clean delivery/pickup/table summary banner */}
             <div
-              className={`px-4 sm:px-5 py-2.5 border-b shrink-0 flex items-center justify-between text-xs ${
-                isLightTheme ? 'bg-zinc-50 border-zinc-200 text-zinc-700' : 'bg-neutral-950/60 border-neutral-800 text-neutral-300'
+              className={`px-4 sm:px-5 py-2.5 border-b shrink-0 flex items-center justify-between gap-2 text-xs ${
+                isLightTheme
+                  ? 'bg-zinc-50/90 border-zinc-200 text-zinc-700'
+                  : 'bg-neutral-950/60 border-neutral-800 text-neutral-300'
               }`}
             >
-              <div className="flex items-center gap-2 truncate">
-                {qrTableContext ? (
-                  <UtensilsCrossed className="w-4 h-4 text-amber-500 shrink-0" />
-                ) : deliveryType === 'delivery' ? (
-                  <Bike className="w-4 h-4 text-rose-500 shrink-0" />
-                ) : (
-                  <Store className="w-4 h-4 text-rose-500 shrink-0" />
-                )}
-                <span className="truncate font-semibold">
-                  {qrTableContext
-                    ? `Consumo en Mesa (${qrTableContext.tableName})`
-                    : deliveryType === 'delivery'
-                    ? 'Envío a domicilio'
-                    : 'Retiro en local'}{' '}
-                  · <strong className="font-bold">{activeTenant.name.replace('Khalessi Pizza - ', '')}</strong>
-                </span>
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div
+                  className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
+                    qrTableContext
+                      ? 'bg-amber-500/15 text-amber-500'
+                      : 'bg-rose-500/10 text-rose-500'
+                  }`}
+                >
+                  {qrTableContext ? (
+                    <UtensilsCrossed className="w-3.5 h-3.5" />
+                  ) : deliveryType === 'delivery' ? (
+                    <Bike className="w-3.5 h-3.5" />
+                  ) : (
+                    <Store className="w-3.5 h-3.5" />
+                  )}
+                </div>
+                <div className="min-w-0 leading-tight">
+                  <span className="font-extrabold block truncate">
+                    {qrTableContext
+                      ? `Consumo en Mesa (${qrTableContext.tableName})`
+                      : deliveryType === 'delivery'
+                      ? 'Envío a domicilio'
+                      : 'Retiro en local'}
+                  </span>
+                  <span
+                    className={`text-[11px] block truncate ${
+                      isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
+                    }`}
+                  >
+                    {activeTenant.name.replace('Khalessi Pizza - ', '')}
+                  </span>
+                </div>
               </div>
               {!qrTableContext && (
                 <button
@@ -2474,37 +2553,120 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                     setIsCartOpen(false);
                     setIsLocationModalOpen(true);
                   }}
-                  className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline shrink-0 whitespace-nowrap ml-2"
+                  className={`px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-colors shrink-0 whitespace-nowrap ${
+                    isLightTheme
+                      ? 'bg-white border-zinc-200 text-zinc-700 hover:border-zinc-300 hover:text-zinc-950'
+                      : 'bg-neutral-900 border-neutral-700 text-neutral-200 hover:border-neutral-600'
+                  }`}
                 >
                   Cambiar
                 </button>
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 custom-scrollbar">
               {cartItems.length === 0 ? (
-                <div className="py-12 flex flex-col items-center justify-center text-center">
-                  <div
-                    className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 ${
-                      isLightTheme ? 'bg-zinc-200/70 text-zinc-500' : 'bg-neutral-800 text-neutral-500'
-                    }`}
-                  >
-                    <ShoppingBag className="w-8 h-8" />
+                <div className="py-8 flex flex-col items-center justify-center text-center space-y-5">
+                  <div className="flex flex-col items-center">
+                    <div
+                      className={`w-20 h-20 rounded-3xl flex items-center justify-center mb-4 border shadow-xs ${
+                        isLightTheme
+                          ? 'bg-white border-zinc-200/80 text-zinc-400'
+                          : 'bg-neutral-950 border-neutral-800 text-neutral-500'
+                      }`}
+                    >
+                      <ShoppingBag className="w-9 h-9" style={{ color: accentColor }} />
+                    </div>
+                    <p
+                      className={`font-black text-lg tracking-tight ${
+                        isLightTheme ? 'text-zinc-900' : 'text-white'
+                      }`}
+                    >
+                      Tu bolsa está vacía
+                    </p>
+                    <p
+                      className={`text-xs mt-1.5 max-w-[260px] leading-relaxed ${
+                        isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
+                      }`}
+                    >
+                      Elige una pizza artesanal, arma tu mitad y mitad o suma un combo promocional.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCartOpen(false);
+                        navigateToCategory('todos');
+                      }}
+                      data-no-doodle="true"
+                      data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+                      className="store-btn-solid mt-4 px-5 py-2.5 rounded-xl text-xs font-black shadow-sm hover:opacity-95 active:scale-[0.98] transition-all inline-flex items-center gap-2 whitespace-nowrap"
+                    >
+                      <span>Explorar la carta</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                  <p
-                    className={`font-bold text-base ${
-                      isLightTheme ? 'text-zinc-800' : 'text-neutral-200'
-                    }`}
-                  >
-                    Tu bolsa está vacía
-                  </p>
-                  <p
-                    className={`text-xs mt-1 max-w-xs ${
-                      isLightTheme ? 'text-zinc-500' : 'text-neutral-500'
-                    }`}
-                  >
-                    Toca cualquier pizza o promoción para elegir sus ingredientes y tamaño.
-                  </p>
+
+                  {upsellSuggestions.length > 0 && (
+                    <div
+                      className={`w-full pt-5 border-t text-left space-y-2.5 ${
+                        isLightTheme ? 'border-zinc-200/80' : 'border-neutral-800'
+                      }`}
+                    >
+                      <span
+                        className={`text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 ${
+                          isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
+                        }`}
+                      >
+                        <Sparkles className="w-3.5 h-3.5" style={{ color: accentColor }} />
+                        <span>Para empezar en 1 toque</span>
+                      </span>
+                      <div className="space-y-2">
+                        {upsellSuggestions.slice(0, 3).map(sug => {
+                          const sugPrice = sug.hasSizes
+                            ? (sug.sizes.find(s => s.isDefault && s.enabled) || sug.sizes[0])?.price ??
+                              sug.basePrice
+                            : sug.basePrice;
+                          return (
+                            <div
+                              key={sug.id}
+                              className={`p-2.5 rounded-2xl border flex items-center justify-between gap-2.5 shadow-xs ${
+                                isLightTheme
+                                  ? 'bg-white border-zinc-200/90 text-zinc-900'
+                                  : 'bg-neutral-950 border-neutral-800 text-white'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <img
+                                  src={sug.imageUrl}
+                                  alt={sug.name}
+                                  className="w-11 h-11 rounded-xl object-cover shrink-0 bg-neutral-900 ring-1 ring-black/5"
+                                />
+                                <div className="min-w-0">
+                                  <span className="text-xs font-bold block truncate">{sug.name}</span>
+                                  <span
+                                    className="text-[11px] font-black block"
+                                    style={{ color: accentColor }}
+                                  >
+                                    S/ {sugPrice.toFixed(2)}
+                                  </span>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleQuickAddUpsell(sug)}
+                                data-no-doodle="true"
+                                data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+                                className="store-btn-solid px-3 py-1.5 rounded-xl text-[11px] font-black inline-flex items-center gap-1 active:scale-95 transition-all whitespace-nowrap shrink-0"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Sumar</span>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 cartItems.map(item => (
@@ -2521,7 +2683,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                         <img
                           src={item.productImage}
                           alt={item.productName}
-                          className="w-14 h-14 rounded-2xl object-cover shrink-0 bg-neutral-900"
+                          className="w-16 h-16 rounded-2xl object-cover shrink-0 bg-neutral-900 ring-1 ring-black/5"
                         />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -2640,20 +2802,27 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                         isLightTheme ? 'border-zinc-100' : 'border-neutral-800'
                       }`}
                     >
-                      <div className="flex items-center gap-2">
+                      <div
+                        className={`inline-flex items-center gap-1 p-0.5 rounded-full border ${
+                          isLightTheme
+                            ? 'border-zinc-200 bg-zinc-100/90'
+                            : 'border-neutral-800 bg-neutral-900'
+                        }`}
+                      >
                         <button
                           type="button"
+                          aria-label="Disminuir cantidad"
                           onClick={() => updateCartItemQty(item.itemId, -1)}
-                          className={`w-7 h-7 rounded-xl border flex items-center justify-center text-xs font-black ${
+                          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-colors ${
                             isLightTheme
-                              ? 'border-zinc-200 bg-zinc-100 text-zinc-700'
-                              : 'border-neutral-700 bg-neutral-800 text-neutral-300'
+                              ? 'bg-white text-zinc-800 hover:bg-zinc-200 shadow-2xs'
+                              : 'bg-neutral-800 text-neutral-200 hover:bg-neutral-700'
                           }`}
                         >
                           -
                         </button>
                         <span
-                          className={`text-xs font-black min-w-5 text-center ${
+                          className={`text-xs font-black min-w-6 text-center tabular-nums ${
                             isLightTheme ? 'text-zinc-900' : 'text-white'
                           }`}
                         >
@@ -2661,11 +2830,12 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                         </span>
                         <button
                           type="button"
+                          aria-label="Aumentar cantidad"
                           onClick={() => updateCartItemQty(item.itemId, 1)}
-                          className={`w-7 h-7 rounded-xl border flex items-center justify-center text-xs font-black ${
+                          className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-colors ${
                             isLightTheme
-                              ? 'border-zinc-200 bg-zinc-100 text-zinc-700'
-                              : 'border-neutral-700 bg-neutral-800 text-neutral-300'
+                              ? 'bg-white text-zinc-800 hover:bg-zinc-200 shadow-2xs'
+                              : 'bg-neutral-800 text-neutral-200 hover:bg-neutral-700'
                           }`}
                         >
                           +
@@ -2738,6 +2908,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                           <button
                             type="button"
                             onClick={() => handleQuickAddUpsell(sug)}
+                            data-no-doodle="true"
                             data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
                             className={`px-3 py-1.5 rounded-xl text-[11px] font-black inline-flex items-center gap-1 active:scale-95 transition-all whitespace-nowrap shrink-0 shadow-xs ${
                               recentUpsellIds[sug.id]
@@ -2812,6 +2983,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                         <button
                           type="button"
                           onClick={handleApplyCouponCode}
+                          data-no-doodle="true"
                           data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
                           className="store-btn-solid px-3.5 py-2 rounded-xl text-xs font-black whitespace-nowrap shrink-0 shadow-xs"
                         >
@@ -3065,6 +3237,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                     setIsCheckoutPageOpen(true);
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
+                  data-no-doodle="true"
                   data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
                   className="store-btn-solid w-full whitespace-nowrap shrink-0 py-3.5 px-5 rounded-2xl font-black text-sm sm:text-base shadow-md active:scale-[0.98] transition-transform flex items-center justify-between"
                 >
@@ -4329,6 +4502,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                 <Receipt aria-hidden="true" className="w-[19px] h-[19px]" />
                 {activeCustomerOrdersCount > 0 && (
                   <span
+                    data-no-doodle="true"
                     data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
                     className="store-btn-solid absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full text-[9px] font-black flex items-center justify-center shadow-sm"
                   >
@@ -4345,6 +4519,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                 type="button"
                 aria-label={`Abrir carrito (${totalCartUnits} productos)`}
                 onClick={() => setIsCartOpen(true)}
+                data-no-doodle="true"
                 data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
                 style={{ touchAction: 'manipulation' }}
                 className={`store-btn-solid relative w-12 h-12 rounded-full shadow-md flex items-center justify-center active:scale-95 transition-transform ${

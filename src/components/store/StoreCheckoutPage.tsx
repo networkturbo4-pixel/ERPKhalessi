@@ -589,7 +589,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
   };
 
   return (
-    <div className={`min-h-screen ${isLightTheme ? 'bg-zinc-50 text-zinc-900' : 'bg-neutral-950 text-white'} pb-16`}>
+    <div className={`min-h-screen w-full max-w-full overflow-x-clip ${isLightTheme ? 'bg-zinc-50 text-zinc-900' : 'bg-neutral-950 text-white'} pb-16`}>
       {/* Top Header Bar */}
       <header className={`sticky top-0 z-40 border-b backdrop-blur-md ${isLightTheme ? 'bg-white/90 border-zinc-200' : 'bg-neutral-900/90 border-neutral-800'}`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">

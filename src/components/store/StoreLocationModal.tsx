@@ -16,7 +16,9 @@ import {
   MapPin,
   Compass,
   AlertCircle,
-  Minus
+  AlertTriangle,
+  Crown,
+  ArrowLeft
 } from 'lucide-react';
 
 interface StoreLocationModalProps {
@@ -60,7 +62,7 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
   const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>(currentDeliveryType);
   const [selectedTenantId, setSelectedTenantId] = useState<string>(activeTenantId);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeMobileTab, setActiveMobileTab] = useState<'list' | 'map'>('list');
+  const [activeMobileTab, setActiveMobileTab] = useState<'mode' | 'map' | 'list'>('mode');
   const [customerCoords, setCustomerCoords] = useState<[number, number]>(
     initialCustomerCoords || DEFAULT_CUSTOMER_COORDS
   );
@@ -74,10 +76,13 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
 
   const [routeGeometry, setRouteGeometry] = useState<[number, number][] | null>(null);
 
-  // Sync initial tenant & coords when modal opens
+  // Sync initial tenant, coords & mobile step when modal opens
   useEffect(() => {
-    if (isOpen && initialCustomerCoords) {
-      setCustomerCoords(initialCustomerCoords);
+    if (isOpen) {
+      setActiveMobileTab('mode');
+      if (initialCustomerCoords) {
+        setCustomerCoords(initialCustomerCoords);
+      }
     }
   }, [isOpen, initialCustomerCoords]);
 
@@ -236,6 +241,12 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
     );
   };
 
+  const handleSelectMobileMode = (mode: 'delivery' | 'pickup') => {
+    setDeliveryType(mode);
+    setActiveMobileTab('map');
+    handleGetMyLocation();
+  };
+
   // Confirm selection
   const handleConfirmStore = () => {
     if (isDeliveryBlocked) return;
@@ -288,44 +299,123 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
           </button>
         </div>
 
-        {/* Content Body: Responsive Tab Switcher on Mobile (< lg) */}
-        <div className={`lg:hidden flex items-center border-b p-1.5 px-3 ${isLightTheme ? 'border-zinc-200 bg-zinc-50' : 'border-neutral-800 bg-neutral-900/60'}`}>
-          <div className="grid grid-cols-2 gap-1 w-full max-w-sm mx-auto">
-            <button
-              type="button"
-              onClick={() => setActiveMobileTab('list')}
-              className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                activeMobileTab === 'list'
-                  ? (isLightTheme ? 'bg-white text-rose-600 shadow-sm' : 'bg-neutral-800 text-rose-400 shadow-sm')
-                  : (isLightTheme ? 'text-zinc-600' : 'text-neutral-400')
-              }`}
-            >
-              <Store className="w-3.5 h-3.5" />
-              <span>Lista de Locales ({tenants.length})</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveMobileTab('map')}
-              className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-                activeMobileTab === 'map'
-                  ? (isLightTheme ? 'bg-white text-rose-600 shadow-sm' : 'bg-neutral-800 text-rose-400 shadow-sm')
-                  : (isLightTheme ? 'text-zinc-600' : 'text-neutral-400')
-              }`}
-            >
-              <Compass className="w-3.5 h-3.5" />
-              <span>Ver en Mapa</span>
-            </button>
+        {/* Mobile Step 1 (< lg): Ask Delivery vs Pickup before opening Map + Geolocation */}
+        {activeMobileTab === 'mode' && (
+          <div className="lg:hidden flex-1 flex flex-col justify-center p-5 sm:p-6 gap-4 overflow-y-auto">
+            <div className="text-center space-y-1.5 mb-2">
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${
+                isLightTheme ? 'text-rose-700 bg-rose-50 border-rose-200' : 'bg-rose-950/50 text-rose-300 border-rose-900/50'
+              }`}>
+                <MapPin className="w-3.5 h-3.5" />
+                <span>Paso 1 de 2</span>
+              </span>
+              <h3 className="text-xl font-black tracking-tight">¿Cómo quieres tu pedido?</h3>
+              <p className={`text-xs max-w-xs mx-auto ${isLightTheme ? 'text-zinc-500' : 'text-neutral-400'}`}>
+                Elige una modalidad para ubicarte en el mapa y asignarte la sede más cercana
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 max-w-md w-full mx-auto">
+              <button
+                type="button"
+                onClick={() => handleSelectMobileMode('delivery')}
+                className={`p-4 rounded-2xl border-2 text-left transition-all active:scale-[0.99] flex items-center gap-4 ${
+                  deliveryType === 'delivery'
+                    ? (isLightTheme ? 'border-rose-500 bg-rose-50/70 shadow-md' : 'border-rose-500 bg-rose-950/30 shadow-md')
+                    : (isLightTheme ? 'border-zinc-200 bg-white hover:border-zinc-300' : 'border-neutral-800 bg-neutral-950/60 hover:border-neutral-700')
+                }`}
+              >
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                  isLightTheme ? 'bg-rose-100 text-rose-600' : 'bg-rose-950 text-rose-400'
+                }`}>
+                  <Bike className="w-6 h-6" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-black">Envío a Domicilio</div>
+                  <p className={`text-xs mt-0.5 ${isLightTheme ? 'text-zinc-600' : 'text-neutral-400'}`}>
+                    Te ubicamos en el mapa y te lo llevamos directo a tu dirección
+                  </p>
+                </div>
+                <ChevronRight className={`w-5 h-5 shrink-0 ${isLightTheme ? 'text-zinc-400' : 'text-neutral-500'}`} />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSelectMobileMode('pickup')}
+                className={`p-4 rounded-2xl border-2 text-left transition-all active:scale-[0.99] flex items-center gap-4 ${
+                  deliveryType === 'pickup'
+                    ? (isLightTheme ? 'border-rose-500 bg-rose-50/70 shadow-md' : 'border-rose-500 bg-rose-950/30 shadow-md')
+                    : (isLightTheme ? 'border-zinc-200 bg-white hover:border-zinc-300' : 'border-neutral-800 bg-neutral-950/60 hover:border-neutral-700')
+                }`}
+              >
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
+                  isLightTheme ? 'bg-emerald-100 text-emerald-700' : 'bg-emerald-950 text-emerald-400'
+                }`}>
+                  <Store className="w-6 h-6" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-black">Retiro en Local</div>
+                  <p className={`text-xs mt-0.5 ${isLightTheme ? 'text-zinc-600' : 'text-neutral-400'}`}>
+                    Pide ahora y recoge gratis en la tienda más cercana a ti
+                  </p>
+                </div>
+                <ChevronRight className={`w-5 h-5 shrink-0 ${isLightTheme ? 'text-zinc-400' : 'text-neutral-500'}`} />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Content Body: Responsive Navigation Bar on Mobile (< lg) when in map/list */}
+        {activeMobileTab !== 'mode' && (
+          <div className={`lg:hidden flex items-center justify-between gap-2 border-b p-2 px-3 ${isLightTheme ? 'border-zinc-200 bg-zinc-50' : 'border-neutral-800 bg-neutral-900/60'}`}>
+            <button
+              type="button"
+              onClick={() => setActiveMobileTab('mode')}
+              className={`py-2 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 border ${
+                isLightTheme ? 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-100' : 'bg-neutral-800 border-neutral-700 text-neutral-200 hover:bg-neutral-700'
+              }`}
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>{deliveryType === 'delivery' ? 'Delivery' : 'Retiro'}</span>
+            </button>
+
+            <div className={`grid grid-cols-2 gap-1 flex-1 max-w-[230px] p-0.5 rounded-xl border ${isLightTheme ? 'bg-zinc-200/70 border-zinc-200' : 'bg-neutral-950 border-neutral-800'}`}>
+              <button
+                type="button"
+                onClick={() => setActiveMobileTab('map')}
+                className={`py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${
+                  activeMobileTab === 'map'
+                    ? (isLightTheme ? 'bg-white text-rose-600 shadow-sm' : 'bg-neutral-800 text-rose-400 shadow-sm')
+                    : (isLightTheme ? 'text-zinc-600' : 'text-neutral-400')
+                }`}
+              >
+                <Compass className="w-3.5 h-3.5" />
+                <span>Mapa</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveMobileTab('list')}
+                className={`py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${
+                  activeMobileTab === 'list'
+                    ? (isLightTheme ? 'bg-white text-rose-600 shadow-sm' : 'bg-neutral-800 text-rose-400 shadow-sm')
+                    : (isLightTheme ? 'text-zinc-600' : 'text-neutral-400')
+                }`}
+              >
+                <Store className="w-3.5 h-3.5" />
+                <span>Locales ({tenants.length})</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Content Body: Left List + Right Map */}
-        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+        <div className={`flex-1 flex flex-col lg:flex-row overflow-hidden relative ${activeMobileTab === 'mode' ? 'hidden lg:flex' : 'flex'}`}>
           {/* Left Column: Switcher + Search + Store Cards List */}
           <div
             className={`w-full lg:w-[44%] p-3 sm:p-5 flex flex-col gap-3 overflow-y-auto custom-scrollbar border-b lg:border-b-0 lg:border-r ${
               isLightTheme ? 'border-zinc-200' : 'border-neutral-800'
             } ${
-              activeMobileTab === 'map' ? 'hidden lg:flex' : 'flex'
+              activeMobileTab !== 'list' ? 'hidden lg:flex' : 'flex'
             }`}
           >
             {/* Delivery vs Pickup Switcher */}
@@ -492,40 +582,42 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                         <div className="flex items-center gap-2">
                           <h4 className="text-sm font-black truncate">{name}</h4>
                           {isMain && (
-                            <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold border ${isLightTheme ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-blue-950 text-blue-300 border-blue-800'}`}>
-                              👑 Principal
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border shrink-0 ${isLightTheme ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-blue-950 text-blue-300 border-blue-800'}`}>
+                              <Crown className="w-2.5 h-2.5" />
+                              <span>Principal</span>
                             </span>
                           )}
                           {isCurrentActive && !isMain && (
-                            <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${isLightTheme ? 'bg-emerald-50 text-emerald-700' : 'bg-emerald-950 text-emerald-300'}`}>
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 ${isLightTheme ? 'bg-emerald-50 text-emerald-700' : 'bg-emerald-950 text-emerald-300'}`}>
                               Activa
                             </span>
                           )}
                         </div>
 
-                        <p className={`text-[11px] truncate mt-0.5 ${isLightTheme ? 'text-zinc-600' : 'text-neutral-400'}`}>
-                          📍 {address}
+                        <p className={`text-[11px] flex items-center gap-1 mt-0.5 ${isLightTheme ? 'text-zinc-600' : 'text-neutral-400'}`}>
+                          <MapPin className="w-3 h-3 shrink-0 opacity-75" />
+                          <span className="truncate">{address}</span>
                         </p>
 
                         <div className="flex items-center gap-2 mt-2 text-[10px] font-bold flex-wrap">
                           <span className={`px-2 py-0.5 rounded-md border flex items-center gap-1 ${isLightTheme ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-amber-950/50 text-amber-300 border-amber-900/50'}`}>
                             <Clock className="w-3 h-3" />
-                            25 - 40 min
+                            <span>25 - 40 min</span>
                           </span>
                           {deliveryType === 'pickup' ? (
                             <span className={`px-2 py-0.5 rounded-md border flex items-center gap-1 ${isLightTheme ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-emerald-950/50 text-emerald-300 border-emerald-900/50'}`}>
                               <Store className="w-3 h-3" />
-                              Retiro Gratis
+                              <span>Retiro Gratis</span>
                             </span>
                           ) : cov?.covered ? (
                             <span className={`px-2 py-0.5 rounded-md border flex items-center gap-1 ${isLightTheme ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-emerald-950/50 text-emerald-300 border-emerald-900/50'}`}>
                               <Bike className="w-3 h-3" />
-                              {cardFee.feeSoles === 0 ? 'Envío Gratis' : `Envío S/ ${cardFee.feeSoles.toFixed(2)}`}
+                              <span>{cardFee.feeSoles === 0 ? 'Envío Gratis' : `Envío S/ ${cardFee.feeSoles.toFixed(2)}`}</span>
                             </span>
                           ) : (
                             <span className={`px-2 py-0.5 rounded-md border flex items-center gap-1 ${isLightTheme ? 'bg-rose-50 text-rose-800 border-rose-200' : 'bg-rose-950/50 text-rose-300 border-rose-900/50'}`}>
                               <AlertCircle className="w-3 h-3" />
-                              Fuera de cobertura
+                              <span>Fuera de cobertura</span>
                             </span>
                           )}
                           {cov && (
@@ -553,6 +645,32 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                 );
               })}
             </div>
+
+            {/* Mobile Sticky Confirm Bar on List View */}
+            <div className={`lg:hidden pt-2 border-t flex items-center gap-2 ${isLightTheme ? 'border-zinc-200' : 'border-neutral-800'}`}>
+              <button
+                type="button"
+                onClick={() => setActiveMobileTab('map')}
+                className={`px-3.5 py-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${
+                  isLightTheme ? 'border-zinc-200 text-zinc-700 bg-zinc-50 hover:bg-zinc-100' : 'border-neutral-700 text-neutral-300 bg-neutral-900 hover:bg-neutral-800'
+                }`}
+              >
+                <Compass className="w-3.5 h-3.5" />
+                <span>Ver mapa</span>
+              </button>
+              <button
+                type="button"
+                disabled={isDeliveryBlocked}
+                onClick={handleConfirmStore}
+                className={`flex-1 justify-center px-4 py-2.5 rounded-xl text-white font-black text-xs shadow-lg transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
+                  isDeliveryBlocked ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-95 active:scale-[0.98]'
+                }`}
+                style={{ backgroundColor: isDeliveryBlocked ? '#64748b' : accentColor }}
+              >
+                <span>{isDeliveryBlocked ? 'Fuera de cobertura' : `Pedir en ${activeTenant.name.replace('Khalessi Pizza - ', '')}`}</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Right Column: Interactive Map (Desktop always visible, Mobile in "map" tab) */}
@@ -560,7 +678,7 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
             className={`flex-1 relative flex flex-col h-full min-h-[420px] sm:min-h-[480px] overflow-hidden ${
               isLightTheme ? 'bg-zinc-100' : 'bg-neutral-950'
             } ${
-              activeMobileTab === 'list' ? 'hidden lg:flex' : 'flex'
+              activeMobileTab !== 'map' ? 'hidden lg:flex' : 'flex'
             }`}
           >
             <LeafletStoreMap
@@ -571,95 +689,152 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
               onCustomerMove={handleCustomerMove}
               routeGeometry={routeGeometry}
               accentColor={accentColor}
-              activeMobileTab={activeMobileTab}
+              activeMobileTab={activeMobileTab === 'map' ? 'map' : 'list'}
             />
 
-
-            {/* Floating Top Route Info Pill */}
-            <div className="absolute top-4 left-4 z-10 bg-neutral-900/90 text-white text-xs font-black px-3.5 py-1.5 rounded-full shadow-xl backdrop-blur-md border border-neutral-700/60 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>🚗 {routeInfo.durationMin} min</span>
-              <span className="text-neutral-400">·</span>
-              <span>{routeInfo.distanceKm} km</span>
-            </div>
-
-            {/* Bottom Floating Card: Selected Store + Actions */}
-            <div className={`absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-4 z-10 p-3 sm:p-4 rounded-2xl backdrop-blur-md shadow-2xl border flex flex-col md:flex-row md:items-center justify-between gap-3 ${
-              isLightTheme ? 'bg-white/95 border-zinc-200/80' : 'bg-neutral-900/95 border-neutral-800'
-            }`}>
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className={`w-11 h-11 rounded-xl border overflow-hidden flex items-center justify-center shrink-0 shadow-sm ${isLightTheme ? 'border-zinc-200 bg-zinc-100' : 'border-zinc-700 bg-zinc-800'}`}>
-                  {activeTenant.operations?.imageUrl ? (
-                    <img
-                      src={activeTenant.operations.imageUrl}
-                      alt={activeTenant.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : storeFavicon ? (
-                    <img
-                      src={storeFavicon}
-                      alt={activeTenant.name}
-                      className="w-full h-full object-cover p-1"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-red-600 to-rose-700 flex flex-col items-center justify-center text-white">
-                      <span className="text-[9px] font-black leading-tight">PIZZA</span>
-                      <span className="text-[7px] font-bold tracking-tighter opacity-90">KHALESSI</span>
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h4 className={`font-black text-sm truncate ${isLightTheme ? 'text-zinc-950' : 'text-white'}`}>
-                    {activeTenant.name.replace('Khalessi Pizza - ', '')}
-                  </h4>
-                  <p className={`text-xs truncate ${isLightTheme ? 'text-zinc-600' : 'text-neutral-400'}`}>
-                    {activeTenant.operations?.address || 'Lima, Perú'}
-                  </p>
-                  <div className="flex items-center gap-2.5 mt-1 text-[11px] font-bold flex-wrap">
-                    <span className={`flex items-center gap-1 shrink-0 ${isLightTheme ? 'text-blue-700' : 'text-blue-400'}`}>
-                      🚗 {routeInfo.durationMin} min ({routeInfo.distanceKm} km)
-                    </span>
-                    {deliveryType === 'pickup' ? (
-                      <span className={`flex items-center gap-1 shrink-0 ${isLightTheme ? 'text-emerald-700' : 'text-emerald-400'}`}>
-                        🏪 Retiro Gratis
-                      </span>
-                    ) : isDeliveryBlocked ? (
-                      <span className={`flex items-center gap-1 shrink-0 ${isLightTheme ? 'text-rose-700' : 'text-rose-400'}`}>
-                        ⚠️ Fuera de cobertura
-                      </span>
-                    ) : (
-                      <span className={`flex items-center gap-1 shrink-0 ${isLightTheme ? 'text-emerald-700' : 'text-emerald-400'}`}>
-                        🛵 {selectedDeliveryCalc.feeSoles === 0 ? 'Envío Gratis' : `Envío S/ ${selectedDeliveryCalc.feeSoles.toFixed(2)}`}
-                      </span>
-                    )}
-                  </div>
-                </div>
+            {/* Floating Top Route Info Pill + Mobile Geolocate Trigger */}
+            <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10 flex flex-wrap items-center gap-2 pr-14">
+              <div className="bg-neutral-900/90 text-white text-xs font-black px-3.5 py-1.5 rounded-full shadow-xl backdrop-blur-md border border-neutral-700/60 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <Clock className="w-3.5 h-3.5 text-neutral-300" />
+                <span>{routeInfo.durationMin} min</span>
+                <span className="text-neutral-400">·</span>
+                <span>{routeInfo.distanceKm} km</span>
               </div>
 
-              <div className={`flex items-center gap-2 shrink-0 pt-1 md:pt-0 border-t md:border-t-0 ${isLightTheme ? 'border-zinc-100' : 'border-neutral-800/80'}`}>
-                <a
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${activeTenant.operations?.latitude || -11.93605},${activeTenant.operations?.longitude || -77.05432}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={`flex-1 md:flex-initial justify-center px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-                    isLightTheme ? 'border-zinc-200 text-zinc-700 hover:bg-zinc-100' : 'border-neutral-700 text-neutral-300 hover:bg-neutral-800'
-                  }`}
-                >
-                  <Navigation className="w-3.5 h-3.5 text-zinc-500" />
-                  <span>Cómo llegar</span>
-                </a>
-                <button
-                  type="button"
-                  disabled={isDeliveryBlocked}
-                  onClick={handleConfirmStore}
-                  className={`flex-1 md:flex-initial justify-center px-5 py-2.5 rounded-xl text-white font-black text-xs sm:text-sm shadow-lg transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
-                    isDeliveryBlocked ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-95 active:scale-[0.98]'
-                  }`}
-                  style={{ backgroundColor: isDeliveryBlocked ? '#64748b' : accentColor }}
-                >
-                  <span>{isDeliveryBlocked ? 'Fuera de cobertura' : 'Seleccionar tienda'}</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+              <button
+                type="button"
+                onClick={handleGetMyLocation}
+                disabled={isLocating}
+                className={`lg:hidden px-3 py-1.5 rounded-full text-xs font-bold shadow-xl backdrop-blur-md border flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all ${
+                  isLightTheme
+                    ? 'bg-white/95 border-zinc-200 text-zinc-800 hover:bg-zinc-50'
+                    : 'bg-neutral-900/90 border-neutral-700 text-white hover:bg-neutral-800'
+                }`}
+              >
+                <Crosshair className={`w-3.5 h-3.5 text-rose-500 ${isLocating ? 'animate-spin' : ''}`} />
+                <span>{isLocating ? 'Ubicando...' : 'Mi ubicación'}</span>
+              </button>
+            </div>
+
+            {/* Bottom Floating Stack: Mobile Coverage Alert (if blocked) + Selected Store Card */}
+            <div className="absolute bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-4 z-10 flex flex-col gap-2">
+              {isDeliveryBlocked && (
+                <div className={`lg:hidden p-2.5 rounded-xl border text-xs backdrop-blur-md shadow-lg flex flex-col gap-2 ${
+                  isLightTheme ? 'border-rose-300 bg-rose-50/95 text-rose-800' : 'border-rose-800 bg-rose-950/95 text-rose-200'
+                }`}>
+                  <div className="flex items-center gap-2 font-bold">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />
+                    <span>
+                      {coverageMatch.anyCovered
+                        ? 'Esta sede no cubre el punto marcado en el mapa.'
+                        : 'Tu ubicación está fuera de la zona de reparto.'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {coverageMatch.anyCovered && coverageMatch.matchedTenant && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTenantId(coverageMatch.matchedTenant!.id)}
+                        className="px-2.5 py-1 rounded-lg bg-rose-600 text-white font-bold text-[11px] whitespace-nowrap shrink-0"
+                      >
+                        Usar {coverageMatch.matchedTenant.name.replace('Khalessi Pizza - ', '')}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryType('pickup')}
+                      className={`px-2.5 py-1 rounded-lg border font-bold text-[11px] whitespace-nowrap shrink-0 ${
+                        isLightTheme ? 'border-rose-300 bg-white text-rose-700' : 'border-rose-700 bg-neutral-900 text-rose-300'
+                      }`}
+                    >
+                      Cambiar a Retiro en Local
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className={`p-3 sm:p-4 rounded-2xl backdrop-blur-md shadow-2xl border flex flex-col md:flex-row md:items-center justify-between gap-3 ${
+                isLightTheme ? 'bg-white/95 border-zinc-200/80' : 'bg-neutral-900/95 border-neutral-800'
+              }`}>
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className={`w-11 h-11 rounded-xl border overflow-hidden flex items-center justify-center shrink-0 shadow-sm ${isLightTheme ? 'border-zinc-200 bg-zinc-100' : 'border-zinc-700 bg-zinc-800'}`}>
+                    {activeTenant.operations?.imageUrl ? (
+                      <img
+                        src={activeTenant.operations.imageUrl}
+                        alt={activeTenant.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : storeFavicon ? (
+                      <img
+                        src={storeFavicon}
+                        alt={activeTenant.name}
+                        className="w-full h-full object-cover p-1"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-red-600 to-rose-700 flex flex-col items-center justify-center text-white">
+                        <span className="text-[9px] font-black leading-tight">PIZZA</span>
+                        <span className="text-[7px] font-bold tracking-tighter opacity-90">KHALESSI</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h4 className={`font-black text-sm truncate ${isLightTheme ? 'text-zinc-950' : 'text-white'}`}>
+                      {activeTenant.name.replace('Khalessi Pizza - ', '')}
+                    </h4>
+                    <p className={`text-xs truncate ${isLightTheme ? 'text-zinc-600' : 'text-neutral-400'}`}>
+                      {activeTenant.operations?.address || 'Lima, Perú'}
+                    </p>
+                    <div className="flex items-center gap-2.5 mt-1 text-[11px] font-bold flex-wrap">
+                      <span className={`flex items-center gap-1 shrink-0 ${isLightTheme ? 'text-blue-700' : 'text-blue-400'}`}>
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>{routeInfo.durationMin} min ({routeInfo.distanceKm} km)</span>
+                      </span>
+                      {deliveryType === 'pickup' ? (
+                        <span className={`flex items-center gap-1 shrink-0 ${isLightTheme ? 'text-emerald-700' : 'text-emerald-400'}`}>
+                          <Store className="w-3.5 h-3.5" />
+                          <span>Retiro Gratis</span>
+                        </span>
+                      ) : isDeliveryBlocked ? (
+                        <span className={`flex items-center gap-1 shrink-0 ${isLightTheme ? 'text-rose-700' : 'text-rose-400'}`}>
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          <span>Fuera de cobertura</span>
+                        </span>
+                      ) : (
+                        <span className={`flex items-center gap-1 shrink-0 ${isLightTheme ? 'text-emerald-700' : 'text-emerald-400'}`}>
+                          <Bike className="w-3.5 h-3.5" />
+                          <span>{selectedDeliveryCalc.feeSoles === 0 ? 'Envío Gratis' : `Envío S/ ${selectedDeliveryCalc.feeSoles.toFixed(2)}`}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`flex items-center gap-2 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 ${isLightTheme ? 'border-zinc-100' : 'border-neutral-800/80'}`}>
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${activeTenant.operations?.latitude || -11.93605},${activeTenant.operations?.longitude || -77.05432}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={`flex-1 md:flex-initial justify-center px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                      isLightTheme ? 'border-zinc-200 text-zinc-700 hover:bg-zinc-100' : 'border-neutral-700 text-neutral-300 hover:bg-neutral-800'
+                    }`}
+                  >
+                    <Navigation className="w-3.5 h-3.5 text-zinc-500" />
+                    <span>Cómo llegar</span>
+                  </a>
+                  <button
+                    type="button"
+                    disabled={isDeliveryBlocked}
+                    onClick={handleConfirmStore}
+                    className={`flex-1 md:flex-initial justify-center px-5 py-2.5 rounded-xl text-white font-black text-xs sm:text-sm shadow-lg transition-all flex items-center gap-2 whitespace-nowrap shrink-0 ${
+                      isDeliveryBlocked ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-95 active:scale-[0.98]'
+                    }`}
+                    style={{ backgroundColor: isDeliveryBlocked ? '#64748b' : accentColor }}
+                  >
+                    <span>{isDeliveryBlocked ? 'Fuera de cobertura' : 'Pedir en esta tienda'}</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>

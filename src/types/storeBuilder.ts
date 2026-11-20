@@ -64,6 +64,10 @@ export interface SliderBlockConfig extends BlockDeviceVisibility {
 }
 
 export type CategoryWidgetStyle =
+  | 'app_stories'
+  | 'app_dock'
+  | 'ecom_segmented'
+  | 'ecom_tile'
   | 'pills'
   | 'cards'
   | 'circles'
@@ -98,7 +102,11 @@ export type ProductCardStyle =
   | 'bento'
   | 'galeria'
   | 'lista_menu'
-  | 'neon_promo';
+  | 'neon_promo'
+  | 'app_delivery'
+  | 'ecom_glass'
+  | 'app_split'
+  | 'ecom_retail';
 
 export interface ProductGridBlockConfig extends BlockDeviceVisibility {
   type: 'product_grid';
@@ -482,6 +490,20 @@ export interface CustomPage {
   updatedAt: string;
 }
 
+export type StoreHeaderVariant =
+  | 'default'
+  | 'hut_crimson'
+  | 'papa_fresh'
+  | 'flame_grill'
+  | 'electric_blue';
+
+export type StoreFooterVariant =
+  | 'default'
+  | 'hut_crimson'
+  | 'papa_fresh'
+  | 'flame_grill'
+  | 'electric_blue';
+
 export interface StoreTemplate {
   id: string;
   name: string;
@@ -489,6 +511,8 @@ export interface StoreTemplate {
   previewBadge: string;
   themeMode: 'dark' | 'light';
   footerTheme: 'light' | 'dark';
+  headerVariant?: StoreHeaderVariant;
+  footerVariant?: StoreFooterVariant;
   accentColor: string;
   buttonColor?: string;
   buttonTextColor?: string;

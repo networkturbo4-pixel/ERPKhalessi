@@ -463,6 +463,7 @@ export const StoreSearchDrawer: React.FC<StoreSearchDrawerProps> = ({
                       onResetToAllMenu?.();
                       onClose();
                     }}
+                    data-no-doodle="true"
                     data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
                     className="store-btn-solid px-4 py-2 rounded-xl text-xs font-black active:scale-95 transition-transform whitespace-nowrap"
                   >
@@ -538,6 +539,7 @@ export const StoreSearchDrawer: React.FC<StoreSearchDrawerProps> = ({
                         </span>
                       </div>
                       <span
+                        data-no-doodle="true"
                         data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
                         className="store-btn-solid w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                       >

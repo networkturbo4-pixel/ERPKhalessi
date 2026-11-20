@@ -73,6 +73,12 @@
   border-color: rgba(228, 228, 231, 0.55);
 }
 
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 body {
   margin: 0;
   background-color: var(--erp-shell-bg);
@@ -449,6 +455,16 @@ dialog::backdrop {
     inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
+[data-seasonal-doodle] .store-btn-solid[data-no-doodle="true"] {
+  box-shadow: none;
+}
+
+[data-seasonal-doodle] .store-btn-solid[data-no-doodle="true"]::before,
+[data-seasonal-doodle] .store-btn-solid[data-no-doodle="true"]::after {
+  display: none;
+  content: none;
+}
+
 [data-seasonal-doodle] .store-btn-solid::before,
 [data-seasonal-doodle] .store-btn-solid::after {
   content: '';
@@ -457,14 +473,15 @@ dialog::backdrop {
   z-index: 1;
   background-repeat: no-repeat;
   background-size: contain;
+  opacity: 0.75;
 }
 
 /* Fallback sparkle */
 [data-seasonal-doodle] .store-btn-solid::after {
-  top: 4px;
-  right: 6px;
-  width: 9px;
-  height: 9px;
+  top: 3px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'%3E%3Cpath d='M12 2 L14.4 9.6 L22 12 L14.4 14.4 L12 22 L9.6 14.4 L2 12 L9.6 9.6 Z'/%3E%3C/svg%3E");
   animation: kh-btn-twinkle-pop 2.4s ease-in-out infinite;
 }

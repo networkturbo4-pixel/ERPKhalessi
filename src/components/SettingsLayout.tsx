@@ -8,6 +8,7 @@ import { UnsavedChangesModal } from './common/UnsavedChangesModal';
 // Tabs
 import { IdentityTab } from './tabs/IdentityTab';
 import { AppearanceTab } from './tabs/AppearanceTab';
+import { StoreDesignTab } from './tabs/StoreDesignTab';
 import { DialogsTab } from './tabs/DialogsTab';
 import { LoginTab } from './tabs/LoginTab';
 import { CompanyTab } from './tabs/CompanyTab';
@@ -21,6 +22,7 @@ import { SystemUpdateTab } from './tabs/SystemUpdateTab';
 import {
   Sparkles,
   Palette,
+  LayoutTemplate,
   Bell,
   LogIn,
   Building2,
@@ -52,6 +54,7 @@ interface TabItem {
 const TABS: TabItem[] = [
   { id: 'identity', label: 'Identidad y Marca', category: 'Personalización', icon: Sparkles, requiredPermission: 'settings:manage' },
   { id: 'appearance', label: 'Design System & Apariencia', category: 'Personalización', icon: Palette, requiredPermission: 'settings:manage' },
+  { id: 'store-design', label: 'Diseño de Tienda', category: 'Personalización', icon: LayoutTemplate, badge: 'Plantillas', requiredPermission: 'settings:manage' },
   { id: 'dialogs', label: 'Toasts, Modales & Audio', category: 'Experiencia', icon: Bell, requiredPermission: 'settings:manage' },
   { id: 'login', label: 'Pantalla de Inicio de Sesión', category: 'Experiencia', icon: LogIn, requiredPermission: 'settings:manage' },
   { id: 'company', label: 'Datos Fiscales & Cobros', category: 'Empresa', icon: Building2, requiredPermission: 'settings:manage' },
@@ -91,6 +94,7 @@ export const SettingsLayout: React.FC = () => {
     switch (activeTab) {
       case 'identity': return <IdentityTab />;
       case 'appearance': return <AppearanceTab />;
+      case 'store-design': return <StoreDesignTab />;
       case 'dialogs': return <DialogsTab />;
       case 'login': return <LoginTab />;
       case 'company': return <CompanyTab />;

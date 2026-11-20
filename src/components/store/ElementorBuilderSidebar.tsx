@@ -153,6 +153,486 @@ const AdvancedOptionsAccordion: React.FC<{
   );
 };
 
+interface VisualStyleOption<T extends string> {
+  value: T;
+  label: string;
+  tag?: string;
+  preview: React.ReactNode;
+}
+
+function VisualStyleGrid<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+  accent = 'rose',
+}: {
+  label: string;
+  value: T;
+  options: VisualStyleOption<T>[];
+  onChange: (next: T) => void;
+  accent?: 'rose' | 'emerald';
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+          {label}
+        </label>
+        <span className="text-[10px] font-semibold text-zinc-500">
+          {options.find(o => o.value === value)?.label || value}
+        </span>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {options.map(opt => {
+          const active = opt.value === value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onChange(opt.value)}
+              className={`group relative p-2 rounded-xl border text-left transition-all flex flex-col gap-1.5 ${
+                active
+                  ? accent === 'emerald'
+                    ? 'bg-emerald-500/12 border-emerald-500 ring-1 ring-emerald-500/40 text-white shadow-sm'
+                    : 'bg-rose-500/12 border-rose-500 ring-1 ring-rose-500/40 text-white shadow-sm'
+                  : 'bg-[#151822] border-[#252938] text-zinc-300 hover:border-[#373d52] hover:bg-[#191d29]'
+              }`}
+            >
+              <div className="w-full h-11 rounded-lg bg-[#0d0f16] border border-white/5 overflow-hidden flex items-center justify-center p-1.5">
+                {opt.preview}
+              </div>
+              <div className="flex items-center justify-between gap-1 min-w-0">
+                <span className="text-[11px] font-bold leading-tight truncate">{opt.label}</span>
+                {opt.tag && (
+                  <span
+                    className={`text-[9px] font-black px-1.5 py-0.5 rounded-md shrink-0 ${
+                      active
+                        ? accent === 'emerald'
+                          ? 'bg-emerald-500 text-zinc-950'
+                          : 'bg-rose-500 text-white'
+                        : 'bg-white/5 text-zinc-400'
+                    }`}
+                  >
+                    {opt.tag}
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+const CATEGORY_STYLE_OPTIONS: VisualStyleOption<CategoryWidgetStyle>[] = [
+  {
+    value: 'app_stories',
+    label: 'App Stories',
+    tag: 'App',
+    preview: (
+      <div className="flex items-center gap-2">
+        <span className="w-6 h-6 rounded-full ring-2 ring-rose-500 bg-zinc-800" />
+        <span className="w-6 h-6 rounded-full ring-1 ring-zinc-700 bg-zinc-800" />
+        <span className="w-6 h-6 rounded-full ring-1 ring-zinc-700 bg-zinc-800" />
+      </div>
+    ),
+  },
+  {
+    value: 'app_dock',
+    label: 'App Dock',
+    tag: 'App',
+    preview: (
+      <div className="grid grid-cols-3 gap-1.5 w-full">
+        <div className="h-7 rounded-lg bg-rose-500/25 border border-rose-500/60 flex items-center justify-center">
+          <span className="w-2.5 h-2.5 rounded bg-rose-400" />
+        </div>
+        <div className="h-7 rounded-lg bg-zinc-800/80 border border-zinc-700/60" />
+        <div className="h-7 rounded-lg bg-zinc-800/80 border border-zinc-700/60" />
+      </div>
+    ),
+  },
+  {
+    value: 'ecom_segmented',
+    label: 'Segmentada',
+    tag: 'Ecom',
+    preview: (
+      <div className="w-full p-1 rounded-lg bg-zinc-900 border border-zinc-800 grid grid-cols-3 gap-1">
+        <span className="h-4 rounded bg-white/90" />
+        <span className="h-4 rounded bg-zinc-800" />
+        <span className="h-4 rounded bg-zinc-800" />
+      </div>
+    ),
+  },
+  {
+    value: 'ecom_tile',
+    label: 'Tiles Ecom',
+    tag: 'Ecom',
+    preview: (
+      <div className="grid grid-cols-2 gap-1.5 w-full">
+        <div className="h-6 rounded-lg bg-zinc-800 border border-rose-500/60 flex items-center gap-1 px-1">
+          <span className="w-3.5 h-3.5 rounded bg-rose-500 shrink-0" />
+          <span className="h-1.5 flex-1 rounded bg-zinc-300" />
+        </div>
+        <div className="h-6 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center gap-1 px-1">
+          <span className="w-3.5 h-3.5 rounded bg-zinc-700 shrink-0" />
+          <span className="h-1.5 flex-1 rounded bg-zinc-600" />
+        </div>
+      </div>
+    ),
+  },
+  {
+    value: 'pills',
+    label: 'Pastillas',
+    preview: (
+      <div className="flex items-center gap-1.5 w-full justify-center">
+        <span className="h-4 w-10 rounded-full bg-rose-500" />
+        <span className="h-4 w-9 rounded-full bg-zinc-800 border border-zinc-700" />
+        <span className="h-4 w-8 rounded-full bg-zinc-800 border border-zinc-700" />
+      </div>
+    ),
+  },
+  {
+    value: 'glass',
+    label: 'Cristal Glass',
+    preview: (
+      <div className="flex items-center gap-1.5 w-full justify-center">
+        <span className="h-5 w-12 rounded-xl bg-white/15 border border-white/25 backdrop-blur" />
+        <span className="h-5 w-12 rounded-xl bg-white/5 border border-white/10" />
+      </div>
+    ),
+  },
+  {
+    value: 'minimal_chip',
+    label: 'Chip Minimal',
+    preview: (
+      <div className="flex items-center gap-1.5 w-full justify-center">
+        <span className="h-4 w-11 rounded-md bg-white text-[8px] flex items-center px-1 gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+        </span>
+        <span className="h-4 w-10 rounded-md border border-zinc-700" />
+      </div>
+    ),
+  },
+  {
+    value: 'cards',
+    label: 'Tarjetas',
+    preview: (
+      <div className="grid grid-cols-3 gap-1 w-full">
+        <span className="h-7 rounded-lg bg-zinc-800 border border-rose-500/60" />
+        <span className="h-7 rounded-lg bg-zinc-900 border border-zinc-800" />
+        <span className="h-7 rounded-lg bg-zinc-900 border border-zinc-800" />
+      </div>
+    ),
+  },
+];
+
+const PRODUCT_CARD_STYLE_OPTIONS: VisualStyleOption<ProductCardStyle>[] = [
+  {
+    value: 'app_delivery',
+    label: 'App Delivery',
+    tag: 'App',
+    preview: (
+      <div className="w-12 h-8 rounded-lg bg-zinc-800 border border-zinc-700 p-0.5 flex flex-col justify-between relative">
+        <div className="h-4 rounded bg-zinc-700" />
+        <span className="w-2.5 h-2.5 rounded-full bg-rose-500 absolute right-1 top-3" />
+        <div className="h-1.5 w-7 rounded bg-zinc-400" />
+      </div>
+    ),
+  },
+  {
+    value: 'ecom_retail',
+    label: 'Retail Pro',
+    tag: 'Ecom',
+    preview: (
+      <div className="w-12 h-8 rounded-lg bg-zinc-800 border border-zinc-700 p-0.5 flex flex-col justify-between">
+        <div className="h-4 rounded bg-zinc-700" />
+        <div className="h-2 rounded bg-rose-500" />
+      </div>
+    ),
+  },
+  {
+    value: 'ecom_glass',
+    label: 'Glass Cristal',
+    tag: 'Ecom',
+    preview: (
+      <div className="w-12 h-8 rounded-lg bg-white/10 border border-white/25 p-0.5 flex flex-col justify-between">
+        <div className="h-4 rounded bg-zinc-700/80 relative">
+          <span className="w-4 h-1.5 rounded bg-black/70 absolute bottom-0.5 left-0.5" />
+        </div>
+        <div className="h-1.5 w-full rounded bg-white/30" />
+      </div>
+    ),
+  },
+  {
+    value: 'app_split',
+    label: 'Split App',
+    tag: 'App',
+    preview: (
+      <div className="w-full h-7 rounded-lg bg-zinc-800 border border-zinc-700 p-1 flex items-center gap-1.5">
+        <div className="w-5 h-5 rounded bg-zinc-700 shrink-0" />
+        <div className="flex-1 space-y-1">
+          <div className="h-1.5 w-10 rounded bg-zinc-300" />
+          <div className="h-1 w-6 rounded bg-rose-500" />
+        </div>
+      </div>
+    ),
+  },
+  {
+    value: 'elegante',
+    label: 'Elegante',
+    preview: (
+      <div className="w-12 h-8 rounded-lg bg-zinc-800 border border-zinc-700 p-0.5 flex flex-col justify-between">
+        <div className="h-4 rounded bg-zinc-700" />
+        <div className="flex justify-between items-center">
+          <span className="h-1.5 w-4 rounded bg-amber-400" />
+          <span className="w-3 h-2 rounded bg-rose-500" />
+        </div>
+      </div>
+    ),
+  },
+  {
+    value: 'clasica',
+    label: 'Clásica',
+    preview: (
+      <div className="w-12 h-8 rounded-lg bg-zinc-800 border border-zinc-700 border-t-2 border-t-rose-500 p-0.5 flex flex-col justify-between">
+        <div className="h-3.5 rounded bg-zinc-700" />
+        <div className="h-1.5 w-8 rounded bg-zinc-400" />
+      </div>
+    ),
+  },
+  {
+    value: 'compacta',
+    label: 'Compacta',
+    preview: (
+      <div className="w-full h-7 rounded-lg bg-zinc-800 border border-zinc-700 p-1 flex items-center justify-between gap-1">
+        <div className="w-5 h-5 rounded bg-zinc-700" />
+        <div className="h-1.5 flex-1 rounded bg-zinc-400" />
+        <div className="w-3 h-3 rounded bg-rose-500" />
+      </div>
+    ),
+  },
+  {
+    value: 'minimalista',
+    label: 'Minimalista',
+    preview: (
+      <div className="w-12 h-8 rounded-lg border border-zinc-700 p-0.5 flex flex-col justify-between">
+        <div className="h-4 rounded bg-zinc-800" />
+        <div className="h-1.5 w-6 rounded bg-zinc-500" />
+      </div>
+    ),
+  },
+  {
+    value: 'inmersiva',
+    label: 'Póster Full',
+    preview: (
+      <div className="w-12 h-8 rounded-lg bg-gradient-to-t from-black to-zinc-700 border border-zinc-700 p-1 flex items-end">
+        <div className="h-1.5 w-8 rounded bg-white/90" />
+      </div>
+    ),
+  },
+  {
+    value: 'vitrina',
+    label: 'Vitrina',
+    preview: (
+      <div className="w-12 h-8 rounded-lg bg-zinc-900 border border-zinc-700 p-0.5 flex flex-col justify-end relative">
+        <div className="w-6 h-6 rounded-full bg-zinc-700 mx-auto -mt-2 border border-zinc-600" />
+        <div className="h-1.5 w-7 rounded bg-zinc-400 mx-auto" />
+      </div>
+    ),
+  },
+  {
+    value: 'bento',
+    label: 'Bento Grid',
+    preview: (
+      <div className="grid grid-cols-2 gap-1 w-full h-7">
+        <div className="rounded bg-zinc-800 border border-zinc-700" />
+        <div className="rounded bg-rose-500/20 border border-rose-500/50" />
+      </div>
+    ),
+  },
+  {
+    value: 'galeria',
+    label: 'Editorial',
+    preview: (
+      <div className="w-12 h-8 rounded-lg bg-zinc-800 border border-zinc-700 p-1 flex flex-col items-center justify-center gap-0.5">
+        <div className="w-7 h-4 rounded bg-zinc-700" />
+        <div className="w-6 h-1 rounded bg-zinc-300" />
+      </div>
+    ),
+  },
+  {
+    value: 'lista_menu',
+    label: 'Trattoria',
+    preview: (
+      <div className="w-full h-7 rounded-lg border border-zinc-700 p-1 flex flex-col justify-center gap-1">
+        <div className="flex justify-between">
+          <span className="h-1.5 w-10 rounded bg-zinc-300" />
+          <span className="h-1.5 w-4 rounded bg-amber-400" />
+        </div>
+        <div className="h-1 w-14 rounded bg-zinc-600" />
+      </div>
+    ),
+  },
+  {
+    value: 'neon_promo',
+    label: 'Neón Promo',
+    preview: (
+      <div className="w-12 h-8 rounded-lg bg-zinc-950 border-2 border-rose-500 p-0.5 flex flex-col justify-between shadow-[0_0_8px_rgba(244,63,94,0.45)]">
+        <div className="h-4 rounded bg-zinc-800" />
+        <div className="h-1.5 w-7 rounded bg-rose-400" />
+      </div>
+    ),
+  },
+];
+
+const SLIDER_STYLE_OPTIONS: VisualStyleOption<NonNullable<SliderBlockConfig['visualStyle']>>[] = [
+  {
+    value: 'classic',
+    label: 'Clásico Lateral',
+    preview: (
+      <div className="w-full h-7 rounded bg-gradient-to-r from-black/80 via-zinc-700 to-zinc-600 p-1 flex items-center">
+        <span className="h-1.5 w-8 rounded bg-white/90" />
+      </div>
+    ),
+  },
+  {
+    value: 'cinema',
+    label: 'Cinema Centro',
+    preview: (
+      <div className="w-full h-7 rounded bg-zinc-800 p-1 flex items-center justify-center">
+        <span className="h-1.5 w-10 rounded bg-white/90" />
+      </div>
+    ),
+  },
+  {
+    value: 'floating_glass',
+    label: 'Cristal Flotante',
+    tag: 'Modern',
+    preview: (
+      <div className="w-full h-7 rounded bg-zinc-700 p-1 flex items-center justify-center">
+        <span className="h-4 w-14 rounded bg-white/20 backdrop-blur border border-white/30" />
+      </div>
+    ),
+  },
+  {
+    value: 'split_card',
+    label: 'Split Foto',
+    preview: (
+      <div className="w-full h-7 rounded bg-zinc-800 grid grid-cols-2 gap-1 p-0.5">
+        <span className="rounded bg-zinc-900" />
+        <span className="rounded bg-rose-500/40" />
+      </div>
+    ),
+  },
+  {
+    value: 'magazine',
+    label: 'Editorial',
+    preview: (
+      <div className="w-full h-7 rounded bg-zinc-800 p-1 flex flex-col justify-between">
+        <span className="h-1 w-5 rounded bg-amber-400" />
+        <span className="h-1.5 w-11 rounded bg-white/90" />
+      </div>
+    ),
+  },
+];
+
+const SEARCH_STYLE_OPTIONS: VisualStyleOption<SearchBarBlockConfig['visualStyle']>[] = [
+  {
+    value: 'modern',
+    label: 'Caja Moderna',
+    preview: <div className="w-full h-5 rounded-lg bg-zinc-800 border border-zinc-600" />,
+  },
+  {
+    value: 'pill',
+    label: 'Cápsula Pill',
+    tag: 'App',
+    preview: <div className="w-full h-5 rounded-full bg-zinc-800 border border-zinc-600" />,
+  },
+  {
+    value: 'minimal',
+    label: 'Línea Minimal',
+    preview: <div className="w-full h-5 border-b-2 border-zinc-400" />,
+  },
+  {
+    value: 'glass',
+    label: 'Glass Cristal',
+    preview: <div className="w-full h-5 rounded-xl bg-white/15 border border-white/25" />,
+  },
+  {
+    value: 'hero_banner',
+    label: 'Banner Hero',
+    preview: (
+      <div className="w-full h-6 rounded-lg bg-rose-500/20 border border-rose-500/40 p-1 flex items-center">
+        <div className="w-full h-3 rounded bg-zinc-900" />
+      </div>
+    ),
+  },
+  {
+    value: 'elevated_card',
+    label: 'Elevada',
+    preview: <div className="w-full h-5 rounded-xl bg-zinc-700 shadow-md" />,
+  },
+  {
+    value: 'neon_outline',
+    label: 'Borde Neón',
+    preview: <div className="w-full h-5 rounded-xl bg-zinc-950 border-2 border-rose-500" />,
+  },
+];
+
+const PROMO_STYLE_OPTIONS: VisualStyleOption<NonNullable<PromoStripBlockConfig['visualStyle']>>[] = [
+  {
+    value: 'banner',
+    label: 'Banner Clásico',
+    preview: <div className="w-full h-5 rounded-lg bg-amber-500/30 border border-amber-500/60" />,
+  },
+  {
+    value: 'ticket_coupon',
+    label: 'Cupón Ticket',
+    tag: 'Promo',
+    preview: <div className="w-full h-5 rounded-lg bg-zinc-800 border-2 border-dashed border-amber-400" />,
+  },
+  {
+    value: 'glass_glow',
+    label: 'Glass Glow',
+    preview: <div className="w-full h-5 rounded-lg bg-white/10 border border-white/25 shadow-[0_0_8px_rgba(244,63,94,0.4)]" />,
+  },
+  {
+    value: 'split_hero',
+    label: 'Franja Amplia',
+    preview: <div className="w-full h-6 rounded-lg bg-gradient-to-r from-rose-500/40 to-amber-500/40" />,
+  },
+  {
+    value: 'compact_bar',
+    label: 'Barra Compacta',
+    preview: <div className="w-full h-3.5 rounded-full bg-zinc-800 border border-zinc-600" />,
+  },
+];
+
+const ModernSwitchRow: React.FC<{
+  label: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}> = ({ label, checked, onChange }) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    onClick={() => onChange(!checked)}
+    className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-[#232736] bg-[#151822] hover:border-[#343a4f] transition-colors text-left"
+  >
+    <span className="text-xs font-semibold text-zinc-100">{label}</span>
+    <span
+      className={`w-9 h-5 rounded-full p-0.5 transition-colors flex items-center shrink-0 ${
+        checked ? 'bg-rose-500 justify-end' : 'bg-zinc-700 justify-start'
+      }`}
+    >
+      <span className="w-4 h-4 rounded-full bg-white shadow-sm" />
+    </span>
+  </button>
+);
+
 const DeviceVisibilityChecks: React.FC<{
   onlyMobile: boolean;
   onlyTablet: boolean;
@@ -163,37 +643,38 @@ const DeviceVisibilityChecks: React.FC<{
     onlyDesktop?: boolean;
   }) => void;
 }> = ({ onlyMobile, onlyTablet, onlyDesktop, onChange }) => {
+  const items = [
+    { key: 'onlyMobile' as const, label: 'Móvil', active: onlyMobile, Icon: Smartphone },
+    { key: 'onlyTablet' as const, label: 'Tablet', active: onlyTablet, Icon: Tablet },
+    { key: 'onlyDesktop' as const, label: 'PC', active: onlyDesktop, Icon: Monitor },
+  ];
   return (
-    <div className="space-y-2">
-      <label className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-[#252836] bg-[#161821] hover:border-[#34384b] cursor-pointer transition-colors">
-        <input
-          type="checkbox"
-          checked={onlyMobile}
-          onChange={e => onChange({ onlyMobile: e.target.checked })}
-          className="w-4 h-4 rounded accent-rose-500 cursor-pointer shrink-0"
-        />
-        <span className="text-xs font-semibold text-zinc-100">Mostrar solo en celulares</span>
-      </label>
-
-      <label className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-[#252836] bg-[#161821] hover:border-[#34384b] cursor-pointer transition-colors">
-        <input
-          type="checkbox"
-          checked={onlyTablet}
-          onChange={e => onChange({ onlyTablet: e.target.checked })}
-          className="w-4 h-4 rounded accent-rose-500 cursor-pointer shrink-0"
-        />
-        <span className="text-xs font-semibold text-zinc-100">Mostrar solo en tablets</span>
-      </label>
-
-      <label className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-[#252836] bg-[#161821] hover:border-[#34384b] cursor-pointer transition-colors">
-        <input
-          type="checkbox"
-          checked={onlyDesktop}
-          onChange={e => onChange({ onlyDesktop: e.target.checked })}
-          className="w-4 h-4 rounded accent-rose-500 cursor-pointer shrink-0"
-        />
-        <span className="text-xs font-semibold text-zinc-100">Mostrar solo en computadoras</span>
-      </label>
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+          Visibilidad exclusiva
+        </span>
+        <span className="text-[10px] text-zinc-500">
+          {!onlyMobile && !onlyTablet && !onlyDesktop ? 'Todos' : 'Filtrado'}
+        </span>
+      </div>
+      <div className="grid grid-cols-3 gap-1.5 p-1 rounded-xl bg-[#0d0f16] border border-[#232736]">
+        {items.map(({ key, label, active, Icon }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onChange({ [key]: !active })}
+            className={`py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all ${
+              active
+                ? 'bg-rose-500 text-white shadow-xs'
+                : 'text-zinc-400 hover:text-zinc-200 hover:bg-white/5'
+            }`}
+          >
+            <Icon className="w-3.5 h-3.5 shrink-0" />
+            <span>{label}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 };
@@ -531,27 +1012,14 @@ export const ElementorBuilderSidebar: React.FC = () => {
 
                 <hr className="border-[#232634]" />
 
-                {/* ESTILO */}
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                    ESTILO
-                  </label>
-                  <select
-                    value={blk.style}
-                    onChange={e => patch({ style: e.target.value as CategoryWidgetStyle })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#161821] border border-[#262938] text-xs sm:text-sm font-semibold text-white focus:outline-none focus:border-emerald-500"
-                  >
-                    <option value="pills">Pastillas (Pills)</option>
-                    <option value="cards">Tarjetas con Icono (Cards)</option>
-                    <option value="circles">Círculos / Historias</option>
-                    <option value="tabs">Pestañas Minimalistas (Tabs)</option>
-                    <option value="banners">Banners Fotográficos</option>
-                    <option value="glass">Cristal Esmerilado (Glass)</option>
-                    <option value="mosaic">Mosaico Visual</option>
-                    <option value="minimal_chip">Chip Minimalista</option>
-                    <option value="split_badge">Insignia Dividida (Split Badge)</option>
-                  </select>
-                </div>
+                {/* ESTILO VISUAL (SIN DESPLEGABLE) */}
+                <VisualStyleGrid
+                  label="ESTILO DE CATEGORÍAS"
+                  value={blk.style}
+                  options={CATEGORY_STYLE_OPTIONS}
+                  accent="emerald"
+                  onChange={next => patch({ style: next })}
+                />
 
                 <hr className="border-[#232634]" />
 
@@ -612,18 +1080,23 @@ export const ElementorBuilderSidebar: React.FC = () => {
                 <hr className="border-[#232634]" />
 
                 {/* MOSTRAR CONTADOR */}
-                <label className="flex items-center justify-between cursor-pointer py-0.5">
+                <div className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-[#151822] border border-[#232736]">
                   <span className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-zinc-300">
-                    <Hash className="w-3.5 h-3.5 text-zinc-400" />
-                    <span>MOSTRAR CONTADOR</span>
+                    <Hash className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Mostrar contador</span>
                   </span>
-                  <input
-                    type="checkbox"
-                    checked={blk.showCount}
-                    onChange={e => patch({ showCount: e.target.checked })}
-                    className="w-4 h-4 rounded accent-emerald-500 cursor-pointer"
-                  />
-                </label>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={blk.showCount}
+                    onClick={() => patch({ showCount: !blk.showCount })}
+                    className={`w-10 h-5.5 rounded-full p-0.5 transition-colors flex items-center ${
+                      blk.showCount ? 'bg-emerald-500 justify-end' : 'bg-zinc-700 justify-start'
+                    }`}
+                  >
+                    <span className="w-4.5 h-4.5 rounded-full bg-white shadow-sm" />
+                  </button>
+                </div>
 
                 <hr className="border-[#232634]" />
 
@@ -787,28 +1260,14 @@ export const ElementorBuilderSidebar: React.FC = () => {
 
                 <hr className="border-[#232634]" />
 
-                {/* ESTILO DE TARJETA */}
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                    ESTILO DE TARJETA
-                  </label>
-                  <select
-                    value={blk.cardStyle}
-                    onChange={e => patch({ cardStyle: e.target.value as ProductCardStyle })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#161821] border border-[#262938] text-xs sm:text-sm font-semibold text-white focus:outline-none focus:border-rose-500"
-                  >
-                    <option value="elegante">Elegante</option>
-                    <option value="clasica">Clásica Delivery</option>
-                    <option value="compacta">Compacta Horizontal</option>
-                    <option value="minimalista">Minimalista</option>
-                    <option value="inmersiva">Póster Inmersivo</option>
-                    <option value="vitrina">Vitrina Flotante</option>
-                    <option value="bento">Bento Grid Moderno</option>
-                    <option value="galeria">Galería Editorial Centrada</option>
-                    <option value="lista_menu">Carta Trattoria (Menú Pizzería)</option>
-                    <option value="neon_promo">Neón Promo Destacado</option>
-                  </select>
-                </div>
+                {/* ESTILO DE TARJETA (SIN DESPLEGABLE) */}
+                <VisualStyleGrid
+                  label="ESTILO DE TARJETA"
+                  value={blk.cardStyle}
+                  options={PRODUCT_CARD_STYLE_OPTIONS}
+                  accent="rose"
+                  onChange={next => patch({ cardStyle: next })}
+                />
 
                 <hr className="border-[#232634]" />
 
@@ -995,17 +1454,11 @@ export const ElementorBuilderSidebar: React.FC = () => {
                     />
                   </div>
 
-                  <label className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-[#252836] bg-[#161821] hover:border-[#34384b] cursor-pointer transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={blk.enableLoadMore}
-                      onChange={e => patch({ enableLoadMore: e.target.checked })}
-                      className="w-4 h-4 rounded accent-rose-500 cursor-pointer shrink-0"
-                    />
-                    <span className="text-xs font-semibold text-zinc-100">
-                      Habilitar botón &quot;Cargar Más&quot;
-                    </span>
-                  </label>
+                  <ModernSwitchRow
+                    label='Habilitar botón "Cargar Más"'
+                    checked={blk.enableLoadMore}
+                    onChange={next => patch({ enableLoadMore: next })}
+                  />
                 </div>
 
                 <hr className="border-[#232634]" />
@@ -1029,18 +1482,12 @@ export const ElementorBuilderSidebar: React.FC = () => {
                       ['showVariants', 'Mostrar características (Variantes)'],
                     ] as const
                   ).map(([key, label]) => (
-                    <label
+                    <ModernSwitchRow
                       key={key}
-                      className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-[#252836] bg-[#161821] hover:border-[#34384b] cursor-pointer transition-colors"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={Boolean(blk[key])}
-                        onChange={e => patch({ [key]: e.target.checked })}
-                        className="w-4 h-4 rounded accent-rose-500 cursor-pointer shrink-0"
-                      />
-                      <span className="text-xs font-semibold text-zinc-100">{label}</span>
-                    </label>
+                      label={label}
+                      checked={Boolean(blk[key])}
+                      onChange={next => patch({ [key]: next })}
+                    />
                   ))}
 
                   {blk.squareImage && (
@@ -1188,24 +1635,13 @@ export const ElementorBuilderSidebar: React.FC = () => {
 
                 {/* ESTILO VISUAL Y COLUMNAS DEL SLIDER */}
                 <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                      ESTILO VISUAL DEL SLIDER
-                    </label>
-                    <select
-                      value={blk.visualStyle || 'classic'}
-                      onChange={e =>
-                        patch({ visualStyle: e.target.value as SliderBlockConfig['visualStyle'] })
-                      }
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#161821] border border-[#262938] text-xs sm:text-sm font-semibold text-white focus:outline-none focus:border-amber-500"
-                    >
-                      <option value="classic">Clásico Degradado Lateral</option>
-                      <option value="cinema">Cinema Panorámico Centrado</option>
-                      <option value="floating_glass">Cristal Flotante (Floating Glass)</option>
-                      <option value="split_card">Tarjeta Dividida (Texto + Foto)</option>
-                      <option value="magazine">Editorial / Revista</option>
-                    </select>
-                  </div>
+                  <VisualStyleGrid
+                    label="ESTILO VISUAL DEL SLIDER"
+                    value={blk.visualStyle || 'classic'}
+                    options={SLIDER_STYLE_OPTIONS}
+                    accent="rose"
+                    onChange={next => patch({ visualStyle: next })}
+                  />
 
                   <div className="space-y-1.5">
                     <label className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400">
@@ -1775,26 +2211,13 @@ export const ElementorBuilderSidebar: React.FC = () => {
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                    ESTILO VISUAL
-                  </label>
-                  <select
-                    value={blk.visualStyle}
-                    onChange={e =>
-                      patch({ visualStyle: e.target.value as SearchBarBlockConfig['visualStyle'] })
-                    }
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#161821] border border-[#262938] text-xs sm:text-sm font-semibold text-white"
-                  >
-                    <option value="modern">Caja Moderna (Redondeada)</option>
-                    <option value="pill">Cápsula Completa (Pill)</option>
-                    <option value="minimal">Línea Inferior Minimalista</option>
-                    <option value="glass">Cristal Esmerilado (Glass)</option>
-                    <option value="hero_banner">Banner Buscador Destacado</option>
-                    <option value="elevated_card">Tarjeta Flotante Elevada</option>
-                    <option value="neon_outline">Borde Luminoso (Neón)</option>
-                  </select>
-                </div>
+                <VisualStyleGrid
+                  label="ESTILO VISUAL DEL BUSCADOR"
+                  value={blk.visualStyle}
+                  options={SEARCH_STYLE_OPTIONS}
+                  accent="rose"
+                  onChange={next => patch({ visualStyle: next })}
+                />
 
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400">
@@ -1906,24 +2329,13 @@ export const ElementorBuilderSidebar: React.FC = () => {
                   onChange={patch}
                 />
 
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                    ESTILO VISUAL
-                  </label>
-                  <select
-                    value={blk.visualStyle || 'banner'}
-                    onChange={e =>
-                      patch({ visualStyle: e.target.value as PromoStripBlockConfig['visualStyle'] })
-                    }
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#161821] border border-[#262938] text-xs font-semibold text-white"
-                  >
-                    <option value="banner">Banner Clásico</option>
-                    <option value="ticket_coupon">Cupón Recortable (Ticket)</option>
-                    <option value="glass_glow">Resplandor Luminoso (Glow)</option>
-                    <option value="split_hero">Franja Destacada Amplia</option>
-                    <option value="compact_bar">Barra Compacta</option>
-                  </select>
-                </div>
+                <VisualStyleGrid
+                  label="ESTILO VISUAL DE FRANJA"
+                  value={blk.visualStyle || 'banner'}
+                  options={PROMO_STYLE_OPTIONS}
+                  accent="rose"
+                  onChange={next => patch({ visualStyle: next })}
+                />
 
                 <div className="space-y-1.5">
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400">
@@ -2435,50 +2847,28 @@ export const ElementorBuilderSidebar: React.FC = () => {
           /* ==================== PESTAÑA DE PLANTILLAS Y ESTILO GLOBAL ==================== */
           <div className="space-y-5">
             {!activeEditingPageId && (
-              <div className="space-y-2.5">
-                <span className="block text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                  ELIGE UNA PLANTILLA EDITABLE
-                </span>
-
-                {templates.map(tpl => {
-                const isCurrent = tpl.id === activeTemplate.id;
-                return (
-                  <button
-                    key={tpl.id}
-                    type="button"
-                    onClick={() => selectTemplate(tpl.id)}
-                    className={`w-full p-3.5 rounded-2xl border text-left transition-all space-y-1.5 ${
-                      isCurrent
-                        ? 'border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/5'
-                        : 'border-[#262938] bg-[#161822] hover:border-[#373c52]'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-black text-white flex items-center gap-1.5">
-                        <span
-                          className="w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: tpl.accentColor }}
-                        />
-                        {tpl.name}
-                      </span>
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          isCurrent
-                            ? 'bg-amber-500 text-neutral-950'
-                            : 'bg-[#222636] text-zinc-300'
-                        }`}
-                      >
-                        {isCurrent ? 'Activa ✓' : tpl.previewBadge}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-zinc-400 leading-relaxed">{tpl.tagline}</p>
-                    <div className="text-[10px] text-zinc-500 font-medium">
-                      {tpl.blocks.length} bloques configurados • Tema{' '}
-                      {tpl.themeMode === 'light' ? 'Claro' : 'Oscuro'}
-                    </div>
-                  </button>
-                );
-              })}
+              <div className="p-3.5 rounded-2xl border border-[#262938] bg-[#161822] space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                    PLANTILLA ACTIVA
+                  </span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500 text-neutral-950">
+                    Activa ✓
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: activeTemplate.accentColor }}
+                  />
+                  <span className="text-xs font-black text-white truncate">
+                    {activeTemplate.name}
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-400 leading-relaxed">
+                  Las plantillas ({templates.length} disponibles) ahora se gestionan desde{' '}
+                  <strong className="text-amber-400">Configuración → Diseño de Tienda</strong>.
+                </p>
               </div>
             )}
 

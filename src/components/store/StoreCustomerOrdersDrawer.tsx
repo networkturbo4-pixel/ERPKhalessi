@@ -247,6 +247,7 @@ export const StoreCustomerOrdersDrawer: React.FC<StoreCustomerOrdersDrawerProps>
             return (
               <div key={step.key} className="flex flex-col items-center text-center gap-1">
                 <div
+                  data-no-doodle="true"
                   data-auto-contrast={reached && autoButtonContrast ? 'true' : 'false'}
                   className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
                     reached
@@ -414,6 +415,7 @@ export const StoreCustomerOrdersDrawer: React.FC<StoreCustomerOrdersDrawerProps>
                 </button>
               ) : (
                 <div
+                  data-no-doodle="true"
                   data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
                   className="store-btn-solid w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs"
                 >

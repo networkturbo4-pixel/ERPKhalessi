@@ -48,6 +48,8 @@ const loadPagesModuleView = () =>
   import('./pages/PagesModuleView').then(m => ({ default: m.PagesModuleView }));
 const loadFinanceModuleView = () =>
   import('./finance/FinanceModuleView').then(m => ({ default: m.FinanceModuleView }));
+const loadBillingModuleView = () =>
+  import('./billing/BillingModuleView').then(m => ({ default: m.BillingModuleView }));
 
 const DashboardView = lazy(loadDashboardView);
 const SettingsView = lazy(loadSettingsView);
@@ -67,9 +69,11 @@ const InventoryModuleView = lazy(loadInventoryModuleView);
 const MediaGalleryView = lazy(loadMediaGalleryView);
 const PagesModuleView = lazy(loadPagesModuleView);
 const FinanceModuleView = lazy(loadFinanceModuleView);
+const BillingModuleView = lazy(loadBillingModuleView);
 
 import {
   LayoutDashboard,
+  FileCheck2,
   Settings,
   Pizza,
   Flame,
@@ -124,6 +128,7 @@ export type MainModuleId =
   | 'inventory'
   | 'hr'
   | 'finance'
+  | 'billing'
   | 'settings';
 
 export interface MainLayoutProps {
@@ -147,6 +152,7 @@ const MODULE_MOBILE_LABELS: Record<MainModuleId, string> = {
   inventory: 'Inventario',
   hr: 'RRHH',
   finance: 'Finanzas',
+  billing: 'Facturación',
   settings: 'Configuración',
 };
 
@@ -273,7 +279,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
       if (saved && [
         'pos', 'kitchen', 'delivery', 'orders', 'catalog', 'tables',
         'kiosk', 'benefits', 'marketing', 'hr', 'crm', 'store_builder', 'settings', 'dashboard', 'inventory',
-        'products', 'clients', 'media', 'pages', 'finance'
+        'products', 'clients', 'media', 'pages', 'finance', 'billing'
       ].includes(saved)) {
         return saved;
       }
@@ -1215,6 +1221,36 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
               )}
             </button>
 
+            {/* Facturación Electrónica SUNAT Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveMainModule('billing');
+                setMobileMenuOpen(false);
+              }}
+              className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-all ${
+                sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
+              } ${
+                activeMainModule === 'billing'
+                  ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
+              }`}
+              title="Facturación Electrónica SUNAT"
+            >
+              <FileCheck2
+                className="h-4 w-4 shrink-0 transition-colors"
+                style={activeMainModule === 'billing' ? { color: customization.primaryColor } : undefined}
+              />
+              {(!sidebarCollapsed || mobileMenuOpen) && (
+                <div className="flex items-center justify-between flex-1 min-w-0">
+                  <span className="truncate">Facturación</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                    SUNAT
+                  </span>
+                </div>
+              )}
+            </button>
+
             {/* Galería de Medios & Fotos Button */}
             <button
               type="button"
@@ -1792,6 +1828,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 <InventoryModuleView />
               ) : activeMainModule === 'finance' ? (
                 <FinanceModuleView />
+              ) : activeMainModule === 'billing' ? (
+                <BillingModuleView />
               ) : (
                 <SettingsView />
               )}

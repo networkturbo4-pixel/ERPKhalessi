@@ -39,7 +39,13 @@ import {
   BarChart3,
   MousePointerClick,
   Download,
+  CalendarClock,
 } from 'lucide-react';
+import {
+  getReservationSettingsForTenant,
+  saveReservationSettingsForTenant,
+  TenantReservationConfig,
+} from '../../utils/posOperations';
 
 const ElementorBuilderSidebar = lazy(() =>
   import('../store/ElementorBuilderSidebar').then(m => ({
@@ -112,6 +118,12 @@ export const PagesModuleView: React.FC = () => {
   } = useStoreBuilder();
 
   const { customization, companyInfo, openNoticeModal, dispatchToast, activeTenant } = useSettings();
+  const [resConfig, setResConfig] = useState<TenantReservationConfig>(() =>
+    getReservationSettingsForTenant(activeTenant.id)
+  );
+  useEffect(() => {
+    setResConfig(getReservationSettingsForTenant(activeTenant.id));
+  }, [activeTenant.id]);
   const { products, upsertCustomer } = useOrderCatalog();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -650,6 +662,119 @@ export const PagesModuleView: React.FC = () => {
           <Plus className="w-4 h-4" />
           <span>Nueva Página</span>
         </button>
+      </div>
+
+      {/* Configuración SPA de Reservas Online (/reservas) */}
+      <div className="saas-card p-4 space-y-3 border border-amber-500/25">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <CalendarClock className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-black text-zinc-900 dark:text-white">
+                SPA Pública de Reservas ({activeTenant.name})
+              </h2>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                Configura horarios, aforo y comparte el enlace directo de reservas de esta sede.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => {
+                const url = `${window.location.origin}/reservas/${activeTenant.id}`;
+                if (navigator.clipboard) {
+                  void navigator.clipboard.writeText(url);
+                  dispatchToast('URL Copiada', url, 'success');
+                }
+              }}
+              className="px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:border-amber-500 flex items-center gap-1.5 whitespace-nowrap shrink-0"
+            >
+              <Copy className="w-3.5 h-3.5 text-amber-500" />
+              <span>Copiar URL /reservas</span>
+            </button>
+            <a
+              href={`/reservas/${activeTenant.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black flex items-center gap-1.5 whitespace-nowrap shrink-0"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Abrir SPA</span>
+            </a>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-2 border-t border-zinc-200 dark:border-zinc-800 text-xs">
+          <label className="flex items-center gap-2 font-bold text-zinc-700 dark:text-zinc-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={resConfig.enabled}
+              onChange={(e) => {
+                const next = { ...resConfig, enabled: e.target.checked };
+                setResConfig(next);
+                saveReservationSettingsForTenant(activeTenant.id, next);
+              }}
+            />
+            <span>Reservas Activas</span>
+          </label>
+          <label className="flex items-center gap-2 font-bold text-zinc-700 dark:text-zinc-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={resConfig.allowTableReservation}
+              onChange={(e) => {
+                const next = { ...resConfig, allowTableReservation: e.target.checked };
+                setResConfig(next);
+                saveReservationSettingsForTenant(activeTenant.id, next);
+              }}
+            />
+            <span>Mesas</span>
+          </label>
+          <div>
+            <span className="text-[10px] text-zinc-500 block">Apertura</span>
+            <input
+              type="time"
+              value={resConfig.openTime}
+              onChange={(e) => {
+                const next = { ...resConfig, openTime: e.target.value };
+                setResConfig(next);
+                saveReservationSettingsForTenant(activeTenant.id, next);
+              }}
+              className="w-full px-2 py-1 rounded-lg bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800"
+            />
+          </div>
+          <div>
+            <span className="text-[10px] text-zinc-500 block">Cierre</span>
+            <input
+              type="time"
+              value={resConfig.closeTime}
+              onChange={(e) => {
+                const next = { ...resConfig, closeTime: e.target.value };
+                setResConfig(next);
+                saveReservationSettingsForTenant(activeTenant.id, next);
+              }}
+              className="w-full px-2 py-1 rounded-lg bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800"
+            />
+          </div>
+          <div>
+            <span className="text-[10px] text-zinc-500 block">Máx. Personas</span>
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={resConfig.maxGuestsPerReservation}
+              onChange={(e) => {
+                const next = { ...resConfig, maxGuestsPerReservation: Number(e.target.value) || 4 };
+                setResConfig(next);
+                saveReservationSettingsForTenant(activeTenant.id, next);
+              }}
+              className="w-full px-2 py-1 rounded-lg bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800"
+            />
+          </div>
+        </div>
       </div>
 
       {/* Filters */}

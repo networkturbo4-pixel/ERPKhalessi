@@ -5,10 +5,22 @@ import {
   Order,
   OrderChannel,
   PaymentMethod,
+  PaymentSplit,
+  HeldOrder,
+  InvoiceDocumentType,
   RestaurantTable,
   TableShape,
   Customer,
 } from '../../types/catalog';
+import {
+  emitInvoiceFacturalo,
+  lookupRucFacturalo,
+} from '../../utils/facturaloApi';
+import {
+  loadHeldOrders,
+  saveHeldOrders,
+  appendSunatInvoiceRecord,
+} from '../../utils/posOperations';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
 import { getStoreCategories } from '../store/StorefrontWidgets';
 import { useSettings } from '../../context/SettingsContext';
@@ -75,6 +87,11 @@ import {
   Sparkles,
   Tag,
   Wallet,
+  PauseCircle,
+  PlayCircle,
+  Ban,
+  FileCheck2,
+  Split,
 } from 'lucide-react';
 import { useBenefits } from '../../context/BenefitsContext';
 import { PointReward } from '../../types/benefits';
@@ -239,6 +256,32 @@ export const POSView: React.FC<POSViewProps> = ({
   const [ticketItems, setTicketItems] = useState<OrderItem[]>([]);
   const [channel, setChannel] = useState<OrderChannel>('pos-salon');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('efectivo');
+
+  // Pago Mixto + Calculadora de Vuelto
+  const [isSplitPayment, setIsSplitPayment] = useState(false);
+  const [paymentSplits, setPaymentSplits] = useState<PaymentSplit[]>([
+    { method: 'yape_plin', amount: 0 },
+    { method: 'efectivo', amount: 0 },
+  ]);
+  const [cashReceivedInput, setCashReceivedInput] = useState('');
+
+  // Pedidos en Espera (Hold Orders)
+  const [heldOrders, setHeldOrders] = useState<HeldOrder[]>(() => loadHeldOrders());
+  const [isHoldModalOpen, setIsHoldModalOpen] = useState(false);
+  const [holdLabelInput, setHoldLabelInput] = useState('');
+  const [isHeldListOpen, setIsHeldListOpen] = useState(false);
+
+  // Comprobante SUNAT en Checkout
+  const [invoiceDocType, setInvoiceDocType] = useState<InvoiceDocumentType>('boleta_simple');
+  const [invoiceDocNumber, setInvoiceDocNumber] = useState('');
+  const [invoiceBusinessName, setInvoiceBusinessName] = useState('');
+  const [invoiceFiscalAddress, setInvoiceFiscalAddress] = useState('');
+  const [isLookingUpRuc, setIsLookingUpRuc] = useState(false);
+
+  // Anulación Controlada de Pedidos
+  const [isVoidOrdersModalOpen, setIsVoidOrdersModalOpen] = useState(false);
+  const [voidTargetOrder, setVoidTargetOrder] = useState<Order | null>(null);
+  const [voidReasonInput, setVoidReasonInput] = useState('');
 
   // Floor Tables & Builder State
   const branchTables = getTablesForTenant(activeTenant.id);
@@ -847,6 +890,204 @@ export const POSView: React.FC<POSViewProps> = ({
     });
   };
 
+  const branchHeldOrders = useMemo(
+    () => heldOrders.filter((h) => h.tenantId === activeTenant.id),
+    [heldOrders, activeTenant.id]
+  );
+
+  const recentVoidableOrders = useMemo(
+    () =>
+      orders
+        .filter((o) => o.tenantId === activeTenant.id && o.status !== 'cancelado')
+        .slice(0, 12),
+    [orders, activeTenant.id]
+  );
+
+  const computePaymentOutcome = (amountDue: number) => {
+    if (isSplitPayment) {
+      const validSplits = paymentSplits.filter((s) => Number(s.amount) > 0);
+      const covered = validSplits.reduce((acc, s) => acc + Number(s.amount || 0), 0);
+      const missing = Math.max(0, Number((amountDue - covered).toFixed(2)));
+      const change = Math.max(0, Number((covered - amountDue).toFixed(2)));
+      const primaryMethod = validSplits[0]?.method || paymentMethod;
+      return { validSplits, covered, missing, change, primaryMethod };
+    }
+    const received =
+      paymentMethod === 'efectivo' && cashReceivedInput.trim() !== ''
+        ? Number(cashReceivedInput)
+        : amountDue;
+    const change =
+      paymentMethod === 'efectivo'
+        ? Math.max(0, Number((received - amountDue).toFixed(2)))
+        : 0;
+    return {
+      validSplits: undefined,
+      covered: received,
+      missing: paymentMethod === 'efectivo' && received < amountDue ? Number((amountDue - received).toFixed(2)) : 0,
+      change,
+      primaryMethod: paymentMethod,
+    };
+  };
+
+  const handleParkCurrentOrder = () => {
+    if (ticketItems.length === 0) {
+      dispatchToast('Carrito Vacío', 'Agrega productos antes de poner un pedido en espera.', 'warning');
+      return;
+    }
+    const label = holdLabelInput.trim() || selectedCustomer?.fullName || `Espera #${branchHeldOrders.length + 1}`;
+    const newHeld: HeldOrder = {
+      id: `hold-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      tenantId: activeTenant.id,
+      label,
+      channel,
+      items: ticketItems,
+      customerId: selectedCustomer?.id,
+      customerDni: selectedCustomer?.dni,
+      customerName: selectedCustomer?.fullName,
+      customerPhone: selectedCustomer?.whatsapp,
+      customerEmail: selectedCustomer?.email,
+      deliveryAddress: selectedCustomer?.address,
+      deliveryReference: selectedCustomer?.reference,
+      createdAt: new Date().toISOString(),
+      createdBy: currentUser.name,
+    };
+    const updated = [newHeld, ...heldOrders];
+    setHeldOrders(updated);
+    saveHeldOrders(updated);
+    setTicketItems([]);
+    setHoldLabelInput('');
+    setIsHoldModalOpen(false);
+    dispatchToast('Pedido en Espera', `"${label}" quedó guardado para retomarlo luego.`, 'info');
+  };
+
+  const handleResumeHeldOrder = (held: HeldOrder) => {
+    const applyResume = () => {
+      setChannel(held.channel);
+      setTicketItems(held.items);
+      if (held.customerId || held.customerName) {
+        const found = customers.find((c) => c.id === held.customerId) || null;
+        setSelectedCustomer(found);
+      }
+      const updated = heldOrders.filter((h) => h.id !== held.id);
+      setHeldOrders(updated);
+      saveHeldOrders(updated);
+      setIsHeldListOpen(false);
+      dispatchToast('Pedido Retomado', `"${held.label}" cargado en la comanda.`, 'success');
+    };
+
+    if (ticketItems.length > 0) {
+      openNoticeModal({
+        title: 'Reemplazar Comanda Actual',
+        message: `Tienes ${ticketItems.length} ítem(s) en la comanda actual. ¿Deseas reemplazarlos con "${held.label}"?`,
+        tone: 'warning',
+        confirmLabel: 'Retomar Espera',
+        cancelLabel: 'Cancelar',
+        onConfirm: applyResume,
+      });
+      return;
+    }
+    applyResume();
+  };
+
+  const handleDiscardHeldOrder = (held: HeldOrder) => {
+    openNoticeModal({
+      title: 'Descartar Pedido en Espera',
+      message: `Se eliminará "${held.label}" (${held.items.length} ítems) de la lista de espera.`,
+      tone: 'danger',
+      confirmLabel: 'Descartar',
+      cancelLabel: 'Seguir Guardando',
+      onConfirm: () => {
+        const updated = heldOrders.filter((h) => h.id !== held.id);
+        setHeldOrders(updated);
+        saveHeldOrders(updated);
+      },
+    });
+  };
+
+  const handleLookupInvoiceRuc = async () => {
+    const clean = invoiceDocNumber.replace(/\D/g, '');
+    if (clean.length !== 11) {
+      dispatchToast('RUC Inválido', 'Ingresa un RUC válido de 11 dígitos para consultar SUNAT.', 'warning');
+      return;
+    }
+    setIsLookingUpRuc(true);
+    try {
+      const res = await lookupRucFacturalo(clean);
+      if (res.success) {
+        setInvoiceBusinessName(res.razonSocial);
+        setInvoiceFiscalAddress(res.direccion);
+        dispatchToast('RUC Encontrado', res.razonSocial, 'success');
+      } else {
+        dispatchToast('RUC no encontrado', res.message || 'Ingresa la razón social manualmente.', 'warning');
+      }
+    } finally {
+      setIsLookingUpRuc(false);
+    }
+  };
+
+  const triggerSunatEmission = async (targetOrder: Order, docType: InvoiceDocumentType) => {
+    if (docType === 'boleta_simple') return;
+    const apiType = docType === 'factura_ruc' ? 'factura' : 'boleta';
+    const emission = await emitInvoiceFacturalo({
+      order: targetOrder,
+      invoiceType: apiType,
+      tenant: activeTenant,
+      companyInfo,
+    });
+    appendSunatInvoiceRecord(targetOrder, apiType === 'factura' ? '01' : '03', emission);
+    updateOrderStatus(targetOrder.id, targetOrder.status, {
+      sunatStatus: emission.success ? 'aceptado' : 'pendiente',
+      sunatSerieNumero: emission.serieNumero,
+      sunatPdfUrl: emission.pdfUrl,
+      sunatXmlUrl: emission.xmlUrl,
+      sunatCdrUrl: emission.cdrUrl,
+      sunatQrCode: emission.qrCode,
+    });
+    if (emission.success) {
+      dispatchToast('Comprobante SUNAT Emitido', `${emission.serieNumero} aceptado correctamente.`, 'success');
+    } else {
+      dispatchToast('Comprobante en Contingencia', emission.errorMessage || 'Guardado como pendiente para reenvío.', 'warning');
+    }
+  };
+
+  const handleConfirmVoidOrder = () => {
+    if (!voidTargetOrder) return;
+    const reason = voidReasonInput.trim();
+    if (!reason) {
+      dispatchToast('Motivo Obligatorio', 'Indica el motivo de anulación para auditoría de caja.', 'warning');
+      return;
+    }
+    const nowIso = new Date().toISOString();
+    updateOrderStatus(voidTargetOrder.id, 'cancelado', {
+      voidReason: reason,
+      voidedAt: nowIso,
+      voidedBy: currentUser.name,
+      ...(voidTargetOrder.sunatSerieNumero ? { sunatStatus: 'anulado' } : {}),
+    });
+    // Registrar egreso de devolución si el pedido ya había sido pagado
+    if (voidTargetOrder.paymentStatus === 'pagado') {
+      const currentExp = loadFinanceExpenses();
+      const refundEntry: FinanceExpense = {
+        id: `exp-void-${Date.now()}`,
+        tenantId: activeTenant.id,
+        category: 'otros',
+        source: voidTargetOrder.paymentMethod === 'efectivo' ? 'caja_chica' : 'transferencia',
+        amount: voidTargetOrder.total,
+        description: `Anulación/Devolución ${voidTargetOrder.orderNumber}: ${reason}`,
+        createdBy: currentUser.name,
+        createdAt: nowIso,
+      };
+      saveFinanceExpenses([refundEntry, ...currentExp]);
+    }
+    dispatchToast(
+      'Pedido Anulado',
+      `${voidTargetOrder.orderNumber} fue anulado y registrado en auditoría.`,
+      'info'
+    );
+    setVoidTargetOrder(null);
+    setVoidReasonInput('');
+  };
+
   const handleSendToKitchen = () => {
     if (!cashSession.isOpen) {
       setIsMobileCartOpen(false);
@@ -871,11 +1112,29 @@ export const POSView: React.FC<POSViewProps> = ({
       return;
     }
 
+    if (invoiceDocType === 'factura_ruc' && (!invoiceDocNumber.trim() || !invoiceBusinessName.trim())) {
+      dispatchToast('Datos de Factura', 'Ingresa RUC (11 dígitos) y Razón Social para emitir Factura.', 'warning');
+      return;
+    }
+
+    const payOutcome = computePaymentOutcome(total);
+    if (channel !== 'pos-salon' && payOutcome.missing > 0) {
+      dispatchToast('Monto Incompleto', `Falta cubrir S/ ${payOutcome.missing.toFixed(2)} del total.`, 'warning');
+      return;
+    }
+
     const displayCustomerName = selectedCustomer
       ? selectedCustomer.fullName
       : channel === 'pos-salon' && selectedTable
       ? `${selectedTable.name} (Salón)`
       : 'Cliente Mostrador';
+
+    const resolvedDoc =
+      invoiceDocType === 'factura_ruc'
+        ? invoiceDocNumber.trim()
+        : invoiceDocType === 'boleta_dni'
+        ? invoiceDocNumber.trim() || selectedCustomer?.dni || '00000000'
+        : selectedCustomer?.dni;
 
     const newOrder = createOrder({
       channel,
@@ -889,8 +1148,15 @@ export const POSView: React.FC<POSViewProps> = ({
       tableNumber: channel === 'pos-salon' ? selectedTable?.name : undefined,
       deliveryAddress: channel === 'pos-delivery' ? selectedCustomer?.address : undefined,
       deliveryReference: channel === 'pos-delivery' ? selectedCustomer?.reference : undefined,
-      paymentMethod,
-      paymentStatus: channel === 'pos-delivery' && paymentMethod !== 'yape_plin' ? 'pendiente' : 'pagado',
+      paymentMethod: payOutcome.primaryMethod,
+      paymentSplits: payOutcome.validSplits,
+      cashReceived: payOutcome.covered,
+      changeAmount: payOutcome.change,
+      paymentStatus: channel === 'pos-delivery' && payOutcome.primaryMethod !== 'yape_plin' ? 'pendiente' : 'pagado',
+      invoiceType: invoiceDocType,
+      invoiceDocument: resolvedDoc,
+      invoiceBusinessName: invoiceDocType === 'factura_ruc' ? invoiceBusinessName.trim() : displayCustomerName,
+      invoiceFiscalAddress: invoiceDocType === 'factura_ruc' ? invoiceFiscalAddress.trim() : undefined,
       items: ticketItems,
       subtotal,
       deliveryFee: deliveryExtra,
@@ -899,6 +1165,10 @@ export const POSView: React.FC<POSViewProps> = ({
       total,
       estimatedMinutes: channel === 'pos-delivery' ? 30 : 18,
     });
+
+    if (channel !== 'pos-salon' && invoiceDocType !== 'boleta_simple') {
+      void triggerSunatEmission(newOrder, invoiceDocType);
+    }
 
     if (appliedReward && selectedCustomer) {
       if (matchedStoreAccount) {
@@ -927,18 +1197,60 @@ export const POSView: React.FC<POSViewProps> = ({
     }
 
     setTicketItems([]);
+    setCashReceivedInput('');
+    setIsSplitPayment(false);
+    setPaymentSplits([
+      { method: 'yape_plin', amount: 0 },
+      { method: 'efectivo', amount: 0 },
+    ]);
     setIsMobileCartOpen(false);
   };
 
   const handlePayTableOrder = (activeOrder: Order) => {
+    const payOutcome = computePaymentOutcome(activeOrder.total);
+    if (payOutcome.missing > 0) {
+      dispatchToast('Monto Incompleto', `Falta cubrir S/ ${payOutcome.missing.toFixed(2)} del total.`, 'warning');
+      return;
+    }
+    if (invoiceDocType === 'factura_ruc' && (!invoiceDocNumber.trim() || !invoiceBusinessName.trim())) {
+      dispatchToast('Datos de Factura', 'Ingresa RUC (11 dígitos) y Razón Social para emitir Factura.', 'warning');
+      return;
+    }
+
+    const enrichedOrder: Order = {
+      ...activeOrder,
+      paymentMethod: payOutcome.primaryMethod,
+      paymentSplits: payOutcome.validSplits,
+      cashReceived: payOutcome.covered,
+      changeAmount: payOutcome.change,
+      invoiceType: invoiceDocType,
+      invoiceDocument:
+        invoiceDocType === 'factura_ruc'
+          ? invoiceDocNumber.trim()
+          : invoiceDocType === 'boleta_dni'
+          ? invoiceDocNumber.trim() || activeOrder.customerDni || '00000000'
+          : activeOrder.customerDni,
+      invoiceBusinessName:
+        invoiceDocType === 'factura_ruc' ? invoiceBusinessName.trim() : activeOrder.customerName,
+      invoiceFiscalAddress:
+        invoiceDocType === 'factura_ruc' ? invoiceFiscalAddress.trim() : activeOrder.deliveryAddress,
+    };
+
     markOrderPaid(activeOrder.id);
     updateOrderStatus(activeOrder.id, 'entregado', { paymentStatus: 'pagado' });
-    printThermalTicket('receipt', activeOrder);
+    if (invoiceDocType !== 'boleta_simple') {
+      void triggerSunatEmission(enrichedOrder, invoiceDocType);
+    }
+    printThermalTicket('receipt', enrichedOrder);
     dispatchToast(
       'Mesa Cobrada y Liberada',
-      `La orden ${activeOrder.orderNumber} (${selectedTable?.name || 'Salón'}) fue cobrada y el recibo se envió a impresión.`,
+      payOutcome.change > 0
+        ? `Orden ${activeOrder.orderNumber} cobrada. Vuelto: S/ ${payOutcome.change.toFixed(2)}.`
+        : `La orden ${activeOrder.orderNumber} (${selectedTable?.name || 'Salón'}) fue cobrada y el recibo se envió a impresión.`,
       'success'
     );
+    setCashReceivedInput('');
+    setIsSplitPayment(false);
     setIsMobileCartOpen(false);
   };
 
@@ -1284,6 +1596,11 @@ export const POSView: React.FC<POSViewProps> = ({
                       <span className="font-bold text-xs text-zinc-900 dark:text-white leading-tight">
                         {item.quantity}x {item.productName}
                       </span>
+                      {item.roundNumber && item.roundNumber > 1 && (
+                        <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-600 dark:text-blue-300 border border-blue-500/30">
+                          Ronda {item.roundNumber}
+                        </span>
+                      )}
                       {item.size && (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-400">
                           {item.size.name}
@@ -1424,37 +1741,304 @@ export const POSView: React.FC<POSViewProps> = ({
         </div>
       )}
 
-      {/* Tactile Payment Method Selector */}
-      <div className="space-y-1.5 pt-2 border-t border-zinc-200 dark:border-zinc-800">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block">
-          Método de Pago
-        </span>
-        <div className="grid grid-cols-3 gap-1.5">
-          {[
-            { id: 'efectivo' as const, label: 'Efectivo', icon: Banknote },
-            { id: 'yape_plin' as const, label: 'Yape/Plin', icon: Smartphone },
-            { id: 'tarjeta' as const, label: 'Tarjeta', icon: CreditCard },
-          ].map((pm) => {
-            const Icon = pm.icon;
-            const active = paymentMethod === pm.id;
-            return (
+      {/* Acciones Rápidas de Caja: Espera & Anulación */}
+      <div className="flex items-center gap-1.5 pt-1.5 border-t border-zinc-200 dark:border-zinc-800">
+        {ticketItems.length > 0 && !currentTableActiveOrder && (
+          <button
+            type="button"
+            onClick={() => {
+              setHoldLabelInput(selectedCustomer?.fullName || '');
+              setIsHoldModalOpen(true);
+            }}
+            className="flex-1 min-h-[34px] px-2 py-1 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[11px] font-bold flex items-center justify-center gap-1 hover:bg-amber-500/20 transition-colors whitespace-nowrap shrink-0"
+          >
+            <PauseCircle className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>En Espera</span>
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setIsHeldListOpen(true)}
+          className="flex-1 min-h-[34px] px-2 py-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 text-zinc-700 dark:text-zinc-300 text-[11px] font-bold flex items-center justify-center gap-1 hover:border-amber-500/50 transition-colors whitespace-nowrap shrink-0"
+        >
+          <PlayCircle className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />
+          <span>Espera ({branchHeldOrders.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setIsVoidOrdersModalOpen(true)}
+          className="min-h-[34px] px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 text-rose-600 dark:text-rose-400 text-[11px] font-bold flex items-center justify-center gap-1 hover:bg-rose-500/10 transition-colors whitespace-nowrap shrink-0"
+          title="Anular o devolver pedido reciente"
+        >
+          <Ban className="w-3.5 h-3.5" aria-hidden="true" />
+          <span>Anular</span>
+        </button>
+      </div>
+
+      {/* Tactile Payment Method Selector (Único vs Mixto + Vuelto) */}
+      {(() => {
+        const activeAmountDue =
+          currentTableActiveOrder && ticketItems.length === 0
+            ? currentTableActiveOrder.total
+            : total;
+        const payOutcome = computePaymentOutcome(activeAmountDue);
+
+        return (
+          <div className="space-y-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                Método de Pago
+              </span>
               <button
-                key={pm.id}
                 type="button"
-                onClick={() => setPaymentMethod(pm.id)}
-                className={`min-h-[42px] px-2 py-1.5 rounded-xl border text-[11px] font-bold flex flex-col items-center justify-center gap-0.5 transition-all active:scale-95 ${
-                  active
-                    ? 'border-amber-500 bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/40'
-                    : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                onClick={() => {
+                  const next = !isSplitPayment;
+                  setIsSplitPayment(next);
+                  if (next && activeAmountDue > 0) {
+                    const half = Number((activeAmountDue / 2).toFixed(2));
+                    setPaymentSplits([
+                      { method: 'yape_plin', amount: half },
+                      { method: 'efectivo', amount: Number((activeAmountDue - half).toFixed(2)) },
+                    ]);
+                  }
+                }}
+                className={`px-2 py-0.5 rounded-md text-[10px] font-bold border flex items-center gap-1 transition-colors whitespace-nowrap shrink-0 ${
+                  isSplitPayment
+                    ? 'bg-amber-500/20 border-amber-500 text-amber-700 dark:text-amber-300'
+                    : 'bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400'
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>{pm.label}</span>
+                <Split className="w-3 h-3" aria-hidden="true" />
+                <span>{isSplitPayment ? 'Pago Mixto ON' : 'Pago Mixto'}</span>
               </button>
-            );
-          })}
-        </div>
-      </div>
+            </div>
+
+            {!isSplitPayment ? (
+              <>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { id: 'efectivo' as const, label: 'Efectivo', icon: Banknote },
+                    { id: 'yape_plin' as const, label: 'Yape/Plin', icon: Smartphone },
+                    { id: 'tarjeta' as const, label: 'Tarjeta', icon: CreditCard },
+                  ].map((pm) => {
+                    const Icon = pm.icon;
+                    const active = paymentMethod === pm.id;
+                    return (
+                      <button
+                        key={pm.id}
+                        type="button"
+                        onClick={() => setPaymentMethod(pm.id)}
+                        className={`min-h-[40px] px-2 py-1 rounded-xl border text-[11px] font-bold flex flex-col items-center justify-center gap-0.5 transition-all active:scale-95 ${
+                          active
+                            ? 'border-amber-500 bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-1 ring-amber-500/40'
+                            : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+                        <span>{pm.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {paymentMethod === 'efectivo' && activeAmountDue > 0 && (
+                  <div className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400">
+                        Paga con (S/):
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        value={cashReceivedInput}
+                        onChange={(e) => setCashReceivedInput(e.target.value)}
+                        placeholder={activeAmountDue.toFixed(2)}
+                        className="w-24 px-2 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs font-black text-right text-zinc-900 dark:text-white"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {[20, 50, 100, 200].map((bill) => (
+                        <button
+                          key={bill}
+                          type="button"
+                          onClick={() => setCashReceivedInput(String(bill))}
+                          className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-[10px] font-bold text-zinc-700 dark:text-zinc-300 hover:border-amber-500"
+                        >
+                          S/{bill}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setCashReceivedInput(activeAmountDue.toFixed(2))}
+                        className="px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-[10px] font-bold text-emerald-700 dark:text-emerald-300"
+                      >
+                        Exacto
+                      </button>
+                    </div>
+                    {cashReceivedInput.trim() !== '' && (
+                      <div className="flex justify-between text-[11px] font-black pt-0.5">
+                        <span className={payOutcome.missing > 0 ? 'text-rose-500' : 'text-emerald-600 dark:text-emerald-400'}>
+                          {payOutcome.missing > 0 ? 'Falta:' : 'Vuelto:'}
+                        </span>
+                        <span className={payOutcome.missing > 0 ? 'text-rose-500' : 'text-emerald-600 dark:text-emerald-400'}>
+                          S/ {(payOutcome.missing > 0 ? payOutcome.missing : payOutcome.change).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-1.5">
+                {paymentSplits.map((split, idx) => (
+                  <div key={idx} className="flex items-center gap-1.5">
+                    <select
+                      value={split.method}
+                      onChange={(e) => {
+                        const val = e.target.value as PaymentMethod;
+                        setPaymentSplits((prev) =>
+                          prev.map((s, i) => (i === idx ? { ...s, method: val } : s))
+                        );
+                      }}
+                      className="flex-1 px-2 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-[11px] font-bold text-zinc-800 dark:text-zinc-200"
+                    >
+                      <option value="efectivo">Efectivo</option>
+                      <option value="yape_plin">Yape/Plin</option>
+                      <option value="tarjeta">Tarjeta</option>
+                      <option value="transferencia">Transferencia</option>
+                    </select>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      value={split.amount || ''}
+                      onChange={(e) => {
+                        const amt = Number(e.target.value) || 0;
+                        setPaymentSplits((prev) =>
+                          prev.map((s, i) => (i === idx ? { ...s, amount: amt } : s))
+                        );
+                      }}
+                      placeholder="0.00"
+                      className="w-20 px-2 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs font-black text-right text-zinc-900 dark:text-white"
+                    />
+                    {paymentSplits.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => setPaymentSplits((prev) => prev.filter((_, i) => i !== idx))}
+                        className="p-1 text-zinc-400 hover:text-rose-500"
+                        aria-label="Quitar método"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <div className="flex items-center justify-between pt-0.5 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPaymentSplits((prev) => [...prev, { method: 'tarjeta', amount: 0 }])
+                    }
+                    className="font-bold text-amber-600 dark:text-amber-400 hover:underline"
+                  >
+                    + Agregar método
+                  </button>
+                  <span
+                    className={`font-black ${
+                      payOutcome.missing > 0
+                        ? 'text-rose-500'
+                        : 'text-emerald-600 dark:text-emerald-400'
+                    }`}
+                  >
+                    {payOutcome.missing > 0
+                      ? `Falta: S/ ${payOutcome.missing.toFixed(2)}`
+                      : payOutcome.change > 0
+                      ? `Vuelto: S/ ${payOutcome.change.toFixed(2)}`
+                      : 'Cubierto exacto'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Selector Comprobante SUNAT */}
+            <div className="space-y-1.5 pt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
+                  <FileCheck2 className="w-3 h-3 text-amber-500" aria-hidden="true" />
+                  Comprobante SUNAT
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-1">
+                {[
+                  { id: 'boleta_simple' as const, label: 'Ticket' },
+                  { id: 'boleta_dni' as const, label: 'Boleta DNI' },
+                  { id: 'factura_ruc' as const, label: 'Factura RUC' },
+                ].map((docOpt) => (
+                  <button
+                    key={docOpt.id}
+                    type="button"
+                    onClick={() => setInvoiceDocType(docOpt.id)}
+                    className={`py-1.5 px-1.5 rounded-lg border text-[10px] font-bold transition-colors ${
+                      invoiceDocType === docOpt.id
+                        ? 'border-amber-500 bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                        : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400'
+                    }`}
+                  >
+                    {docOpt.label}
+                  </button>
+                ))}
+              </div>
+              {invoiceDocType === 'boleta_dni' && (
+                <input
+                  type="text"
+                  maxLength={8}
+                  value={invoiceDocNumber}
+                  onChange={(e) => setInvoiceDocNumber(e.target.value.replace(/\D/g, ''))}
+                  placeholder="DNI cliente (opcional)"
+                  className="w-full px-2.5 py-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-900 dark:text-white"
+                />
+              )}
+              {invoiceDocType === 'factura_ruc' && (
+                <div className="space-y-1.5 p-2 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800">
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      maxLength={11}
+                      value={invoiceDocNumber}
+                      onChange={(e) => setInvoiceDocNumber(e.target.value.replace(/\D/g, ''))}
+                      placeholder="RUC (11 dígitos)"
+                      className="flex-1 px-2 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs font-bold text-zinc-900 dark:text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void handleLookupInvoiceRuc()}
+                      disabled={isLookingUpRuc}
+                      className="px-2.5 py-1 rounded-lg bg-amber-500 text-zinc-950 text-[11px] font-black whitespace-nowrap shrink-0 flex items-center gap-1"
+                    >
+                      {isLookingUpRuc ? <Loader2 className="w-3 h-3 animate-spin" /> : 'RUC'}
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={invoiceBusinessName}
+                    onChange={(e) => setInvoiceBusinessName(e.target.value)}
+                    placeholder="Razón Social"
+                    className="w-full px-2 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-white"
+                  />
+                  <input
+                    type="text"
+                    value={invoiceFiscalAddress}
+                    onChange={(e) => setInvoiceFiscalAddress(e.target.value)}
+                    placeholder="Dirección fiscal"
+                    className="w-full px-2 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-white"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Totals & Submit */}
       <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 space-y-1.5">
@@ -3086,6 +3670,257 @@ export const POSView: React.FC<POSViewProps> = ({
         tables={branchTables}
         initialTableId={qrInitialTableId}
       />
+
+      {/* Modal: Guardar Pedido en Espera */}
+      {isHoldModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-lg rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-base font-black text-zinc-950 dark:text-white flex items-center gap-2">
+                <PauseCircle className="w-5 h-5 text-amber-500" />
+                <span>Aparcar Pedido en Espera</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsHoldModalOpen(false)}
+                className="p-1.5 rounded-xl text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block">
+                Referencia o nombre del cliente
+              </label>
+              <input
+                type="text"
+                value={holdLabelInput}
+                onChange={(e) => setHoldLabelInput(e.target.value)}
+                placeholder="Ej: Cliente polo rojo, Llamada WhatsApp..."
+                autoFocus
+                className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-sm text-zinc-900 dark:text-white"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsHoldModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold text-zinc-700 dark:text-zinc-300 whitespace-nowrap shrink-0"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleParkCurrentOrder}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black whitespace-nowrap shrink-0"
+              >
+                Guardar en Espera
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Lista de Pedidos en Espera */}
+      {isHeldListOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-xl rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-base font-black text-zinc-950 dark:text-white flex items-center gap-2">
+                <PlayCircle className="w-5 h-5 text-amber-500" />
+                <span>Pedidos en Espera ({branchHeldOrders.length})</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsHeldListOpen(false)}
+                className="p-1.5 rounded-xl text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {branchHeldOrders.length === 0 ? (
+              <div className="py-10 text-center text-xs text-zinc-500 dark:text-zinc-400 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl">
+                No hay pedidos aparcados en esta sucursal.
+              </div>
+            ) : (
+              <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+                {branchHeldOrders.map((held) => {
+                  const heldTotal = held.items.reduce((s, i) => s + i.totalPrice, 0);
+                  return (
+                    <div
+                      key={held.id}
+                      className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-zinc-900 dark:text-white truncate">
+                          {held.label}
+                        </p>
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                          {held.items.length} ítem(s) · S/ {heldTotal.toFixed(2)} ·{' '}
+                          {new Date(held.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleDiscardHeldOrder(held)}
+                          className="px-3 py-1.5 rounded-xl border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold hover:bg-rose-500/10 whitespace-nowrap shrink-0"
+                        >
+                          Descartar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleResumeHeldOrder(held)}
+                          className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black whitespace-nowrap shrink-0"
+                        >
+                          Retomar
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={() => setIsHeldListOpen(false)}
+                className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold text-zinc-700 dark:text-zinc-300 whitespace-nowrap shrink-0"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Anulación / Devolución Controlada */}
+      {isVoidOrdersModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-2xl rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-base font-black text-zinc-950 dark:text-white flex items-center gap-2">
+                <Ban className="w-5 h-5 text-rose-500" />
+                <span>Anulación / Devolución Controlada</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsVoidOrdersModalOpen(false);
+                  setVoidTargetOrder(null);
+                  setVoidReasonInput('');
+                }}
+                className="p-1.5 rounded-xl text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {!voidTargetOrder ? (
+              <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+                {recentVoidableOrders.length === 0 ? (
+                  <p className="text-xs text-zinc-500 text-center py-8">
+                    No hay órdenes recientes disponibles para anular en esta sede.
+                  </p>
+                ) : (
+                  recentVoidableOrders.map((ord) => (
+                    <div
+                      key={ord.id}
+                      className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-black text-zinc-900 dark:text-white">
+                            {ord.orderNumber}
+                          </span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300">
+                            {ord.status}
+                          </span>
+                          {ord.sunatSerieNumero && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                              {ord.sunatSerieNumero}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+                          {ord.customerName} · S/ {ord.total.toFixed(2)} ({ord.paymentStatus})
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setVoidTargetOrder(ord)}
+                        className="px-3 py-1.5 rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 text-xs font-bold hover:bg-rose-500/25 whitespace-nowrap shrink-0"
+                      >
+                        Seleccionar
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 space-y-1">
+                  <p className="text-xs font-black text-rose-700 dark:text-rose-300">
+                    Anulando {voidTargetOrder.orderNumber} — S/ {voidTargetOrder.total.toFixed(2)}
+                  </p>
+                  {(voidTargetOrder.status === 'en_cocina' || voidTargetOrder.status === 'en_horno') && (
+                    <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300">
+                      ⚠️ Atención: este pedido ya entró a cocina/horno ({voidTargetOrder.status}).
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block">
+                    Motivo obligatorio de anulación
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={voidReasonInput}
+                    onChange={(e) => setVoidReasonInput(e.target.value)}
+                    placeholder="Ej: Error de digitación, cliente canceló antes de despacho..."
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-900 dark:text-white"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVoidTargetOrder(null);
+                      setVoidReasonInput('');
+                    }}
+                    className="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold text-zinc-700 dark:text-zinc-300 whitespace-nowrap shrink-0"
+                  >
+                    Volver
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmVoidOrder}
+                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black whitespace-nowrap shrink-0"
+                  >
+                    Confirmar Anulación
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

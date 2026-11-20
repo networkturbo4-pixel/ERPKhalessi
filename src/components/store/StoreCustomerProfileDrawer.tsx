@@ -25,6 +25,11 @@ import {
   LocateFixed,
   IdCard,
   Star,
+  Sparkles,
+  ShieldCheck,
+  Zap,
+  Gift,
+  ArrowRight,
 } from 'lucide-react';
 import { LoyaltyCardView } from '../benefits/LoyaltyCardView';
 import { AddToGoogleWalletButton } from '../benefits/AddToGoogleWalletButton';
@@ -317,10 +322,11 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
               isLightTheme ? 'bg-white border-zinc-200' : 'bg-neutral-900 border-neutral-800'
             }`}
           >
-            <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex items-center gap-3 min-w-0">
               <div
+                data-no-doodle="true"
                 data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                className="store-btn-solid w-9 h-9 rounded-2xl flex items-center justify-center font-black text-xs shrink-0 shadow-sm"
+                className="store-btn-solid w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs shrink-0 shadow-sm ring-1 ring-black/5"
               >
                 {currentCustomer ? (
                   currentCustomer.fullName
@@ -334,8 +340,12 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                 )}
               </div>
               <div className="min-w-0">
-                <h2 id={titleId} className="font-black text-base truncate">
-                  {currentCustomer ? 'Mi Perfil' : 'Cuenta de Cliente'}
+                <h2 id={titleId} className="font-black text-base tracking-tight truncate">
+                  {currentCustomer
+                    ? 'Mi Perfil'
+                    : authTab === 'login'
+                    ? 'Bienvenido de vuelta'
+                    : 'Crea tu cuenta'}
                 </h2>
                 <p
                   className={`text-[11px] truncate ${
@@ -344,7 +354,7 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                 >
                   {currentCustomer
                     ? currentCustomer.email
-                    : 'Guarda tus direcciones, pagos y sigue tus pedidos'}
+                    : 'Guarda direcciones, métodos de pago y suma puntos'}
                 </p>
               </div>
             </div>
@@ -369,8 +379,10 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
               <div className="space-y-5">
                 {/* Segmented Switch: Iniciar Sesión | Crear Cuenta */}
                 <div
-                  className={`grid grid-cols-2 gap-1.5 p-1 rounded-2xl border ${
-                    isLightTheme ? 'bg-zinc-200/80 border-zinc-200' : 'bg-neutral-950 border-neutral-800'
+                  className={`grid grid-cols-2 gap-1 p-1 rounded-2xl border ${
+                    isLightTheme
+                      ? 'bg-zinc-100/90 border-zinc-200/80'
+                      : 'bg-neutral-950 border-neutral-800'
                   }`}
                 >
                   <button
@@ -379,16 +391,23 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                       setAuthTab('login');
                       setAuthError(null);
                     }}
-                    data-auto-contrast={authTab === 'login' && autoButtonContrast ? 'true' : 'false'}
-                    className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+                    className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all whitespace-nowrap shrink-0 flex items-center justify-center gap-1.5 ${
                       authTab === 'login'
-                        ? 'store-btn-solid shadow-xs'
+                        ? isLightTheme
+                          ? 'bg-white text-zinc-950 shadow-sm ring-1 ring-black/5'
+                          : 'bg-neutral-800 text-white shadow-sm ring-1 ring-white/10'
                         : isLightTheme
-                        ? 'text-zinc-600 hover:text-zinc-900'
+                        ? 'text-zinc-500 hover:text-zinc-900'
                         : 'text-neutral-400 hover:text-white'
                     }`}
                   >
-                    Iniciar Sesión
+                    {authTab === 'login' && (
+                      <span
+                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: accentColor }}
+                      />
+                    )}
+                    <span>Iniciar Sesión</span>
                   </button>
                   <button
                     type="button"
@@ -396,16 +415,23 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                       setAuthTab('signup');
                       setAuthError(null);
                     }}
-                    data-auto-contrast={authTab === 'signup' && autoButtonContrast ? 'true' : 'false'}
-                    className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all whitespace-nowrap shrink-0 ${
+                    className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all whitespace-nowrap shrink-0 flex items-center justify-center gap-1.5 ${
                       authTab === 'signup'
-                        ? 'store-btn-solid shadow-xs'
+                        ? isLightTheme
+                          ? 'bg-white text-zinc-950 shadow-sm ring-1 ring-black/5'
+                          : 'bg-neutral-800 text-white shadow-sm ring-1 ring-white/10'
                         : isLightTheme
-                        ? 'text-zinc-600 hover:text-zinc-900'
+                        ? 'text-zinc-500 hover:text-zinc-900'
                         : 'text-neutral-400 hover:text-white'
                     }`}
                   >
-                    Crear Cuenta
+                    {authTab === 'signup' && (
+                      <span
+                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: accentColor }}
+                      />
+                    )}
+                    <span>Crear Cuenta</span>
                   </button>
                 </div>
 
@@ -413,7 +439,7 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                   <div
                     className={`p-3 rounded-2xl border text-xs font-bold ${
                       isLightTheme
-                        ? 'bg-rose-50 border-rose-300 text-rose-800'
+                        ? 'bg-rose-50 border-rose-200 text-rose-800'
                         : 'bg-rose-500/15 border-rose-500/35 text-rose-200'
                     }`}
                   >
@@ -427,12 +453,18 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                     <div>
                       <label
                         htmlFor="store-signin-username"
-                        className="block text-xs font-bold text-neutral-300 mb-1.5"
+                        className={`block text-[11px] font-bold uppercase tracking-wide mb-1.5 ${
+                          isLightTheme ? 'text-zinc-600' : 'text-neutral-400'
+                        }`}
                       >
                         Correo Electrónico o Celular
                       </label>
                       <div className="relative">
-                        <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500" />
+                        <Mail
+                          className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${
+                            isLightTheme ? 'text-zinc-400' : 'text-neutral-500'
+                          }`}
+                        />
                         <input
                           id="store-signin-username"
                           name="username"
@@ -446,10 +478,10 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                           value={loginIdentifier}
                           onChange={e => setLoginIdentifier(e.target.value)}
                           placeholder="tucorreo@ejemplo.com o 999888777"
-                          className={`w-full pl-10 pr-3.5 py-3 rounded-2xl text-sm border focus:outline-none focus:border-amber-500 ${
+                          className={`w-full pl-10 pr-3.5 py-2.5 rounded-xl text-sm border transition-all focus:outline-none ${
                             isLightTheme
-                              ? 'bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400'
-                              : 'bg-neutral-950 border-neutral-800 text-white placeholder-neutral-500'
+                              ? 'bg-zinc-50/70 focus:bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400 focus:border-zinc-900'
+                              : 'bg-neutral-950 border-neutral-800 text-white placeholder-neutral-500 focus:border-amber-500'
                           }`}
                         />
                       </div>
@@ -458,14 +490,18 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                     <div>
                       <label
                         htmlFor="store-signin-password"
-                        className={`block text-xs font-bold mb-1.5 ${
-                          isLightTheme ? 'text-zinc-700' : 'text-neutral-300'
+                        className={`block text-[11px] font-bold uppercase tracking-wide mb-1.5 ${
+                          isLightTheme ? 'text-zinc-600' : 'text-neutral-400'
                         }`}
                       >
                         Contraseña
                       </label>
                       <div className="relative">
-                        <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500" />
+                        <Lock
+                          className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${
+                            isLightTheme ? 'text-zinc-400' : 'text-neutral-500'
+                          }`}
+                        />
                         <input
                           id="store-signin-password"
                           name="password"
@@ -476,10 +512,10 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                           value={loginPassword}
                           onChange={e => setLoginPassword(e.target.value)}
                           placeholder="Ingresa tu contraseña"
-                          className={`w-full pl-10 pr-11 py-3 rounded-2xl text-sm border focus:outline-none focus:border-amber-500 ${
+                          className={`w-full pl-10 pr-11 py-2.5 rounded-xl text-sm border transition-all focus:outline-none ${
                             isLightTheme
-                              ? 'bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400'
-                              : 'bg-neutral-950 border-neutral-800 text-white placeholder-neutral-500'
+                              ? 'bg-zinc-50/70 focus:bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400 focus:border-zinc-900'
+                              : 'bg-neutral-950 border-neutral-800 text-white placeholder-neutral-500 focus:border-amber-500'
                           }`}
                         />
                         <button
@@ -497,10 +533,12 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
 
                     <button
                       type="submit"
+                      data-no-doodle="true"
                       data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                      className="store-btn-solid w-full py-3.5 px-5 rounded-2xl text-sm font-black shadow-md active:scale-[0.98] transition-transform whitespace-nowrap shrink-0"
+                      className="store-btn-solid w-full py-3.5 px-5 rounded-xl text-sm font-black shadow-sm hover:opacity-95 active:scale-[0.98] transition-all flex items-center justify-center gap-2 whitespace-nowrap shrink-0"
                     >
-                      Iniciar Sesión
+                      <span>Iniciar Sesión</span>
+                      <ArrowRight className="w-4 h-4" />
                     </button>
                   </form>
                 ) : (
@@ -509,14 +547,18 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                     <div>
                       <label
                         htmlFor="store-signup-fullname"
-                        className={`block text-xs font-bold mb-1 ${
-                          isLightTheme ? 'text-zinc-700' : 'text-neutral-300'
+                        className={`block text-[11px] font-bold uppercase tracking-wide mb-1.5 ${
+                          isLightTheme ? 'text-zinc-600' : 'text-neutral-400'
                         }`}
                       >
                         Nombre Completo *
                       </label>
                       <div className="relative">
-                        <User className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500" />
+                        <User
+                          className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${
+                            isLightTheme ? 'text-zinc-400' : 'text-neutral-500'
+                          }`}
+                        />
                         <input
                           id="store-signup-fullname"
                           name="fullname"
@@ -527,10 +569,10 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                           value={signupName}
                           onChange={e => setSignupName(e.target.value)}
                           placeholder="Ej: Valeria Mendoza"
-                          className={`w-full pl-10 pr-3.5 py-2.5 rounded-2xl text-sm border focus:outline-none focus:border-amber-500 ${
+                          className={`w-full pl-10 pr-3.5 py-2.5 rounded-xl text-sm border transition-all focus:outline-none ${
                             isLightTheme
-                              ? 'bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400'
-                              : 'bg-neutral-950 border-neutral-800 text-white placeholder-neutral-500'
+                              ? 'bg-zinc-50/70 focus:bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400 focus:border-zinc-900'
+                              : 'bg-neutral-950 border-neutral-800 text-white placeholder-neutral-500 focus:border-amber-500'
                           }`}
                         />
                       </div>
@@ -539,14 +581,18 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                     <div>
                       <label
                         htmlFor="store-signup-email"
-                        className={`block text-xs font-bold mb-1 ${
-                          isLightTheme ? 'text-zinc-700' : 'text-neutral-300'
+                        className={`block text-[11px] font-bold uppercase tracking-wide mb-1.5 ${
+                          isLightTheme ? 'text-zinc-600' : 'text-neutral-400'
                         }`}
                       >
                         Correo Electrónico *
                       </label>
                       <div className="relative">
-                        <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500" />
+                        <Mail
+                          className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${
+                            isLightTheme ? 'text-zinc-400' : 'text-neutral-500'
+                          }`}
+                        />
                         <input
                           id="store-signup-email"
                           name="email"
@@ -558,98 +604,113 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                           value={signupEmail}
                           onChange={e => setSignupEmail(e.target.value)}
                           placeholder="valeria@correo.com"
-                          className={`w-full pl-10 pr-3.5 py-2.5 rounded-2xl text-sm border focus:outline-none focus:border-amber-500 ${
+                          className={`w-full pl-10 pr-3.5 py-2.5 rounded-xl text-sm border transition-all focus:outline-none ${
                             isLightTheme
-                              ? 'bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400'
-                              : 'bg-neutral-950 border-neutral-800 text-white placeholder-neutral-500'
+                              ? 'bg-zinc-50/70 focus:bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400 focus:border-zinc-900'
+                              : 'bg-neutral-950 border-neutral-800 text-white placeholder-neutral-500 focus:border-amber-500'
                           }`}
                         />
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label
-                          htmlFor="store-signup-phone"
-                          className={`block text-xs font-bold mb-1 ${
-                            isLightTheme ? 'text-zinc-700' : 'text-neutral-300'
+                    <div>
+                      <label
+                        htmlFor="store-signup-phone"
+                        className={`block text-[11px] font-bold uppercase tracking-wide mb-1.5 ${
+                          isLightTheme ? 'text-zinc-600' : 'text-neutral-400'
+                        }`}
+                      >
+                        Celular / WhatsApp *
+                      </label>
+                      <div className="relative flex items-center">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-3 py-2.5 rounded-l-xl text-xs font-extrabold border border-r-0 select-none shrink-0 ${
+                            isLightTheme
+                              ? 'bg-zinc-100 border-zinc-200 text-zinc-700'
+                              : 'bg-neutral-900 border-neutral-800 text-neutral-300'
                           }`}
                         >
-                          Celular / WhatsApp *
-                        </label>
-                        <div className="relative flex items-center">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-2.5 rounded-l-2xl text-xs font-bold border border-r-0 select-none ${
-                              isLightTheme
-                                ? 'bg-zinc-100 border-zinc-200 text-zinc-700'
-                                : 'bg-neutral-900 border-neutral-800 text-neutral-300'
-                            }`}
-                          >
-                            <Phone className="w-3.5 h-3.5 text-amber-500" />
-                            +51
-                          </span>
-                          <input
-                            id="store-signup-phone"
-                            name="phone"
-                            type="tel"
-                            inputMode="tel"
-                            autoComplete="tel"
-                            enterKeyHint="next"
-                            required
-                            value={signupPhone}
-                            onChange={e => setSignupPhone(normalizePeruLocalPhone(e.target.value))}
-                            placeholder="999 888 777 (sin +51)"
-                            className={`w-full px-3 py-2.5 rounded-r-2xl text-sm border focus:outline-none focus:border-amber-500 ${
-                              isLightTheme
-                                ? 'bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400'
-                                : 'bg-neutral-950 border-neutral-800 text-white placeholder-neutral-500'
-                            }`}
-                          />
-                        </div>
+                          <Phone className="w-3.5 h-3.5 text-amber-500" />
+                          +51
+                        </span>
+                        <input
+                          id="store-signup-phone"
+                          name="phone"
+                          type="tel"
+                          inputMode="tel"
+                          autoComplete="tel"
+                          enterKeyHint="next"
+                          required
+                          value={signupPhone}
+                          onChange={e => setSignupPhone(normalizePeruLocalPhone(e.target.value))}
+                          placeholder="999 888 777"
+                          className={`w-full px-3.5 py-2.5 rounded-r-xl text-sm border transition-all focus:outline-none ${
+                            isLightTheme
+                              ? 'bg-zinc-50/70 focus:bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400 focus:border-zinc-900'
+                              : 'bg-neutral-950 border-neutral-800 text-white placeholder-neutral-500 focus:border-amber-500'
+                          }`}
+                        />
                       </div>
+                    </div>
 
-                      <div>
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
                         <label
                           htmlFor="store-signup-dni"
-                          className={`block text-xs font-bold mb-1 ${
-                            isLightTheme ? 'text-zinc-700' : 'text-neutral-300'
+                          className={`block text-[11px] font-bold uppercase tracking-wide ${
+                            isLightTheme ? 'text-zinc-600' : 'text-neutral-400'
                           }`}
                         >
                           DNI / Documento
                         </label>
-                        <div className="relative">
-                          <IdCard className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500" />
-                          <input
-                            id="store-signup-dni"
-                            name="dni"
-                            type="text"
-                            inputMode="numeric"
-                            maxLength={12}
-                            enterKeyHint="next"
-                            value={signupDni}
-                            onChange={e => setSignupDni(e.target.value)}
-                            placeholder="Opcional"
-                            className={`w-full pl-10 pr-3 py-2.5 rounded-2xl text-sm border focus:outline-none focus:border-amber-500 ${
-                              isLightTheme
-                                ? 'bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400'
-                                : 'bg-neutral-950 border-neutral-800 text-white placeholder-neutral-500'
-                            }`}
-                          />
-                        </div>
+                        <span
+                          className={`text-[10px] font-medium ${
+                            isLightTheme ? 'text-zinc-400' : 'text-neutral-500'
+                          }`}
+                        >
+                          Opcional · para boletas
+                        </span>
+                      </div>
+                      <div className="relative">
+                        <IdCard
+                          className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${
+                            isLightTheme ? 'text-zinc-400' : 'text-neutral-500'
+                          }`}
+                        />
+                        <input
+                          id="store-signup-dni"
+                          name="dni"
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={12}
+                          enterKeyHint="next"
+                          value={signupDni}
+                          onChange={e => setSignupDni(e.target.value)}
+                          placeholder="Ej: 71234567"
+                          className={`w-full pl-10 pr-3.5 py-2.5 rounded-xl text-sm border transition-all focus:outline-none ${
+                            isLightTheme
+                              ? 'bg-zinc-50/70 focus:bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400 focus:border-zinc-900'
+                              : 'bg-neutral-950 border-neutral-800 text-white placeholder-neutral-500 focus:border-amber-500'
+                          }`}
+                        />
                       </div>
                     </div>
 
                     <div>
                       <label
                         htmlFor="store-signup-new-password"
-                        className={`block text-xs font-bold mb-1 ${
-                          isLightTheme ? 'text-zinc-700' : 'text-neutral-300'
+                        className={`block text-[11px] font-bold uppercase tracking-wide mb-1.5 ${
+                          isLightTheme ? 'text-zinc-600' : 'text-neutral-400'
                         }`}
                       >
                         Crear Contraseña *
                       </label>
                       <div className="relative">
-                        <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500" />
+                        <Lock
+                          className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${
+                            isLightTheme ? 'text-zinc-400' : 'text-neutral-500'
+                          }`}
+                        />
                         <input
                           id="store-signup-new-password"
                           name="new-password"
@@ -661,10 +722,10 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                           value={signupPassword}
                           onChange={e => setSignupPassword(e.target.value)}
                           placeholder="Mínimo 4 caracteres"
-                          className={`w-full pl-10 pr-11 py-2.5 rounded-2xl text-sm border focus:outline-none focus:border-amber-500 ${
+                          className={`w-full pl-10 pr-11 py-2.5 rounded-xl text-sm border transition-all focus:outline-none ${
                             isLightTheme
-                              ? 'bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400'
-                              : 'bg-neutral-950 border-neutral-800 text-white placeholder-neutral-500'
+                              ? 'bg-zinc-50/70 focus:bg-white border-zinc-200 text-zinc-900 placeholder-zinc-400 focus:border-zinc-900'
+                              : 'bg-neutral-950 border-neutral-800 text-white placeholder-neutral-500 focus:border-amber-500'
                           }`}
                         />
                         <button
@@ -686,13 +747,100 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
 
                     <button
                       type="submit"
+                      data-no-doodle="true"
                       data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                      className="store-btn-solid w-full py-3.5 px-5 rounded-2xl text-sm font-black shadow-md active:scale-[0.98] transition-transform whitespace-nowrap shrink-0"
+                      className="store-btn-solid w-full py-3.5 px-5 rounded-xl text-sm font-black shadow-sm hover:opacity-95 active:scale-[0.98] transition-all flex items-center justify-center gap-2 whitespace-nowrap shrink-0 mt-1"
                     >
-                      Crear Cuenta
+                      <span>Crear Cuenta</span>
+                      <ArrowRight className="w-4 h-4" />
                     </button>
                   </form>
                 )}
+
+                {/* Modern Perks & Trust Card */}
+                <div
+                  className={`p-4 rounded-2xl border space-y-3 ${
+                    isLightTheme
+                      ? 'bg-white border-zinc-200/80 shadow-xs'
+                      : 'bg-neutral-950/70 border-neutral-800'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider">
+                    <Sparkles className="w-3.5 h-3.5" style={{ color: accentColor }} />
+                    <span className={isLightTheme ? 'text-zinc-800' : 'text-neutral-200'}>
+                      Ventajas de tu cuenta
+                    </span>
+                  </div>
+                  <div className="space-y-2.5">
+                    <div className="flex items-start gap-2.5">
+                      <div
+                        className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
+                          isLightTheme ? 'bg-amber-50 text-amber-600' : 'bg-amber-500/15 text-amber-400'
+                        }`}
+                      >
+                        <Zap className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold leading-tight">Pide en 1 clic</p>
+                        <p
+                          className={`text-[11px] leading-snug ${
+                            isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
+                          }`}
+                        >
+                          Guarda tus direcciones favoritas y métodos de pago.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <div
+                        className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
+                          isLightTheme ? 'bg-emerald-50 text-emerald-600' : 'bg-emerald-500/15 text-emerald-400'
+                        }`}
+                      >
+                        <Gift className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold leading-tight">Puntos y premios</p>
+                        <p
+                          className={`text-[11px] leading-snug ${
+                            isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
+                          }`}
+                        >
+                          Acumula puntos en cada compra y canjéalos por pizzas gratis.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <div
+                        className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
+                          isLightTheme ? 'bg-blue-50 text-blue-600' : 'bg-blue-500/15 text-blue-400'
+                        }`}
+                      >
+                        <MapPin className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold leading-tight">Seguimiento en vivo</p>
+                        <p
+                          className={`text-[11px] leading-snug ${
+                            isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
+                          }`}
+                        >
+                          Mira el estado de tu pedido desde el horno hasta tu puerta.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    className={`pt-2.5 border-t flex items-center gap-1.5 text-[10px] font-medium ${
+                      isLightTheme
+                        ? 'border-zinc-100 text-zinc-400'
+                        : 'border-neutral-800/80 text-neutral-500'
+                    }`}
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                    <span>Tus datos están protegidos y solo se usan para tus pedidos.</span>
+                  </div>
+                </div>
               </div>
             ) : (
               /* ==============================================================

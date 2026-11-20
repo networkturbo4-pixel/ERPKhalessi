@@ -592,7 +592,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
   return (
     <div
       style={buttonVars}
-      className={`min-h-dvh flex flex-col pb-28 ${
+      className={`min-h-dvh w-full max-w-full overflow-x-clip flex flex-col pb-28 ${
         isLightTheme ? 'bg-zinc-50 text-zinc-900' : 'bg-neutral-950 text-neutral-100'
       }`}
     >

@@ -116,6 +116,7 @@ export const StoreBenefitsDrawer: React.FC<StoreBenefitsDrawerProps> = ({
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <div
+                data-no-doodle="true"
                 data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
                 className="store-btn-solid w-9 h-9 rounded-2xl flex items-center justify-center font-black text-xs shrink-0 shadow-sm"
               >

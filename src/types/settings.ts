@@ -454,6 +454,7 @@ export interface ConsistencyReport {
 export type TabId =
   | 'identity'
   | 'appearance'
+  | 'store-design'
   | 'seasonal-themes'
   | 'seo'
   | 'dialogs'

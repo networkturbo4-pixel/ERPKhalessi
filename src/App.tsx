@@ -22,6 +22,10 @@ const loadKioskSelfServiceView = () =>
   import('./components/kiosk/KioskSelfServiceView').then(m => ({ default: m.KioskSelfServiceView }));
 const loadJobsLandingView = () =>
   import('./components/hr/JobsLandingView').then(m => ({ default: m.JobsLandingView }));
+const loadReservationsLandingView = () =>
+  import('./components/reservations/ReservationsLandingView').then(m => ({
+    default: m.ReservationsLandingView,
+  }));
 const loadHRProvider = () =>
   import('./context/HRContext').then(m => ({ default: m.HRProvider }));
 
@@ -31,6 +35,7 @@ const StorefrontView = lazy(loadStorefrontView);
 const CustomPagePublicView = lazy(loadCustomPagePublicView);
 const KioskSelfServiceView = lazy(loadKioskSelfServiceView);
 const JobsLandingView = lazy(loadJobsLandingView);
+const ReservationsLandingView = lazy(loadReservationsLandingView);
 const LazyHRProvider = lazy(loadHRProvider);
 
 /**
@@ -133,6 +138,12 @@ export function App() {
   const isJobsRoute = Boolean(jobsRouteMatch);
   const jobsSlugOrId = jobsRouteMatch?.[1] ? decodeURIComponent(jobsRouteMatch[1]) : null;
 
+  const reservationsRouteMatch = currentPath.match(/^\/reservas(?:\/([^/]+))?\/?$/);
+  const isReservationsRoute = Boolean(reservationsRouteMatch);
+  const reservationTenantSlug = reservationsRouteMatch?.[1]
+    ? decodeURIComponent(reservationsRouteMatch[1])
+    : null;
+
   return (
     <ErrorBoundary>
       <RBACProvider>
@@ -153,6 +164,11 @@ export function App() {
                           <AppGate
                             onNavigateToStore={() => navigate('/')}
                             onNavigateToKiosk={() => navigate('/kiosco')}
+                          />
+                        ) : isReservationsRoute ? (
+                          <ReservationsLandingView
+                            tenantSlugOrId={reservationTenantSlug}
+                            onNavigateHome={() => navigate('/')}
                           />
                         ) : isJobsRoute ? (
                           <LazyHRProvider>

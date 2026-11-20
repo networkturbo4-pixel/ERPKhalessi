@@ -11,6 +11,9 @@ const IdentityTab = lazy(() =>
 const AppearanceTab = lazy(() =>
   import('../tabs/AppearanceTab').then(m => ({ default: m.AppearanceTab }))
 );
+const StoreDesignTab = lazy(() =>
+  import('../tabs/StoreDesignTab').then(m => ({ default: m.StoreDesignTab }))
+);
 const SeasonalThemesTab = lazy(() =>
   import('../tabs/SeasonalThemesTab').then(m => ({ default: m.SeasonalThemesTab }))
 );
@@ -64,7 +67,8 @@ import {
   Search,
   Lock,
   PartyPopper,
-  Globe
+  Globe,
+  LayoutTemplate
 } from 'lucide-react';
 
 export interface TabItem {
@@ -79,6 +83,7 @@ export interface TabItem {
 export const SETTINGS_TABS: TabItem[] = [
   { id: 'identity', label: 'Identidad y Marca', category: 'Marca y Diseño', icon: Sparkles, requiredPermission: 'settings:manage' },
   { id: 'appearance', label: 'Design System', category: 'Marca y Diseño', icon: Palette, requiredPermission: 'settings:manage' },
+  { id: 'store-design', label: 'Diseño de Tienda', category: 'Marca y Diseño', icon: LayoutTemplate, badge: 'Plantillas', requiredPermission: 'settings:manage' },
   { id: 'seasonal-themes', label: 'Temáticas & Campañas', category: 'Marca y Diseño', icon: PartyPopper, badge: 'Nuevo', requiredPermission: 'settings:manage' },
   { id: 'seo', label: 'SEO', category: 'Marca y Diseño', icon: Globe, badge: 'IA + OG', requiredPermission: 'settings:manage' },
   { id: 'dialogs', label: 'Toasts 3D y Modales', category: 'Experiencia', icon: Bell, requiredPermission: 'settings:manage' },
@@ -114,6 +119,7 @@ export const SettingsView: React.FC = () => {
     switch (activeTab) {
       case 'identity': return <IdentityTab />;
       case 'appearance': return <AppearanceTab />;
+      case 'store-design': return <StoreDesignTab />;
       case 'seasonal-themes': return <SeasonalThemesTab />;
       case 'seo': return <SeoTab />;
       case 'dialogs': return <DialogsTab />;

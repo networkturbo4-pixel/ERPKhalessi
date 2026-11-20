@@ -141,6 +141,8 @@ export interface OrderItem {
   unitPrice: number;
   quantity: number;
   totalPrice: number;
+  roundNumber?: number;
+  addedAt?: string;
 }
 
 export type OrderChannel =
@@ -160,6 +162,74 @@ export type OrderStatus =
   | 'cancelado';
 export type PaymentMethod = 'culqi' | 'yape_plin' | 'transferencia' | 'efectivo' | 'tarjeta';
 export type InvoiceDocumentType = 'boleta_simple' | 'boleta_dni' | 'factura_ruc';
+
+export interface PaymentSplit {
+  method: PaymentMethod;
+  amount: number;
+  reference?: string;
+}
+
+export interface HeldOrder {
+  id: string;
+  tenantId: string;
+  label: string;
+  channel: OrderChannel;
+  items: OrderItem[];
+  customerId?: string;
+  customerDni?: string;
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  deliveryAddress?: string;
+  deliveryReference?: string;
+  createdAt: string;
+  createdBy?: string;
+}
+
+export interface PublicReservation {
+  id: string;
+  code: string;
+  tenantId: string;
+  type: 'mesa' | 'pedido';
+  date: string;
+  time: string;
+  guests?: number;
+  zone?: string;
+  tableId?: string;
+  customerName: string;
+  customerPhone: string;
+  customerDni?: string;
+  notes?: string;
+  preOrderItems?: OrderItem[];
+  deliveryMode?: 'takeaway' | 'delivery';
+  deliveryAddress?: string;
+  status: 'pendiente' | 'confirmada' | 'sentada' | 'cancelada' | 'no_show';
+  createdAt: string;
+}
+
+export interface SunatInvoiceRecord {
+  id: string;
+  orderId?: string;
+  orderNumber?: string;
+  tenantId: string;
+  documentType: '01' | '03' | '07'; // 01 Factura, 03 Boleta, 07 Nota de Credito
+  serieNumero: string;
+  customerDocument: string;
+  customerName: string;
+  customerAddress?: string;
+  subtotal: number;
+  igv: number;
+  total: number;
+  status: 'aceptado' | 'pendiente' | 'observado' | 'anulado';
+  pdfUrl?: string;
+  xmlUrl?: string;
+  cdrUrl?: string;
+  qrCode?: string;
+  sunatResponse?: string;
+  relatedSerieNumero?: string;
+  voidReason?: string;
+  createdAt: string;
+}
 
 export type TableShape = 'square' | 'round' | 'rect';
 
@@ -215,12 +285,24 @@ export interface Order {
   tableId?: string;
   tableNumber?: string;
   paymentMethod: PaymentMethod;
+  paymentSplits?: PaymentSplit[];
+  cashReceived?: number;
+  changeAmount?: number;
   paymentStatus: 'pendiente' | 'pagado';
   culqiReference?: string;
   invoiceType?: InvoiceDocumentType;
   invoiceDocument?: string;
   invoiceBusinessName?: string;
   invoiceFiscalAddress?: string;
+  sunatStatus?: 'no_emitido' | 'aceptado' | 'pendiente' | 'observado' | 'anulado';
+  sunatSerieNumero?: string;
+  sunatPdfUrl?: string;
+  sunatXmlUrl?: string;
+  sunatCdrUrl?: string;
+  sunatQrCode?: string;
+  voidReason?: string;
+  voidedAt?: string;
+  voidedBy?: string;
   couponCode?: string;
   rewardRedeemedTitle?: string;
   pointsEarned?: number;

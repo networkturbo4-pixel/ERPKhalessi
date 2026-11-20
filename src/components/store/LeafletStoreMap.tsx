@@ -162,11 +162,12 @@ export const LeafletStoreMap: React.FC<LeafletStoreMapProps> = ({
       const selected = t.id === selectedTenantId;
       const short = escapeHtml(t.name.replace('Khalessi Pizza - ', ''));
       const bg = selected ? accentColor : '#334155';
+      const storeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7"/></svg>`;
       const icon = L.divIcon({
         className: '',
         html: `<div style="display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-100%)">
-          <div style="background:${bg};color:#fff;font:800 11px system-ui;padding:3px 9px;border-radius:9999px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);white-space:nowrap">🍕 ${short}</div>
-          <div style="width:10px;height:10px;background:${bg};border:2px solid #fff;border-radius:9999px;margin-top:2px"></div>
+          <div style="background:${bg};color:#fff;font:700 11px system-ui;padding:4px 10px;border-radius:9999px;border:2px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.35);white-space:nowrap;display:flex;align-items:center;gap:5px">${storeSvg}<span>${short}</span></div>
+          <div style="width:10px;height:10px;background:${bg};border:2px solid #fff;border-radius:9999px;margin-top:2px;box-shadow:0 2px 4px rgba(0,0,0,.25)"></div>
         </div>`,
         iconSize: [0, 0],
       });

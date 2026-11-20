@@ -31,6 +31,9 @@ import {
   Send,
   Flame,
   Download,
+  CalendarClock,
+  Copy,
+  Check,
 } from 'lucide-react';
 import {
   subscribePwaInstallAvailability,
@@ -38,11 +41,20 @@ import {
   isStandalonePwa,
 } from '../../utils/pwaManager';
 
+import { StoreFooterVariant } from '../../types/storeBuilder';
+import { StorefrontThemeFooter } from './StorefrontThemeFooter';
+
 interface StorefrontFooterProps {
   footerTheme?: 'light' | 'dark';
+  footerVariant?: StoreFooterVariant;
+  accentColor?: string;
 }
 
-export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme = 'light' }) => {
+export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({
+  footerTheme = 'light',
+  footerVariant = 'default',
+  accentColor,
+}) => {
   const { customPages } = useStoreBuilder();
   const {
     companyInfo,
@@ -64,6 +76,10 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme 
   const [jobInitialQr, setJobInitialQr] = useState(false);
   const [infoModal, setInfoModal] = useState<'terms' | 'returns' | 'orders' | null>(null);
   const [canInstallPwa, setCanInstallPwa] = useState(false);
+  const [copiedReserveUrl, setCopiedReserveUrl] = useState(false);
+
+  const reservationsShareUrl =
+    typeof window !== 'undefined' ? `${window.location.origin}/reservas` : '/reservas';
 
   useEffect(() => {
     return subscribePwaInstallAvailability(setCanInstallPwa);
@@ -202,6 +218,38 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme 
 
   return (
     <>
+      {footerVariant !== 'default' ? (
+        <StorefrontThemeFooter
+          variant={footerVariant}
+          brandName={companyInfo.commercialName || customization.appName || 'Pizza Khalessi'}
+          logoUrl={customization.storeHeaderLogo || customization.logoLight || customization.logoDark}
+          phone={activeTenant.operations?.phone || companyInfo.phone}
+          email={companyInfo.email}
+          ruc={companyInfo.taxId}
+          reservationsUrl={reservationsShareUrl}
+          onOpenTerms={() => setInfoModal('terms')}
+          onOpenReturns={() => setInfoModal('returns')}
+          onOpenOrders={() => setInfoModal('orders')}
+          onOpenJobs={() => {
+            setJobInitialQr(false);
+            setIsJobModalOpen(true);
+          }}
+          onOpenClaim={() => setIsClaimOpen(true)}
+          onSubscribeNewsletter={(name, emailAddr) => {
+            dispatchToast(
+              'Suscripción Confirmada',
+              `${name ? `${name}, ` : ''}recibirás nuestras promociones en ${emailAddr}.`,
+              'success'
+            );
+          }}
+          onCopyReserveUrl={() => {
+            if (navigator.clipboard) {
+              void navigator.clipboard.writeText(reservationsShareUrl);
+              dispatchToast('URL Copiada', 'Enlace de reservas copiado para compartir.', 'success');
+            }
+          }}
+        />
+      ) : (
       <footer
         className={`mt-14 border-t relative transition-colors ${
           isLight
@@ -368,6 +416,14 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme 
                       setIsJobModalOpen(true);
                     },
                   },
+                  {
+                    label: 'Reservar Mesa / Pedido',
+                    icon: CalendarClock,
+                    onClick: () => {
+                      window.history.pushState({}, '', '/reservas');
+                      window.dispatchEvent(new PopStateEvent('popstate'));
+                    },
+                  },
                 ].map(item => {
                   const Icon = item.icon;
                   return (
@@ -431,6 +487,58 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme 
                     </li>
                   ))}
               </ul>
+
+              {/* Botón destacado + URL compartible de Reservas */}
+              <div
+                className={`mt-1 p-3 rounded-xl border space-y-2 ${
+                  isLight
+                    ? 'bg-amber-50/70 border-amber-200/80'
+                    : 'bg-amber-500/5 border-amber-500/20'
+                }`}
+              >
+                <a
+                  href="/reservas"
+                  className="w-full py-2 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
+                >
+                  <CalendarClock className="w-3.5 h-3.5" />
+                  <span>Reservar Ahora</span>
+                </a>
+                <div className="flex items-center gap-1.5">
+                  <code
+                    className={`flex-1 text-[10px] font-mono truncate px-2 py-1 rounded border ${
+                      isLight
+                        ? 'bg-white border-zinc-200 text-zinc-700'
+                        : 'bg-zinc-950 border-zinc-800 text-zinc-300'
+                    }`}
+                  >
+                    {reservationsShareUrl}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (navigator.clipboard) {
+                        void navigator.clipboard.writeText(reservationsShareUrl);
+                        setCopiedReserveUrl(true);
+                        setTimeout(() => setCopiedReserveUrl(false), 2000);
+                        dispatchToast('URL Copiada', 'Enlace de reservas copiado para compartir.', 'success');
+                      }
+                    }}
+                    title="Copiar URL de reservas"
+                    className={`px-2 py-1 rounded border text-[10px] font-bold flex items-center gap-1 whitespace-nowrap shrink-0 ${
+                      isLight
+                        ? 'bg-white border-zinc-200 text-zinc-700 hover:border-amber-500'
+                        : 'bg-zinc-900 border-zinc-700 text-zinc-200 hover:border-amber-500'
+                    }`}
+                  >
+                    {copiedReserveUrl ? (
+                      <Check className="w-3 h-3 text-emerald-500" />
+                    ) : (
+                      <Copy className="w-3 h-3" />
+                    )}
+                    <span>{copiedReserveUrl ? 'Copiado' : 'Copiar'}</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* COLUMN 3: Métodos de Pago & Síguenos */}
@@ -773,6 +881,7 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({ footerTheme 
           </div>
         </div>
       </footer>
+      )}
 
       {/* ======================================================================
           MODAL 1: LIBRO DE RECLAMACIONES VIRTUAL (INDECOPI LEY N° 29571)

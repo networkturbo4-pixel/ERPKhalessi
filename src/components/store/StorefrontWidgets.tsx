@@ -1081,6 +1081,176 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
             );
           }
 
+          if (block.style === 'app_stories') {
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => onSelectCategory(cat.id)}
+                className={`kh-cq-card group flex flex-col items-center gap-1.5 transition-all ${
+                  isAutoCols ? 'shrink-0 min-w-[76px]' : 'w-full min-w-0'
+                }`}
+              >
+                <div
+                  style={
+                    isActive
+                      ? { background: `linear-gradient(135deg, ${accentColor}, #f59e0b)` }
+                      : undefined
+                  }
+                  className={`p-[2.5px] rounded-full transition-transform group-hover:scale-105 ${
+                    isActive
+                      ? 'shadow-md'
+                      : isLightTheme
+                      ? 'bg-zinc-200'
+                      : 'bg-neutral-800'
+                  }`}
+                >
+                  <div
+                    className={`w-13 h-13 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-xl border-2 ${
+                      isLightTheme
+                        ? 'bg-white border-white text-zinc-800'
+                        : 'bg-neutral-900 border-neutral-950 text-white'
+                    }`}
+                  >
+                    {cat.icon}
+                  </div>
+                </div>
+                <span
+                  className={`text-[11px] font-extrabold text-center leading-tight line-clamp-1 ${
+                    isActive
+                      ? isLightTheme
+                        ? 'text-zinc-950'
+                        : 'text-white'
+                      : isLightTheme
+                      ? 'text-zinc-600'
+                      : 'text-neutral-400'
+                  }`}
+                >
+                  {cat.label}
+                </span>
+                {block.showCount && (
+                  <span className="text-[9px] font-bold opacity-60 -mt-1">{count}</span>
+                )}
+              </button>
+            );
+          }
+
+          if (block.style === 'app_dock') {
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => onSelectCategory(cat.id)}
+                style={isActive ? { borderColor: accentColor } : undefined}
+                className={`kh-cq-card px-3 py-2.5 rounded-2xl border flex flex-col items-center justify-center gap-1.5 transition-all active:scale-95 ${
+                  isAutoCols ? 'shrink-0 min-w-[88px]' : 'w-full min-w-0'
+                } ${
+                  isActive
+                    ? isLightTheme
+                      ? 'bg-white shadow-md text-zinc-950 ring-1 ring-black/5'
+                      : 'bg-neutral-900 shadow-lg text-white ring-1 ring-white/10'
+                    : isLightTheme
+                    ? 'bg-zinc-100/80 border-zinc-200/80 text-zinc-600 hover:bg-white'
+                    : 'bg-neutral-900/60 border-neutral-800 text-neutral-400 hover:bg-neutral-900'
+                }`}
+              >
+                <span
+                  style={isActive ? { backgroundColor: `${accentColor}22`, color: accentColor } : undefined}
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg transition-colors ${
+                    isActive ? '' : isLightTheme ? 'bg-white shadow-2xs' : 'bg-neutral-800'
+                  }`}
+                >
+                  {cat.icon}
+                </span>
+                <span className="text-[11px] font-extrabold truncate max-w-full">
+                  {cat.label}
+                </span>
+                {block.showCount && (
+                  <span className="text-[9px] font-mono opacity-60 leading-none">{count} items</span>
+                )}
+              </button>
+            );
+          }
+
+          if (block.style === 'ecom_segmented') {
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => onSelectCategory(cat.id)}
+                className={`kh-cq-card px-3.5 py-2 rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all ${
+                  isAutoCols ? 'shrink-0 whitespace-nowrap' : 'w-full min-w-0'
+                } ${
+                  isActive
+                    ? isLightTheme
+                      ? 'bg-white text-zinc-950 shadow-sm ring-1 ring-black/10'
+                      : 'bg-neutral-800 text-white shadow-sm ring-1 ring-white/15'
+                    : isLightTheme
+                    ? 'bg-zinc-100/70 text-zinc-600 hover:text-zinc-900'
+                    : 'bg-neutral-900/60 text-neutral-400 hover:text-white'
+                }`}
+              >
+                <span className="text-sm shrink-0">{cat.icon}</span>
+                <span className="truncate">{cat.label}</span>
+                {block.showCount && (
+                  <span
+                    style={isActive ? { backgroundColor: accentColor, color: '#09090b' } : undefined}
+                    className={`px-1.5 py-0.5 rounded-full text-[10px] font-black leading-none shrink-0 ${
+                      isActive
+                        ? ''
+                        : isLightTheme
+                        ? 'bg-zinc-200/80 text-zinc-600'
+                        : 'bg-neutral-800 text-neutral-400'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          }
+
+          if (block.style === 'ecom_tile') {
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => onSelectCategory(cat.id)}
+                style={isActive ? { borderColor: accentColor } : undefined}
+                className={`kh-cq-card p-3 rounded-2xl border flex items-center gap-2.5 text-left transition-all active:scale-[0.98] ${
+                  isAutoCols ? 'shrink-0 min-w-[150px]' : 'w-full min-w-0'
+                } ${
+                  isActive
+                    ? isLightTheme
+                      ? 'bg-white text-zinc-950 shadow-sm'
+                      : 'bg-neutral-900 text-white shadow-md'
+                    : isLightTheme
+                    ? 'bg-white/80 border-zinc-200 text-zinc-700 hover:border-zinc-300'
+                    : 'bg-neutral-950/70 border-neutral-800 text-neutral-300 hover:border-neutral-700'
+                }`}
+              >
+                <div
+                  style={isActive ? { backgroundColor: accentColor, color: '#09090b' } : undefined}
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0 ${
+                    isActive
+                      ? 'shadow-xs'
+                      : isLightTheme
+                      ? 'bg-zinc-100'
+                      : 'bg-neutral-900'
+                  }`}
+                >
+                  {cat.icon}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="text-xs font-extrabold block truncate">{cat.label}</span>
+                  {block.showCount && (
+                    <span className="text-[10px] opacity-60 block">{count} opciones</span>
+                  )}
+                </div>
+              </button>
+            );
+          }
+
           // Default: 'pills' (Pastillas)
           return (
             <button
@@ -1143,6 +1313,7 @@ interface StoreProductGridWidgetProps {
   onResetCategory?: () => void;
   onOpenLocationModal?: () => void;
   isAboveFold?: boolean;
+  isBuilderMode?: boolean;
 }
 
 export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
@@ -1159,6 +1330,7 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
   onResetCategory,
   onOpenLocationModal,
   isAboveFold = false,
+  isBuilderMode = false,
 }) => {
   const carouselRef = useRef<HTMLDivElement>(null);
   const [visibleLimit, setVisibleLimit] = useState<number>(block.maxInitialProducts || 10);
@@ -1772,6 +1944,301 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
       );
     }
 
+    // CARD STYLE 11: APP DELIVERY EXPRESS (Estilo App Rappi / Uber Eats)
+    if (block.cardStyle === 'app_delivery') {
+      return (
+        <div
+          key={product.id}
+          onClick={e => {
+            if (!product.isAvailable) return;
+            const img = e.currentTarget.querySelector('img');
+            onSelectProduct(product, img);
+          }}
+          className={`kh-cq-card group rounded-2xl border overflow-hidden flex flex-col justify-between transition-all duration-200 ${
+            !product.isAvailable ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:shadow-md'
+          } ${
+            isLightTheme
+              ? 'bg-white border-zinc-200/80 text-zinc-900'
+              : 'bg-neutral-900 border-neutral-800 text-white'
+          }`}
+        >
+          <div className="relative aspect-[4/3] w-full overflow-hidden bg-neutral-900">
+            <ProgressiveStoreImage
+              src={product.imageUrl}
+              alt={product.name}
+              width={400}
+              height={300}
+              isLightTheme={isLightTheme}
+              lazyLoad={shouldLazyLoadImg}
+              className={`w-full h-full ${
+                block.imageFit === 'contain' ? 'object-contain' : 'object-cover'
+              } group-hover:scale-105 transition-transform duration-300`}
+            />
+            {product.badge && (
+              <span
+                style={{ backgroundColor: accentColor }}
+                className="absolute top-2 left-2 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase text-neutral-950 shadow-sm truncate max-w-[75%]"
+              >
+                {product.badge}
+              </span>
+            )}
+            <button
+              type="button"
+              aria-label={`Agregar ${product.name}`}
+              disabled={!product.isAvailable}
+              onClick={e => {
+                e.stopPropagation();
+                if (!product.isAvailable) return;
+                const cardEl = e.currentTarget.closest('.group');
+                const img = cardEl?.querySelector('img') as HTMLImageElement | null;
+                onSelectProduct(product, img);
+              }}
+              data-no-doodle="true"
+              data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+              className="store-btn-solid absolute bottom-2 right-2 w-8 h-8 rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="p-3 space-y-1 flex-1 flex flex-col justify-between">
+            <div>
+              <h4 className="font-extrabold text-xs sm:text-sm leading-snug line-clamp-2">
+                {product.name}
+              </h4>
+              {block.showDescription && product.description && (
+                <p className="text-[11px] opacity-65 line-clamp-1 mt-0.5">{product.description}</p>
+              )}
+            </div>
+            {block.showPrice && (
+              <div className="pt-1 flex items-center justify-between gap-2">
+                <span className="font-black text-sm tabular-nums" style={{ color: accentColor }}>
+                  S/ {lowestPrice.toFixed(2)}
+                </span>
+                {product.hasSizes && (
+                  <span className="text-[10px] font-semibold opacity-55">Personalizable</span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // CARD STYLE 12: E-COMMERCE GLASSMORPHISM
+    if (block.cardStyle === 'ecom_glass') {
+      return (
+        <div
+          key={product.id}
+          onClick={e => {
+            if (!product.isAvailable) return;
+            const img = e.currentTarget.querySelector('img');
+            onSelectProduct(product, img);
+          }}
+          className={`kh-cq-card group rounded-3xl border backdrop-blur-md overflow-hidden flex flex-col justify-between transition-all duration-300 ${
+            !product.isAvailable ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:-translate-y-0.5'
+          } ${
+            isLightTheme
+              ? 'bg-white/75 border-white shadow-sm hover:shadow-lg text-zinc-900'
+              : 'bg-neutral-900/70 border-white/10 shadow-md text-white'
+          }`}
+        >
+          <div className="p-2 pb-0">
+            <div className="relative aspect-[4/3] w-full rounded-2xl overflow-hidden bg-neutral-900">
+              <ProgressiveStoreImage
+                src={product.imageUrl}
+                alt={product.name}
+                width={400}
+                height={300}
+                isLightTheme={isLightTheme}
+                lazyLoad={shouldLazyLoadImg}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
+              {block.showPrice && (
+                <span className="absolute bottom-2 left-2 px-2.5 py-1 rounded-xl bg-black/70 backdrop-blur-md text-white text-xs font-black tabular-nums">
+                  S/ {lowestPrice.toFixed(2)}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="p-3.5 flex-1 flex flex-col justify-between gap-2.5">
+            <div>
+              <h4 className="kh-cq-title font-black line-clamp-2">{product.name}</h4>
+              {block.showDescription && (
+                <p className="text-xs opacity-70 line-clamp-2 mt-1">{product.description}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              disabled={!product.isAvailable}
+              onClick={e => {
+                e.stopPropagation();
+                if (!product.isAvailable) return;
+                const cardEl = e.currentTarget.closest('.group');
+                const img = cardEl?.querySelector('img') as HTMLImageElement | null;
+                onSelectProduct(product, img);
+              }}
+              data-no-doodle="true"
+              data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+              className="store-btn-solid w-full py-2 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Agregar</span>
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // CARD STYLE 13: TARJETA SPLIT APP (Horizontal Moderna)
+    if (block.cardStyle === 'app_split') {
+      return (
+        <div
+          key={product.id}
+          onClick={e => {
+            if (!product.isAvailable) return;
+            const img = e.currentTarget.querySelector('img');
+            onSelectProduct(product, img);
+          }}
+          className={`kh-cq-card group p-3 rounded-2xl border flex items-center gap-3 transition-all ${
+            !product.isAvailable ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:shadow-sm'
+          } ${
+            isLightTheme
+              ? 'bg-white border-zinc-200/90 text-zinc-900'
+              : 'bg-neutral-900 border-neutral-800 text-white'
+          }`}
+        >
+          <div className="relative w-22 h-22 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shrink-0 bg-neutral-900">
+            <ProgressiveStoreImage
+              src={product.imageUrl}
+              alt={product.name}
+              width={180}
+              height={180}
+              isLightTheme={isLightTheme}
+              lazyLoad={shouldLazyLoadImg}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          </div>
+          <div className="min-w-0 flex-1 flex flex-col justify-between gap-1.5">
+            <div>
+              {product.badge && (
+                <span
+                  style={{ color: accentColor }}
+                  className="text-[10px] font-black uppercase tracking-wider block"
+                >
+                  {product.badge}
+                </span>
+              )}
+              <h4 className="font-extrabold text-sm leading-tight line-clamp-1">{product.name}</h4>
+              {block.showDescription && product.description && (
+                <p className="text-[11px] opacity-65 line-clamp-2 mt-0.5">{product.description}</p>
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-2 pt-1">
+              {block.showPrice ? (
+                <span className="font-black text-sm tabular-nums" style={{ color: accentColor }}>
+                  S/ {lowestPrice.toFixed(2)}
+                </span>
+              ) : (
+                <span />
+              )}
+              <button
+                type="button"
+                disabled={!product.isAvailable}
+                onClick={e => {
+                  e.stopPropagation();
+                  if (!product.isAvailable) return;
+                  const cardEl = e.currentTarget.closest('.group');
+                  const img = cardEl?.querySelector('img') as HTMLImageElement | null;
+                  onSelectProduct(product, img);
+                }}
+                data-no-doodle="true"
+                data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+                className="store-btn-solid px-3 py-1.5 rounded-xl text-[11px] font-black inline-flex items-center gap-1 whitespace-nowrap shrink-0"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Pedir</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // CARD STYLE 14: E-COMMERCE RETAIL PRO (Marketplace)
+    if (block.cardStyle === 'ecom_retail') {
+      return (
+        <div
+          key={product.id}
+          onClick={e => {
+            if (!product.isAvailable) return;
+            const img = e.currentTarget.querySelector('img');
+            onSelectProduct(product, img);
+          }}
+          className={`kh-cq-card group rounded-2xl border overflow-hidden flex flex-col justify-between transition-all duration-200 ${
+            !product.isAvailable ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:shadow-md'
+          } ${
+            isLightTheme
+              ? 'bg-white border-zinc-200 text-zinc-900'
+              : 'bg-neutral-950 border-neutral-800 text-white'
+          }`}
+        >
+          <div className="relative aspect-square w-full overflow-hidden bg-zinc-100 dark:bg-neutral-900">
+            <ProgressiveStoreImage
+              src={product.imageUrl}
+              alt={product.name}
+              width={400}
+              height={400}
+              isLightTheme={isLightTheme}
+              lazyLoad={shouldLazyLoadImg}
+              className={`w-full h-full ${
+                block.imageFit === 'contain' ? 'object-contain' : 'object-cover'
+              } group-hover:scale-105 transition-transform duration-300`}
+            />
+            {product.badge && (
+              <span
+                style={{ backgroundColor: accentColor }}
+                className="absolute top-2.5 left-2.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase text-neutral-950 shadow-xs"
+              >
+                {product.badge}
+              </span>
+            )}
+          </div>
+          <div className="p-3.5 flex-1 flex flex-col justify-between gap-2.5">
+            <div className="space-y-1">
+              <h4 className="font-bold text-xs sm:text-sm leading-snug line-clamp-2">
+                {product.name}
+              </h4>
+              {block.showDescription && product.description && (
+                <p className="text-[11px] opacity-65 line-clamp-2">{product.description}</p>
+              )}
+              {block.showPrice && (
+                <p className="font-black text-base tabular-nums pt-0.5" style={{ color: accentColor }}>
+                  S/ {lowestPrice.toFixed(2)}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              disabled={!product.isAvailable}
+              onClick={e => {
+                e.stopPropagation();
+                if (!product.isAvailable) return;
+                const cardEl = e.currentTarget.closest('.group');
+                const img = cardEl?.querySelector('img') as HTMLImageElement | null;
+                onSelectProduct(product, img);
+              }}
+              data-no-doodle="true"
+              data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+              className="store-btn-solid w-full py-2 px-3 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 shadow-2xs"
+            >
+              <ShoppingBag className="w-3.5 h-3.5" />
+              <span>Elegir Opciones</span>
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     // CARD STYLE 10: NEÓN PROMO (Borde Luminoso + Alto Impacto)
     if (block.cardStyle === 'neon_promo') {
       return (
@@ -2065,6 +2532,10 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
 
   const gapValue = block.gapPx ?? 18;
 
+  if (displayedProducts.length === 0 && !isBuilderMode && block.categoryFilter !== 'active_sync') {
+    return null;
+  }
+
   return (
     <div
       style={{
@@ -2127,10 +2598,20 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
       )}
 
       {displayedProducts.length === 0 ? (
+        isBuilderMode && block.categoryFilter !== 'active_sync' ? (
+          <div className="p-4 rounded-2xl border border-dashed border-amber-500/40 bg-amber-500/5 text-center space-y-1">
+            <p className="text-xs font-bold text-amber-500">
+              Bloque vacío (0 productos con el filtro actual)
+            </p>
+            <p className="text-[11px] opacity-65">
+              En la tienda pública este bloque se oculta automáticamente mientras no tenga productos.
+            </p>
+          </div>
+        ) : (
         <div
           className={`p-8 rounded-3xl border text-center space-y-3 ${
             isLightTheme
-              ? 'bg-white border-zinc-200 text-zinc-600'
+              ? 'bg-white border-zinc-200/90 text-zinc-700 shadow-xs'
               : 'bg-neutral-900/60 border-neutral-800 text-neutral-300'
           }`}
         >
@@ -2146,6 +2627,7 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
                 <button
                   type="button"
                   onClick={onResetCategory}
+                  data-no-doodle="true"
                   data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
                   className="store-btn-solid px-4 py-2 rounded-xl text-xs font-black active:scale-95 transition-transform whitespace-nowrap"
                 >
@@ -2168,6 +2650,7 @@ export const StoreProductGridWidget: React.FC<StoreProductGridWidgetProps> = ({
             </div>
           )}
         </div>
+        )
       ) : block.horizontalCarousel ? (
         <div
           ref={carouselRef}
@@ -3463,6 +3946,7 @@ export const StoreBlockRenderer: React.FC<{
   onCtaClick?: () => void;
   onResetCategory?: () => void;
   onOpenLocationModal?: () => void;
+  isBuilderMode?: boolean;
 }> = ({
   block,
   index = 0,
@@ -3481,6 +3965,7 @@ export const StoreBlockRenderer: React.FC<{
   onCtaClick,
   onResetCategory,
   onOpenLocationModal,
+  isBuilderMode = false,
 }) => {
   const isLight = themeMode === 'light';
 
@@ -3527,6 +4012,7 @@ export const StoreBlockRenderer: React.FC<{
           onResetCategory={onResetCategory}
           onOpenLocationModal={onOpenLocationModal}
           isAboveFold={index <= 2}
+          isBuilderMode={isBuilderMode}
         />
       );
     case 'search_bar':

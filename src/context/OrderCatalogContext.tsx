@@ -43,6 +43,15 @@ interface OrderStatusPatch {
   deliveryProofAt?: string;
   deliveryProofDriverName?: string;
   deliveryAuthorizedBy?: string;
+  voidReason?: string;
+  voidedAt?: string;
+  voidedBy?: string;
+  sunatStatus?: 'no_emitido' | 'aceptado' | 'pendiente' | 'observado' | 'anulado';
+  sunatSerieNumero?: string;
+  sunatPdfUrl?: string;
+  sunatXmlUrl?: string;
+  sunatCdrUrl?: string;
+  sunatQrCode?: string;
 }
 
 interface OrderCatalogContextType {
@@ -1494,6 +1503,15 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
             ...(patch?.deliveryProofAt ? { deliveryProofAt: patch.deliveryProofAt } : {}),
             ...(patch?.deliveryProofDriverName ? { deliveryProofDriverName: patch.deliveryProofDriverName } : {}),
             ...(patch?.deliveryAuthorizedBy ? { deliveryAuthorizedBy: patch.deliveryAuthorizedBy } : {}),
+            ...(patch?.voidReason ? { voidReason: patch.voidReason } : {}),
+            ...(patch?.voidedAt ? { voidedAt: patch.voidedAt } : {}),
+            ...(patch?.voidedBy ? { voidedBy: patch.voidedBy } : {}),
+            ...(patch?.sunatStatus ? { sunatStatus: patch.sunatStatus } : {}),
+            ...(patch?.sunatSerieNumero ? { sunatSerieNumero: patch.sunatSerieNumero } : {}),
+            ...(patch?.sunatPdfUrl ? { sunatPdfUrl: patch.sunatPdfUrl } : {}),
+            ...(patch?.sunatXmlUrl ? { sunatXmlUrl: patch.sunatXmlUrl } : {}),
+            ...(patch?.sunatCdrUrl ? { sunatCdrUrl: patch.sunatCdrUrl } : {}),
+            ...(patch?.sunatQrCode ? { sunatQrCode: patch.sunatQrCode } : {}),
             ...(status === 'en_ruta' ? { dispatchedAt: nowIso } : {}),
             ...(status === 'entregado' ? { deliveredAt: nowIso, paymentStatus: 'pagado' } : {}),
           };
@@ -1561,9 +1579,16 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
       (prev) =>
         prev.map((o) => {
           if (o.id !== orderId) return o;
+          const maxExistingRound = o.items.reduce((max, item) => Math.max(max, item.roundNumber || 1), 1);
+          const nextRound = maxExistingRound + 1;
+          const taggedNewItems = newItems.map((item) => ({
+            ...item,
+            roundNumber: nextRound,
+            addedAt: nowIso,
+          }));
           return {
             ...o,
-            items: [...o.items, ...newItems],
+            items: [...o.items, ...taggedNewItems],
             subtotal: o.subtotal + additionalSubtotal,
             total: o.total + additionalTotal,
             updatedAt: nowIso,
