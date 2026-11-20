@@ -279,6 +279,190 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // 2B. CULQI TOKENIZATION: Guardar tarjeta (Customer + Card)
+  if (pathname === '/api/culqi/save-card' && req.method === 'POST') {
+    const chunks = [];
+    let bodyBytes = 0;
+    let aborted = false;
+
+    req.on('data', chunk => {
+      bodyBytes += chunk.length;
+      if (bodyBytes > MAX_BODY_BYTES) {
+        aborted = true;
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'Payload too large' }));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+
+    req.on('end', async () => {
+      if (aborted) return;
+      try {
+        const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+        const secretKey = String(process.env.CULQI_SECRET_KEY || '').trim();
+        if (!secretKey) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, reason: 'missing_secret_key' }));
+          return;
+        }
+
+        const {
+          email,
+          firstName = 'Cliente',
+          lastName = 'Khalessi',
+          phoneNumber = '999999999',
+          address = 'Lima, Peru',
+          addressCity = 'Lima',
+          countryCode = 'PE',
+          tokenId,
+          existingCustomerId,
+        } = payload;
+
+        if (!email || !tokenId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: 'email y tokenId son requeridos' }));
+          return;
+        }
+
+        let customerId = existingCustomerId || '';
+        if (!customerId) {
+          const custResp = await fetch('https://api.culqi.com/v2/customers', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${secretKey}`,
+            },
+            body: JSON.stringify({
+              first_name: String(firstName).slice(0, 50),
+              last_name: String(lastName).slice(0, 50),
+              email: String(email).trim(),
+              address: String(address).slice(0, 100),
+              address_city: String(addressCity).slice(0, 30),
+              country_code: countryCode,
+              phone_number: String(phoneNumber).replace(/\D/g, '').slice(-9) || '999999999',
+            }),
+          });
+          const custData = await custResp.json();
+          if (!custResp.ok || !custData?.id) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: false, error: custData?.user_message || custData?.merchant_message || 'Error al crear cliente en Culqi' }));
+            return;
+          }
+          customerId = custData.id;
+        }
+
+        const cardResp = await fetch('https://api.culqi.com/v2/cards', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${secretKey}`,
+          },
+          body: JSON.stringify({
+            customer_id: customerId,
+            token_id: tokenId,
+          }),
+        });
+        const cardData = await cardResp.json();
+        if (!cardResp.ok || !cardData?.id) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: cardData?.user_message || cardData?.merchant_message || 'Error al guardar tarjeta en Culqi' }));
+          return;
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            ok: true,
+            mode: 'live_culqi',
+            customerId,
+            cardId: cardData.id,
+            brand: cardData?.source?.iin?.card_brand || undefined,
+            last4: cardData?.source?.last_four || undefined,
+          })
+        );
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: err?.message || 'Error interno en Culqi save-card' }));
+      }
+    });
+    return;
+  }
+
+  // 2C. CULQI ONE-CLICK CHARGE: Cobrar con tarjeta guardada (crd_...)
+  if (pathname === '/api/culqi/charge-saved' && req.method === 'POST') {
+    const chunks = [];
+    let bodyBytes = 0;
+    let aborted = false;
+
+    req.on('data', chunk => {
+      bodyBytes += chunk.length;
+      if (bodyBytes > MAX_BODY_BYTES) {
+        aborted = true;
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'Payload too large' }));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+
+    req.on('end', async () => {
+      if (aborted) return;
+      try {
+        const payload = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+        const secretKey = String(process.env.CULQI_SECRET_KEY || '').trim();
+        if (!secretKey) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, reason: 'missing_secret_key' }));
+          return;
+        }
+
+        const { amountCents, currencyCode = 'PEN', email, sourceId, description = 'Pedido Khalessi Pizza' } = payload;
+        if (!amountCents || !email || !sourceId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: 'amountCents, email y sourceId son requeridos' }));
+          return;
+        }
+
+        const chargeResp = await fetch('https://api.culqi.com/v2/charges', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${secretKey}`,
+          },
+          body: JSON.stringify({
+            amount: Number(amountCents),
+            currency_code: currencyCode,
+            email: String(email).trim(),
+            source_id: String(sourceId).trim(),
+            description: String(description).slice(0, 80),
+          }),
+        });
+        const chargeData = await chargeResp.json();
+        if (!chargeResp.ok || !chargeData?.id) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: chargeData?.user_message || chargeData?.merchant_message || 'Cargo rechazado por Culqi' }));
+          return;
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            ok: true,
+            chargeId: chargeData.id,
+            referenceCode: chargeData.reference_code || chargeData.id,
+          })
+        );
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: err?.message || 'Error interno en Culqi charge-saved' }));
+      }
+    });
+    return;
+  }
+
   // 3. ESTADO Y HEALTH CHECK: Cualquier otra consulta GET
   res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
   res.end(
