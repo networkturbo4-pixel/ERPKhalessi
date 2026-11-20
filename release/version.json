@@ -1,8 +1,8 @@
 {
-  "buildId": "20261118040757",
-  "builtAt": "2026-11-18T04:07:57.063Z",
-  "commitSha": "e40e096",
-  "message": "fix(security,stability): endurecer servidor SSE, eliminar XSS en etiquetas y corregir pureza/hooks de React",
-  "totalFiles": 104,
-  "manifestSha256": "df5f96d9ad5a1893aeb0167ac9ebe555f0c632ae4894ffdb4d76f51784864892"
+  "buildId": "20261120030442",
+  "builtAt": "2026-11-20T03:04:42.247Z",
+  "commitSha": "03ea07b",
+  "message": "feat(storefront,pos,modules): actualizar diseño storefront, operaciones POS y módulos de facturación y reservas",
+  "totalFiles": 108,
+  "manifestSha256": "32604e90f9a36e12f6fc51fa0c39381e97392cae5e012b6b25bbb14f895c4df4"
 }
