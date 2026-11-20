@@ -7,9 +7,13 @@ export interface SavedCustomerAddress {
   label: AddressLabelType;
   customLabel?: string;
   streetAddress: string;
+  district?: string;
+  apartment?: string;
   reference: string;
+  deliveryNote?: string;
   lat?: number;
   lng?: number;
+  accuracyMeters?: number;
   isDefault: boolean;
 }
 
@@ -23,9 +27,13 @@ export interface SavedRecurringPayment {
   cardLast4?: string;
   cardHolder?: string;
   cardExpiry?: string;
+  culqiCustomerId?: string;
+  culqiCardId?: string;
+  isTokenized?: boolean;
   walletPhone?: string;
   cashNote?: string;
   isDefault: boolean;
+  createdAt?: string;
 }
 
 export interface CustomerPointMovement {

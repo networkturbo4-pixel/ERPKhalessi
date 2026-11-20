@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef, useId } from 'react';
-import { PaymentMethod } from '../../types/catalog';
 import { AddressLabelType } from '../../types/storeCustomer';
 import { useStoreCustomer, detectCardBrand, normalizePeruLocalPhone } from '../../context/StoreCustomerContext';
 import { useSettings } from '../../context/SettingsContext';
 import { useBenefits } from '../../context/BenefitsContext';
+import { createCulqiCardTokenAndSave } from '../../utils/culqiCheckout';
+import { InteractiveCreditCard } from './InteractiveCreditCard';
+import { AddressPinMap } from './AddressPinMap';
 import {
   User,
   X,
@@ -14,8 +16,6 @@ import {
   EyeOff,
   MapPin,
   CreditCard,
-  Smartphone,
-  Banknote,
   Plus,
   Trash2,
   CheckCircle2,
@@ -30,6 +30,11 @@ import {
   Zap,
   Gift,
   ArrowRight,
+  Navigation,
+  Building2,
+  TrendingUp,
+  Award,
+  Clock,
 } from 'lucide-react';
 import { LoyaltyCardView } from '../benefits/LoyaltyCardView';
 import { AddToGoogleWalletButton } from '../benefits/AddToGoogleWalletButton';
@@ -75,7 +80,7 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
     setDefaultRecurringPayment,
   } = useStoreCustomer();
 
-  const { openNoticeModal, dispatchToast } = useSettings();
+  const { openNoticeModal, dispatchToast, companyInfo, activeTenant } = useSettings();
   const { pointsConfig, rewards } = useBenefits();
   const isCardActive = pointsConfig.enabled && pointsConfig.status !== 'paused';
 
@@ -118,19 +123,24 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
   const [isAddingAddress, setIsAddingAddress] = useState(false);
   const [addrLabel, setAddrLabel] = useState<AddressLabelType>('Casa');
   const [addrStreet, setAddrStreet] = useState('');
+  const [addrDistrict, setAddrDistrict] = useState('');
+  const [addrApartment, setAddrApartment] = useState('');
   const [addrReference, setAddrReference] = useState('');
+  const [addrDeliveryNote, setAddrDeliveryNote] = useState('');
+  const [addrLat, setAddrLat] = useState<number>(() => activeTenant?.operations?.latitude || -11.93605);
+  const [addrLng, setAddrLng] = useState<number>(() => activeTenant?.operations?.longitude || -77.05432);
+  const [addrAccuracy, setAddrAccuracy] = useState<number | undefined>(undefined);
+  const [isResolvingPin, setIsResolvingPin] = useState(false);
   const [addrMakeDefault, setAddrMakeDefault] = useState(true);
 
-  // New Recurring Payment form state
+  // New Recurring Payment form state (Solo Tarjeta con Tokenización Culqi + Autocompletado)
   const [isAddingPayment, setIsAddingPayment] = useState(false);
-  const [pmType, setPmType] = useState<PaymentMethod>('tarjeta');
   const [ccNumber, setCcNumber] = useState('');
   const [ccName, setCcName] = useState('');
   const [ccExp, setCcExp] = useState('');
   const [ccCsc, setCcCsc] = useState('');
-  const [walletAlias, setWalletAlias] = useState('Yape Principal');
-  const [walletPhone, setWalletPhone] = useState('');
-  const [cashNote, setCashNote] = useState('Pago exacto');
+  const [isCvvFocused, setIsCvvFocused] = useState(false);
+  const [isSavingCard, setIsSavingCard] = useState(false);
   const [pmMakeDefault, setPmMakeDefault] = useState(true);
 
   useEffect(() => {
@@ -149,7 +159,6 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
       setEditEmail(currentCustomer.email);
       setEditPhone(currentCustomer.phone);
       setEditDni(currentCustomer.dni);
-      setWalletPhone(prev => prev || currentCustomer.phone);
       setCcName(prev => prev || currentCustomer.fullName);
     }
   }, [currentCustomer]);
@@ -202,74 +211,164 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
     }
   };
 
+  const reverseGeocodePin = async (lat: number, lng: number) => {
+    setIsResolvingPin(true);
+    try {
+      const resp = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1`
+      );
+      if (resp.ok) {
+        const data = await resp.json();
+        const a = data?.address || {};
+        const road = [a.road, a.house_number].filter(Boolean).join(' ');
+        const district = a.suburb || a.city_district || a.town || a.city || '';
+        const formatted = road || data?.display_name?.split(',').slice(0, 3).join(',').trim() || '';
+        if (formatted) setAddrStreet(formatted);
+        if (district) setAddrDistrict(district);
+      }
+    } catch {
+      // ignore network error; coordinates are still saved
+    } finally {
+      setIsResolvingPin(false);
+    }
+  };
+
+  const handlePinChange = (lat: number, lng: number) => {
+    setAddrLat(lat);
+    setAddrLng(lng);
+    void reverseGeocodePin(lat, lng);
+  };
+
+  const handlePreciseGps = () => {
+    onRequestGpsAddress();
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      setIsResolvingPin(true);
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const { latitude, longitude, accuracy } = pos.coords;
+          setAddrLat(latitude);
+          setAddrLng(longitude);
+          setAddrAccuracy(Math.round(accuracy));
+          void reverseGeocodePin(latitude, longitude);
+        },
+        () => {
+          setIsResolvingPin(false);
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    }
+  };
+
   const handleAddAddressSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!addrStreet.trim()) return;
+    const fullStreet = addrDistrict.trim()
+      ? `${addrStreet.trim()}, ${addrDistrict.trim()}`
+      : addrStreet.trim();
+    const combinedRef = [
+      addrApartment.trim() ? `Dpto/Int: ${addrApartment.trim()}` : '',
+      addrReference.trim(),
+      addrDeliveryNote.trim(),
+    ]
+      .filter(Boolean)
+      .join(' • ');
+
     const saved = addCustomerAddress({
       label: addrLabel,
-      streetAddress: addrStreet.trim(),
-      reference: addrReference.trim(),
+      streetAddress: fullStreet,
+      district: addrDistrict.trim() || undefined,
+      apartment: addrApartment.trim() || undefined,
+      reference: combinedRef,
+      deliveryNote: addrDeliveryNote.trim() || undefined,
+      lat: addrLat,
+      lng: addrLng,
+      accuracyMeters: addrAccuracy,
       isDefault: addrMakeDefault,
     });
     if (saved.isDefault) {
       onApplyAddressToOrder(saved.streetAddress, saved.reference);
     }
     setAddrStreet('');
+    setAddrDistrict('');
+    setAddrApartment('');
     setAddrReference('');
+    setAddrDeliveryNote('');
+    setAddrAccuracy(undefined);
     setIsAddingAddress(false);
   };
 
-  const handleAddPaymentSubmit = (e: React.FormEvent) => {
+  const handleAddPaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pmType === 'tarjeta') {
-      const digits = ccNumber.replace(/\D/g, '');
-      if (digits.length < 13 || digits.length > 19) {
-        dispatchToast('Tarjeta Inválida', 'Ingresa un número de tarjeta válido (13 a 19 dígitos).', 'warning');
-        return;
-      }
-      if (!/^\d{2}\/\d{2}$/.test(ccExp.trim())) {
-        dispatchToast('Vencimiento Inválido', 'Usa el formato MM/AA (ejemplo: 08/29).', 'warning');
-        return;
-      }
-      const brand = detectCardBrand(digits);
-      const last4 = digits.slice(-4);
-      addRecurringPayment({
-        type: 'tarjeta',
-        alias: `${brand} •••• ${last4}`,
-        cardBrand: brand,
-        cardLast4: last4,
-        cardHolder: ccName.trim() || currentCustomer?.fullName || 'Titular',
-        cardExpiry: ccExp.trim(),
-        isDefault: pmMakeDefault,
-      });
-      setCcNumber('');
-      setCcExp('');
-      setCcCsc('');
-      setIsAddingPayment(false);
+    const digits = ccNumber.replace(/\D/g, '');
+    if (digits.length < 13 || digits.length > 19) {
+      dispatchToast('Tarjeta Inválida', 'Ingresa un número de tarjeta válido (13 a 19 dígitos).', 'warning');
+      return;
+    }
+    if (!/^\d{2}\/\d{2}$/.test(ccExp.trim())) {
+      dispatchToast('Vencimiento Inválido', 'Usa el formato MM/AA (ejemplo: 08/29).', 'warning');
+      return;
+    }
+    if (ccCsc.replace(/\D/g, '').length < 3) {
+      dispatchToast('CVV Inválido', 'Ingresa el código de seguridad de 3 o 4 dígitos.', 'warning');
       return;
     }
 
-    if (pmType === 'yape_plin') {
-      if (!walletPhone.trim()) {
-        dispatchToast('Celular Requerido', 'Ingresa el celular afiliado a Yape o Plin.', 'warning');
-        return;
-      }
-      addRecurringPayment({
-        type: 'yape_plin',
-        alias: walletAlias.trim() || 'Yape / Plin',
-        walletPhone: walletPhone.trim(),
-        isDefault: pmMakeDefault,
-      });
-      setIsAddingPayment(false);
+    const [expMonth, expYear] = ccExp.trim().split('/');
+    const brand = detectCardBrand(digits);
+    const last4 = digits.slice(-4);
+    const holder = ccName.trim() || currentCustomer?.fullName || 'Titular';
+    const existingCusId = currentCustomer?.paymentMethods.find(p => p.culqiCustomerId)?.culqiCustomerId;
+
+    setIsSavingCard(true);
+    const tokenRes = await createCulqiCardTokenAndSave({
+      config: companyInfo.culqiConfig,
+      cardNumber: digits,
+      cvv: ccCsc.trim(),
+      expMonth,
+      expYear,
+      email: currentCustomer?.email || 'cliente@khalessi.pe',
+      fullName: holder,
+      phone: currentCustomer?.phone || '999999999',
+      address: currentCustomer?.addresses?.[0]?.streetAddress || 'Lima, Peru',
+      existingCustomerId: existingCusId,
+    });
+    setIsSavingCard(false);
+
+    if (!tokenRes.ok) {
+      dispatchToast(
+        'No se pudo vincular la tarjeta',
+        tokenRes.errorMessage || 'Verifica los datos de tu tarjeta e intenta nuevamente.',
+        'error'
+      );
       return;
     }
 
     addRecurringPayment({
-      type: 'efectivo',
-      alias: `Efectivo (${cashNote})`,
-      cashNote,
+      type: 'tarjeta',
+      alias: `${brand} •••• ${last4}`,
+      cardBrand: brand,
+      cardLast4: last4,
+      cardHolder: holder,
+      cardExpiry: ccExp.trim(),
+      culqiCustomerId: tokenRes.culqiCustomerId,
+      culqiCardId: tokenRes.culqiCardId,
+      isTokenized: true,
       isDefault: pmMakeDefault,
+      createdAt: new Date().toISOString(),
     });
+
+    dispatchToast(
+      'Tarjeta Guardada',
+      tokenRes.mode === 'live_culqi'
+        ? `${brand} •••• ${last4} tokenizada con Culqi para pagos en 1 clic.`
+        : `${brand} •••• ${last4} guardada para pagos rápidos sin volver a digitar.`,
+      'success'
+    );
+
+    setCcNumber('');
+    setCcExp('');
+    setCcCsc('');
+    setIsCvvFocused(false);
     setIsAddingPayment(false);
   };
 
@@ -933,138 +1032,243 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                   })}
                 </div>
 
-                {/* SECTION 0: TARJETA DE PUNTOS Y PREMIOS */}
-                {isCardActive && profileSection === 'puntos' && (
-                  <div className="space-y-4">
-                    <LoyaltyCardView
-                      config={pointsConfig}
-                      points={currentCustomer.points || 0}
-                      rewardsCount={rewards.filter(r => r.isActive).length}
-                    />
+                {/* SECTION 0: TARJETA DE PUNTOS Y PREMIOS (Rappi-Style Modern) */}
+                {isCardActive && profileSection === 'puntos' && (() => {
+                  const pts = currentCustomer.points || 0;
+                  const goal = Math.max(1, pointsConfig.stampsPerCardGoal || 8);
+                  const pct = Math.min(100, Math.round((pts / goal) * 100));
+                  const activeRewards = rewards.filter(r => r.isActive);
+                  const unlockedCount = activeRewards.filter(r => pts >= r.pointsCost).length;
 
-                    <AddToGoogleWalletButton
-                      config={pointsConfig}
-                      customerId={currentCustomer.id}
-                      customerName={currentCustomer.fullName}
-                      customerPhone={currentCustomer.phone}
-                      points={currentCustomer.points || 0}
-                    />
-
-                    <WebPushOptInBanner
-                      customerId={currentCustomer.id}
-                      customerName={currentCustomer.fullName}
-                      customerPhone={currentCustomer.phone}
-                      isLightTheme={isLightTheme}
-                    />
-
-                    {/* Premios Disponibles */}
-                    <div className="space-y-2">
-                      <span
-                        className={`text-xs font-black uppercase tracking-wider block ${
-                          isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
+                  return (
+                    <div className="space-y-4">
+                      {/* Rappi-style Balance & Progress Summary */}
+                      <div
+                        className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 ${
+                          isLightTheme
+                            ? 'bg-white border-zinc-200/90 shadow-xs'
+                            : 'bg-neutral-950 border-neutral-800'
                         }`}
                       >
-                        Premios del Programa ({rewards.filter(r => r.isActive).length})
-                      </span>
-                      {rewards
-                        .filter(r => r.isActive)
-                        .map(rew => {
-                          const unlocked = (currentCustomer.points || 0) >= rew.pointsCost;
-                          return (
-                            <div
-                              key={rew.id}
-                              className={`p-3 rounded-2xl border flex items-center justify-between gap-3 ${
-                                unlocked
-                                  ? isLightTheme
-                                    ? 'bg-emerald-50/70 border-emerald-300 text-zinc-900 shadow-xs'
-                                    : 'bg-neutral-950 border-emerald-500/40'
-                                  : isLightTheme
-                                  ? 'bg-white border-zinc-200 text-zinc-800 opacity-90 shadow-xs'
-                                  : 'bg-neutral-950/60 border-neutral-800 opacity-80'
-                              }`}
-                            >
-                              <div className="flex items-center gap-3 min-w-0">
-                                <span
-                                  className={`w-9 h-9 rounded-xl border flex items-center justify-center text-lg shrink-0 ${
-                                    isLightTheme
-                                      ? 'bg-zinc-100 border-zinc-200 text-zinc-800'
-                                      : 'bg-neutral-900 border-neutral-800'
-                                  }`}
-                                >
-                                  {rew.badgeIcon}
-                                </span>
-                                <div className="min-w-0">
-                                  <span
-                                    className={`text-xs font-black block truncate ${
-                                      isLightTheme ? 'text-zinc-900' : 'text-white'
-                                    }`}
-                                  >
-                                    {rew.title}
-                                  </span>
-                                  <span
-                                    className={`text-[11px] block truncate ${
-                                      isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
-                                    }`}
-                                  >
-                                    {rew.description}
-                                  </span>
-                                </div>
-                              </div>
-                              <span
-                                className={`px-2.5 py-1 rounded-full text-[10px] font-black whitespace-nowrap shrink-0 ${
-                                  unlocked
-                                    ? isLightTheme
-                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                      : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                    : isLightTheme
-                                    ? 'bg-zinc-100 text-zinc-600 border border-zinc-200'
-                                    : 'bg-neutral-900 text-neutral-400 border border-neutral-800'
-                                }`}
-                              >
-                                {unlocked ? `¡Listo! (${rew.pointsCost} pts)` : `${rew.pointsCost} pts`}
-                              </span>
-                            </div>
-                          );
-                        })}
-                    </div>
-
-                    {/* Historial Reciente de Puntos */}
-                    {currentCustomer.pointsHistory && currentCustomer.pointsHistory.length > 0 && (
-                      <div className="space-y-1.5 pt-1">
-                        <span
-                          className={`text-xs font-black uppercase tracking-wider block ${
-                            isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
-                          }`}
-                        >
-                          Últimos Movimientos
-                        </span>
-                        {currentCustomer.pointsHistory.slice(0, 5).map(mov => (
+                        <div className="flex items-center gap-3 min-w-0">
                           <div
-                            key={mov.id}
-                            className={`px-3 py-2 rounded-xl border flex items-center justify-between text-xs ${
-                              isLightTheme
-                                ? 'bg-white border-zinc-200 text-zinc-800 shadow-xs'
-                                : 'bg-neutral-950 border-neutral-800'
+                            className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-xs"
+                            style={{ backgroundColor: accentColor }}
+                          >
+                            <Award className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`text-sm font-black ${isLightTheme ? 'text-zinc-900' : 'text-white'}`}>
+                                {pts} {pts === 1 ? 'Punto' : 'Puntos'}
+                              </span>
+                              {unlockedCount > 0 && (
+                                <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[10px] font-black">
+                                  {unlockedCount} canjeable{unlockedCount > 1 ? 's' : ''}
+                                </span>
+                              )}
+                            </div>
+                            <p className={`text-[11px] truncate ${isLightTheme ? 'text-zinc-500' : 'text-neutral-400'}`}>
+                              {pts >= goal
+                                ? '¡Meta completada! Canjea tus puntos en el checkout.'
+                                : `Te faltan ${goal - pts} pts para completar tu cartilla`}
+                            </p>
+                          </div>
+                        </div>
+                        <span className={`text-xs font-black shrink-0 ${isLightTheme ? 'text-zinc-700' : 'text-neutral-300'}`}>
+                          {pct}%
+                        </span>
+                      </div>
+
+                      <LoyaltyCardView
+                        config={pointsConfig}
+                        points={pts}
+                        rewardsCount={activeRewards.length}
+                      />
+
+                      <div className="space-y-2">
+                        <AddToGoogleWalletButton
+                          config={pointsConfig}
+                          customerId={currentCustomer.id}
+                          customerName={currentCustomer.fullName}
+                          customerPhone={currentCustomer.phone}
+                          points={pts}
+                        />
+                        <WebPushOptInBanner
+                          customerId={currentCustomer.id}
+                          customerName={currentCustomer.fullName}
+                          customerPhone={currentCustomer.phone}
+                          isLightTheme={isLightTheme}
+                        />
+                      </div>
+
+                      {/* Premios Disponibles - Rappi Cards */}
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span
+                            className={`text-[11px] font-black uppercase tracking-wider ${
+                              isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
                             }`}
                           >
-                            <span className={`truncate ${isLightTheme ? 'text-zinc-700' : 'text-neutral-300'}`}>
-                              {mov.reason}
-                            </span>
-                            <span
-                              className={`font-black whitespace-nowrap shrink-0 ml-2 ${
-                                mov.delta > 0
-                                  ? isLightTheme ? 'text-emerald-600' : 'text-emerald-400'
-                                  : isLightTheme ? 'text-amber-600' : 'text-amber-400'
-                              }`}
-                            >
-                              {mov.delta > 0 ? `+${mov.delta} pto` : `${mov.delta} pts`}
-                            </span>
+                            Catálogo de Premios ({activeRewards.length})
+                          </span>
+                          <span className={`text-[10px] font-bold ${isLightTheme ? 'text-zinc-400' : 'text-neutral-500'}`}>
+                            Canjea en tu pedido
+                          </span>
+                        </div>
+
+                        {activeRewards.length === 0 ? (
+                          <div
+                            className={`p-5 rounded-2xl border text-center ${
+                              isLightTheme ? 'bg-white border-zinc-200 text-zinc-500' : 'bg-neutral-950 border-neutral-800 text-neutral-400'
+                            }`}
+                          >
+                            <Gift className="w-6 h-6 mx-auto mb-1 opacity-60" />
+                            <p className="text-xs font-bold">Pronto agregaremos nuevos premios</p>
                           </div>
-                        ))}
+                        ) : (
+                          <div className="space-y-2">
+                            {activeRewards.map(rew => {
+                              const unlocked = pts >= rew.pointsCost;
+                              const rewPct = Math.min(100, Math.round((pts / Math.max(1, rew.pointsCost)) * 100));
+                              return (
+                                <div
+                                  key={rew.id}
+                                  className={`p-3.5 rounded-2xl border space-y-2 transition-all ${
+                                    unlocked
+                                      ? isLightTheme
+                                        ? 'bg-emerald-50/70 border-emerald-300 text-zinc-900 shadow-xs'
+                                        : 'bg-neutral-950 border-emerald-500/40'
+                                      : isLightTheme
+                                      ? 'bg-white border-zinc-200/90 text-zinc-800 shadow-xs'
+                                      : 'bg-neutral-950/70 border-neutral-800'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <span
+                                        className={`w-10 h-10 rounded-2xl border flex items-center justify-center text-lg shrink-0 ${
+                                          isLightTheme
+                                            ? 'bg-zinc-50 border-zinc-200 text-zinc-800'
+                                            : 'bg-neutral-900 border-neutral-800'
+                                        }`}
+                                      >
+                                        {rew.badgeIcon}
+                                      </span>
+                                      <div className="min-w-0">
+                                        <span
+                                          className={`text-xs font-black block truncate ${
+                                            isLightTheme ? 'text-zinc-900' : 'text-white'
+                                          }`}
+                                        >
+                                          {rew.title}
+                                        </span>
+                                        <span
+                                          className={`text-[11px] block truncate ${
+                                            isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
+                                          }`}
+                                        >
+                                          {rew.description}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <span
+                                      className={`px-2.5 py-1 rounded-full text-[10px] font-black whitespace-nowrap shrink-0 ${
+                                        unlocked
+                                          ? isLightTheme
+                                            ? 'bg-emerald-500 text-white'
+                                            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                          : isLightTheme
+                                          ? 'bg-zinc-100 text-zinc-700'
+                                          : 'bg-neutral-900 text-neutral-300'
+                                      }`}
+                                    >
+                                      {unlocked ? '¡Canjeable!' : `${rew.pointsCost} pts`}
+                                    </span>
+                                  </div>
+
+                                  {!unlocked && (
+                                    <div className="w-full h-1.5 rounded-full bg-zinc-200/80 dark:bg-neutral-800 overflow-hidden">
+                                      <div
+                                        className="h-full rounded-full transition-all duration-500"
+                                        style={{ width: `${rewPct}%`, backgroundColor: accentColor }}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                )}
+
+                      {/* Historial Reciente de Puntos - Rappi Feed */}
+                      {currentCustomer.pointsHistory && currentCustomer.pointsHistory.length > 0 && (
+                        <div className="space-y-2 pt-1">
+                          <span
+                            className={`text-[11px] font-black uppercase tracking-wider block ${
+                              isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
+                            }`}
+                          >
+                            Actividad Reciente
+                          </span>
+                          <div
+                            className={`rounded-2xl border divide-y overflow-hidden ${
+                              isLightTheme
+                                ? 'bg-white border-zinc-200/90 divide-zinc-100 shadow-xs'
+                                : 'bg-neutral-950 border-neutral-800 divide-neutral-900'
+                            }`}
+                          >
+                            {currentCustomer.pointsHistory.slice(0, 5).map(mov => {
+                              const isEarned = mov.delta > 0;
+                              const dateLabel = mov.date
+                                ? new Date(mov.date).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })
+                                : '';
+                              return (
+                                <div
+                                  key={mov.id}
+                                  className="px-3.5 py-2.5 flex items-center justify-between gap-3 text-xs"
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div
+                                      className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
+                                        isEarned
+                                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                                          : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                                      }`}
+                                    >
+                                      {isEarned ? <TrendingUp className="w-3.5 h-3.5" /> : <Gift className="w-3.5 h-3.5" />}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className={`font-bold truncate ${isLightTheme ? 'text-zinc-800' : 'text-neutral-200'}`}>
+                                        {mov.reason}
+                                      </p>
+                                      {dateLabel && (
+                                        <span className={`text-[10px] inline-flex items-center gap-1 ${isLightTheme ? 'text-zinc-400' : 'text-neutral-500'}`}>
+                                          <Clock className="w-2.5 h-2.5" />
+                                          {dateLabel}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <span
+                                    className={`px-2 py-0.5 rounded-full text-[11px] font-black whitespace-nowrap shrink-0 ${
+                                      isEarned
+                                        ? 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-400'
+                                        : 'bg-amber-500/12 text-amber-600 dark:text-amber-400'
+                                    }`}
+                                  >
+                                    {isEarned ? `+${mov.delta} pto` : `${mov.delta} pts`}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* SECTION 1: MIS DATOS */}
                 {profileSection === 'datos' && (
@@ -1193,16 +1397,22 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                 )}
 
                 {/* SECTION 2: MIS DIRECCIONES */}
+                {/* SECTION 2: DIRECCIONES DE ENTREGA (Rappi-Style + Mapa Preciso) */}
                 {profileSection === 'direcciones' && (
                   <div className="space-y-3.5">
                     <div className="flex items-center justify-between">
-                      <span
-                        className={`text-xs font-black uppercase tracking-wider ${
-                          isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
-                        }`}
-                      >
-                        Direcciones de Entrega
-                      </span>
+                      <div>
+                        <span
+                          className={`text-xs font-black uppercase tracking-wider block ${
+                            isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
+                          }`}
+                        >
+                          Direcciones de Entrega
+                        </span>
+                        <span className={`text-[10px] ${isLightTheme ? 'text-zinc-400' : 'text-neutral-500'}`}>
+                          Ajusta el pin GPS para entregas exactas
+                        </span>
+                      </div>
                       <button
                         type="button"
                         onClick={() => setIsAddingAddress(v => !v)}
@@ -1210,12 +1420,11 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                         className="store-btn-solid px-3 py-1.5 rounded-xl text-xs font-black inline-flex items-center gap-1 whitespace-nowrap shrink-0 shadow-xs"
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        <span>{isAddingAddress ? 'Cancelar' : 'Agregar Dirección'}</span>
+                        <span>{isAddingAddress ? 'Cancelar' : 'Nueva Dirección'}</span>
                       </button>
                     </div>
 
                     {isAddingAddress && (
-                      /* ADDRESS FORM (follows autofill-address-form with <textarea autocomplete="street-address">) */
                       <form
                         onSubmit={handleAddAddressSubmit}
                         className={`p-4 rounded-2xl border space-y-3 ${
@@ -1224,6 +1433,7 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                             : 'bg-neutral-950 border-neutral-800'
                         }`}
                       >
+                        {/* Etiqueta tipo Rappi */}
                         <div className="flex items-center gap-2">
                           {(['Casa', 'Trabajo', 'Otro'] as const).map(lbl => (
                             <button
@@ -1233,9 +1443,9 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                               data-auto-contrast={
                                 addrLabel === lbl && autoButtonContrast ? 'true' : 'false'
                               }
-                              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border whitespace-nowrap shrink-0 ${
+                              className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-1.5 border whitespace-nowrap shrink-0 transition-all ${
                                 addrLabel === lbl
-                                  ? 'store-btn-solid border-transparent'
+                                  ? 'store-btn-solid border-transparent shadow-xs'
                                   : isLightTheme
                                   ? 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100'
                                   : 'border-neutral-800 bg-neutral-900 text-neutral-300'
@@ -1253,32 +1463,95 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                           ))}
                         </div>
 
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <label
-                              htmlFor="cust-street-address"
-                              className={`text-xs font-bold ${
-                                isLightTheme ? 'text-zinc-700' : 'text-neutral-300'
-                              }`}
-                            >
-                              Dirección Completa *
-                            </label>
+                        {/* Mapa Interactivo de Precisión */}
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`text-[11px] font-bold inline-flex items-center gap-1 ${isLightTheme ? 'text-zinc-600' : 'text-neutral-300'}`}>
+                              <Navigation className="w-3 h-3" style={{ color: accentColor }} />
+                              <span>Ubicación en el mapa</span>
+                              {typeof addrAccuracy === 'number' && (
+                                <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[9px] font-black">
+                                  ±{addrAccuracy}m
+                                </span>
+                              )}
+                            </span>
                             <button
                               type="button"
-                              disabled={isLocatingGps}
-                              onClick={() => {
-                                onRequestGpsAddress();
-                                if (currentDeliveryAddress) {
-                                   setAddrStreet(currentDeliveryAddress);
-                                }
-                              }}
-                              className="text-[11px] font-bold inline-flex items-center gap-1 hover:underline"
+                              disabled={isLocatingGps || isResolvingPin}
+                              onClick={handlePreciseGps}
+                              className="text-[11px] font-black inline-flex items-center gap-1 hover:underline disabled:opacity-60"
                               style={{ color: accentColor }}
                             >
                               <LocateFixed className="w-3 h-3" />
-                              <span>{isLocatingGps ? 'Detectando...' : 'Usar GPS'}</span>
+                              <span>{isLocatingGps || isResolvingPin ? 'Ubicando...' : 'Usar GPS preciso'}</span>
                             </button>
                           </div>
+
+                          <AddressPinMap
+                            lat={addrLat}
+                            lng={addrLng}
+                            accentColor={accentColor}
+                            onPinChange={handlePinChange}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          <div>
+                            <label
+                              htmlFor="cust-district"
+                              className={`block text-[11px] font-bold mb-1 ${
+                                isLightTheme ? 'text-zinc-700' : 'text-neutral-300'
+                              }`}
+                            >
+                              Distrito / Zona
+                            </label>
+                            <input
+                              id="cust-district"
+                              type="text"
+                              value={addrDistrict}
+                              onChange={e => setAddrDistrict(e.target.value)}
+                              placeholder="Ej: Comas, Miraflores"
+                              className={`w-full px-3 py-2 rounded-xl text-xs border focus:outline-none focus:border-amber-500 ${
+                                isLightTheme
+                                  ? 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'
+                                  : 'bg-neutral-900 border-neutral-800 text-white placeholder-neutral-500'
+                              }`}
+                            />
+                          </div>
+
+                          <div>
+                            <label
+                              htmlFor="cust-apartment"
+                              className={`block text-[11px] font-bold mb-1 ${
+                                isLightTheme ? 'text-zinc-700' : 'text-neutral-300'
+                              }`}
+                            >
+                              Piso / Dpto / Interior
+                            </label>
+                            <input
+                              id="cust-apartment"
+                              type="text"
+                              value={addrApartment}
+                              onChange={e => setAddrApartment(e.target.value)}
+                              placeholder="Ej: Piso 3, Dpto 302"
+                              className={`w-full px-3 py-2 rounded-xl text-xs border focus:outline-none focus:border-amber-500 ${
+                                isLightTheme
+                                  ? 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'
+                                  : 'bg-neutral-900 border-neutral-800 text-white placeholder-neutral-500'
+                              }`}
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor="cust-street-address"
+                            className={`block text-[11px] font-bold mb-1 ${
+                              isLightTheme ? 'text-zinc-700' : 'text-neutral-300'
+                            }`}
+                          >
+                            Calle, Avenida y Número *
+                          </label>
                           <textarea
                             id="cust-street-address"
                             name="street-address"
@@ -1287,8 +1560,8 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                             required
                             value={addrStreet}
                             onChange={e => setAddrStreet(e.target.value)}
-                            placeholder="Ej: Av. Benavides 2450, Dpto 502, Miraflores"
-                            className={`w-full px-3.5 py-2.5 rounded-xl text-xs sm:text-sm border focus:outline-none focus:border-amber-500 resize-none ${
+                            placeholder="Ej: Av. Universitaria con Belaunde 1420"
+                            className={`w-full px-3.5 py-2 rounded-xl text-xs sm:text-sm border focus:outline-none focus:border-amber-500 resize-none ${
                               isLightTheme
                                 ? 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'
                                 : 'bg-neutral-900 border-neutral-800 text-white placeholder-neutral-500'
@@ -1296,27 +1569,49 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                           />
                         </div>
 
-                        <div>
+                        <div className="space-y-1.5">
                           <label
                             htmlFor="cust-address-ref"
-                            className={`block text-xs font-bold mb-1 ${
+                            className={`block text-[11px] font-bold ${
                               isLightTheme ? 'text-zinc-700' : 'text-neutral-300'
                             }`}
                           >
-                            Referencia (Piso, timbre, fachada)
+                            Referencia e instrucciones al repartidor
                           </label>
                           <input
                             id="cust-address-ref"
                             type="text"
                             value={addrReference}
                             onChange={e => setAddrReference(e.target.value)}
-                            placeholder="Ej: Frente al parque, recepción portón negro"
-                            className={`w-full px-3.5 py-2 rounded-xl text-xs sm:text-sm border focus:outline-none focus:border-amber-500 ${
+                            placeholder="Ej: Frente al parque, portón negro"
+                            className={`w-full px-3.5 py-2 rounded-xl text-xs border focus:outline-none focus:border-amber-500 ${
                               isLightTheme
                                 ? 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'
                                 : 'bg-neutral-900 border-neutral-800 text-white placeholder-neutral-500'
                             }`}
                           />
+                          {/* Chips rápidos tipo Rappi */}
+                          <div className="flex flex-wrap gap-1.5 pt-0.5">
+                            {['Dejar en portería', 'Tocar timbre', 'Llamar al llegar'].map(chip => {
+                              const activeChip = addrDeliveryNote === chip;
+                              return (
+                                <button
+                                  key={chip}
+                                  type="button"
+                                  onClick={() => setAddrDeliveryNote(activeChip ? '' : chip)}
+                                  className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition-colors ${
+                                    activeChip
+                                      ? 'border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                      : isLightTheme
+                                      ? 'border-zinc-200 bg-zinc-50 text-zinc-600 hover:bg-zinc-100'
+                                      : 'border-neutral-800 bg-neutral-900 text-neutral-400'
+                                  }`}
+                                >
+                                  {chip}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
 
                         <label
@@ -1338,7 +1633,7 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                           data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
                           className="store-btn-solid w-full py-2.5 px-4 rounded-xl text-xs font-black whitespace-nowrap shrink-0 shadow-xs"
                         >
-                          Guardar Dirección
+                          Guardar Dirección Exacta
                         </button>
                       </form>
                     )}
@@ -1364,187 +1659,216 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                             isLightTheme ? 'text-zinc-500' : 'text-neutral-500'
                           }`}
                         >
-                          Agrega tu casa u oficina para pedir en un toque sin volver a escribirla.
+                          Agrega tu casa u oficina con pin GPS para entregas rápidas y precisas.
                         </p>
                       </div>
                     ) : (
                       <div className="space-y-2.5">
-                        {currentCustomer.addresses.map(addr => (
-                          <div
-                            key={addr.id}
-                            className={`p-3.5 rounded-2xl border space-y-2.5 ${
-                              isLightTheme
-                                ? 'bg-white border-zinc-200/90 text-zinc-900 shadow-xs'
-                                : 'bg-neutral-950 border-neutral-800 text-white'
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="space-y-0.5 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span
-                                    className={`text-xs font-black ${
-                                      isLightTheme ? 'text-zinc-900' : 'text-white'
-                                    }`}
-                                  >
-                                    {addr.label}
-                                  </span>
-                                  {addr.isDefault && (
-                                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[10px] font-black border border-emerald-500/20">
-                                      Predeterminada
-                                    </span>
-                                  )}
-                                </div>
-                                <p
-                                  className={`text-xs leading-snug ${
-                                    isLightTheme ? 'text-zinc-700' : 'text-neutral-300'
-                                  }`}
-                                >
-                                  {addr.streetAddress}
-                                </p>
-                                {addr.reference && (
-                                  <p
-                                    className={`text-[11px] ${
-                                      isLightTheme ? 'text-zinc-400' : 'text-neutral-500'
-                                    }`}
-                                  >
-                                    Ref: {addr.reference}
-                                  </p>
-                                )}
-                              </div>
-
-                              <button
-                                type="button"
-                                aria-label="Eliminar dirección"
-                                onClick={() => removeCustomerAddress(addr.id)}
-                                className={`p-1.5 transition-colors shrink-0 ${
-                                  isLightTheme
-                                    ? 'text-zinc-400 hover:text-rose-600'
-                                    : 'text-neutral-500 hover:text-rose-400'
-                                }`}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-
+                        {currentCustomer.addresses.map(addr => {
+                          const LabelIcon =
+                            addr.label === 'Casa'
+                              ? Home
+                              : addr.label === 'Trabajo'
+                              ? Briefcase
+                              : Building2;
+                          return (
                             <div
-                              className={`flex items-center gap-2 pt-2 border-t ${
-                                isLightTheme ? 'border-zinc-100' : 'border-neutral-900'
+                              key={addr.id}
+                              className={`p-3.5 rounded-2xl border transition-all space-y-2.5 ${
+                                addr.isDefault
+                                  ? isLightTheme
+                                    ? 'bg-white border-emerald-400/70 text-zinc-900 shadow-xs'
+                                    : 'bg-neutral-950 border-emerald-500/40 text-white'
+                                  : isLightTheme
+                                  ? 'bg-white border-zinc-200/90 text-zinc-900 shadow-xs'
+                                  : 'bg-neutral-950 border-neutral-800 text-white'
                               }`}
                             >
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  onApplyAddressToOrder(addr.streetAddress, addr.reference);
-                                  setDefaultCustomerAddress(addr.id);
-                                  dispatchToast(
-                                    'Dirección Seleccionada',
-                                    `Entregaremos en: ${addr.streetAddress}`,
-                                    'success'
-                                  );
-                                }}
-                                data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                                className="store-btn-solid px-3 py-1.5 rounded-xl text-[11px] font-black inline-flex items-center gap-1 whitespace-nowrap shrink-0 shadow-xs"
-                              >
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                <span>Entregar Aquí</span>
-                              </button>
+                              <div className="flex items-start justify-between gap-2.5">
+                                <div className="flex items-start gap-2.5 min-w-0">
+                                  <div
+                                    className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 mt-0.5 ${
+                                      addr.isDefault
+                                        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                                        : isLightTheme
+                                        ? 'bg-zinc-100 text-zinc-700'
+                                        : 'bg-neutral-900 text-neutral-300'
+                                    }`}
+                                  >
+                                    <LabelIcon className="w-4 h-4" />
+                                  </div>
+                                  <div className="space-y-0.5 min-w-0">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span
+                                        className={`text-xs font-black ${
+                                          isLightTheme ? 'text-zinc-900' : 'text-white'
+                                        }`}
+                                      >
+                                        {addr.label}
+                                      </span>
+                                      {addr.isDefault && (
+                                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[10px] font-black border border-emerald-500/20">
+                                          Principal
+                                        </span>
+                                      )}
+                                      {typeof addr.lat === 'number' && typeof addr.lng === 'number' && (
+                                        <span className="px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[9px] font-black inline-flex items-center gap-0.5">
+                                          <Navigation className="w-2.5 h-2.5" />
+                                          GPS
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p
+                                      className={`text-xs font-medium leading-snug ${
+                                        isLightTheme ? 'text-zinc-800' : 'text-neutral-200'
+                                      }`}
+                                    >
+                                      {addr.streetAddress}
+                                    </p>
+                                    {addr.reference && (
+                                      <p
+                                        className={`text-[11px] ${
+                                          isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
+                                        }`}
+                                      >
+                                        {addr.reference}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
 
-                              {!addr.isDefault && (
                                 <button
                                   type="button"
-                                  onClick={() => setDefaultCustomerAddress(addr.id)}
-                                  className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap shrink-0 transition-colors ${
+                                  aria-label="Eliminar dirección"
+                                  onClick={() => removeCustomerAddress(addr.id)}
+                                  className={`p-1.5 transition-colors shrink-0 ${
                                     isLightTheme
-                                      ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'
-                                      : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-300'
+                                      ? 'text-zinc-400 hover:text-rose-600'
+                                      : 'text-neutral-500 hover:text-rose-400'
                                   }`}
                                 >
-                                  Hacer Principal
+                                  <Trash2 className="w-4 h-4" />
                                 </button>
-                              )}
+                              </div>
+
+                              <div
+                                className={`flex items-center gap-2 pt-2 border-t ${
+                                  isLightTheme ? 'border-zinc-100' : 'border-neutral-900'
+                                }`}
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onApplyAddressToOrder(addr.streetAddress, addr.reference);
+                                    setDefaultCustomerAddress(addr.id);
+                                    dispatchToast(
+                                      'Dirección Seleccionada',
+                                      `Entregaremos en: ${addr.streetAddress}`,
+                                      'success'
+                                    );
+                                  }}
+                                  data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+                                  className="store-btn-solid px-3 py-1.5 rounded-xl text-[11px] font-black inline-flex items-center gap-1 whitespace-nowrap shrink-0 shadow-xs"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Entregar Aquí</span>
+                                </button>
+
+                                {!addr.isDefault && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setDefaultCustomerAddress(addr.id)}
+                                    className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap shrink-0 transition-colors ${
+                                      isLightTheme
+                                        ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'
+                                        : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-300'
+                                    }`}
+                                  >
+                                    Hacer Principal
+                                  </button>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
                 )}
 
                 {/* SECTION 3: MÉTODOS DE PAGO RECURRENTES */}
-                {profileSection === 'pagos' && (
-                  <div className="space-y-3.5">
-                    <div className="flex items-center justify-between">
-                      <span
-                        className={`text-xs font-black uppercase tracking-wider ${
-                          isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
-                        }`}
-                      >
-                        Métodos Recurrentes
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setIsAddingPayment(v => !v)}
-                        data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                        className="store-btn-solid px-3 py-1.5 rounded-xl text-xs font-black inline-flex items-center gap-1 whitespace-nowrap shrink-0 shadow-xs"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>{isAddingPayment ? 'Cancelar' : 'Agregar Método'}</span>
-                      </button>
-                    </div>
-
-                    {isAddingPayment && (
-                      /* PAYMENT FORM (follows autofill-payment-form) */
-                      <form
-                        onSubmit={handleAddPaymentSubmit}
-                        className={`p-4 rounded-2xl border space-y-3.5 ${
-                          isLightTheme
-                            ? 'bg-white border-zinc-200/90 shadow-xs'
-                            : 'bg-neutral-950 border-neutral-800'
-                        }`}
-                      >
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {(
-                            [
-                              ['tarjeta', 'Tarjeta', CreditCard],
-                              ['yape_plin', 'Yape / Plin', Smartphone],
-                              ['efectivo', 'Efectivo', Banknote],
-                            ] as const
-                          ).map(([tKey, tLabel, Icon]) => (
-                            <button
-                              key={tKey}
-                              type="button"
-                              onClick={() => setPmType(tKey)}
-                              data-auto-contrast={
-                                pmType === tKey && autoButtonContrast ? 'true' : 'false'
-                              }
-                              className={`p-2.5 rounded-xl border text-[11px] font-black flex flex-col items-center gap-1 whitespace-nowrap shrink-0 ${
-                                pmType === tKey
-                                  ? 'store-btn-solid border-transparent'
-                                  : isLightTheme
-                                  ? 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100'
-                                  : 'border-neutral-800 bg-neutral-900 text-neutral-300'
-                              }`}
-                            >
-                              <Icon className="w-4 h-4" />
-                              <span>{tLabel}</span>
-                            </button>
-                          ))}
+                {/* SECTION 3: TARJETAS GUARDADAS (One-Click Culqi + Autocompletado + Tarjeta Visual) */}
+                {profileSection === 'pagos' && (() => {
+                  const savedCards = currentCustomer.paymentMethods.filter(pm => pm.type === 'tarjeta');
+                  const liveBrand = detectCardBrand(ccNumber);
+                  return (
+                    <div className="space-y-3.5">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span
+                            className={`text-xs font-black uppercase tracking-wider block ${
+                              isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
+                            }`}
+                          >
+                            Mis Tarjetas Guardadas
+                          </span>
+                          <span className={`text-[10px] ${isLightTheme ? 'text-zinc-400' : 'text-neutral-500'}`}>
+                            Paga en 1 clic sin volver a digitar
+                          </span>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => setIsAddingPayment(v => !v)}
+                          data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+                          className="store-btn-solid px-3 py-1.5 rounded-xl text-xs font-black inline-flex items-center gap-1 whitespace-nowrap shrink-0 shadow-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>{isAddingPayment ? 'Cancelar' : 'Agregar Tarjeta'}</span>
+                        </button>
+                      </div>
 
-                        {pmType === 'tarjeta' && (
+                      {isAddingPayment && (
+                        /* PAYMENT FORM (Opción 1: Tokenización Culqi + Opción 2: Autocompletado navegador) */
+                        <form
+                          onSubmit={handleAddPaymentSubmit}
+                          autoComplete="on"
+                          className={`p-4 rounded-2xl border space-y-4 ${
+                            isLightTheme
+                              ? 'bg-white border-zinc-200/90 shadow-xs'
+                              : 'bg-neutral-950 border-neutral-800'
+                          }`}
+                        >
+                          {/* Tarjeta Interactiva que se rellena en tiempo real */}
+                          <InteractiveCreditCard
+                            cardNumber={ccNumber}
+                            cardHolder={ccName}
+                            cardExpiry={ccExp}
+                            cardCvv={ccCsc}
+                            brand={liveBrand}
+                            isFlipped={isCvvFocused}
+                            accentColor={accentColor}
+                          />
+
                           <div className="space-y-3">
                             <div>
-                              <label
-                                htmlFor="cc-number"
-                                className={`block text-xs font-bold mb-1 ${
-                                  isLightTheme ? 'text-zinc-700' : 'text-neutral-300'
-                                }`}
-                              >
-                                Número de Tarjeta *
-                              </label>
+                              <div className="flex items-center justify-between mb-1">
+                                <label
+                                  htmlFor="cc-number"
+                                  className={`text-xs font-bold ${
+                                    isLightTheme ? 'text-zinc-700' : 'text-neutral-300'
+                                  }`}
+                                >
+                                  Número de Tarjeta *
+                                </label>
+                                {ccNumber.replace(/\D/g, '').length >= 4 && (
+                                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                                    {liveBrand}
+                                  </span>
+                                )}
+                              </div>
                               <input
                                 id="cc-number"
-                                name="cc-number"
+                                name="cardnumber"
                                 type="text"
                                 autoComplete="cc-number"
                                 inputMode="numeric"
@@ -1552,6 +1876,7 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                                 pattern="[\d ]{13,19}"
                                 required
                                 value={ccNumber}
+                                onFocus={() => setIsCvvFocused(false)}
                                 onChange={e => setCcNumber(formatCardNumberInput(e.target.value))}
                                 placeholder="4557 8800 1234 5678"
                                 className={`w-full px-3.5 py-2.5 rounded-xl text-sm font-mono border focus:outline-none focus:border-amber-500 ${
@@ -1573,12 +1898,13 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                               </label>
                               <input
                                 id="cc-name"
-                                name="cc-name"
+                                name="ccname"
                                 type="text"
                                 autoComplete="cc-name"
                                 maxLength={50}
                                 required
                                 value={ccName}
+                                onFocus={() => setIsCvvFocused(false)}
                                 onChange={e => setCcName(e.target.value)}
                                 placeholder="Como figura en tu tarjeta"
                                 className={`w-full px-3.5 py-2.5 rounded-xl text-sm border focus:outline-none focus:border-amber-500 ${
@@ -1599,7 +1925,6 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                                 >
                                   Vencimiento *
                                 </label>
-                                {/* Format hint ABOVE input per autofill-payment-form */}
                                 <span
                                   id={expHintId}
                                   className={`block text-[10px] mb-1 ${
@@ -1618,6 +1943,7 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                                   maxLength={5}
                                   required
                                   value={ccExp}
+                                  onFocus={() => setIsCvvFocused(false)}
                                   onChange={e => setCcExp(formatExpiryInput(e.target.value))}
                                   placeholder="08/29"
                                   className={`w-full px-3.5 py-2 rounded-xl text-sm font-mono border focus:outline-none focus:border-amber-500 ${
@@ -1646,7 +1972,7 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                                 </span>
                                 <input
                                   id="cc-csc"
-                                  name="cc-csc"
+                                  name="cvc"
                                   type="text"
                                   autoComplete="cc-csc"
                                   inputMode="numeric"
@@ -1654,6 +1980,8 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                                   pattern="[0-9]{3,4}"
                                   required
                                   value={ccCsc}
+                                  onFocus={() => setIsCvvFocused(true)}
+                                  onBlur={() => setIsCvvFocused(false)}
                                   onChange={e =>
                                     setCcCsc(e.target.value.replace(/\D/g, '').slice(0, 4))
                                   }
@@ -1667,227 +1995,154 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
                               </div>
                             </div>
                           </div>
-                        )}
 
-                        {pmType === 'yape_plin' && (
-                          <div className="space-y-3">
-                            <div>
-                              <label
-                                htmlFor="pm-wallet-alias"
-                                className={`block text-xs font-bold mb-1 ${
-                                  isLightTheme ? 'text-zinc-700' : 'text-neutral-300'
-                                }`}
-                              >
-                                Etiqueta de Billetera
-                              </label>
-                              <input
-                                id="pm-wallet-alias"
-                                type="text"
-                                value={walletAlias}
-                                onChange={e => setWalletAlias(e.target.value)}
-                                placeholder="Ej: Yape Personal / Plin BCP"
-                                className={`w-full px-3.5 py-2.5 rounded-xl text-sm border focus:outline-none focus:border-amber-500 ${
-                                  isLightTheme
-                                    ? 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'
-                                    : 'bg-neutral-900 border-neutral-800 text-white placeholder-neutral-500'
-                                }`}
-                              />
-                            </div>
-                            <div>
-                              <label
-                                htmlFor="pm-wallet-phone"
-                                className={`block text-xs font-bold mb-1 ${
-                                  isLightTheme ? 'text-zinc-700' : 'text-neutral-300'
-                                }`}
-                              >
-                                Celular Afiliado *
-                              </label>
-                              <input
-                                id="pm-wallet-phone"
-                                type="tel"
-                                inputMode="tel"
-                                autoComplete="tel"
-                                required
-                                value={walletPhone}
-                                onChange={e => setWalletPhone(e.target.value)}
-                                placeholder="999 888 777"
-                                className={`w-full px-3.5 py-2.5 rounded-xl text-sm border focus:outline-none focus:border-amber-500 ${
-                                  isLightTheme
-                                    ? 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400'
-                                    : 'bg-neutral-900 border-neutral-800 text-white placeholder-neutral-500'
-                                }`}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {pmType === 'efectivo' && (
-                          <div>
-                            <label
-                              htmlFor="pm-cash-note"
-                              className={`block text-xs font-bold mb-1 ${
-                                isLightTheme ? 'text-zinc-700' : 'text-neutral-300'
-                              }`}
-                            >
-                              Preferencia de Efectivo
-                            </label>
-                            <select
-                              id="pm-cash-note"
-                              value={cashNote}
-                              onChange={e => setCashNote(e.target.value)}
-                              className={`w-full px-3.5 py-2.5 rounded-xl text-sm border focus:outline-none focus:border-amber-500 ${
-                                isLightTheme
-                                  ? 'bg-zinc-50 border-zinc-200 text-zinc-900'
-                                  : 'bg-neutral-900 border-neutral-800 text-white'
-                              }`}
-                            >
-                              <option value="Pago exacto">Pago exacto</option>
-                              <option value="Billete de S/ 50">Pagar con billete de S/ 50</option>
-                              <option value="Billete de S/ 100">Pagar con billete de S/ 100</option>
-                              <option value="Billete de S/ 200">Pagar con billete de S/ 200</option>
-                            </select>
-                          </div>
-                        )}
-
-                        <label
-                          className={`flex items-center gap-2 text-xs cursor-pointer ${
-                            isLightTheme ? 'text-zinc-700' : 'text-neutral-300'
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={pmMakeDefault}
-                            onChange={e => setPmMakeDefault(e.target.checked)}
-                            className="rounded accent-amber-500"
-                          />
-                          <span>Preseleccionar automáticamente en mis pedidos</span>
-                        </label>
-
-                        <button
-                          type="submit"
-                          data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                          className="store-btn-solid w-full py-2.5 px-4 rounded-xl text-xs font-black whitespace-nowrap shrink-0 shadow-xs"
-                        >
-                          Guardar Método Recurrente
-                        </button>
-                      </form>
-                    )}
-
-                    {currentCustomer.paymentMethods.length === 0 && !isAddingPayment ? (
-                      <div
-                        className={`p-6 rounded-2xl border text-center space-y-1.5 ${
-                          isLightTheme
-                            ? 'bg-white border-zinc-200 shadow-xs'
-                            : 'bg-neutral-950 border-neutral-800'
-                        }`}
-                      >
-                        <CreditCard className="w-7 h-7 mx-auto text-zinc-400" />
-                        <p
-                          className={`text-xs font-bold ${
-                            isLightTheme ? 'text-zinc-800' : 'text-neutral-200'
-                          }`}
-                        >
-                          Sin métodos de pago recurrentes
-                        </p>
-                        <p
-                          className={`text-[11px] ${
-                            isLightTheme ? 'text-zinc-500' : 'text-neutral-500'
-                          }`}
-                        >
-                          Vincula tu tarjeta habitual, Yape/Plin o preferencia de efectivo para un
-                          checkout instantáneo.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-2.5">
-                        {currentCustomer.paymentMethods.map(pm => (
                           <div
-                            key={pm.id}
-                            className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 ${
+                            className={`px-3 py-2 rounded-xl border flex items-center gap-2 text-[11px] ${
                               isLightTheme
-                                ? 'bg-white border-zinc-200/90 text-zinc-900 shadow-xs'
-                                : 'bg-neutral-950 border-neutral-800 text-white'
+                                ? 'bg-emerald-50/70 border-emerald-200 text-emerald-800'
+                                : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
                             }`}
                           >
-                            <div className="flex items-center gap-3 min-w-0">
-                              <div
-                                className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 ${
-                                  isLightTheme
-                                    ? 'bg-zinc-100 border-zinc-200'
-                                    : 'bg-neutral-900 border-neutral-800'
-                                }`}
-                              >
-                                {pm.type === 'tarjeta' ? (
-                                  <CreditCard className="w-5 h-5 text-blue-500" />
-                                ) : pm.type === 'yape_plin' ? (
-                                  <Smartphone className="w-5 h-5 text-purple-500" />
-                                ) : (
-                                  <Banknote className="w-5 h-5 text-emerald-500" />
-                                )}
-                              </div>
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span
-                                    className={`text-xs font-black truncate ${
-                                      isLightTheme ? 'text-zinc-900' : 'text-white'
+                            <ShieldCheck className="w-4 h-4 shrink-0" />
+                            <span>
+                              Encriptación Culqi PCI-DSS: solo guardamos el token seguro y los últimos 4 dígitos.
+                            </span>
+                          </div>
+
+                          <label
+                            className={`flex items-center gap-2 text-xs cursor-pointer ${
+                              isLightTheme ? 'text-zinc-700' : 'text-neutral-300'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={pmMakeDefault}
+                              onChange={e => setPmMakeDefault(e.target.checked)}
+                              className="rounded accent-amber-500"
+                            />
+                            <span>Usar como tarjeta principal en mis pedidos</span>
+                          </label>
+
+                          <button
+                            type="submit"
+                            disabled={isSavingCard}
+                            data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+                            className="store-btn-solid w-full py-2.5 px-4 rounded-xl text-xs font-black whitespace-nowrap shrink-0 shadow-xs disabled:opacity-60"
+                          >
+                            {isSavingCard ? 'Vinculando Tarjeta...' : 'Guardar Tarjeta Segura'}
+                          </button>
+                        </form>
+                      )}
+
+                      {savedCards.length === 0 && !isAddingPayment ? (
+                        <div
+                          className={`p-6 rounded-2xl border text-center space-y-2 ${
+                            isLightTheme
+                              ? 'bg-white border-zinc-200 shadow-xs'
+                              : 'bg-neutral-950 border-neutral-800'
+                          }`}
+                        >
+                          <CreditCard className="w-7 h-7 mx-auto text-zinc-400" />
+                          <p
+                            className={`text-xs font-bold ${
+                              isLightTheme ? 'text-zinc-800' : 'text-neutral-200'
+                            }`}
+                          >
+                            Aún no tienes tarjetas guardadas
+                          </p>
+                          <p
+                            className={`text-[11px] ${
+                              isLightTheme ? 'text-zinc-500' : 'text-neutral-500'
+                            }`}
+                          >
+                            Guarda tu tarjeta de crédito o débito una sola vez y paga tus próximos pedidos en 1 clic.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5">
+                          {savedCards.map(pm => (
+                            <div
+                              key={pm.id}
+                              className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 transition-all ${
+                                pm.isDefault
+                                  ? isLightTheme
+                                    ? 'bg-white border-emerald-400/70 text-zinc-900 shadow-xs'
+                                    : 'bg-neutral-950 border-emerald-500/40 text-white'
+                                  : isLightTheme
+                                  ? 'bg-white border-zinc-200/90 text-zinc-900 shadow-xs'
+                                  : 'bg-neutral-950 border-neutral-800 text-white'
+                              }`}
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-11 h-8 rounded-xl bg-gradient-to-br from-slate-800 to-slate-950 border border-white/10 flex items-center justify-center shrink-0 text-[9px] font-black italic text-white tracking-wider shadow-xs">
+                                  {(pm.cardBrand || 'CARD').slice(0, 4).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span
+                                      className={`text-xs font-black truncate ${
+                                        isLightTheme ? 'text-zinc-900' : 'text-white'
+                                      }`}
+                                    >
+                                      {pm.alias}
+                                    </span>
+                                    {pm.isDefault && (
+                                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[10px] font-black inline-flex items-center gap-1 border border-emerald-500/20">
+                                        <Star className="w-2.5 h-2.5 fill-current" />
+                                        <span>Principal</span>
+                                      </span>
+                                    )}
+                                    {pm.isTokenized && (
+                                      <span className="px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[9px] font-black inline-flex items-center gap-0.5">
+                                        <Zap className="w-2.5 h-2.5" />
+                                        1-Clic
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p
+                                    className={`text-[11px] truncate ${
+                                      isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
                                     }`}
                                   >
-                                    {pm.alias}
-                                  </span>
-                                  {pm.isDefault && (
-                                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[10px] font-black inline-flex items-center gap-1 border border-emerald-500/20">
-                                      <Star className="w-2.5 h-2.5 fill-current" />
-                                      <span>Principal</span>
-                                    </span>
-                                  )}
+                                    {pm.cardHolder || ''} • Vence {pm.cardExpiry || ''}
+                                  </p>
                                 </div>
-                                <p
-                                  className={`text-[11px] truncate ${
-                                    isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
-                                  }`}
-                                >
-                                  {pm.type === 'tarjeta'
-                                    ? `${pm.cardHolder || ''} • Vence ${pm.cardExpiry || ''}`
-                                    : pm.type === 'yape_plin'
-                                    ? `Afiliado: ${pm.walletPhone || ''}`
-                                    : pm.cashNote || 'Efectivo contraentrega'}
-                                </p>
                               </div>
-                            </div>
 
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              {!pm.isDefault && (
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {!pm.isDefault && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setDefaultRecurringPayment(pm.id)}
+                                    className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap shrink-0 transition-colors ${
+                                      isLightTheme
+                                        ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'
+                                        : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-300'
+                                    }`}
+                                  >
+                                    Predeterminar
+                                  </button>
+                                )}
                                 <button
                                   type="button"
-                                  onClick={() => setDefaultRecurringPayment(pm.id)}
-                                  className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap shrink-0 transition-colors ${
+                                  aria-label="Eliminar tarjeta"
+                                  onClick={() => removeRecurringPayment(pm.id)}
+                                  className={`p-1.5 transition-colors ${
                                     isLightTheme
-                                      ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700'
-                                      : 'bg-neutral-900 hover:bg-neutral-800 text-neutral-300'
+                                      ? 'text-zinc-400 hover:text-rose-600'
+                                      : 'text-neutral-500 hover:text-rose-400'
                                   }`}
                                 >
-                                  Predeterminar
+                                  <Trash2 className="w-4 h-4" />
                                 </button>
-                              )}
-                              <button
-                                type="button"
-                                aria-label="Eliminar método de pago"
-                                onClick={() => removeRecurringPayment(pm.id)}
-                                className={`p-1.5 transition-colors ${
-                                  isLightTheme
-                                    ? 'text-zinc-400 hover:text-rose-600'
-                                    : 'text-neutral-500 hover:text-rose-400'
-                                }`}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>

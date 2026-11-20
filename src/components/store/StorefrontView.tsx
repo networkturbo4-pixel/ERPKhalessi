@@ -21,6 +21,7 @@ import {
 } from '../common/SeasonalOverlay';
 import {
   calculateDynamicDeliveryFee,
+  chargeSavedCulqiCard,
   isRealCulqiPublicKey,
   openOfficialCulqiCheckout,
 } from '../../utils/culqiCheckout';
@@ -1340,6 +1341,30 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
         'Ingresa un RUC válido de 11 dígitos y la Razón Social.',
         'warning'
       );
+      return;
+    }
+
+    // One-Click Payment with Saved Card (avoids re-typing card details)
+    const chosenSavedCard = currentCustomer?.paymentMethods.find(
+      pm => pm.id === selectedRecurringId && pm.type === 'tarjeta'
+    );
+    if (chosenSavedCard && resolvedPayableTotal > 0) {
+      const chargeRes = await chargeSavedCulqiCard({
+        config: companyInfo.culqiConfig,
+        culqiCardId: chosenSavedCard.culqiCardId,
+        amountSoles: resolvedPayableTotal,
+        email: currentCustomer?.email || 'cliente@khalessi.pe',
+        description: `Pedido ${companyInfo.commercialName || customization.appName}`,
+      });
+      if (!chargeRes.ok) {
+        dispatchToast(
+          'Pago no completado',
+          chargeRes.errorMessage || 'No se pudo procesar el cobro con tu tarjeta guardada.',
+          'warning'
+        );
+        return;
+      }
+      finalizeOrderCreation({ culqiReference: chargeRes.chargeId, forcePaid: true });
       return;
     }
 
@@ -3839,49 +3864,58 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                   </button>
                 )}
 
-                {/* Saved Recurring Payment Methods for Logged-in Customer */}
-                {currentCustomer && currentCustomer.paymentMethods.length > 0 && (
+                {/* Saved Cards (One-Click) for Logged-in Customer */}
+                {currentCustomer && currentCustomer.paymentMethods.some(pm => pm.type === 'tarjeta') && (
                   <div className="space-y-1.5">
-                    {currentCustomer.paymentMethods.map(pm => {
-                      const active = selectedRecurringId === pm.id;
-                      return (
-                        <button
-                          key={pm.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedRecurringId(pm.id);
-                            setPaymentMethod(pm.type);
-                          }}
-                          style={active ? { borderColor: buttonColor } : undefined}
-                          className={`w-full p-3 rounded-2xl border-2 text-left flex items-center justify-between gap-2 transition-all ${
-                            active
-                              ? isLightTheme
-                                ? 'bg-zinc-100 text-zinc-950'
-                                : 'bg-neutral-800/80 text-white'
-                              : isLightTheme
-                              ? 'border-zinc-200 bg-white text-zinc-800 hover:border-zinc-300'
-                              : 'border-neutral-800 bg-neutral-950 text-neutral-300'
-                          }`}
-                        >
-                          <span className="flex items-center gap-2 min-w-0">
-                            <Star
-                              className="w-3.5 h-3.5 shrink-0 fill-current"
-                              style={{ color: accentColor }}
-                            />
-                            <span className="text-xs font-black truncate">{pm.alias}</span>
-                          </span>
-                          <span
-                            className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full shrink-0 ${
-                              isLightTheme
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : 'bg-emerald-500/15 text-emerald-400'
+                    {currentCustomer.paymentMethods
+                      .filter(pm => pm.type === 'tarjeta')
+                      .map(pm => {
+                        const active = selectedRecurringId === pm.id;
+                        return (
+                          <button
+                            key={pm.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedRecurringId(pm.id);
+                              setPaymentMethod('tarjeta');
+                            }}
+                            style={active ? { borderColor: buttonColor } : undefined}
+                            className={`w-full p-3 rounded-2xl border-2 text-left flex items-center justify-between gap-2 transition-all ${
+                              active
+                                ? isLightTheme
+                                  ? 'bg-zinc-100 text-zinc-950'
+                                  : 'bg-neutral-800/80 text-white'
+                                : isLightTheme
+                                ? 'border-zinc-200 bg-white text-zinc-800 hover:border-zinc-300'
+                                : 'border-neutral-800 bg-neutral-950 text-neutral-300'
                             }`}
                           >
-                            Recurrente
-                          </span>
-                        </button>
-                      );
-                    })}
+                            <span className="flex items-center gap-2.5 min-w-0">
+                              <CreditCard
+                                className="w-4 h-4 shrink-0"
+                                style={{ color: accentColor }}
+                              />
+                              <span className="min-w-0">
+                                <span className="text-xs font-black truncate block">{pm.alias}</span>
+                                {pm.cardExpiry && (
+                                  <span className="text-[10px] opacity-70 block">
+                                    Vence {pm.cardExpiry} • Sin volver a digitar
+                                  </span>
+                                )}
+                              </span>
+                            </span>
+                            <span
+                              className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full shrink-0 ${
+                                isLightTheme
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : 'bg-emerald-500/15 text-emerald-400'
+                              }`}
+                            >
+                              1-Clic
+                            </span>
+                          </button>
+                        );
+                      })}
                   </div>
                 )}
 
