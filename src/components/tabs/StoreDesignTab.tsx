@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 import { useStoreBuilder } from '../../context/StoreBuilderContext';
 import { useSettings } from '../../context/SettingsContext';
-import { StoreTemplate, StoreHeaderVariant, StoreFooterVariant } from '../../types/storeBuilder';
+import { StoreTemplate } from '../../types/storeBuilder';
+import { HeaderFooterCustomizerPanel } from '../store/HeaderFooterCustomizerPanel';
 
 const TemplateWireframePreview: React.FC<{ tpl: StoreTemplate }> = ({ tpl }) => {
   const isDark = tpl.themeMode === 'dark';
@@ -363,45 +364,14 @@ export const StoreDesignTab: React.FC = () => {
             value={activeTemplate.buttonColor || activeTemplate.accentColor}
             onCommit={(hex) => updateActiveTemplateMeta({ buttonColor: hex })}
           />
-
-          <div className="col-span-2">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1.5">
-              Diseño de Cabecera (Header)
-            </label>
-            <select
-              value={activeTemplate.headerVariant || 'default'}
-              onChange={(e) =>
-                updateActiveTemplateMeta({ headerVariant: e.target.value as StoreHeaderVariant })
-              }
-              className="w-full px-3 py-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-xs font-bold text-zinc-800 dark:text-zinc-200"
-            >
-              <option value="default">Estándar (Adaptable al Tema)</option>
-              <option value="hut_crimson">Hut Carmesí (Rojo + Sub-barra Blanca)</option>
-              <option value="papa_fresh">Papa Fresh (Blanca + Franja Verde Bosque)</option>
-              <option value="flame_grill">Flame Grill (Naranja Fuego + Sub-barra Crema)</option>
-              <option value="electric_blue">Electric Blue (Azul Eléctrico + Sub-barra Amarilla)</option>
-            </select>
-          </div>
-
-          <div className="col-span-2">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block mb-1.5">
-              Diseño de Pie de Página (Footer)
-            </label>
-            <select
-              value={activeTemplate.footerVariant || 'default'}
-              onChange={(e) =>
-                updateActiveTemplateMeta({ footerVariant: e.target.value as StoreFooterVariant })
-              }
-              className="w-full px-3 py-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-xs font-bold text-zinc-800 dark:text-zinc-200"
-            >
-              <option value="default">Estándar (Bento Corporativo)</option>
-              <option value="hut_crimson">Hut Carmesí (Cinta Roja + Carbón Oscuro)</option>
-              <option value="papa_fresh">Papa Fresh (Cinta Verde Bosque + Blanco)</option>
-              <option value="flame_grill">Flame Grill (Cinta Naranja + Marrón Parrilla)</option>
-              <option value="electric_blue">Electric Blue (Cinta Azul Eléctrico + Blanco)</option>
-            </select>
-          </div>
         </div>
+
+        {/* Full Header & Footer Customizer */}
+        <HeaderFooterCustomizerPanel
+          template={activeTemplate}
+          surface="settings"
+          onUpdateMeta={updateActiveTemplateMeta}
+        />
       </div>
 
       {/* Templates Gallery Grid */}

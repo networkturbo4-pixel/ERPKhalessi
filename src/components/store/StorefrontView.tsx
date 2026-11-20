@@ -1526,6 +1526,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
         {headerVariant !== 'default' ? (
           <StorefrontThemeHeader
             variant={headerVariant}
+            config={activeTemplate.headerConfig}
             logoUrl={headerLogoUrl}
             brandName={companyInfo.commercialName || customization.appName || 'Pizza Khalessi'}
             phone={activeTenant.operations?.phone || companyInfo.phone}
@@ -1548,6 +1549,10 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
           />
         ) : (
         <header
+          style={{
+            ...(activeTemplate.headerConfig?.bgColor ? { backgroundColor: activeTemplate.headerConfig.bgColor } : {}),
+            ...(activeTemplate.headerConfig?.textColor ? { color: activeTemplate.headerConfig.textColor } : {}),
+          }}
           className={`sticky top-0 z-30 border-b px-3.5 sm:px-6 lg:px-8 py-2 sm:py-2.5 transition-colors ${
             isLightTheme
               ? 'bg-white border-zinc-200 text-zinc-900 shadow-[0_1px_10px_rgba(0,0,0,0.03)]'
@@ -2200,6 +2205,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
             <StorefrontFooter
               footerTheme={activeTemplate.footerTheme}
               footerVariant={footerVariant}
+              footerConfig={activeTemplate.footerConfig}
               accentColor={accentColor}
             />
           </Suspense>

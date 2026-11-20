@@ -504,6 +504,50 @@ export type StoreFooterVariant =
   | 'flame_grill'
   | 'electric_blue';
 
+export interface StoreHeaderConfig {
+  bgColor?: string;
+  textColor?: string;
+  subBarBgColor?: string;
+  subBarTextColor?: string;
+  accentColor?: string;
+  searchPlaceholder?: string;
+  menuLabel?: string;
+  promosLabel?: string;
+  reservationsLabel?: string;
+  ordersLabel?: string;
+  benefitsLabel?: string;
+  loginLabel?: string;
+  showSearch?: boolean;
+  showLocation?: boolean;
+  showPhone?: boolean;
+  showAccount?: boolean;
+  showSubBar?: boolean;
+  showPromosLink?: boolean;
+  showReservationsLink?: boolean;
+  showOrdersLink?: boolean;
+  showBenefitsLink?: boolean;
+}
+
+export interface StoreFooterConfig {
+  ribbonBgColor?: string;
+  ribbonTextColor?: string;
+  bgColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  ribbonText?: string;
+  brandDescription?: string;
+  newsletterTitle?: string;
+  newsletterDescription?: string;
+  newsletterButtonLabel?: string;
+  copyrightText?: string;
+  showRibbon?: boolean;
+  showReservationsCta?: boolean;
+  showNewsletter?: boolean;
+  showComplaintsBook?: boolean;
+  showPaymentBadges?: boolean;
+  showShareReservations?: boolean;
+}
+
 export interface StoreTemplate {
   id: string;
   name: string;
@@ -513,6 +557,8 @@ export interface StoreTemplate {
   footerTheme: 'light' | 'dark';
   headerVariant?: StoreHeaderVariant;
   footerVariant?: StoreFooterVariant;
+  headerConfig?: StoreHeaderConfig;
+  footerConfig?: StoreFooterConfig;
   accentColor: string;
   buttonColor?: string;
   buttonTextColor?: string;

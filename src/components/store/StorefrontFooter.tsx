@@ -41,18 +41,20 @@ import {
   isStandalonePwa,
 } from '../../utils/pwaManager';
 
-import { StoreFooterVariant } from '../../types/storeBuilder';
+import { StoreFooterConfig, StoreFooterVariant } from '../../types/storeBuilder';
 import { StorefrontThemeFooter } from './StorefrontThemeFooter';
 
 interface StorefrontFooterProps {
   footerTheme?: 'light' | 'dark';
   footerVariant?: StoreFooterVariant;
+  footerConfig?: StoreFooterConfig;
   accentColor?: string;
 }
 
 export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({
   footerTheme = 'light',
   footerVariant = 'default',
+  footerConfig,
   accentColor,
 }) => {
   const { customPages } = useStoreBuilder();
@@ -221,6 +223,7 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({
       {footerVariant !== 'default' ? (
         <StorefrontThemeFooter
           variant={footerVariant}
+          config={footerConfig}
           brandName={companyInfo.commercialName || customization.appName || 'Pizza Khalessi'}
           logoUrl={customization.storeHeaderLogo || customization.logoLight || customization.logoDark}
           phone={activeTenant.operations?.phone || companyInfo.phone}

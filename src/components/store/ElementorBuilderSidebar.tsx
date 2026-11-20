@@ -20,6 +20,7 @@ import {
 } from '../../types/storeBuilder';
 import { ElementorBasicWidgetsInspector } from './ElementorBasicWidgetsInspector';
 import { ElementorAdvancedWidgetsInspector } from './ElementorAdvancedWidgetsInspector';
+import { HeaderFooterCustomizerPanel } from './HeaderFooterCustomizerPanel';
 import { MediaGalleryModal } from '../media/MediaGalleryModal';
 import {
   Bell,
@@ -3113,6 +3114,15 @@ export const ElementorBuilderSidebar: React.FC = () => {
                   />
                 </button>
               </div>
+
+              {/* Header & Footer Theme Customizer */}
+              {!activeEditingPageId && (
+                <HeaderFooterCustomizerPanel
+                  template={activeTemplate}
+                  surface="builder"
+                  onUpdateMeta={updateActiveTemplateMeta}
+                />
+              )}
 
               {/* Toast Position Selector (Live Config for Alerts / Notifications) */}
               <div className="p-3.5 rounded-2xl border border-[#262a3b] bg-[#151823] space-y-2.5">
