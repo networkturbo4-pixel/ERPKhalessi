@@ -328,6 +328,75 @@ if ($method === 'POST' || $method === 'DELETE') {
         }
     }
 
+    // Fusión inteligente por ID y mensajes para conversaciones omnicanal (`kh_whatsapp_conversations_v1`)
+    if ($key === 'kh_whatsapp_conversations_v1') {
+        $existingRaw = kvGet($pdo, 'kh_whatsapp_conversations_v1');
+        $existing = $existingRaw ? json_decode($existingRaw, true) : [];
+        $incoming = is_array($input['data']) ? $input['data'] : json_decode($data, true);
+        if (is_array($existing) && is_array($incoming)) {
+            $convMap = [];
+            foreach ($existing as $conv) {
+                if (!is_array($conv) || !isset($conv['id'])) continue;
+                $convMap[(string)$conv['id']] = $conv;
+            }
+            foreach ($incoming as $conv) {
+                if (!is_array($conv) || !isset($conv['id'])) continue;
+                $cid = (string)$conv['id'];
+                if (!isset($convMap[$cid])) {
+                    $convMap[$cid] = $conv;
+                    continue;
+                }
+                $prev = $convMap[$cid];
+                $prevMsgs = isset($prev['messages']) && is_array($prev['messages']) ? $prev['messages'] : [];
+                $nextMsgs = isset($conv['messages']) && is_array($conv['messages']) ? $conv['messages'] : [];
+
+                $msgMap = [];
+                foreach ($prevMsgs as $m) {
+                    if (is_array($m) && isset($m['id'])) $msgMap[(string)$m['id']] = $m;
+                }
+                foreach ($nextMsgs as $m) {
+                    if (!is_array($m) || !isset($m['id'])) continue;
+                    $mid = (string)$m['id'];
+                    if (!isset($msgMap[$mid])) {
+                        $msgMap[$mid] = $m;
+                    } else {
+                        $oldM = $msgMap[$mid];
+                        $preferNew = !empty($m['isDeleted']) && empty($oldM['isDeleted'])
+                            || (!empty($m['editedAt']) && (string)($m['editedAt']) >= (string)($oldM['editedAt'] ?? ''))
+                            || (!empty($m['reactions']) && count($m['reactions']) >= count($oldM['reactions'] ?? []));
+                        if ($preferNew) {
+                            $msgMap[$mid] = array_merge($oldM, $m);
+                        }
+                    }
+                }
+                $mergedMsgs = array_values($msgMap);
+                usort($mergedMsgs, function ($a, $b) {
+                    return strcmp((string)($a['timestamp'] ?? ''), (string)($b['timestamp'] ?? ''));
+                });
+
+                $prevLastTs = strtotime((string)($prev['lastMessageAt'] ?? '')) ?: 0;
+                $nextLastTs = strtotime((string)($conv['lastMessageAt'] ?? '')) ?: 0;
+                $baseConv = $nextLastTs >= $prevLastTs ? array_merge($prev, $conv) : array_merge($conv, $prev);
+                $baseConv['messages'] = $mergedMsgs;
+                if (!empty($mergedMsgs)) {
+                    $lastMsg = end($mergedMsgs);
+                    if (!empty($lastMsg['timestamp'])) {
+                        $baseConv['lastMessageAt'] = $lastMsg['timestamp'];
+                    }
+                }
+                $convMap[$cid] = $baseConv;
+            }
+            $mergedConvs = array_values($convMap);
+            usort($mergedConvs, function ($a, $b) {
+                return strcmp((string)($b['lastMessageAt'] ?? ''), (string)($a['lastMessageAt'] ?? ''));
+            });
+            if (count($mergedConvs) > 120) {
+                $mergedConvs = array_slice($mergedConvs, 0, 120);
+            }
+            $data = json_encode($mergedConvs, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+    }
+
     // Fusión inteligente por ID para cartera de clientes CRM (`kh_customers_crm_v1`) y cuentas de Tienda (`kh_store_customer_accounts_v1`) cuando entra desde Tienda
     if (($key === 'kh_customers_crm_v1' || $key === 'kh_store_customer_accounts_v1') && $admin === null) {
         $existingRaw = kvGet($pdo, $key);

@@ -1,8 +1,8 @@
 {
-  "buildId": "20261121213353",
-  "builtAt": "2026-11-21T21:33:53.778Z",
-  "commitSha": "418da08",
-  "message": "feat(rbac): enforce custom role permissions and redesign RolesTab",
+  "buildId": "20261121215849",
+  "builtAt": "2026-11-21T21:58:49.176Z",
+  "commitSha": "939e8dc",
+  "message": "fix(inbox): sync conversations across devices, merge server-side, and compress images",
   "totalFiles": 117,
-  "manifestSha256": "9b8ff4443f6f5dfd154e69f2db17e80dfa59ea4e35a9bbc33f8e469a8b66c2ce"
+  "manifestSha256": "8b53c6fc70327bbb3e9a4012896d2671323a68a6e636863a9383639af51794b6"
 }
