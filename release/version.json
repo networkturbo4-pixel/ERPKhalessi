@@ -1,8 +1,8 @@
 {
-  "buildId": "20261121034918",
-  "builtAt": "2026-11-21T03:49:18.549Z",
-  "commitSha": "aae6f38",
-  "message": "fix(sse,install): evitar MIME text/html en /realtime/stream y aislar /install de defaults de SettingsProvider",
+  "buildId": "20261121035156",
+  "builtAt": "2026-11-21T03:51:56.467Z",
+  "commitSha": "8728778",
+  "message": "fix(updater): apuntar system-update al repositorio real networkturbo4-pixel/ERPKhalessi",
   "totalFiles": 113,
-  "manifestSha256": "acf2204d649f55c6eb0c1b0d08f7541641e5c42028c4a47acf95dbba29bc6e6b"
+  "manifestSha256": "d5368efa927287818082c9d82d2593c97cf81cf909ca2053369bf26a7ab3404e"
 }
