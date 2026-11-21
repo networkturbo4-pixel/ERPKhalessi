@@ -47,7 +47,7 @@ export const SystemUpdateTab: React.FC = () => {
   const hasCheckedOnMountRef = useRef(false);
   const isCheckingRef = useRef(false);
 
-  const GITHUB_REPO = 'tu-organizacion/gastro-erp';
+  const GITHUB_REPO = 'networkturbo4-pixel/ERPKhalessi';
   const log = useCallback((line: string) => {
     setTerminalLogs(prev => [...prev, line]);
   }, []);

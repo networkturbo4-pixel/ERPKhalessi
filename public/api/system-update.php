@@ -20,7 +20,7 @@ header("Content-Type: application/json; charset=UTF-8");
 header("Cache-Control: no-store, no-cache, must-revalidate");
 
 $action = isset($_GET['action']) ? trim((string)$_GET['action']) : 'check';
-$repo = 'tu-organizacion/gastro-erp';
+$repo = 'networkturbo4-pixel/ERPKhalessi';
 $branch = 'main';
 $rootTarget = realpath(__DIR__ . '/..') ?: dirname(__DIR__);
 
