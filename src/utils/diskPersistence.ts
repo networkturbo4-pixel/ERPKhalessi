@@ -61,6 +61,7 @@ const SERVER_SYNC_KEYS = [
   'kh_label_config_v1',
   'kh_marketing_automations_v1',
   'kh_whatsapp_config_v1',
+  'kh_whatsapp_conversations_v1',
   'kh_whatsapp_logs_v1',
   'kh_inbox_tags_v1',
   'kh_inbox_quick_replies_v1',

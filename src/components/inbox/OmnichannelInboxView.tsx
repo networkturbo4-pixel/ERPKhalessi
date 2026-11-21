@@ -78,6 +78,7 @@ import {
 import { InboxMetricsModal } from './InboxMetricsModal';
 import { InboxOrderBuilderModal } from './InboxOrderBuilderModal';
 import { lookupPersonByDni, lookupRucFacturalo } from '../../utils/dniLookup';
+import { compressImageFile } from '../../utils/imageCompressor';
 import { useSettings } from '../../context/SettingsContext';
 import { useRBAC } from '../../context/RBACContext';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
@@ -92,6 +93,10 @@ import {
   WhatsAppMessageReplyRef,
 } from '../../types/whatsapp';
 import {
+  INBOX_NOTES_KEY,
+  INBOX_QUICK_REPLIES_KEY,
+  INBOX_TAGS_KEY,
+  WHATSAPP_CONVERSATIONS_KEY,
   interpolateTemplateText,
   loadInboxNotes,
   loadInboxQuickReplies,
@@ -139,12 +144,14 @@ const NOTE_COLORS = ['#fef08a', '#bae6fd', '#bbf7d0', '#fbcfe8', '#ddd6fe'];
 
 interface OmnichannelInboxViewProps {
   onOpenWhatsAppBot?: () => void;
+  onMobilePaneChange?: (pane: 'list' | 'chat') => void;
 }
 
 export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
   onOpenWhatsAppBot,
+  onMobilePaneChange,
 }) => {
-  const { activeTenant, tenants, branchScope, customization, users } = useSettings();
+  const { activeTenant, tenants, branchScope, customization, users, openNoticeModal } = useSettings();
   const { currentUser } = useRBAC();
   const { products, orders, customers, createOrder, upsertCustomer, markOrderPaid } =
     useOrderCatalog();
@@ -293,8 +300,30 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
   } | null>(null);
 
   const [quickReplyMenuOpen, setQuickReplyMenuOpen] = useState(false);
-  const [newChatMenuOpen, setNewChatMenuOpen] = useState(false);
+  const [newMessageOpen, setNewMessageOpen] = useState(false);
+  const [newMsgChannel, setNewMsgChannel] = useState<OmnichannelType>('whatsapp');
+  const [newMsgName, setNewMsgName] = useState('');
+  const [newMsgPhone, setNewMsgPhone] = useState('');
+  const [newMsgText, setNewMsgText] = useState('');
+  const newMessageDialogRef = useRef<HTMLDialogElement>(null);
+  const chatHistoryPushedRef = useRef(false);
   const [mobilePane, setMobilePane] = useState<'list' | 'chat'>('list');
+
+  useEffect(() => {
+    onMobilePaneChange?.(mobilePane);
+    return () => onMobilePaneChange?.('list');
+  }, [mobilePane, onMobilePaneChange]);
+
+  // Sync <dialog> for Nuevo Mensaje
+  useEffect(() => {
+    const dialog = newMessageDialogRef.current;
+    if (!dialog) return;
+    if (newMessageOpen) {
+      if (!dialog.open) dialog.showModal();
+    } else if (dialog.open) {
+      dialog.close();
+    }
+  }, [newMessageOpen]);
   const [rightDrawerOpen, setRightDrawerOpen] = useState<boolean>(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
   );
@@ -347,6 +376,29 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
       window.removeEventListener('online', goOnline);
       window.removeEventListener('offline', goOffline);
     };
+  }, []);
+
+  // Sincronizar en tiempo real conversaciones, etiquetas, notas y respuestas desde otros dispositivos (SSE / polling)
+  useEffect(() => {
+    const onStorageSync = (e: StorageEvent) => {
+      if (!e.key || e.key === WHATSAPP_CONVERSATIONS_KEY) {
+        setConversations(loadWhatsAppConversations());
+      }
+      if (!e.key || e.key === INBOX_TAGS_KEY) {
+        setTags(loadInboxTags());
+      }
+      if (!e.key || e.key === INBOX_QUICK_REPLIES_KEY) {
+        setQuickReplies(loadInboxQuickReplies());
+      }
+      if (!e.key || e.key === INBOX_NOTES_KEY) {
+        setNotes(loadInboxNotes());
+      }
+      if (!e.key || e.key === 'kh_inbox_ops_config_v1') {
+        setOpsConfig(loadInboxOpsConfig());
+      }
+    };
+    window.addEventListener('storage', onStorageSync);
+    return () => window.removeEventListener('storage', onStorageSync);
   }, []);
 
   // Filtrado por sucursal + canal + etiqueta + búsqueda
@@ -411,7 +463,7 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
     );
   }, [visibleConversations, branchConversations, selectedConvId]);
 
-  const handleCloseChat = () => {
+  const resetChatUIState = React.useCallback(() => {
     setSelectedConvId('');
     setMobilePane('list');
     setReplyingTo(null);
@@ -423,7 +475,36 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
     setEmojiMenuOpen(false);
     setCatalogPickerOpen(false);
     setCrmFormOpen(false);
+  }, []);
+
+  const handleCloseChat = () => {
+    resetChatUIState();
+    if (chatHistoryPushedRef.current) {
+      chatHistoryPushedRef.current = false;
+      window.history.back();
+    }
   };
+
+  // Intercept Android/iOS system back gesture while inside a mobile chat so it returns to list instead of exiting the ERP
+  useEffect(() => {
+    if (mobilePane === 'chat' && !chatHistoryPushedRef.current) {
+      window.history.pushState({ khInboxChat: true }, '');
+      chatHistoryPushedRef.current = true;
+    }
+  }, [mobilePane]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      if (chatHistoryPushedRef.current) {
+        chatHistoryPushedRef.current = false;
+        resetChatUIState();
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => {
+      window.removeEventListener('popstate', onPopState);
+    };
+  }, [resetChatUIState]);
 
   const handleTogglePin = (convId: string) => {
     updateConversations((prev) =>
@@ -533,13 +614,46 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
     if (soundEnabled) playSubtleInboxChime();
   };
 
-  const loadFileIntoPendingMedia = (file: File) => {
+  const loadFileIntoPendingMedia = async (file: File) => {
+    const mediaType = detectMediaTypeFromFile(file);
+    const filename = file.name || `archivo_${Date.now()}`;
+
+    if (mediaType === 'image') {
+      try {
+        const compressed = await compressImageFile(file, {
+          maxWidth: 1280,
+          maxHeight: 1280,
+          quality: 0.78,
+          outputFormat: 'image/webp',
+        });
+        setPendingMedia({
+          mediaType: 'image',
+          mediaUrl: compressed.dataUrl,
+          mediaFilename: filename,
+        });
+        return;
+      } catch {
+        // Fallback a lectura directa si falla el canvas
+      }
+    }
+
+    if (file.size > 6 * 1024 * 1024) {
+      openNoticeModal({
+        title: 'Archivo demasiado pesado',
+        message: 'El archivo supera los 6 MB. Comprímelo o usa una versión más ligera para poder sincronizarlo entre dispositivos.',
+        tone: 'warning',
+        confirmLabel: 'Entendido',
+        hideCancel: true,
+      });
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = () => {
       setPendingMedia({
-        mediaType: detectMediaTypeFromFile(file),
+        mediaType,
         mediaUrl: String(reader.result || ''),
-        mediaFilename: file.name || `archivo_${Date.now()}`,
+        mediaFilename: filename,
       });
     };
     reader.readAsDataURL(file);
@@ -1150,44 +1264,93 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
     );
   };
 
-  const handleCreateSimulatedChat = (channel: OmnichannelType) => {
-    const id = `${channel}_${Date.now()}`;
-    const num = Math.floor(10000000 + Math.random() * 89999999);
-    const meta = CHANNEL_META[channel];
+  const handleCreateNewMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanName = newMsgName.trim();
+    const cleanPhone = newMsgPhone.trim();
+    if (!cleanName || !cleanPhone) return;
+
+    const existing = conversations.find(
+      (c) =>
+        c.channel === newMsgChannel &&
+        c.customerPhone.replace(/\D/g, '') === cleanPhone.replace(/\D/g, '') &&
+        cleanPhone.replace(/\D/g, '').length >= 6
+    );
+
+    const firstText = newMsgText.trim();
+    const nowIso = new Date().toISOString();
+
+    if (existing) {
+      if (firstText) {
+        const msg: WhatsAppChatMessage = {
+          id: `agent_${Date.now()}`,
+          sender: 'agent',
+          senderName: currentUser.name,
+          text: firstText,
+          timestamp: nowIso,
+          status: 'sent',
+        };
+        updateConversations((prev) =>
+          prev.map((c) =>
+            c.id === existing.id
+              ? {
+                  ...c,
+                  controlMode: 'human',
+                  assignedUserId: c.assignedUserId || currentUser.id,
+                  isArchived: false,
+                  lastMessageAt: nowIso,
+                  messages: [...c.messages, msg],
+                }
+              : c
+          )
+        );
+      }
+      setSelectedConvId(existing.id);
+      setMobilePane('chat');
+      setChannelFilter('all');
+      setNewMessageOpen(false);
+      setNewMsgName('');
+      setNewMsgPhone('');
+      setNewMsgText('');
+      return;
+    }
+
+    const id = `${newMsgChannel}_${Date.now()}`;
     const newConv: WhatsAppConversation = {
       id,
-      channel,
-      customerPhone:
-        channel === 'whatsapp'
-          ? `519${num}`
-          : channel === 'instagram'
-            ? `@cliente_${String(num).slice(0, 4)}`
-            : `fb_user_${String(num).slice(0, 4)}`,
-      customerName: `Cliente ${meta.label} #${conversations.length + 1}`,
+      channel: newMsgChannel,
+      customerPhone: cleanPhone,
+      customerName: cleanName,
       branchId: activeTenant.id,
-      controlMode: 'bot',
+      controlMode: 'human',
+      assignedUserId: currentUser.id,
       currentNodeId: 'welcome',
       pendingStep: null,
       cart: [],
       tags: ['Consulta'],
       unreadCount: 0,
-      lastMessageAt: new Date().toISOString(),
-      messages: [
-        {
-          id: `init_${Date.now()}`,
-          sender: 'bot',
-          senderName: 'Chatbot Automático',
-          text: `Chat de prueba iniciado en *${meta.label}*. Escribe *"Hola"* para probar tus flujos automáticos.`,
-          timestamp: new Date().toISOString(),
-          status: 'read',
-        },
-      ],
+      lastMessageAt: nowIso,
+      messages: firstText
+        ? [
+            {
+              id: `agent_${Date.now()}`,
+              sender: 'agent',
+              senderName: currentUser.name,
+              text: firstText,
+              timestamp: nowIso,
+              status: 'sent',
+            },
+          ]
+        : [],
     };
     updateConversations((prev) => [newConv, ...prev]);
     setSelectedConvId(id);
     setMobilePane('chat');
     setChannelFilter('all');
-    setNewChatMenuOpen(false);
+    setNewMessageOpen(false);
+    setNewMsgName('');
+    setNewMsgPhone('');
+    setNewMsgText('');
   };
 
   const handleToggleControlMode = (convId: string) => {
@@ -1315,7 +1478,7 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
   };
 
   return (
-    <div className="w-full h-[calc(100dvh-56px)] lg:h-[calc(100vh-52px)]">
+    <div className="w-full h-full">
       {/* Workspace Omnicanal Full-Height (Apple Design + Responsive tipo WhatsApp) */}
       <div className="relative saas-card !rounded-none lg:!rounded-2xl !border-0 lg:!border overflow-hidden grid grid-cols-1 lg:grid-cols-12 h-full bg-white dark:bg-zinc-950">
         {/* COLUMNA IZQUIERDA: FILTROS + CONVERSACIONES */}
@@ -1326,8 +1489,8 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
         >
           {/* Cabecera translúcida de la lista: Segmented Control iOS + Spotlight Search */}
           <div className="shrink-0 px-3 pt-3 pb-2.5 space-y-2.5 bg-white/85 dark:bg-zinc-950/85 backdrop-blur-xl border-b border-zinc-200/70 dark:border-zinc-800/70">
-            {/* iOS Segmented Control de Canales */}
-            <div className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800">
+            {/* iOS Segmented Control de Canales (Solo PC; en móvil pasa a Navbar inferior) */}
+            <div className="hidden lg:grid grid-cols-4 gap-1 p-1 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800">
               {(
                 [
                   { id: 'all', label: 'Todos', count: channelCounts.all, color: customization.primaryColor },
@@ -1359,80 +1522,76 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
               })}
             </div>
 
-            {/* Buscador estilo Spotlight */}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar conversación..."
-                className="w-full pl-8 pr-3 py-2 rounded-xl bg-zinc-100/90 dark:bg-zinc-900 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 border border-transparent focus:border-zinc-300 dark:focus:border-zinc-700 focus:bg-white dark:focus:bg-zinc-900 focus:outline-none transition-colors"
-              />
+            {/* Buscador estilo Spotlight + Botón Nuevo Mensaje */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 min-w-0">
+                <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar conversación..."
+                  className="w-full pl-8 pr-3 py-2 rounded-xl bg-zinc-100/90 dark:bg-zinc-900 text-base sm:text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 border border-transparent focus:border-zinc-300 dark:focus:border-zinc-700 focus:bg-white dark:focus:bg-zinc-900 focus:outline-none transition-colors"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setNewMessageOpen(true)}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 rounded-xl text-xs font-semibold text-white active:scale-[0.96] transition-transform duration-100 ease-out whitespace-nowrap shrink-0 shadow-sm"
+                style={{ backgroundColor: customization.primaryColor }}
+                title="Iniciar nueva conversación"
+              >
+                <Plus className="w-4 h-4 shrink-0" />
+                <span>Nuevo</span>
+              </button>
             </div>
 
-            {/* Filtro de estado (Activos / Sin leer / Sin asignar / Archivados) + Métricas SLA + Sonido */}
-            <div className="flex items-center justify-between gap-1">
-              <div className="inline-flex items-center gap-0.5 flex-wrap">
-                {(
-                  [
-                    { id: 'active', label: 'Activos' },
-                    { id: 'unread', label: 'Sin leer' },
-                    { id: 'unassigned', label: 'Sin asignar', badge: unassignedHumanCount },
-                    { id: 'archived', label: 'Archivados' },
-                  ] as const
-                ).map((sc) => (
+            {/* Filtro de estado estético (Segmented Pill Strip) */}
+            <div className="flex items-center gap-1 p-1 rounded-2xl bg-zinc-100/90 dark:bg-zinc-900/90 border border-zinc-200/70 dark:border-zinc-800/80 overflow-x-auto no-scrollbar">
+              {(
+                [
+                  { id: 'active', label: 'Activos' },
+                  { id: 'unread', label: 'Sin leer' },
+                  { id: 'unassigned', label: 'Sin asignar', badge: unassignedHumanCount },
+                  { id: 'archived', label: 'Archivados' },
+                ] as const
+              ).map((sc) => {
+                const isSelectedScope = listScope === sc.id;
+                return (
                   <button
                     key={sc.id}
                     type="button"
                     onClick={() => setListScope(sc.id)}
-                    className={`px-2 py-1 rounded-lg text-[10px] font-semibold transition-colors inline-flex items-center gap-1 ${
-                      listScope === sc.id
-                        ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-950'
-                        : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                    className={`flex-1 min-w-fit px-2.5 py-1.5 rounded-xl text-[11px] font-semibold transition-all duration-100 ease-out active:scale-[0.97] inline-flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                      isSelectedScope
+                        ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-sm ring-1 ring-zinc-900/5 dark:ring-white/10'
+                        : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                     }`}
                   >
                     <span>{sc.label}</span>
                     {'badge' in sc && sc.badge > 0 && (
-                      <span className="px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold">
+                      <span
+                        className={`px-1.5 py-0.2 rounded-full text-[9px] font-bold tabular-nums ${
+                          isSelectedScope
+                            ? 'bg-rose-500 text-white'
+                            : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                        }`}
+                      >
                         {sc.badge}
                       </span>
                     )}
                   </button>
-                ))}
-              </div>
-              <div className="flex items-center gap-0.5 shrink-0">
-                <span
-                  className={`p-1 rounded-lg ${isRealtimeOnline ? 'text-emerald-500' : 'text-amber-500 animate-pulse'}`}
-                  title={isRealtimeOnline ? 'En línea (tiempo real)' : 'Reconectando...'}
-                >
-                  {isRealtimeOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setMetricsModalOpen(true)}
-                  className="p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  title="Métricas SLA, BI y Operación"
-                >
-                  <BarChart3 className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSoundEnabled((s) => !s)}
-                  className="p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  title={soundEnabled ? 'Silenciar sonido' : 'Activar sonido sutil'}
-                >
-                  {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
-                </button>
-              </div>
+                );
+              })}
             </div>
 
-            {/* Filtro de etiqueta + Acciones compactas */}
+            {/* Filtro de etiqueta + Indicadores compactos (Realtime / SLA / Sonido) */}
             <div className="flex items-center gap-1.5">
               <select
                 value={tagFilter}
                 onChange={(e) => setTagFilter(e.target.value)}
-                className="flex-1 px-2.5 py-1.5 rounded-xl bg-zinc-100/90 dark:bg-zinc-900 border border-transparent text-xs font-medium text-zinc-700 dark:text-zinc-300 focus:outline-none"
+                className="flex-1 min-w-0 px-2.5 py-1.5 rounded-xl bg-zinc-100/90 dark:bg-zinc-900 border border-transparent text-xs font-medium text-zinc-700 dark:text-zinc-300 focus:outline-none"
               >
                 <option value="all">Todas las etiquetas</option>
                 {tags.map((t) => (
@@ -1442,52 +1601,35 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
                 ))}
               </select>
 
-              {onOpenWhatsAppBot && (
+              <div className="flex items-center gap-0.5 px-1 py-0.5 rounded-xl bg-zinc-100/90 dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 shrink-0">
+                <span
+                  className={`p-1.5 rounded-lg ${isRealtimeOnline ? 'text-emerald-500' : 'text-amber-500 animate-pulse'}`}
+                  title={isRealtimeOnline ? 'En línea (tiempo real)' : 'Reconectando...'}
+                >
+                  {isRealtimeOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
+                </span>
                 <button
                   type="button"
-                  onClick={onOpenWhatsAppBot}
-                  className="p-2 rounded-xl bg-zinc-100/90 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200/80 dark:hover:bg-zinc-800 active:scale-[0.96] transition-all shrink-0"
-                  title="Configurar Bot y Meta API"
+                  onClick={() => setMetricsModalOpen(true)}
+                  className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-900 dark:hover:text-white active:scale-95 transition-transform"
+                  title="Métricas SLA, BI y Operación"
                 >
-                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <BarChart3 className="w-3.5 h-3.5" />
                 </button>
-              )}
-
-              <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setNewChatMenuOpen((p) => !p)}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-white active:scale-[0.96] transition-transform whitespace-nowrap shrink-0 shadow-sm"
-                  style={{ backgroundColor: customization.primaryColor }}
+                  onClick={() => setSoundEnabled((s) => !s)}
+                  className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-900 dark:hover:text-white active:scale-95 transition-transform"
+                  title={soundEnabled ? 'Silenciar sonido' : 'Activar sonido sutil'}
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  Simular
+                  {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
                 </button>
-
-                {newChatMenuOpen && (
-                  <div className="absolute right-0 mt-1.5 w-48 rounded-2xl border border-zinc-200/80 dark:border-zinc-700/80 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-xl shadow-2xl p-1.5 z-30 space-y-0.5">
-                    {(['whatsapp', 'facebook', 'instagram'] as const).map((ch) => (
-                      <button
-                        key={ch}
-                        type="button"
-                        onClick={() => handleCreateSimulatedChat(ch)}
-                        className="w-full text-left px-3 py-2 rounded-xl text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-800 active:scale-[0.98] transition-all flex items-center gap-2.5"
-                      >
-                        <span
-                          className="w-2.5 h-2.5 rounded-full"
-                          style={{ backgroundColor: CHANNEL_META[ch].color }}
-                        />
-                        Chat en {CHANNEL_META[ch].label}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           </div>
 
           {/* Lista de Conversaciones (estilo iOS Messages) */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto overscroll-contain pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-0">
             {visibleConversations.length === 0 ? (
               <div className="p-8 text-center text-xs text-zinc-400">
                 No hay conversaciones con estos filtros.
@@ -1653,13 +1795,13 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
         >
           {activeConversation ? (
             <>
-              {/* Cabecera del chat profesional (1 línea limpia + material translúcido Apple) */}
-              <div className="shrink-0 px-3 sm:px-4 py-2.5 border-b border-zinc-200/70 dark:border-zinc-800/80 bg-white/85 dark:bg-zinc-900/85 backdrop-blur-xl flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5 min-w-0">
+              {/* Cabecera del chat profesional (1 línea limpia + material translúcido Apple + safe area móvil) */}
+              <div className="shrink-0 px-3 sm:px-4 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top,0px))] lg:pt-2.5 border-b border-zinc-200/70 dark:border-zinc-800/80 bg-white/85 dark:bg-zinc-900/85 backdrop-blur-xl flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                   <button
                     type="button"
                     onClick={handleCloseChat}
-                    className="lg:hidden p-1.5 -ml-1 rounded-full text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 active:scale-[0.94] transition-all shrink-0"
+                    className="lg:hidden min-w-[40px] min-h-[40px] -ml-1.5 rounded-full text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 active:scale-[0.94] transition-all shrink-0 flex items-center justify-center"
                     title="Volver a la lista de chats"
                   >
                     <ArrowLeft className="w-5 h-5" />
@@ -1837,13 +1979,15 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
                   >
                     {activeConversation.controlMode === 'bot' ? (
                       <>
-                        <UserCheck className="w-3.5 h-3.5" />
-                        <span>Tomar Control</span>
+                        <UserCheck className="w-3.5 h-3.5 shrink-0" />
+                        <span className="hidden sm:inline">Tomar Control</span>
+                        <span className="sm:hidden">Control</span>
                       </>
                     ) : (
                       <>
-                        <Bot className="w-3.5 h-3.5" />
-                        <span>Reactivar Bot</span>
+                        <Bot className="w-3.5 h-3.5 shrink-0" />
+                        <span className="hidden sm:inline">Reactivar Bot</span>
+                        <span className="sm:hidden">Bot</span>
                       </>
                     )}
                   </button>
@@ -1937,7 +2081,7 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
                   const file = e.dataTransfer?.files?.[0];
                   if (file) loadFileIntoPendingMedia(file);
                 }}
-                className={`relative flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 space-y-3 min-w-0 ${
+                className={`relative flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-3 sm:p-4 space-y-3 min-w-0 ${
                   isDraggingFile ? 'ring-2 ring-inset ring-emerald-500 bg-emerald-500/5' : ''
                 }`}
               >
@@ -2644,21 +2788,22 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
 
                   <input
                     type="text"
+                    enterKeyHint="send"
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     onPaste={handlePasteMedia}
                     placeholder={
                       isRecordingVoice
                         ? `Grabando nota de voz (${recordingSeconds}s)...`
-                        : 'Escribe, pega imagen (Ctrl+V) o usa /...'
+                        : 'Escribe un mensaje o /atajo...'
                     }
-                    className="flex-1 min-w-0 px-3.5 sm:px-4 py-2 rounded-full border border-zinc-200/90 dark:border-zinc-700 bg-zinc-100/80 dark:bg-zinc-800 text-sm focus:bg-white dark:focus:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/35 transition-colors"
+                    className="flex-1 min-w-0 px-3.5 sm:px-4 py-2 rounded-full border border-zinc-200/90 dark:border-zinc-700 bg-zinc-100/80 dark:bg-zinc-800 text-base sm:text-sm focus:bg-white dark:focus:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/35 transition-colors"
                   />
 
                   <button
                     type="button"
                     onClick={() => void handleToggleVoiceRecording()}
-                    className={`p-2 rounded-full border transition-all active:scale-[0.95] shrink-0 ${
+                    className={`w-10 h-10 sm:w-auto sm:h-auto sm:p-2 rounded-full border transition-all active:scale-[0.95] shrink-0 flex items-center justify-center ${
                       isRecordingVoice
                         ? 'border-rose-500 bg-rose-500 text-white animate-pulse'
                         : 'border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
@@ -2670,7 +2815,7 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
 
                   <button
                     type="submit"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold text-white active:scale-[0.96] transition-transform whitespace-nowrap shrink-0 shadow-sm"
+                    className="inline-flex items-center justify-center gap-1.5 w-10 h-10 sm:w-auto sm:h-auto sm:px-4 sm:py-2 rounded-full text-sm font-semibold text-white active:scale-[0.96] transition-transform whitespace-nowrap shrink-0 shadow-sm"
                     style={{ backgroundColor: editingMsgId ? '#0284c7' : '#25D366' }}
                   >
                     <Send className="w-4 h-4" />
@@ -3485,6 +3630,183 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
           }}
         />
       )}
+
+      {/* NAVBAR INFERIOR DE CANALES EN MÓVIL (SOLO EN LISTA DE BANDEJA) */}
+      {mobilePane === 'list' && (
+        <nav
+          aria-label="Canales de Bandeja"
+          className="lg:hidden fixed bottom-0 inset-x-0 z-30 erp-mobile-safe-bottom bg-white/85 dark:bg-zinc-900/85 backdrop-blur-xl border-t border-zinc-200/80 dark:border-zinc-800/80 shadow-[0_-8px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_-8px_24px_rgba(0,0,0,0.4)]"
+        >
+          <div className="grid grid-cols-4 gap-1 px-2 pt-1.5">
+            {(
+              [
+                { id: 'all', label: 'Todos', count: channelCounts.all, color: customization.primaryColor },
+                { id: 'whatsapp', label: 'WhatsApp', count: channelCounts.whatsapp, color: '#25D366' },
+                { id: 'facebook', label: 'Messenger', count: channelCounts.facebook, color: '#0084FF' },
+                { id: 'instagram', label: 'Instagram', count: channelCounts.instagram, color: '#E1306C' },
+              ] as const
+            ).map((ch) => {
+              const active = channelFilter === ch.id;
+              return (
+                <button
+                  key={ch.id}
+                  type="button"
+                  onClick={() => setChannelFilter(ch.id)}
+                  className={`relative min-h-[48px] flex flex-col items-center justify-center gap-0.5 rounded-2xl text-[10px] transition-all duration-100 ease-out active:scale-95 ${
+                    active
+                      ? 'font-bold text-zinc-950 dark:text-white'
+                      : 'font-medium text-zinc-500 dark:text-zinc-400'
+                  }`}
+                >
+                  <span
+                    className={`relative flex items-center justify-center px-3.5 h-6 rounded-full transition-colors ${
+                      active ? 'bg-zinc-900/8 dark:bg-white/12' : ''
+                    }`}
+                  >
+                    <span
+                      className="w-2.5 h-2.5 rounded-full"
+                      style={{ backgroundColor: ch.color, opacity: active ? 1 : 0.55 }}
+                    />
+                    {ch.count > 0 && (
+                      <span
+                        className="ml-1.5 text-[10px] font-bold tabular-nums"
+                        style={active ? { color: ch.color } : undefined}
+                      >
+                        {ch.count > 99 ? '99+' : ch.count}
+                      </span>
+                    )}
+                  </span>
+                  <span className="truncate max-w-[74px]">{ch.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      )}
+
+      {/* MODAL / BOTTOM SHEET NUEVO MENSAJE (NOMBRE Y NÚMERO) */}
+      <dialog
+        ref={newMessageDialogRef}
+        onCancel={(e) => {
+          e.preventDefault();
+          setNewMessageOpen(false);
+        }}
+        onClick={(e) => {
+          if (e.target === newMessageDialogRef.current) setNewMessageOpen(false);
+        }}
+        className="p-0 max-w-lg w-full"
+      >
+        <div className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 rounded-t-3xl sm:rounded-3xl border border-zinc-200/80 dark:border-zinc-800 shadow-2xl overflow-hidden">
+          <form onSubmit={handleCreateNewMessage} className="p-4 sm:p-5 space-y-4 safe-bottom-bar">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h3 className="text-base font-bold text-zinc-950 dark:text-white leading-tight">
+                Nuevo mensaje
+              </h3>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                Inicia una conversación ingresando nombre y número.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setNewMessageOpen(false)}
+              className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-white flex items-center justify-center active:scale-95 transition-transform shrink-0"
+              aria-label="Cerrar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Selector de Canal */}
+          <div className="grid grid-cols-3 gap-1.5 p-1 rounded-2xl bg-zinc-100 dark:bg-zinc-800/80">
+            {(['whatsapp', 'facebook', 'instagram'] as const).map((ch) => {
+              const active = newMsgChannel === ch;
+              return (
+                <button
+                  key={ch}
+                  type="button"
+                  onClick={() => setNewMsgChannel(ch)}
+                  className={`py-2 px-2 rounded-xl text-xs font-semibold transition-all duration-100 ease-out active:scale-[0.97] flex items-center justify-center gap-1.5 ${
+                    active
+                      ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-sm'
+                      : 'text-zinc-500 dark:text-zinc-400'
+                  }`}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0"
+                    style={{ backgroundColor: CHANNEL_META[ch].color }}
+                  />
+                  <span>{CHANNEL_META[ch].label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                Nombre del cliente
+              </label>
+              <input
+                type="text"
+                required
+                autoFocus
+                value={newMsgName}
+                onChange={(e) => setNewMsgName(e.target.value)}
+                placeholder="Ej. María López"
+                className="w-full saas-input px-3.5 py-2.5 text-base sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                {newMsgChannel === 'whatsapp' ? 'Número de WhatsApp' : 'Usuario o ID'}
+              </label>
+              <input
+                type={newMsgChannel === 'whatsapp' ? 'tel' : 'text'}
+                inputMode={newMsgChannel === 'whatsapp' ? 'tel' : 'text'}
+                required
+                value={newMsgPhone}
+                onChange={(e) => setNewMsgPhone(e.target.value)}
+                placeholder={newMsgChannel === 'whatsapp' ? 'Ej. 51987654321' : 'Ej. @maria.lopez'}
+                className="w-full saas-input px-3.5 py-2.5 text-base sm:text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                Mensaje inicial <span className="text-zinc-400 font-normal">(opcional)</span>
+              </label>
+              <textarea
+                rows={2}
+                value={newMsgText}
+                onChange={(e) => setNewMsgText(e.target.value)}
+                placeholder="Hola, te escribimos de..."
+                className="w-full saas-input px-3.5 py-2.5 text-base sm:text-sm resize-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setNewMessageOpen(false)}
+              className="saas-btn-secondary px-4 py-2.5 text-xs font-semibold whitespace-nowrap shrink-0"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              className="saas-btn-primary px-5 py-2.5 text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0"
+              style={{ backgroundColor: customization.primaryColor }}
+            >
+              <Send className="w-3.5 h-3.5 shrink-0" />
+              <span>Abrir chat</span>
+            </button>
+          </div>
+        </form>
+        </div>
+      </dialog>
     </div>
   );
 };
