@@ -1,8 +1,8 @@
 {
-  "buildId": "20261121034050",
-  "builtAt": "2026-11-21T03:40:50.045Z",
-  "commitSha": "517141c",
-  "message": "feat(install,settings): instalador web (/install), configuracion Node.js SSE y persistencia garantizada en pestanas de configuracion",
+  "buildId": "20261121034516",
+  "builtAt": "2026-11-21T03:45:16.445Z",
+  "commitSha": "e53749b",
+  "message": "fix(install): detectar server/app.js en ruta de produccion cPanel (../server) y desarrollo (../../server)",
   "totalFiles": 113,
   "files": [
     {
@@ -57,8 +57,8 @@
     },
     {
       "path": "api/install.php",
-      "sha256": "2799c4e2edd3cbed71611e1bcf39faeba45c80eb88467cc05d90594b804a6f2c",
-      "size": 25764
+      "sha256": "6ca3b61c8a6b3939a705e08a2138c5c35f8b2d00c4f52f633e8d541879d24383",
+      "size": 25906
     },
     {
       "path": "api/marketing-push.php",

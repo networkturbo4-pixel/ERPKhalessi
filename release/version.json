@@ -1,8 +1,8 @@
 {
-  "buildId": "20261121034050",
-  "builtAt": "2026-11-21T03:40:50.045Z",
-  "commitSha": "517141c",
-  "message": "feat(install,settings): instalador web (/install), configuracion Node.js SSE y persistencia garantizada en pestanas de configuracion",
+  "buildId": "20261121034516",
+  "builtAt": "2026-11-21T03:45:16.445Z",
+  "commitSha": "e53749b",
+  "message": "fix(install): detectar server/app.js en ruta de produccion cPanel (../server) y desarrollo (../../server)",
   "totalFiles": 113,
-  "manifestSha256": "2314fbee10ee9cda3db035d4e5f5ef9f9ed7d6801613088487769b951c745ecb"
+  "manifestSha256": "79ed0cdc3372ca73fffa486043d72cc580e54491f4637cee6273a4a69e76bebd"
 }
