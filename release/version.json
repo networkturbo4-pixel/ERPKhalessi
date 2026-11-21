@@ -1,8 +1,8 @@
 {
-  "buildId": "20261121040605",
-  "builtAt": "2026-11-21T04:06:05.236Z",
-  "commitSha": "fc88877",
-  "message": "feat(themes): agregar fondo de pagina, color fondo de footer y contraste en storefront",
-  "totalFiles": 113,
-  "manifestSha256": "c6eb2f341364b6ef721639bbe2edef5ff36d77d73a4adc8afa9e1012e11067ad"
+  "buildId": "20261121204056",
+  "builtAt": "2026-11-21T20:40:56.903Z",
+  "commitSha": "604857f",
+  "message": "feat(whatsapp,inbox): integrar WhatsApp Cloud API, flujos con conectores y Bandeja Omnicanal",
+  "totalFiles": 116,
+  "manifestSha256": "46e2c6f21548d8b4b29a5a14477ec69afdab4658e0d8e8edcb101a13688f1461"
 }
