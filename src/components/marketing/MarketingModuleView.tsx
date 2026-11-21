@@ -79,7 +79,7 @@ const DEFAULT_AUTOMATIONS: AutomationRule[] = [
     triggerLabel: '15 días sin compras',
     channel: 'both',
     enabled: true,
-    titleTemplate: '🍕 ¡Te extrañamos en Pizza Khalessi!',
+    titleTemplate: '🍕 ¡Te extrañamos en Gastro Restaurante!',
     bodyTemplate:
       'Tu {{pizza_favorita}} te espera recién salida del horno. Pídela hoy con un toque directo aquí.',
   },
@@ -93,7 +93,7 @@ const DEFAULT_AUTOMATIONS: AutomationRule[] = [
     enabled: true,
     titleTemplate: '🔥 ¡Estás a 1 solo sello de tu premio!',
     bodyTemplate:
-      'Haz tu próximo pedido hoy y completa tu Tarjeta de Puntos Khalessi para canjear tu recompensa.',
+      'Haz tu próximo pedido hoy y completa tu Tarjeta de Puntos para canjear tu recompensa.',
   },
   {
     id: 'auto-reward-unlocked',
@@ -103,7 +103,7 @@ const DEFAULT_AUTOMATIONS: AutomationRule[] = [
     triggerLabel: '8 de 8 sellos',
     channel: 'web_push',
     enabled: true,
-    titleTemplate: '🎉 ¡Completaste tus 8 sellos Khalessi!',
+    titleTemplate: '🎉 ¡Completaste tus 8 sellos Gastro!',
     bodyTemplate:
       'Ya tienes tu recompensa lista para canjear en tu próximo pedido online o en tienda.',
   },
@@ -236,7 +236,7 @@ export const MarketingModuleView: React.FC = () => {
     if (typeof window !== 'undefined' && window.location?.origin) {
       return window.location.origin;
     }
-    return 'https://pizzakhalessi.com';
+    return 'https://gastroerp.com';
   }, []);
 
   const loadBackendData = useCallback(async () => {
@@ -389,7 +389,7 @@ export const MarketingModuleView: React.FC = () => {
         const pid = item.productId;
         const prod = productById.get(pid);
         const cur = existing.productCounts.get(pid) || {
-          name: item.productName || prod?.name || 'Pizza Khalessi',
+          name: item.productName || prod?.name || 'Gastro Restaurante',
           count: 0,
           image: item.productImage || prod?.imageUrl,
         };
@@ -510,7 +510,7 @@ export const MarketingModuleView: React.FC = () => {
     }
     if (!campaignBody.trim()) {
       setCampaignBody(
-        `Tu ${prod.name} recién horneada te espera en Pizza Khalessi. Toca aquí para pedirla en segundos.`
+        `Tu ${prod.name} recién horneada te espera en Gastro Restaurante. Toca aquí para pedirla en segundos.`
       );
     }
   };
@@ -526,7 +526,7 @@ export const MarketingModuleView: React.FC = () => {
     setCampaignBody(
       customer.daysSinceLastOrder >= 10
         ? `Hace ${customer.daysSinceLastOrder} días que no nos visitas. Pide tu ${favName} recién salida del horno con un toque.`
-        : `¿Antojo de ${favName}? Haz tu pedido online en segundos y suma puntos en tu tarjeta Khalessi.`
+        : `¿Antojo de ${favName}? Haz tu pedido online en segundos y suma puntos en tu tarjeta Gastro.`
     );
     if (customer.favoriteProductId) {
       setCampaignProductId(customer.favoriteProductId);
@@ -560,7 +560,7 @@ export const MarketingModuleView: React.FC = () => {
     const favPizza = customer.favoriteProductName || 'nuestras pizzas artesanales';
     const link = customer.favoriteProductUrl || storeOrigin;
     const message =
-      `¡Hola ${firstName}! 🍕 En Pizza Khalessi sabemos que te encanta *${favPizza}*.\n\n` +
+      `¡Hola ${firstName}! 🍕 En Gastro Restaurante sabemos que te encanta *${favPizza}*.\n\n` +
       `Hoy puedes pedirla recién salida del horno directamente desde este enlace:\n${link}\n\n` +
       `¡Acumulas puntos en cada compra! 🔥`;
     window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
@@ -654,7 +654,7 @@ export const MarketingModuleView: React.FC = () => {
           } else {
             const gwRes = await sendGoogleWalletPromo({
               issuerId: gw.issuerId,
-              classSuffix: gw.classSuffix || 'khalessi_loyalty_v1',
+              classSuffix: gw.classSuffix || 'gastro_loyalty_v1',
               header: campaignTitle.trim(),
               body: campaignBody.trim(),
               promoUrl: resolvedTargetUrl,
@@ -1312,7 +1312,7 @@ export const MarketingModuleView: React.FC = () => {
                     <span className="w-4 h-4 rounded-full bg-rose-600 flex items-center justify-center text-[9px] font-bold text-white">
                       K
                     </span>
-                    <span className="font-semibold text-zinc-200">Pizza Khalessi</span>
+                    <span className="font-semibold text-zinc-200">Gastro Restaurante</span>
                     <span>· ahora</span>
                   </div>
                 </div>

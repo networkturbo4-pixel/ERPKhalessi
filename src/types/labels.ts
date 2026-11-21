@@ -37,6 +37,6 @@ export const DEFAULT_LABEL_CONFIG: LabelConfig = {
     showPriceOrCost: false,
     showResponsible: false,
   },
-  customHeader: 'KHALESSI PIZZA ARTESANAL',
+  customHeader: 'GASTRO RESTAURANTE',
   copies: 1,
 };

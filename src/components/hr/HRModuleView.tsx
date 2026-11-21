@@ -378,7 +378,7 @@ export const HRModuleView: React.FC = () => {
       name: newStaffData.name.trim(),
       email:
         newStaffData.email.trim() ||
-        `${newStaffData.name.trim().toLowerCase().replace(/\s+/g, '.')}@khalessipizza.com`,
+        `${newStaffData.name.trim().toLowerCase().replace(/\s+/g, '.')}@gastroerp.com`,
       phone: newStaffData.phone.trim(),
       avatarUrl:
         'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
@@ -667,7 +667,7 @@ export const HRModuleView: React.FC = () => {
                   }`}
                 >
                   <Store className="h-3.5 w-3.5 shrink-0 opacity-75" />
-                  {t.name.replace('Khalessi Pizza - ', '')}
+                  {t.name.replace('Gastro - ', '')}
                 </button>
               );
             })}
@@ -699,7 +699,7 @@ export const HRModuleView: React.FC = () => {
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
               {branchScope === 'consolidated'
                 ? `Red completa (${tenants.length} locales)`
-                : activeTenant.name.replace('Khalessi Pizza - ', '')}
+                : activeTenant.name.replace('Gastro - ', '')}
             </p>
           </div>
 
@@ -1299,7 +1299,7 @@ export const HRModuleView: React.FC = () => {
                               {cell.isSupportCover && assignedBranch && (
                                 <span className="mt-1 inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-black/10 dark:bg-white/10 truncate max-w-full">
                                   <ArrowRightLeft className="h-2.5 w-2.5 shrink-0" />
-                                  {assignedBranch.name.replace('Khalessi Pizza - ', '')}
+                                  {assignedBranch.name.replace('Gastro - ', '')}
                                 </span>
                               )}
                             </button>
@@ -2132,7 +2132,7 @@ export const HRModuleView: React.FC = () => {
                     <option value="all">Todas las Sedes (Corporativo)</option>
                     {tenants.map(t => (
                       <option key={t.id} value={t.id}>
-                        {t.name.replace('Khalessi Pizza - ', '')}
+                        {t.name.replace('Gastro - ', '')}
                       </option>
                     ))}
                   </select>
@@ -2235,7 +2235,7 @@ export const HRModuleView: React.FC = () => {
                 >
                   {tenants.map(t => (
                     <option key={t.id} value={t.id}>
-                      {t.name.replace('Khalessi Pizza - ', '')}
+                      {t.name.replace('Gastro - ', '')}
                     </option>
                   ))}
                 </select>

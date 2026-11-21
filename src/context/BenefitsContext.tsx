@@ -12,8 +12,8 @@ const BENEFITS_STORAGE_KEY = 'kh_erp_benefits_v1';
 
 const DEFAULT_COUPONS: PromoCoupon[] = [
   {
-    id: 'cpn-khalessi15',
-    code: 'KHALESSI15',
+    id: 'cpn-gastro15',
+    code: 'GASTRO15',
     title: '15% Dscto. Pedido Web',
     description: '15% de descuento en pedidos desde S/ 40.00 en la Tienda Virtual.',
     discountType: 'percentage',
@@ -54,7 +54,7 @@ const DEFAULT_COUPONS: PromoCoupon[] = [
 const DEFAULT_POINTS_CONFIG: PointsProgramConfig = {
   enabled: true,
   status: 'active',
-  cardTitle: 'Tarjeta de Puntos Khalessi',
+  cardTitle: 'Tarjeta de Puntos',
   cardSubtitle: 'Acumula 1 punto por cada compra online y canjea pizzas o complementos gratis.',
   cardIcon: 'crown',
   cardBgColor: '#18181b',
@@ -67,8 +67,8 @@ const DEFAULT_POINTS_CONFIG: PointsProgramConfig = {
   googleWallet: {
     enabled: false,
     issuerId: '',
-    classSuffix: 'khalessi_loyalty_v1',
-    issuerName: 'Khalessi Pizza',
+    classSuffix: 'gastro_loyalty_v1',
+    issuerName: 'Gastro Restaurante',
     logoUrl: '',
     heroImageUrl: '',
     hexBackgroundColor: '#18181b',
@@ -80,7 +80,7 @@ const DEFAULT_POINTS_CONFIG: PointsProgramConfig = {
 
 const DEFAULT_GAME_SETTINGS: GameSettingsConfig = {
   enabled: true,
-  title: 'Ruleta Khalessi de la Suerte',
+  title: 'Ruleta de la Suerte',
   subtitle: '¡Gira y gana descuentos directos, bebidas o pizzas familiares gratis!',
   gameType: 'ruleta',
   frequency: 'daily',
@@ -298,7 +298,7 @@ export const BenefitsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         processingPromoIdsRef.current.add(promo.id);
         const result = await sendGoogleWalletPromo({
           issuerId: gw.issuerId,
-          classSuffix: gw.classSuffix || 'khalessi_loyalty_v1',
+          classSuffix: gw.classSuffix || 'gastro_loyalty_v1',
           header: promo.header,
           body: promo.body,
           promoUrl: promo.promoUrl,

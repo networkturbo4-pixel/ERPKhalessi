@@ -70,7 +70,7 @@ export function createDefaultBlock(type: StoreBlockType): StoreBlock {
         {
           id: `sld-${Date.now()}-2`,
           badge: '🔥 Súper Ahorro Familiar',
-          headline: 'Combo Pareja Khalessi con Pan al Ajo & Bebida 1.5L',
+          headline: 'Combo Pareja Especial con Pan al Ajo & Bebida 1.5L',
           subheadline: 'Ideal para compartir hoy mismo con despacho express desde nuestro horno de piedra.',
           ctaLabel: 'Ver Combo Especial',
           overlayOpacity: 58,
@@ -81,7 +81,7 @@ export function createDefaultBlock(type: StoreBlockType): StoreBlock {
           imageMobile:
             'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=700&q=80',
           actionType: 'product',
-          productId: 'prod-combo-khalessi',
+          productId: 'prod-combo-pareja',
         },
       ],
       advanced: {
@@ -304,7 +304,7 @@ export function createDefaultBlock(type: StoreBlockType): StoreBlock {
       src: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1200&q=80',
       srcTablet: '',
       srcMobile: '',
-      alt: 'Imagen promocional Khalessi Pizza',
+      alt: 'Imagen promocional Gastro Restaurante',
       caption: '',
       actionType: 'none',
       linkUrl: '',
@@ -541,7 +541,7 @@ export function createDefaultBlock(type: StoreBlockType): StoreBlock {
     subtitle: 'Masa fermentada 48 horas e ingredientes importados frescos en cada porción.',
     ctaLabel: 'Aprovechar Promo',
     actionType: 'product',
-    productId: 'prod-combo-khalessi',
+    productId: 'prod-combo-pareja',
     bgTone: 'amber',
     advanced: {
       paddingTop: 4,
@@ -605,7 +605,7 @@ export const FACTORY_TEMPLATES: StoreTemplate[] = [
           {
             id: 's-dark-2',
             badge: '🥩 Especialidad de la Casa',
-            headline: 'Carnívora Khalessi Supreme al Horno de Leña',
+            headline: 'Carnívora Especial Supreme al Horno de Leña',
             subheadline:
               'Jamón selecto, pepperoni crocante, carne sazonada, tocino ahumado y doble mozzarella fundida.',
             ctaLabel: 'Personalizar Pizza',
@@ -617,7 +617,7 @@ export const FACTORY_TEMPLATES: StoreTemplate[] = [
             imageMobile:
               'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=700&q=80',
             actionType: 'product',
-            productId: 'prod-carnivora-khalessi',
+            productId: 'prod-carnivora-especial',
           },
           {
             id: 's-dark-3',
@@ -633,7 +633,7 @@ export const FACTORY_TEMPLATES: StoreTemplate[] = [
             imageMobile:
               'https://images.unsplash.com/photo-1544982503-9f984c14501a?auto=format&fit=crop&w=700&q=80',
             actionType: 'product',
-            productId: 'prod-combo-khalessi',
+            productId: 'prod-combo-pareja',
           },
         ],
         advanced: { paddingTop: 4, paddingBottom: 4, marginBottom: 8, animation: 'fade-in' },
@@ -856,11 +856,11 @@ export const FACTORY_TEMPLATES: StoreTemplate[] = [
         onlyTablet: false,
         onlyDesktop: false,
         badgeText: 'DESPACHO EN 30 MIN',
-        title: 'Pide directo sin comisiones y acumula puntos Khalessi',
+        title: 'Pide directo sin comisiones y acumula puntos Gastro',
         subtitle: 'Atención directa de nuestro horno a tu puerta con empaque térmico sellado.',
         ctaLabel: 'Ver Combo Pareja',
         actionType: 'product',
-        productId: 'prod-combo-khalessi',
+        productId: 'prod-combo-pareja',
         bgTone: 'crimson',
         advanced: { paddingTop: 0, paddingBottom: 4, marginBottom: 6, animation: 'fade-in' },
       },
@@ -886,7 +886,7 @@ export const FACTORY_TEMPLATES: StoreTemplate[] = [
           {
             id: 's-exp-1',
             badge: '⚡ Promo Relámpago',
-            headline: 'Combo Pareja Khalessi S/ 59.90',
+            headline: 'Combo Pareja Especial S/ 59.90',
             subheadline: 'Pizza Familiar + Pan al Ajo con Mozzarella + Bebida 1.5L helada.',
             ctaLabel: 'Agregar Combo',
             overlayOpacity: 60,
@@ -897,7 +897,7 @@ export const FACTORY_TEMPLATES: StoreTemplate[] = [
             imageMobile:
               'https://images.unsplash.com/photo-1544982503-9f984c14501a?auto=format&fit=crop&w=700&q=80',
             actionType: 'product',
-            productId: 'prod-combo-khalessi',
+            productId: 'prod-combo-pareja',
           },
           {
             id: 's-exp-2',

@@ -317,6 +317,8 @@ export type BranchFormat =
   | 'Express / Mall'
   | 'Obrador Central';
 
+export type BranchShippingScope = 'local' | 'national';
+
 export interface BranchOperationalProfile {
   branchFormat: BranchFormat;
   branchCode: string;
@@ -325,6 +327,8 @@ export interface BranchOperationalProfile {
   billingSeriesFactura?: string;
   schedule: string;
   tablesCount: number;
+  hasDelivery?: boolean;
+  shippingScope?: BranchShippingScope;
   deliveryRadiusKm: number;
   coveragePolygon?: [number, number][]; // [lng, lat][]
   deliveryTariff?: DeliveryTariffConfig;
@@ -333,6 +337,8 @@ export interface BranchOperationalProfile {
   latitude?: number;
   longitude?: number;
   phone: string;
+  whatsappNumber?: string;
+  managerUserId?: string;
   managerName: string;
   salesTodaySoles: number;
   salesGrowthPct: string;

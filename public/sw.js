@@ -1,4 +1,4 @@
-const CACHE_NAME = 'khalessi-pwa-v3';
+const CACHE_NAME = 'gastro-pwa-v3';
 const CORE_ASSETS = ['/', '/manifest.webmanifest', '/api/favicon.php'];
 
 self.addEventListener('install', (event) => {
@@ -69,10 +69,10 @@ self.addEventListener('fetch', (event) => {
 // Web Push remoto (si se configura servidor VAPID)
 self.addEventListener('push', (event) => {
   let payload = {
-    title: 'Pizza Khalessi',
+    title: 'Gastro Restaurante',
     body: 'Tienes una actualización en tu pedido.',
     url: '/',
-    tag: 'khalessi-order-update',
+    tag: 'gastro-order-update',
   };
   try {
     if (event.data) {
@@ -90,7 +90,7 @@ self.addEventListener('push', (event) => {
       icon: payload.icon || '/api/favicon.php',
       badge: payload.icon || '/api/favicon.php',
       ...(payload.image ? { image: payload.image } : {}),
-      tag: payload.tag || 'khalessi-marketing-push',
+      tag: payload.tag || 'gastro-marketing-push',
       data: { url: payload.url || '/' },
       renotify: true,
     })
@@ -103,11 +103,11 @@ self.addEventListener('message', (event) => {
   if (!data || data.type !== 'SHOW_LOCAL_NOTIFICATION') return;
   const resolvedIcon = data.icon || '/api/favicon.php';
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Pizza Khalessi', {
+    self.registration.showNotification(data.title || 'Gastro Restaurante', {
       body: data.body || '',
       icon: resolvedIcon,
       badge: resolvedIcon,
-      tag: data.tag || 'khalessi-order-status',
+      tag: data.tag || 'gastro-order-status',
       data: { url: data.url || '/' },
       renotify: true,
     })

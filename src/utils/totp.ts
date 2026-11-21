@@ -150,7 +150,7 @@ export function buildOtpAuthUri(params: {
   issuer: string;
 }): string {
   const cleanSecret = params.secret.toUpperCase().replace(/[^A-Z2-7]/g, '');
-  const safeIssuer = params.issuer.trim() || 'Khalessi Pizza ERP';
+  const safeIssuer = params.issuer.trim() || 'GastroERP';
   const safeAccount = params.accountLabel.trim() || 'ControlAcceso';
   const label = `${encodeURIComponent(safeIssuer)}:${encodeURIComponent(safeAccount)}`;
   const query = new URLSearchParams({

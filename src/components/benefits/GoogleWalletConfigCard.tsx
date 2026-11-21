@@ -34,8 +34,8 @@ interface GoogleWalletConfigCardProps {
 const DEFAULT_GW: GoogleWalletConfig = {
   enabled: false,
   issuerId: '',
-  classSuffix: 'khalessi_loyalty_v1',
-  issuerName: 'Khalessi Pizza',
+  classSuffix: 'gastro_loyalty_v1',
+  issuerName: 'Gastro Restaurante',
   logoUrl: '',
   heroImageUrl: '',
   hexBackgroundColor: '#18181b',
@@ -116,7 +116,7 @@ export const GoogleWalletConfigCard: React.FC<GoogleWalletConfigCardProps> = ({
       const res = await createGoogleWalletSaveLink({
         config: pointsConfig,
         customerId: 'demo-preview-001',
-        customerName: 'Cliente Prueba Khalessi',
+        customerName: 'Cliente Prueba',
         customerPhone: '999000111',
         points: previewPoints,
       });
@@ -194,7 +194,7 @@ export const GoogleWalletConfigCard: React.FC<GoogleWalletConfigCardProps> = ({
     try {
       const res = await sendGoogleWalletPromo({
         issuerId: gw.issuerId,
-        classSuffix: gw.classSuffix || 'khalessi_loyalty_v1',
+        classSuffix: gw.classSuffix || 'gastro_loyalty_v1',
         header,
         body,
         promoUrl: promoUrl.trim() || undefined,
@@ -280,7 +280,7 @@ export const GoogleWalletConfigCard: React.FC<GoogleWalletConfigCardProps> = ({
               )}
             </div>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Permite que tus clientes guarden su tarjeta de puntos Khalessi en Google Wallet y reciban actualizaciones automáticas de saldo.
+              Permite que tus clientes guarden su tarjeta de puntos Gastro en Google Wallet y reciban actualizaciones automáticas de saldo.
             </p>
           </div>
         </div>
@@ -350,7 +350,7 @@ export const GoogleWalletConfigCard: React.FC<GoogleWalletConfigCardProps> = ({
           </label>
           <input
             type="text"
-            placeholder="khalessi_loyalty_v1"
+            placeholder="gastro_loyalty_v1"
             value={gw.classSuffix}
             onChange={e => updateGw({ classSuffix: e.target.value })}
             className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-sm font-mono text-zinc-900 dark:text-white"
@@ -363,7 +363,7 @@ export const GoogleWalletConfigCard: React.FC<GoogleWalletConfigCardProps> = ({
           </label>
           <input
             type="text"
-            placeholder="Khalessi Pizza"
+            placeholder="Gastro Restaurante"
             value={gw.issuerName}
             onChange={e => updateGw({ issuerName: e.target.value })}
             className="w-full px-3.5 py-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-sm text-zinc-900 dark:text-white"
@@ -491,7 +491,7 @@ export const GoogleWalletConfigCard: React.FC<GoogleWalletConfigCardProps> = ({
               </span>
             </div>
             <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Cuando el cliente pase cerca de una sucursal Khalessi, Android mostrará su tarjeta automáticamente en la pantalla de bloqueo.
+              Cuando el cliente pase cerca de una sucursal Gastro, Android mostrará su tarjeta automáticamente en la pantalla de bloqueo.
             </p>
           </div>
         </div>
@@ -561,7 +561,7 @@ export const GoogleWalletConfigCard: React.FC<GoogleWalletConfigCardProps> = ({
             <textarea
               rows={2}
               maxLength={400}
-              placeholder="Ej: Presenta tu tarjeta Khalessi hoy y acumula doble sello en tu pedido."
+              placeholder="Ej: Presenta tu tarjeta Gastro hoy y acumula doble sello en tu pedido."
               value={promoBody}
               onChange={e => setPromoBody(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-sm text-zinc-900 dark:text-white resize-none"

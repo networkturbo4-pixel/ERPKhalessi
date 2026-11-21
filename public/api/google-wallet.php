@@ -1,6 +1,6 @@
 <?php
 /**
- * Khalessi Pizza ERP - Google Wallet Loyalty Pass API
+ * GastroERP - Google Wallet Loyalty Pass API
  * Firma JWT (RS256) para "Agregar a Google Wallet" y sincroniza puntos en tiempo real.
  */
 declare(strict_types=1);
@@ -187,7 +187,7 @@ if ($issuerId === '') {
     gw_json_response(400, ['success' => false, 'error' => 'Issuer ID de Google Wallet es obligatorio.']);
 }
 
-$classSuffix = gw_sanitize_id((string) ($body['classSuffix'] ?? 'khalessi_loyalty_v1'));
+$classSuffix = gw_sanitize_id((string) ($body['classSuffix'] ?? 'gastro_loyalty_v1'));
 $rawCustomerId = trim((string) ($body['customerId'] ?? ''));
 $customerId = $rawCustomerId !== '' ? gw_sanitize_id($rawCustomerId) : '';
 if ($action !== 'send-promo' && $customerId === '') {
@@ -195,7 +195,7 @@ if ($action !== 'send-promo' && $customerId === '') {
 }
 
 $classId = "{$issuerId}.{$classSuffix}";
-$objectId = "{$issuerId}.khalessi_cust_{$customerId}";
+$objectId = "{$issuerId}.gastro_cust_{$customerId}";
 $points = max(0, (int) round((float) ($body['points'] ?? 0)));
 $goal = max(1, (int) round((float) ($body['goal'] ?? 8)));
 $activeStamps = min($goal, $points);
@@ -223,10 +223,10 @@ $dynamicHeroUrl = ($isHttpsRequest && $hostHeader !== '' && stripos($hostHeader,
     : '';
 
 if ($action === 'create-save-link') {
-    $issuerName = trim((string) ($body['issuerName'] ?? 'Khalessi Pizza')) ?: 'Khalessi Pizza';
-    $programName = trim((string) ($body['programName'] ?? 'Tarjeta de Puntos Khalessi')) ?: 'Tarjeta de Puntos Khalessi';
+    $issuerName = trim((string) ($body['issuerName'] ?? 'Gastro Restaurante')) ?: 'Gastro Restaurante';
+    $programName = trim((string) ($body['programName'] ?? 'Tarjeta de Puntos')) ?: 'Tarjeta de Puntos';
     $subtitle = trim((string) ($body['subtitle'] ?? 'Acumula puntos en cada compra y canjea premios.'));
-    $customerName = trim((string) ($body['customerName'] ?? 'Cliente Khalessi')) ?: 'Cliente Khalessi';
+    $customerName = trim((string) ($body['customerName'] ?? 'Cliente')) ?: 'Cliente';
     $accountId = trim((string) ($body['customerPhone'] ?? $customerId)) ?: $customerId;
     $hexBg = (string) ($body['hexBackgroundColor'] ?? '#18181b');
     if (!preg_match('/^#[0-9A-Fa-f]{6}$/', $hexBg)) {
@@ -313,7 +313,7 @@ if ($action === 'create-save-link') {
     if ($barcodeType !== 'NONE') {
         $loyaltyObject['barcode'] = [
             'type' => $barcodeType,
-            'value' => "KHALESSI:LOYALTY:{$customerId}",
+            'value' => "GASTRO:LOYALTY:{$customerId}",
             'alternateText' => $accountId,
         ];
     }
@@ -442,7 +442,7 @@ if ($action === 'sync-points') {
         if ($barcodeType !== 'NONE') {
         $loyaltyObject['barcode'] = [
             'type' => $barcodeType,
-            'value' => "KHALESSI:LOYALTY:{$customerId}",
+            'value' => "GASTRO:LOYALTY:{$customerId}",
             'alternateText' => $accountId,
         ];
     }
@@ -512,7 +512,7 @@ if ($action === 'send-promo') {
     $targetCust = trim((string) ($body['targetCustomerId'] ?? ''));
 
     $targetEndpoint = $targetCust !== ''
-        ? 'https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/' . rawurlencode("{$issuerId}.khalessi_cust_" . gw_sanitize_id($targetCust)) . '/addMessage'
+        ? 'https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/' . rawurlencode("{$issuerId}.gastro_cust_" . gw_sanitize_id($targetCust)) . '/addMessage'
         : 'https://walletobjects.googleapis.com/walletobjects/v1/loyaltyClass/' . rawurlencode($classId) . '/addMessage';
 
     try {

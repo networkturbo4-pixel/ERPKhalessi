@@ -11,7 +11,31 @@ import {
   ExtraModifier,
 } from '../../types/catalog';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
-import { X, Plus, Minus, Check, Pizza, Sparkles, ChefHat, Layers, AlertCircle } from 'lucide-react';
+import { useSettings } from '../../context/SettingsContext';
+import {
+  resolveProductBasePrice,
+  resolveSizePrice,
+  resolveSubOptionPriceDelta,
+  resolveExtraPrice,
+  findMatchingApparelVariant,
+  resolveApparelVariantStock,
+  resolveApparelUnitPrice,
+} from '../../utils/productPricing';
+import {
+  X,
+  Plus,
+  Minus,
+  Check,
+  Pizza,
+  Sparkles,
+  ChefHat,
+  Layers,
+  AlertCircle,
+  Shirt,
+  Palette,
+  Ruler,
+  Gift,
+} from 'lucide-react';
 
 interface ProductCustomizerModalProps {
   product: Product | null;
@@ -42,8 +66,11 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
   const titleId = useId();
   const notesId = useId();
   const { products: catalogProducts } = useOrderCatalog();
+  const { activeTenant } = useSettings();
+  const activeTenantId = activeTenant?.id;
 
   const isHalfAndHalf = product?.productType === 'half_and_half';
+  const isApparel = product?.productType === 'apparel';
   const availableFlavorPizzas = useMemo(
     () =>
       catalogProducts.filter(
@@ -63,6 +90,14 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
   const [extraQuantities, setExtraQuantities] = useState<Record<string, number>>({});
   const [notes, setNotes] = useState('');
   const [quantity, setQuantity] = useState(1);
+
+  // Apparel states
+  const [apparelSizeId, setApparelSizeId] = useState<string>('');
+  const [apparelColorId, setApparelColorId] = useState<string>('');
+  const [apparelModelId, setApparelModelId] = useState<string>('');
+  const [apparelGiftWrap, setApparelGiftWrap] = useState(false);
+  const [apparelCustomPrintText, setApparelCustomPrintText] = useState('');
+  const [showSizeGuide, setShowSizeGuide] = useState(false);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -134,6 +169,16 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
     setExtraQuantities(initialExtras);
     setNotes('');
     setQuantity(1);
+
+    if (product.productType === 'apparel' && product.apparelConfig) {
+      const cfg = product.apparelConfig;
+      setApparelSizeId(cfg.sizes.find((s) => s.enabled)?.id || '');
+      setApparelColorId(cfg.colors.find((c) => c.enabled)?.id || '');
+      setApparelModelId(cfg.models.find((m) => m.enabled)?.id || '');
+      setApparelGiftWrap(false);
+      setApparelCustomPrintText('');
+      setShowSizeGuide(false);
+    }
   }, [product, isOpen, availableFlavorPizzas]);
 
   // Light dismiss fallback when clicking outside dialog card
@@ -238,12 +283,15 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
   );
 
   const resolveFlavorSizePrice = (flavor: Product | undefined, size: ProductSizeConfig | null): number => {
-    if (!flavor) return size ? size.price : product?.basePrice || 0;
-    if (!size) return flavor.basePrice;
+    if (!flavor) {
+      if (size && product) return resolveSizePrice(product, size, activeTenantId);
+      return product ? resolveProductBasePrice(product, activeTenantId) : 0;
+    }
+    if (!size) return resolveProductBasePrice(flavor, activeTenantId);
     const matched =
       flavor.sizes.find((s) => s.id === size.id) ||
       flavor.sizes.find((s) => s.name.toLowerCase() === size.name.toLowerCase());
-    return matched ? matched.price : size.price;
+    return matched ? resolveSizePrice(flavor, matched, activeTenantId) : product ? resolveSizePrice(product, size, activeTenantId) : size.price;
   };
 
   const firstHalfPizza = availableFlavorPizzas.find((p) => p.id === firstHalfId) || availableFlavorPizzas[0];
@@ -252,30 +300,49 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
     availableFlavorPizzas[1] ||
     availableFlavorPizzas[0];
 
+  const matchedApparelVariant = isApparel
+    ? findMatchingApparelVariant(product?.apparelConfig, apparelSizeId, apparelColorId, apparelModelId)
+    : undefined;
+  const matchedApparelStock = isApparel
+    ? resolveApparelVariantStock(matchedApparelVariant, activeTenantId)
+    : undefined;
+  const selectedApparelColor = isApparel
+    ? product?.apparelConfig?.colors.find((c) => c.id === apparelColorId)
+    : undefined;
+
   const basePrice = !product
     ? 0
+    : isApparel
+    ? resolveApparelUnitPrice(product, activeTenantId, {
+        sizeId: apparelSizeId,
+        colorId: apparelColorId,
+        modelId: apparelModelId,
+        giftWrap: apparelGiftWrap,
+        customPrint: Boolean(apparelCustomPrintText.trim()),
+      })
     : isHalfAndHalf && firstHalfPizza && secondHalfPizza
     ? Math.max(
         resolveFlavorSizePrice(firstHalfPizza, selectedSize),
         resolveFlavorSizePrice(secondHalfPizza, selectedSize)
       )
     : selectedSize
-    ? selectedSize.price
-    : product.basePrice;
+    ? resolveSizePrice(product, selectedSize, activeTenantId)
+    : resolveProductBasePrice(product, activeTenantId);
 
   let subOptionsDelta = 0;
   visibleSubOptionGroups.forEach((group) => {
     (group.choices || []).forEach((choice) => {
       if (!isChoiceActive(group, choice)) return;
+      const effectiveDelta = resolveSubOptionPriceDelta(choice, activeTenantId);
 
       if (choice.isMultiple) {
         const qty = subOptionQuantities[choice.id] || 0;
         if (!choice.hidePrice) {
           const billableQty = Math.max(0, qty - (choice.freeQuantity || 0));
-          subOptionsDelta += billableQty * (choice.priceDelta || 0);
+          subOptionsDelta += billableQty * effectiveDelta;
         }
       } else if (!choice.hidePrice) {
-        subOptionsDelta += choice.priceDelta || 0;
+        subOptionsDelta += effectiveDelta;
       }
 
       const nestedSelected = selectedNestedChoices[choice.id] || [];
@@ -298,7 +365,7 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
       if (extra.enabled === false) return;
       const qty = extraQuantities[extra.id] || 0;
       if (qty > 0) {
-        extrasTotal += getEffectiveExtraUnitPrice(extra, qty) * qty;
+        extrasTotal += resolveExtraPrice(product, extra, qty, activeTenantId) * qty;
       }
     });
   }
@@ -509,10 +576,11 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
           }
         });
 
+        const effectiveDelta = resolveSubOptionPriceDelta(choice, activeTenantId);
         if (choice.isMultiple) {
           const qty = subOptionQuantities[choice.id] || 0;
           const billableQty = Math.max(0, qty - (choice.freeQuantity || 0));
-          const baseDelta = choice.hidePrice ? 0 : billableQty * (choice.priceDelta || 0);
+          const baseDelta = choice.hidePrice ? 0 : billableQty * effectiveDelta;
           let choiceName = choice.name;
           if (qty > 1) choiceName += ` (x${qty})`;
           if (nestedNames.length > 0) choiceName += ` (${nestedNames.join(', ')})`;
@@ -526,7 +594,7 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
             quantity: qty,
           });
         } else {
-          const baseDelta = choice.hidePrice ? 0 : choice.priceDelta || 0;
+          const baseDelta = choice.hidePrice ? 0 : effectiveDelta;
           const choiceName =
             nestedNames.length > 0 ? `${choice.name} (${nestedNames.join(', ')})` : choice.name;
 
@@ -549,11 +617,64 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
         extrasList.push({
           id: extra.id,
           name: extra.name,
-          price: getEffectiveExtraUnitPrice(extra, qty),
+          price: resolveExtraPrice(product, extra, qty, activeTenantId),
           quantity: qty,
         });
       }
     });
+
+    const apparelCfg = product.apparelConfig;
+    const selAppSize = apparelCfg?.sizes.find((s) => s.id === apparelSizeId);
+    const selAppColor = apparelCfg?.colors.find((c) => c.id === apparelColorId);
+    const selAppModel = apparelCfg?.models.find((m) => m.id === apparelModelId);
+
+    if (isApparel && apparelCfg) {
+      if (selAppModel) {
+        subOptionsList.push({
+          groupId: 'apparel-model',
+          groupName: 'Modelo',
+          choiceId: selAppModel.id,
+          choiceName: selAppModel.name,
+          priceDelta: selAppModel.priceDelta || 0,
+        });
+      }
+      if (selAppColor) {
+        subOptionsList.push({
+          groupId: 'apparel-color',
+          groupName: 'Color',
+          choiceId: selAppColor.id,
+          choiceName: selAppColor.name,
+          priceDelta: selAppColor.priceDelta || 0,
+        });
+      }
+      if (selAppSize) {
+        subOptionsList.push({
+          groupId: 'apparel-size',
+          groupName: 'Talla',
+          choiceId: selAppSize.id,
+          choiceName: selAppSize.name,
+          priceDelta: selAppSize.priceDelta || 0,
+        });
+      }
+      if (apparelGiftWrap && apparelCfg.allowGiftWrap) {
+        subOptionsList.push({
+          groupId: 'apparel-giftwrap',
+          groupName: 'Empaque',
+          choiceId: 'gift-wrap',
+          choiceName: 'Empaque de regalo',
+          priceDelta: apparelCfg.giftWrapPrice || 0,
+        });
+      }
+      if (apparelCustomPrintText.trim() && apparelCfg.allowCustomPrint) {
+        subOptionsList.push({
+          groupId: 'apparel-customprint',
+          groupName: apparelCfg.customPrintLabel || 'Personalización',
+          choiceId: 'custom-print',
+          choiceName: apparelCustomPrintText.trim(),
+          priceDelta: apparelCfg.customPrintPrice || 0,
+        });
+      }
+    }
 
     const item: OrderItem = {
       itemId: `item-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -562,7 +683,12 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
         isHalfAndHalf && firstHalfPizza && secondHalfPizza
           ? `${product.name} (${firstHalfPizza.name} / ${secondHalfPizza.name})`
           : product.name,
-      productImage: isHalfAndHalf && firstHalfPizza ? firstHalfPizza.imageUrl : product.imageUrl,
+      productImage:
+        isApparel && selAppColor?.imageUrl
+          ? selAppColor.imageUrl
+          : isHalfAndHalf && firstHalfPizza
+          ? firstHalfPizza.imageUrl
+          : product.imageUrl,
       halfAndHalf:
         isHalfAndHalf && firstHalfPizza && secondHalfPizza
           ? {
@@ -574,6 +700,21 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
               secondHalfImage: secondHalfPizza.imageUrl,
             }
           : undefined,
+      apparelSelection: isApparel
+        ? {
+            sizeId: selAppSize?.id,
+            sizeName: selAppSize?.name,
+            colorId: selAppColor?.id,
+            colorName: selAppColor?.name,
+            colorHex: selAppColor?.hex,
+            modelId: selAppModel?.id,
+            modelName: selAppModel?.name,
+            variantId: matchedApparelVariant?.id,
+            variantSku: matchedApparelVariant?.sku,
+            giftWrap: apparelGiftWrap || undefined,
+            customPrintText: apparelCustomPrintText.trim() || undefined,
+          }
+        : undefined,
       size: selectedSize
         ? {
             id: selectedSize.id,
@@ -609,7 +750,7 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
           {/* Header with image */}
           <div className="relative h-44 sm:h-52 w-full overflow-hidden bg-zinc-950 shrink-0">
             <img
-              src={product.imageUrl}
+              src={(isApparel && selectedApparelColor?.imageUrl) || product.imageUrl}
               alt={product.name}
               className="w-full h-full object-cover brightness-95"
             />
@@ -685,8 +826,230 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
               </div>
             )}
 
+            {/* 0.5 Apparel Selectors (Color, Model, Size, Textile Options) */}
+            {isApparel && product.apparelConfig && (
+              <div className="space-y-4">
+                {(product.apparelConfig.brand || product.apparelConfig.material || product.apparelConfig.collection) && (
+                  <div className="flex flex-wrap gap-1.5 text-[11px]">
+                    {product.apparelConfig.brand && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 font-bold text-zinc-700 dark:text-zinc-300">
+                        Marca: {product.apparelConfig.brand}
+                      </span>
+                    )}
+                    {product.apparelConfig.material && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 font-bold text-zinc-700 dark:text-zinc-300">
+                        {product.apparelConfig.material}
+                      </span>
+                    )}
+                    {product.apparelConfig.collection && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-sky-500/15 font-bold text-sky-700 dark:text-sky-300">
+                        {product.apparelConfig.collection}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Colores */}
+                {product.apparelConfig.colors.filter((c) => c.enabled).length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+                      <Palette className="w-4 h-4" /> Color: {selectedApparelColor?.name || 'Elige'}
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      {product.apparelConfig.colors
+                        .filter((c) => c.enabled)
+                        .map((col) => {
+                          const isSel = apparelColorId === col.id;
+                          return (
+                            <button
+                              key={col.id}
+                              type="button"
+                              onClick={() => setApparelColorId(col.id)}
+                              className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-2 transition-all ${
+                                isSel
+                                  ? 'border-purple-500 bg-purple-500/15 text-zinc-950 dark:text-white ring-2 ring-purple-500/30'
+                                  : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40 text-zinc-700 dark:text-zinc-300'
+                              }`}
+                            >
+                              <span
+                                className="w-4 h-4 rounded-full border border-zinc-300 dark:border-zinc-600 shrink-0"
+                                style={{ backgroundColor: col.hex }}
+                              />
+                              <span>{col.name}</span>
+                              {col.priceDelta ? (
+                                <span className="text-[10px] text-amber-600 dark:text-amber-400">
+                                  +S/ {col.priceDelta.toFixed(2)}
+                                </span>
+                              ) : null}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Modelos / Cortes */}
+                {product.apparelConfig.models.filter((m) => m.enabled).length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                      <Shirt className="w-4 h-4" /> Modelo / Corte
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {product.apparelConfig.models
+                        .filter((m) => m.enabled)
+                        .map((mod) => {
+                          const isSel = apparelModelId === mod.id;
+                          return (
+                            <button
+                              key={mod.id}
+                              type="button"
+                              onClick={() => setApparelModelId(mod.id)}
+                              className={`p-2.5 rounded-xl border text-left transition-all ${
+                                isSel
+                                  ? 'border-emerald-500 bg-emerald-500/15 text-zinc-950 dark:text-white ring-2 ring-emerald-500/30'
+                                  : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40 text-zinc-700 dark:text-zinc-300'
+                              }`}
+                            >
+                              <div className="font-bold text-xs">{mod.name}</div>
+                              {mod.description && (
+                                <div className="text-[10px] text-zinc-500 dark:text-zinc-400 line-clamp-1">
+                                  {mod.description}
+                                </div>
+                              )}
+                              {mod.priceDelta ? (
+                                <div className="text-[10px] font-black text-amber-600 dark:text-amber-400 mt-0.5">
+                                  +S/ {mod.priceDelta.toFixed(2)}
+                                </div>
+                              ) : null}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Tallas */}
+                {product.apparelConfig.sizes.filter((s) => s.enabled).length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                        <Ruler className="w-4 h-4" /> Talla
+                      </span>
+                      {product.apparelConfig.sizeGuideText && (
+                        <button
+                          type="button"
+                          onClick={() => setShowSizeGuide((v) => !v)}
+                          className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                        >
+                          {showSizeGuide ? 'Ocultar Guía de Tallas' : 'Ver Guía de Tallas'}
+                        </button>
+                      )}
+                    </div>
+                    {showSizeGuide && product.apparelConfig.sizeGuideText && (
+                      <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-xs text-zinc-700 dark:text-zinc-300">
+                        {product.apparelConfig.sizeGuideText}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {product.apparelConfig.sizes
+                        .filter((s) => s.enabled)
+                        .map((sz) => {
+                          const isSel = apparelSizeId === sz.id;
+                          return (
+                            <button
+                              key={sz.id}
+                              type="button"
+                              onClick={() => setApparelSizeId(sz.id)}
+                              className={`min-w-[52px] px-3 py-2 rounded-xl border text-xs font-black transition-all ${
+                                isSel
+                                  ? 'border-amber-500 bg-amber-500/20 text-zinc-950 dark:text-white ring-2 ring-amber-500/40'
+                                  : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40 text-zinc-700 dark:text-zinc-300'
+                              }`}
+                            >
+                              {sz.name}
+                              {sz.priceDelta ? ` (+S/${sz.priceDelta.toFixed(0)})` : ''}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
+                {/* SKU & Stock badge */}
+                {matchedApparelVariant && (
+                  <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                    {matchedApparelVariant.sku && (
+                      <span className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 font-mono text-zinc-600 dark:text-zinc-300">
+                        SKU: {matchedApparelVariant.sku}
+                      </span>
+                    )}
+                    {typeof matchedApparelStock === 'number' && (
+                      <span
+                        className={`px-2.5 py-1 rounded-lg font-bold ${
+                          matchedApparelStock > 0
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                            : 'bg-rose-500/15 text-rose-700 dark:text-rose-300'
+                        }`}
+                      >
+                        {matchedApparelStock > 0
+                          ? `Stock en sede: ${matchedApparelStock} und.`
+                          : 'Agotado en esta sede'}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Opciones retail adicionales */}
+                {(product.apparelConfig.allowGiftWrap || product.apparelConfig.allowCustomPrint) && (
+                  <div className="space-y-2 pt-1">
+                    {product.apparelConfig.allowGiftWrap && (
+                      <label className="flex items-center justify-between p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40 cursor-pointer">
+                        <span className="flex items-center gap-2 text-xs font-bold">
+                          <Gift className="w-4 h-4 text-rose-500" />
+                          <span>Empaque de regalo</span>
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {(product.apparelConfig.giftWrapPrice || 0) > 0 && (
+                            <span className="text-xs font-black text-amber-600 dark:text-amber-400">
+                              +S/ {(product.apparelConfig.giftWrapPrice || 0).toFixed(2)}
+                            </span>
+                          )}
+                          <input
+                            type="checkbox"
+                            checked={apparelGiftWrap}
+                            onChange={(e) => setApparelGiftWrap(e.target.checked)}
+                            className="accent-amber-500"
+                          />
+                        </div>
+                      </label>
+                    )}
+
+                    {product.apparelConfig.allowCustomPrint && (
+                      <div className="p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40 space-y-1.5">
+                        <div className="flex items-center justify-between text-xs font-bold">
+                          <span>{product.apparelConfig.customPrintLabel || 'Personalización'}</span>
+                          {(product.apparelConfig.customPrintPrice || 0) > 0 && (
+                            <span className="text-amber-600 dark:text-amber-400 font-black">
+                              +S/ {(product.apparelConfig.customPrintPrice || 0).toFixed(2)}
+                            </span>
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          value={apparelCustomPrintText}
+                          onChange={(e) => setApparelCustomPrintText(e.target.value)}
+                          placeholder="Escribe el texto / iniciales para bordar o estampar (opcional)..."
+                          className="w-full px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 text-xs"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* 1. Size Selection */}
-            {product.hasSizes && product.sizes.filter((s) => s.enabled).length > 0 && (
+            {!isApparel && product.hasSizes && product.sizes.filter((s) => s.enabled).length > 0 && (
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
@@ -714,7 +1077,7 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
                           <span className="font-bold text-sm">{size.name}</span>
                           <span className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">{size.slices} Cortes</span>
                           <span className="text-xs font-black text-amber-600 dark:text-amber-400 mt-1">
-                            S/ {size.price.toFixed(2)}
+                            S/ {resolveSizePrice(product, size, activeTenantId).toFixed(2)}
                           </span>
                         </button>
                       );
@@ -853,7 +1216,9 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
                             <div className="flex items-center gap-2 shrink-0 ml-2">
                               {!choice.hidePrice && (
                                 <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-                                  {choice.priceDelta > 0 ? `+S/ ${choice.priceDelta.toFixed(2)}` : 'Incluido'}
+                                  {resolveSubOptionPriceDelta(choice, activeTenantId) > 0
+                                    ? `+S/ ${resolveSubOptionPriceDelta(choice, activeTenantId).toFixed(2)}`
+                                    : 'Incluido'}
                                 </span>
                               )}
 

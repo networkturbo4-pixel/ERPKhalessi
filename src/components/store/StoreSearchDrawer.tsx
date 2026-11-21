@@ -1,5 +1,11 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Product } from '../../types/catalog';
+import { useSettings } from '../../context/SettingsContext';
+import {
+  resolveProductAvailability,
+  resolveProductBasePrice,
+  resolveSizePrice,
+} from '../../utils/productPricing';
 import { Search, X, ArrowRight, Clock, TrendingUp, CornerDownLeft, SearchX } from 'lucide-react';
 
 interface StoreSearchDrawerProps {
@@ -58,10 +64,12 @@ function pushRecent(term: string): string[] {
   return next;
 }
 
-function minPrice(prod: Product): number {
-  if (!prod.hasSizes) return prod.basePrice;
-  const prices = prod.sizes.filter(s => s.enabled).map(s => s.price);
-  return prices.length ? Math.min(...prices) : prod.basePrice;
+function minPrice(prod: Product, tenantId?: string): number {
+  if (prod.productType === 'apparel' || !prod.hasSizes) {
+    return resolveProductBasePrice(prod, tenantId);
+  }
+  const prices = prod.sizes.filter(s => s.enabled).map(s => resolveSizePrice(prod, s, tenantId));
+  return prices.length ? Math.min(...prices) : resolveProductBasePrice(prod, tenantId);
 }
 
 /** Wraps matched fragments of `text` in <mark> (accent-insensitive, no HTML injection) */
@@ -137,18 +145,21 @@ export const StoreSearchDrawer: React.FC<StoreSearchDrawerProps> = ({
     }
   }, [isOpen]);
 
+  const { activeTenant } = useSettings();
+  const activeTenantId = activeTenant?.id;
+
   const available = useMemo(() => {
-    const base = products.filter(p => p.isAvailable);
+    const base = products.filter(p => resolveProductAvailability(p, activeTenantId));
     if (activeTag === 'all') return base;
     if (activeTag === 'promos') {
       return base.filter(
         p =>
-          Boolean(p.compareAtPrice && p.compareAtPrice > p.basePrice) ||
+          Boolean(p.compareAtPrice && p.compareAtPrice > resolveProductBasePrice(p, activeTenantId)) ||
           /2x1|off|ahorro|promo|descuento|combo/i.test(`${p.badge || ''} ${p.name} ${p.category}`)
       );
     }
     return base.filter(p => p.category === activeTag);
-  }, [products, activeTag]);
+  }, [products, activeTag, activeTenantId]);
 
   const results = useMemo(() => {
     const q = normalize(debouncedQuery.trim());
@@ -503,7 +514,7 @@ export const StoreSearchDrawer: React.FC<StoreSearchDrawerProps> = ({
                 className={`space-y-1 transition-opacity ${isSearching ? 'opacity-60' : 'opacity-100'}`}
               >
                 {visibleList.map((prod, idx) => {
-                  const price = minPrice(prod);
+                  const price = minPrice(prod, activeTenantId);
                   const isActive = idx === activeIndex;
                   return (
                     <button

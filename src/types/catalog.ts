@@ -9,7 +9,7 @@ export interface ProductCategoryItem {
   enabled?: boolean;
 }
 
-export type ProductType = 'standard' | 'half_and_half';
+export type ProductType = 'standard' | 'half_and_half' | 'apparel';
 
 export type PizzaSizeId = string;
 
@@ -45,6 +45,7 @@ export interface SubOptionChoice {
   isMultiple?: boolean;
   hidePrice?: boolean;
   storePricesEnabled?: boolean;
+  branchPriceDeltas?: Record<string, number>;
   freeQuantity?: number;
   maxQuantity?: number;
   subExtrasLimit?: number;
@@ -80,6 +81,82 @@ export interface ExtraModifier {
   };
 }
 
+export interface BranchPriceOverride {
+  basePrice?: number;
+  compareAtPrice?: number;
+  isAvailable?: boolean;
+  sizePrices?: Record<string, number>;
+  extraPrices?: Record<string, number>;
+}
+
+export interface ApparelColorOption {
+  id: string;
+  name: string;
+  hex: string;
+  imageUrl?: string;
+  priceDelta?: number;
+  enabled: boolean;
+}
+
+export interface ApparelModelOption {
+  id: string;
+  name: string;
+  description?: string;
+  priceDelta?: number;
+  enabled: boolean;
+}
+
+export interface ApparelSizeOption {
+  id: string;
+  name: string;
+  priceDelta?: number;
+  enabled: boolean;
+}
+
+export interface ApparelVariantItem {
+  id: string;
+  sizeId?: string;
+  colorId?: string;
+  modelId?: string;
+  sku?: string;
+  barcode?: string;
+  priceOverride?: number;
+  stockByBranch?: Record<string, number>;
+  enabled: boolean;
+}
+
+export interface ApparelConfig {
+  sizes: ApparelSizeOption[];
+  colors: ApparelColorOption[];
+  models: ApparelModelOption[];
+  variants: ApparelVariantItem[];
+  material?: string;
+  brand?: string;
+  collection?: string;
+  gender?: 'unisex' | 'hombre' | 'mujer' | 'kids';
+  sizeGuideText?: string;
+  sizeGuideImageUrl?: string;
+  allowGiftWrap?: boolean;
+  giftWrapPrice?: number;
+  allowCustomPrint?: boolean;
+  customPrintLabel?: string;
+  customPrintPrice?: number;
+}
+
+export interface ApparelOrderSelection {
+  sizeId?: string;
+  sizeName?: string;
+  colorId?: string;
+  colorName?: string;
+  colorHex?: string;
+  modelId?: string;
+  modelName?: string;
+  variantId?: string;
+  variantSku?: string;
+  giftWrap?: boolean;
+  customPrintText?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -96,6 +173,8 @@ export interface Product {
   sizes: ProductSizeConfig[];
   subOptions: SubOptionGroup[];
   allowedExtras: ExtraModifier[];
+  branchPrices?: Record<string, BranchPriceOverride>;
+  apparelConfig?: ApparelConfig;
 }
 
 export interface CartExtra {
@@ -129,6 +208,7 @@ export interface OrderItem {
   productName: string;
   productImage: string;
   halfAndHalf?: HalfAndHalfSelection;
+  apparelSelection?: ApparelOrderSelection;
   size?: {
     id: PizzaSizeId;
     name: string;

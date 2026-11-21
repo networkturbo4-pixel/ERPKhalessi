@@ -26,6 +26,10 @@ const loadReservationsLandingView = () =>
   import('./components/reservations/ReservationsLandingView').then(m => ({
     default: m.ReservationsLandingView,
   }));
+const loadInstallerWizardView = () =>
+  import('./components/install/InstallerWizardView').then(m => ({
+    default: m.InstallerWizardView,
+  }));
 const loadHRProvider = () =>
   import('./context/HRContext').then(m => ({ default: m.HRProvider }));
 
@@ -36,6 +40,7 @@ const CustomPagePublicView = lazy(loadCustomPagePublicView);
 const KioskSelfServiceView = lazy(loadKioskSelfServiceView);
 const JobsLandingView = lazy(loadJobsLandingView);
 const ReservationsLandingView = lazy(loadReservationsLandingView);
+const InstallerWizardView = lazy(loadInstallerWizardView);
 const LazyHRProvider = lazy(loadHRProvider);
 
 /**
@@ -46,6 +51,11 @@ export function preloadInitialRouteChunk(): void {
   if (typeof window === 'undefined') return;
   const path = window.location.pathname || '/';
   const hash = window.location.hash || '';
+
+  if (path.startsWith('/install') || hash.startsWith('#install')) {
+    void loadInstallerWizardView();
+    return;
+  }
 
   if (path.startsWith('/kiosco') || hash.startsWith('#kiosco')) {
     void loadKioskSelfServiceView();
@@ -65,7 +75,7 @@ export function preloadInitialRouteChunk(): void {
 
   if (path.startsWith('/admin') || hash.startsWith('#admin')) {
     void loadHRProvider();
-    const isAuth = localStorage.getItem('khalessi_erp_auth_v1') === 'authenticated';
+    const isAuth = localStorage.getItem('gastro_erp_auth_v1') === 'authenticated';
     if (isAuth) {
       void loadMainLayout();
     } else {
@@ -123,6 +133,10 @@ export function App() {
     }
   };
 
+  const isInstallRoute =
+    currentPath.startsWith('/install') ||
+    (typeof window !== 'undefined' && window.location.hash.startsWith('#install'));
+
   const isAdminRoute =
     currentPath.startsWith('/admin') ||
     (typeof window !== 'undefined' && window.location.hash.startsWith('#admin'));
@@ -130,6 +144,30 @@ export function App() {
   const isKioskRoute =
     currentPath.startsWith('/kiosco') ||
     (typeof window !== 'undefined' && window.location.hash.startsWith('#kiosco'));
+
+  useEffect(() => {
+    if (isInstallRoute || typeof window === 'undefined') return;
+    let cancelled = false;
+    fetch('/api/install.php?action=status', { cache: 'no-store' })
+      .then(async (res) => {
+        if (!res.ok) return null;
+        const ct = res.headers.get('content-type') || '';
+        if (!ct.includes('application/json')) return null;
+        return res.json();
+      })
+      .then((data) => {
+        if (!cancelled && data?.success && data.hasConfig === false && data.locked === false) {
+          window.history.replaceState({}, '', '/install');
+          setCurrentPath('/install');
+        }
+      })
+      .catch(() => {
+        // Silencioso en desarrollo local sin PHP
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isInstallRoute]);
 
   const customPageSlugMatch = currentPath.match(/^\/p\/([^/]+)\/?$/);
   const customPageSlug = customPageSlugMatch ? decodeURIComponent(customPageSlugMatch[1]) : null;
@@ -155,7 +193,12 @@ export function App() {
                   <BenefitsProvider>
                     <StoreBuilderProvider>
                       <Suspense fallback={<BrandBootSplash pathname={currentPath} />}>
-                        {isKioskRoute ? (
+                        {isInstallRoute ? (
+                          <InstallerWizardView
+                            onNavigateToStore={() => navigate('/')}
+                            onNavigateToAdmin={() => navigate('/admin')}
+                          />
+                        ) : isKioskRoute ? (
                           <KioskSelfServiceView
                             embeddedInAdmin={false}
                             onExitToAdmin={() => navigate('/admin')}

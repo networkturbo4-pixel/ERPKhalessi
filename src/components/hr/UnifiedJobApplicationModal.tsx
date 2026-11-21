@@ -153,7 +153,7 @@ export const UnifiedJobApplicationModal: React.FC<UnifiedJobApplicationModalProp
       postingId: selectedPosting.id,
       positionTitle: selectedPosting.positionTitle,
       branchId: chosenBranch.id,
-      branchName: chosenBranch.name.replace('Khalessi Pizza - ', ''),
+      branchName: chosenBranch.name.replace('Gastro - ', ''),
       fullName: fullName.trim(),
       documentType,
       documentNumber: documentNumber.trim(),

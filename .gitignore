@@ -27,11 +27,17 @@ deploy_cpanel.zip
 
 public/api/config.local.php
 release/api/config.local.php
+public/api/install.lock
+release/api/install.lock
 public/api/.token_secret.php
 release/api/.token_secret.php
 public/api/.rate_limit/
 release/api/.rate_limit/
 public/api/storage/
 release/api/storage/
+server/config.json
+release/server/config.json
+public/uploads/branding/
+release/uploads/branding/
 
 data/

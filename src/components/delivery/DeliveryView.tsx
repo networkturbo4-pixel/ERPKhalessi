@@ -104,7 +104,7 @@ export const DeliveryView: React.FC = () => {
 
   const getBranchShortName = (tenantId: string) => {
     const found = tenants.find((t) => t.id === tenantId);
-    return found ? found.name.replace('Khalessi Pizza - ', '') : tenantId;
+    return found ? found.name.replace('Gastro - ', '') : tenantId;
   };
 
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -213,7 +213,7 @@ export const DeliveryView: React.FC = () => {
       : null;
     const waUrl = waDigits
       ? `https://wa.me/${waDigits}?text=${encodeURIComponent(
-          `¡Hola ${order.customerName}! Soy el motorizado de Khalessi Pizza con tu pedido ${order.orderNumber}. Estoy en camino a ${order.deliveryAddress || 'tu dirección'}. 🍕🛵`
+          `¡Hola ${order.customerName}! Soy el motorizado de Gastro Restaurante con tu pedido ${order.orderNumber}. Estoy en camino a ${order.deliveryAddress || 'tu dirección'}. 🍕🛵`
         )}`
       : null;
 

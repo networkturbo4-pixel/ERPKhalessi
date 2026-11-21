@@ -326,7 +326,7 @@ export const StoreCustomerProfileDrawer: React.FC<StoreCustomerProfileDrawerProp
       cvv: ccCsc.trim(),
       expMonth,
       expYear,
-      email: currentCustomer?.email || 'cliente@khalessi.pe',
+      email: currentCustomer?.email || 'cliente@gastroerp.com',
       fullName: holder,
       phone: currentCustomer?.phone || '999999999',
       address: currentCustomer?.addresses?.[0]?.streetAddress || 'Lima, Peru',

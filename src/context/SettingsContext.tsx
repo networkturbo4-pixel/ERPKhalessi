@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
-import { authenticateServer, getServerToken } from '../utils/diskPersistence';
+import { authenticateServer, forcePersistKeyToServer, getServerToken } from '../utils/diskPersistence';
 import {
   TenantCustomization,
   CompanyInfo,
@@ -22,9 +22,14 @@ import {
 } from '../types/settings';
 import { MOCK_USERS, useRBAC } from './RBACContext';
 import { soundSynth } from '../utils/audio';
+import {
+  buildBrandScale,
+  getAccessibleForeground,
+  RADIUS_SCALE_MAP,
+} from '../utils/themeTokens';
 
 export const DEFAULT_CUSTOMIZATION: TenantCustomization = {
-  appName: 'Khalessi Pizza ERP',
+  appName: 'GastroERP',
   slogan: 'El sabor artesanal respaldado por tecnología ágil',
   logoLight: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80',
   logoDark: 'https://images.unsplash.com/photo-1590947132387-155cc02f3212?auto=format&fit=crop&w=400&q=80',
@@ -89,12 +94,12 @@ export const DEFAULT_CUSTOMIZATION: TenantCustomization = {
     buttonAccent: true,
   },
   seoConfig: {
-    metaTitle: 'Khalessi Pizza Artesanal | Pizzas a la Leña y Delivery Rápido',
+    metaTitle: 'Gastro Restaurante | Pizzas a la Leña y Delivery Rápido',
     metaDescription:
       'Pide las mejores pizzas artesanales con masa madre de 48 horas, promociones familiares, bebidas y delivery rápido en Lima.',
     keywords:
-      'pizza artesanal, pizzería delivery, pizza a la leña, promociones de pizza, Pizza Khalessi',
-    canonicalUrl: 'https://pizzakhalessi.com',
+      'pizza artesanal, pizzería delivery, pizza a la leña, promociones de pizza, Gastro Restaurante',
+    canonicalUrl: 'https://gastroerp.com',
     robotsIndex: true,
     locale: 'es_PE',
     googleSiteVerification: '',
@@ -104,16 +109,16 @@ export const DEFAULT_CUSTOMIZATION: TenantCustomization = {
     cuisineType: 'Pizzería Artesanal, Pizza Napolitana, Comida Rápida',
     priceRange: 'S/ 15 - S/ 70',
     aiBrandSummary:
-      'Khalessi Pizza Artesanal elabora pizzas con masa madre fermentada 48h y horneado a la leña. Ofrece pedidos en línea, delivery y recojo en tienda.',
+      'Gastro Restaurante elabora pizzas con masa madre fermentada 48h y horneado a la leña. Ofrece pedidos en línea, delivery y recojo en tienda.',
     aiKeyTopics:
       'Pizza artesanal a la leña, Masa madre 48h, Promociones familiares, Delivery en Lima',
     allowAiCrawlers: true,
-    ogTitle: 'Khalessi Pizza Artesanal — Pizzas a la Leña & Delivery',
+    ogTitle: 'Gastro Restaurante — Pizzas a la Leña & Delivery',
     ogDescription:
       'Descubre nuestras pizzas artesanales, combos familiares y promociones exclusivas. Pide online en minutos.',
     ogImage:
       'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1200&q=80',
-    ogSiteName: 'Khalessi Pizza Artesanal',
+    ogSiteName: 'Gastro Restaurante',
     ogType: 'website',
     twitterCard: 'summary_large_image',
     twitterHandle: '',
@@ -121,12 +126,12 @@ export const DEFAULT_CUSTOMIZATION: TenantCustomization = {
 };
 
 const DEFAULT_COMPANY_INFO: CompanyInfo = {
-  legalName: 'KHALESSI PIZZA FOODS S.A.C.',
+  legalName: 'GASTRO RESTAURANTE S.A.C.',
   taxId: '20608945123',
-  commercialName: 'Khalessi Pizza Artesanal',
+  commercialName: 'Gastro Restaurante',
   address: 'Av. Primavera 1024, Santiago de Surco, Lima - Perú',
   phone: '+51 1 780 9000',
-  email: 'administracion@khalessipizza.com',
+  email: 'administracion@gastroerp.com',
   currency: 'PEN (S/)',
   bankAccounts: [
     {
@@ -136,7 +141,7 @@ const DEFAULT_COMPANY_INFO: CompanyInfo = {
       accountNumber: '193-98218491-0-45',
       cci: '002-193-009821849104-55',
       currency: 'PEN (S/)',
-      holderName: 'KHALESSI PIZZA FOODS S.A.C.',
+      holderName: 'GASTRO RESTAURANTE S.A.C.',
     },
     {
       id: 'bank-2',
@@ -145,44 +150,44 @@ const DEFAULT_COMPANY_INFO: CompanyInfo = {
       accountNumber: '0011-0482-0100482910',
       cci: '011-482-000100482910-18',
       currency: 'USD ($)',
-      holderName: 'KHALESSI PIZZA FOODS S.A.C.',
+      holderName: 'GASTRO RESTAURANTE S.A.C.',
     },
   ],
   wallets: [
     {
       id: 'wallet-1',
       provider: 'yape',
-      holderName: 'Khalessi Pizza Matriz Surco',
+      holderName: 'Gastro Matriz Surco',
       phone: '987 654 321',
       branchId: 'tenant-1',
-      qrImageUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=YAPE-KHALESSI-SURCO',
+      qrImageUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=YAPE-GASTRO-SURCO',
     },
     {
       id: 'wallet-2',
       provider: 'plin',
-      holderName: 'Khalessi Pizza Miraflores',
+      holderName: 'Gastro Miraflores',
       phone: '912 345 678',
       branchId: 'tenant-2',
-      qrImageUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=PLIN-KHALESSI-MIRAFLORES',
+      qrImageUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=PLIN-GASTRO-MIRAFLORES',
     },
   ],
   socialLinks: {
-    facebook: 'https://facebook.com/pizzakhalessi',
-    instagram: 'https://instagram.com/pizzakhalessi',
-    tiktok: 'https://tiktok.com/@pizzakhalessi',
+    facebook: 'https://facebook.com/gastroerp',
+    instagram: 'https://instagram.com/gastroerp',
+    tiktok: 'https://tiktok.com/@gastroerp',
     whatsapp: 'https://wa.me/51987654321',
   },
   culqiConfig: {
     enabled: true,
     environment: 'test',
-    publicKey: 'pk_test_demo_khalessi_v4',
-    secretKey: 'sk_test_demo_khalessi_secret',
-    testPublicKey: 'pk_test_demo_khalessi_v4',
-    testSecretKey: 'sk_test_demo_khalessi_secret',
+    publicKey: 'pk_test_demo_gastro_v4',
+    secretKey: 'sk_test_demo_gastro_secret',
+    testPublicKey: 'pk_test_demo_gastro_v4',
+    testSecretKey: 'sk_test_demo_gastro_secret',
     livePublicKey: '',
     liveSecretKey: '',
     multipayEnabled: false,
-    webhookUrl: 'https://pizzakhalessi.com/api/culqi/webhook',
+    webhookUrl: 'https://gastroerp.com/api/culqi/webhook',
     yapeEnabled: true,
     billeteraEnabled: true,
     allowCashFallback: true,
@@ -222,7 +227,7 @@ const DEFAULT_COMPANY_INFO: CompanyInfo = {
   },
 };
 
-const COMPLAINTS_STORAGE_KEY = 'khalessi_erp_complaints_v1';
+const COMPLAINTS_STORAGE_KEY = 'gastro_erp_complaints_v1';
 
 const DEFAULT_COMPLAINTS: ComplaintRecord[] = [
   {
@@ -241,7 +246,7 @@ const DEFAULT_COMPLAINTS: ComplaintRecord[] = [
     goodType: 'producto',
     orderReference: '#KH-1018',
     claimedAmount: 54.90,
-    goodDescription: 'Pizza Familiar Carnívora Khalessi Supreme + Gaseosa 1.5L',
+    goodDescription: 'Pizza Familiar Carnívora Especial Supreme + Gaseosa 1.5L',
     claimType: 'reclamo',
     detail: 'Solicité borde relleno de mozzarella en el pedido online pero llegó con borde tradicional.',
     consumerRequest: 'Reposición de un cupón por la diferencia del borde relleno (S/ 7.00) o cortesía en próximo pedido.',
@@ -374,8 +379,8 @@ export const DEFAULT_TENANTS: Tenant[] = [
   },
   {
     id: 'tenant-1',
-    name: 'Khalessi Pizza - Matriz Surco',
-    slug: 'khalessi-surco',
+    name: 'Gastro - Matriz Surco',
+    slug: 'gastro-surco',
     status: 'active',
     userCount: 14,
     createdAt: '2023-08-10',
@@ -410,8 +415,8 @@ export const DEFAULT_TENANTS: Tenant[] = [
   },
   {
     id: 'tenant-2',
-    name: 'Khalessi Pizza - Sede Miraflores',
-    slug: 'khalessi-miraflores',
+    name: 'Gastro - Sede Miraflores',
+    slug: 'gastro-miraflores',
     status: 'active',
     userCount: 10,
     createdAt: '2024-01-20',
@@ -446,8 +451,8 @@ export const DEFAULT_TENANTS: Tenant[] = [
   },
   {
     id: 'tenant-3',
-    name: 'Khalessi Pizza - Sede San Isidro',
-    slug: 'khalessi-san-isidro',
+    name: 'Gastro - Sede San Isidro',
+    slug: 'gastro-san-isidro',
     status: 'active',
     userCount: 8,
     createdAt: '2024-03-05',
@@ -484,12 +489,12 @@ export const DEFAULT_TENANTS: Tenant[] = [
 
 const DEFAULT_DRIVE_CONFIG: GoogleDriveConfig = {
   authMethod: 'service_account',
-  serviceAccountEmail: 'storage-bot@khalessi-erp.iam.gserviceaccount.com',
+  serviceAccountEmail: 'storage-bot@gastro-erp.iam.gserviceaccount.com',
   privateKey: '-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC3xQ9p...\n-----END PRIVATE KEY-----',
   clientId: '10928374659281.apps.googleusercontent.com',
   clientSecret: 'GOCSPX-abc123mocksecretxyz',
-  rootFolderId: '1AbC_D98zX_khalessi_cloud_root',
-  rootFolderName: '📁 Khalessi_ERP_Cloud_Storage',
+  rootFolderId: '1AbC_D98zX_gastro_cloud_root',
+  rootFolderName: '📁 GastroERP_Cloud_Storage',
   isConnected: true,
   latencyMs: 142,
   totalStorageGb: 2000,
@@ -544,10 +549,10 @@ interface PersistedSnapshot {
   activeTab: TabId;
 }
 
-const STORAGE_KEY = 'khalessi_erp_settings_v3';
-const CHECKPOINT_KEY = 'khalessi_erp_checkpoint_v3';
-const AUTH_STORAGE_KEY = 'khalessi_erp_auth_v1';
-const AUDIT_STORAGE_KEY = 'khalessi_erp_audit_v1';
+const STORAGE_KEY = 'gastro_erp_settings_v3';
+const CHECKPOINT_KEY = 'gastro_erp_checkpoint_v3';
+const AUTH_STORAGE_KEY = 'gastro_erp_auth_v1';
+const AUDIT_STORAGE_KEY = 'gastro_erp_audit_v1';
 
 function computeFnvChecksum(str: string): string {
   let hash = 0x811c9dc5;
@@ -632,7 +637,7 @@ function normalizeLoadedState(raw: string | null): PersistedSnapshot | null {
     const loadedTenants: Tenant[] =
       Array.isArray(parsed.tenants) && parsed.tenants.length > 0
         ? parsed.tenants.map((t: Tenant, idx: number) => {
-            const shortBranch = t.name.replace('Khalessi Pizza - ', '');
+            const shortBranch = t.name.replace('Gastro - ', '');
             const fallbackCode = `SUC-00${idx + 1}`;
             const fallbackOps = DEFAULT_TENANTS[idx]?.operations || {
               branchFormat: 'Salón & Delivery' as const,
@@ -672,6 +677,8 @@ function normalizeLoadedState(raw: string | null): PersistedSnapshot | null {
             const mergedOps = {
               ...fallbackOps,
               ...(t.operations || {}),
+              hasDelivery: t.operations?.hasDelivery ?? fallbackOps.hasDelivery ?? true,
+              shippingScope: t.operations?.shippingScope ?? fallbackOps.shippingScope ?? 'local',
             };
 
             // Deduplicate any legacy colliding liveOrder IDs (e.g. multiple 'LOC-101')
@@ -766,7 +773,7 @@ function normalizeLoadedState(raw: string | null): PersistedSnapshot | null {
           liveSecretKey: parsed.companyInfo?.culqiConfig?.liveSecretKey || '',
           webhookUrl:
             parsed.companyInfo?.culqiConfig?.webhookUrl ||
-            'https://pizzakhalessi.com/api/culqi/webhook',
+            'https://gastroerp.com/api/culqi/webhook',
         },
         checkoutPaymentMethods: {
           culqiEnabled:
@@ -1133,7 +1140,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       branchName:
         branchScope === 'consolidated'
           ? 'Consolidado Corporativo'
-          : activeTenant.name.replace('Khalessi Pizza - ', ''),
+          : activeTenant.name.replace('Gastro - ', ''),
       category,
       severity,
       action,
@@ -1158,7 +1165,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     })();
     const rawRbac = (() => {
       try {
-        return localStorage.getItem('khalessi_erp_rbac_v3') || '';
+        return localStorage.getItem('gastro_erp_rbac_v3') || '';
       } catch {
         return '';
       }
@@ -1282,7 +1289,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `khalessi-erp-snapshot-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `gastro-erp-snapshot-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
 
@@ -1475,8 +1482,23 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       }
 
       root.style.setProperty('--brand-500', resolvedAccent);
+      root.style.setProperty('--brand-foreground', getAccessibleForeground(resolvedAccent));
       root.style.setProperty('accent-color', resolvedAccent);
       root.dataset.contrast = customization.contrastLevel || 'standard';
+      root.dataset.surfaceTheme = customization.surfaceTheme || 'neutral';
+
+      // Global Font Family token
+      const fontStack = `"${customization.fontFamily || 'Inter'}", 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`;
+      root.style.setProperty('--erp-font-sans', fontStack);
+
+      // Global Border Radius tokens
+      const radiusKey = customization.borderRadius || 'lg';
+      const radiusTokens = RADIUS_SCALE_MAP[radiusKey] || RADIUS_SCALE_MAP.lg;
+      root.dataset.radius = radiusKey;
+      root.style.setProperty('--erp-radius-card', radiusTokens.card);
+      root.style.setProperty('--erp-radius-subcard', radiusTokens.subcard);
+      root.style.setProperty('--erp-radius-control', radiusTokens.control);
+      root.style.setProperty('--erp-radius-badge', radiusTokens.badge);
 
       // System global zoom / font-size scaling (rem-based across entire ERP)
       const scaleMap: Record<TenantCustomization['systemScale'], string> = {
@@ -1493,50 +1515,37 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       const lCanvas = customization.lightSurfaceColor || '#ffffff';
       const lCard = lCanvas;
       const lSubcard = mixHex(lCanvas, [241, 245, 249], 0.55);
+      const lElevated = mixHex(lCanvas, [255, 255, 255], 0.7);
 
       const dShell = customization.darkBgColor || '#09090b';
       const dCanvas = customization.darkSurfaceColor || mixHex(dShell, [255, 255, 255], 0.04);
       const dCard = mixHex(dCanvas, [255, 255, 255], 0.045);
       const dSubcard = mixHex(dCanvas, [255, 255, 255], 0.085);
+      const dElevated = mixHex(dCanvas, [255, 255, 255], 0.12);
 
       root.style.setProperty('--erp-shell-light', lShell);
       root.style.setProperty('--erp-canvas-light', lCanvas);
       root.style.setProperty('--erp-card-light', lCard);
       root.style.setProperty('--erp-subcard-light', lSubcard);
+      root.style.setProperty('--erp-elevated-light', lElevated);
 
       root.style.setProperty('--erp-shell-dark', dShell);
       root.style.setProperty('--erp-canvas-dark', dCanvas);
       root.style.setProperty('--erp-card-dark', dCard);
       root.style.setProperty('--erp-subcard-dark', dSubcard);
+      root.style.setProperty('--erp-elevated-dark', dElevated);
 
-      // Generate RGB brand scale for Tailwind opacity modifiers
-      const hex = resolvedAccent.replace('#', '').trim();
-      if (/^[0-9a-fA-F]{6}$/.test(hex)) {
-        const r = parseInt(hex.slice(0, 2), 16);
-        const g = parseInt(hex.slice(2, 4), 16);
-        const b = parseInt(hex.slice(4, 6), 16);
-        const mix = (c: number, target: number, weight: number) =>
-          Math.round(c + (target - c) * weight);
+      // Sync PWA / browser status bar <meta name="theme-color">
+      const themeMeta = document.querySelector('meta[name="theme-color"]');
+      if (themeMeta) {
+        themeMeta.setAttribute('content', dark ? dShell : lShell);
+      }
 
-        const tints: Array<[string, number, number]> = [
-          ['50', 255, 0.92],
-          ['100', 255, 0.84],
-          ['200', 255, 0.68],
-          ['300', 255, 0.45],
-          ['400', 255, 0.22],
-          ['500', 0, 0],
-          ['600', 0, 0.14],
-          ['700', 0, 0.28],
-          ['800', 0, 0.44],
-          ['900', 0, 0.58],
-          ['950', 0, 0.76],
-        ];
-
-        for (const [shade, target, weight] of tints) {
-          root.style.setProperty(
-            `--brand-${shade}-rgb`,
-            `${mix(r, target, weight)} ${mix(g, target, weight)} ${mix(b, target, weight)}`
-          );
+      // Generate vibrant HSL-balanced RGB brand scale for Tailwind opacity modifiers
+      const brandScale = buildBrandScale(resolvedAccent);
+      if (brandScale) {
+        for (const [shade, rgbStr] of Object.entries(brandScale)) {
+          root.style.setProperty(`--brand-${shade}-rgb`, rgbStr);
         }
       }
     };
@@ -1587,6 +1596,9 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     customization.darkBgColor,
     customization.darkSurfaceColor,
     customization.contrastLevel,
+    customization.surfaceTheme,
+    customization.borderRadius,
+    customization.fontFamily,
     customization.systemScale,
     customization.favicon,
     customization.logoLight,
@@ -1765,7 +1777,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     openNoticeModal({
       title: '¿Restaurar identidad y estilos de fábrica?',
       message:
-        'Se restablecerán los colores, fondos, tipografía y logotipos predeterminados de Khalessi Pizza ERP.',
+        'Se restablecerán los colores, fondos, tipografía y logotipos predeterminados de GastroERP.',
       tone: 'warning',
       confirmLabel: 'Sí, Restaurar',
       cancelLabel: 'Cancelar',
@@ -1797,7 +1809,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       setBranchScope('branch');
       setActiveTenantId(target.id);
       dispatchToast(
-        `Sucursal: ${target.name.replace('Khalessi Pizza - ', '')}`,
+        `Sucursal: ${target.name.replace('Gastro - ', '')}`,
         `Datos operativos, KDS y personal sincronizados con ${target.operations?.address || target.name}.`,
         'success'
       );
@@ -1816,7 +1828,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         tablesCount: 14,
         deliveryRadiusKm: 4.5,
         dailyGoalSoles: 5000,
-        address: `Local Comercial — ${tenant.name.replace('Khalessi Pizza - ', '')}`,
+        address: `Local Comercial — ${tenant.name.replace('Gastro - ', '')}`,
         phone: '+51 1 780 9099',
         managerName: 'Supervisor Asignado',
         salesTodaySoles: 3450,
@@ -1832,8 +1844,8 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
           {
             id: `${tenant.slug.slice(0, 3).toUpperCase()}-101`,
             customer: 'Comanda Inaugural POS',
-            branchName: tenant.name.replace('Khalessi Pizza - ', ''),
-            items: '2× Familiar Khalessi Especial · 1× Gaseosa 1.5L',
+            branchName: tenant.name.replace('Gastro - ', ''),
+            items: '2× Familiar Especial · 1× Gaseosa 1.5L',
             totalSoles: 98,
             timeAgo: '1m',
             status: 'En horno',
@@ -1999,9 +2011,10 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const saveAllSettings = async () => {
     setIsSaving(true);
-    await new Promise(resolve => setTimeout(resolve, 450));
+    let syncedToServer = false;
+    let syncReason = '';
     try {
-      void authenticateServer(currentUser.pin || '230825');
+      const activePin = currentUser.pin || '230895';
       const snapshot: PersistedSnapshot = {
         customization,
         companyInfo,
@@ -2015,24 +2028,44 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       };
       const json = JSON.stringify(snapshot);
       lastSerializedPayloadRef.current = json;
-      localStorage.setItem(STORAGE_KEY, json);
       localStorage.setItem(CHECKPOINT_KEY, json);
+
+      const syncRes = await forcePersistKeyToServer(STORAGE_KEY, json, activePin);
+      syncedToServer = syncRes.syncedToServer;
+      syncReason = syncRes.reason || '';
+
+      // Asegurar también persistencia inmediata de RBAC si existe en memoria local
+      const rbacRaw = localStorage.getItem('gastro_erp_rbac_v3');
+      if (rbacRaw) {
+        void forcePersistKeyToServer('gastro_erp_rbac_v3', rbacRaw, activePin);
+      }
     } catch {
-      // Ignore quota errors
+      syncedToServer = false;
+      syncReason = 'storage_error';
     }
     setIsSaving(false);
     setIsDirty(false);
     logAuditEvent(
       'appearance',
-      'info',
+      syncedToServer ? 'info' : 'warning',
       'Punto de Control Guardado',
-      'Preferencias globales de marca, interfaz y sucursales confirmadas en persistencia.'
+      syncedToServer
+        ? 'Preferencias globales de marca, interfaz y sucursales confirmadas en el servidor.'
+        : `Guardado en caché local; pendiente de sincronizar con el servidor (${syncReason || 'sin conexión'}).`
     );
-    dispatchToast(
-      'Configuración Guardada',
-      'Cambios persistidos permanentemente en tu sesión y sucursales.',
-      'success'
-    );
+    if (syncedToServer) {
+      dispatchToast(
+        'Configuración Guardada',
+        'Cambios confirmados en el servidor y sincronizados en todas las sucursales.',
+        'success'
+      );
+    } else {
+      dispatchToast(
+        'Guardado Localmente (Pendiente de Sincronizar)',
+        'No se pudo confirmar en el servidor todavía. Verifica tu conexión o sesión antes de recargar.',
+        'warning'
+      );
+    }
   };
 
   const addComplaint = (

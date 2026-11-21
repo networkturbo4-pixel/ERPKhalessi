@@ -258,7 +258,7 @@ export function buildWelcomeResponse(
   ctx: OrderBotContext
 ): OrderBotResponse {
   const available = products.filter(p => p.isAvailable);
-  const brand = ctx.storeName?.trim() || 'Khalessi Pizza';
+  const brand = ctx.storeName?.trim() || 'Gastro Restaurante';
 
   if (ctx.requireRegistration && !ctx.isRegistered) {
     return {
@@ -333,7 +333,7 @@ export function generateOrderBotResponse(
 ): OrderBotResponse {
   const available = products.filter(p => p.isAvailable);
   const query = normalizeBotText(rawQuery);
-  const brand = ctx.storeName?.trim() || 'Khalessi Pizza';
+  const brand = ctx.storeName?.trim() || 'Gastro Restaurante';
 
   if (available.length === 0) {
     return {

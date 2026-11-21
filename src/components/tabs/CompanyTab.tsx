@@ -125,7 +125,7 @@ export const CompanyTab: React.FC = () => {
       accountNumber: '',
       cci: '',
       currency: 'PEN (S/)',
-      holderName: companyInfo.legalName || 'KHALESSI PIZZA FOODS S.A.C.',
+      holderName: companyInfo.legalName || 'GASTRO RESTAURANTE S.A.C.',
     };
     const next = [...currentList, newBank];
     updateCompanyInfo({ bankAccounts: next });
@@ -150,9 +150,9 @@ export const CompanyTab: React.FC = () => {
     const newWallet: DigitalWallet = {
       id: `wallet-${Date.now()}`,
       provider: 'yape',
-      holderName: companyInfo.commercialName || 'Khalessi Pizza',
+      holderName: companyInfo.commercialName || 'Gastro Restaurante',
       phone: '999 888 777',
-      qrImageUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=YAPE-KHALESSI-PIZZA',
+      qrImageUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=YAPE-GASTRO-REST',
     };
     const next = [...currentList, newWallet];
     updateCompanyInfo({ wallets: next });
@@ -227,7 +227,7 @@ export const CompanyTab: React.FC = () => {
   const handleCopyWebhookUrl = () => {
     const webhookUrl =
       companyInfo.culqiConfig?.webhookUrl ||
-      `${typeof window !== 'undefined' ? window.location.origin : 'https://pizzakhalessi.com'}/api/culqi/webhook`;
+      `${typeof window !== 'undefined' ? window.location.origin : 'https://gastroerp.com'}/api/culqi/webhook`;
     navigator.clipboard?.writeText(webhookUrl);
     setCopiedWebhook(true);
     dispatchToast('URL Copiada', 'Endpoint del Webhook copiado al portapapeles.', 'info');
@@ -385,7 +385,7 @@ export const CompanyTab: React.FC = () => {
                     type="text"
                     value={companyInfo.legalName}
                     onChange={e => updateCompanyInfo({ legalName: e.target.value })}
-                    placeholder="Ej. KHALESSI PIZZA FOODS S.A.C."
+                    placeholder="Ej. GASTRO RESTAURANTE S.A.C."
                     className="w-full px-3.5 py-2.5 rounded-xl saas-input text-sm"
                   />
                 </div>
@@ -417,7 +417,7 @@ export const CompanyTab: React.FC = () => {
                     type="text"
                     value={companyInfo.commercialName}
                     onChange={e => updateCompanyInfo({ commercialName: e.target.value })}
-                    placeholder="Ej. Pizza Khalessi"
+                    placeholder="Ej. Gastro Restaurante"
                     className="w-full px-3.5 py-2.5 rounded-xl saas-input text-sm"
                   />
                 </div>
@@ -486,7 +486,7 @@ export const CompanyTab: React.FC = () => {
                     autoCapitalize="none"
                     value={companyInfo.email}
                     onChange={e => updateCompanyInfo({ email: e.target.value })}
-                    placeholder="pizzakhalessi22@gmail.com"
+                    placeholder="contacto@gastroerp.com"
                     className="w-full px-3.5 py-2.5 rounded-xl saas-input text-sm"
                   />
                 </div>
@@ -518,7 +518,7 @@ export const CompanyTab: React.FC = () => {
                     autoCapitalize="none"
                     value={companyInfo.socialLinks?.facebook || ''}
                     onChange={e => handleUpdateSocial('facebook', e.target.value)}
-                    placeholder="https://facebook.com/pizzakhalessi"
+                    placeholder="https://facebook.com/gastroerp"
                     className="w-full px-3.5 py-2.5 rounded-xl saas-input text-xs sm:text-sm font-mono"
                   />
                 </div>
@@ -535,7 +535,7 @@ export const CompanyTab: React.FC = () => {
                     autoCapitalize="none"
                     value={companyInfo.socialLinks?.instagram || ''}
                     onChange={e => handleUpdateSocial('instagram', e.target.value)}
-                    placeholder="https://instagram.com/pizzakhalessi"
+                    placeholder="https://instagram.com/gastroerp"
                     className="w-full px-3.5 py-2.5 rounded-xl saas-input text-xs sm:text-sm font-mono"
                   />
                 </div>
@@ -552,7 +552,7 @@ export const CompanyTab: React.FC = () => {
                     autoCapitalize="none"
                     value={companyInfo.socialLinks?.tiktok || ''}
                     onChange={e => handleUpdateSocial('tiktok', e.target.value)}
-                    placeholder="https://tiktok.com/@pizzakhalessi"
+                    placeholder="https://tiktok.com/@gastroerp"
                     className="w-full px-3.5 py-2.5 rounded-xl saas-input text-xs sm:text-sm font-mono"
                   />
                 </div>
@@ -1254,7 +1254,7 @@ export const CompanyTab: React.FC = () => {
                           ...(companyInfo.culqiConfig || {
                             enabled: true,
                             environment: 'test',
-                            publicKey: 'pk_test_demo_khalessi_v4',
+                            publicKey: 'pk_test_demo_gastro_v4',
                             yapeEnabled: true,
                             billeteraEnabled: true,
                             allowCashFallback: true,
@@ -1291,7 +1291,7 @@ export const CompanyTab: React.FC = () => {
                         ...(companyInfo.culqiConfig || {
                           enabled: true,
                           environment: 'test',
-                          publicKey: 'pk_test_demo_khalessi_v4',
+                          publicKey: 'pk_test_demo_gastro_v4',
                           yapeEnabled: true,
                           billeteraEnabled: true,
                           allowCashFallback: true,
@@ -1502,7 +1502,7 @@ export const CompanyTab: React.FC = () => {
                   readOnly
                   value={
                     companyInfo.culqiConfig?.webhookUrl ||
-                    `${typeof window !== 'undefined' ? window.location.origin : 'https://pizzakhalessi.com'}/api/culqi/webhook`
+                    `${typeof window !== 'undefined' ? window.location.origin : 'https://gastroerp.com'}/api/culqi/webhook`
                   }
                   className="flex-1 px-3.5 py-2 rounded-xl text-xs font-mono bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 select-all"
                 />

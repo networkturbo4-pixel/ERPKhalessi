@@ -105,8 +105,8 @@ export interface FacturaloEmissionResult {
 // Respaldo de RUCs de demostración válidos SUNAT Perú
 const DEMO_RUC_DATABASE: Record<string, Partial<FacturaloRucResponse>> = {
   '20608945123': {
-    razonSocial: 'KHALESSI PIZZA FOODS S.A.C.',
-    nombreComercial: 'KHALESSI PIZZA ARTESANAL',
+    razonSocial: 'GASTRO RESTAURANTE S.A.C.',
+    nombreComercial: 'GASTRO RESTAURANTE',
     estado: 'ACTIVO',
     condicion: 'HABIDO',
     direccion: 'AV. PRIMAVERA NRO. 1024 INT. 201 - SANTIAGO DE SURCO, LIMA',

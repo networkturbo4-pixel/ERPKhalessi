@@ -17,9 +17,9 @@ const DEVICE_LOCAL_KEYS = new Set<string>([
   'kh_store_active_customer_id_v1',
   'kh_store_order_prefs_v1',
   'kh_active_main_module',
-  'khalessi_erp_auth_v1',
+  'gastro_erp_auth_v1',
   'kh_game_spins_today',
-  'khalessi_erp_checkpoint_v3',
+  'gastro_erp_checkpoint_v3',
   'kh_brand_favicon_v1',
   'kh_brand_primary_v1',
   'kh_brand_theme_v1',
@@ -27,11 +27,11 @@ const DEVICE_LOCAL_KEYS = new Set<string>([
 
 // Claves que el servidor de producción (cPanel) sincroniza; el resto permanece en cada navegador
 const SERVER_SYNC_KEYS = [
-  'khalessi_erp_settings_v3',
-  'khalessi_erp_rbac_v3',
-  'khalessi_erp_hr_v1',
-  'khalessi_erp_audit_v1',
-  'khalessi_erp_complaints_v1',
+  'gastro_erp_settings_v3',
+  'gastro_erp_rbac_v3',
+  'gastro_erp_hr_v1',
+  'gastro_erp_audit_v1',
+  'gastro_erp_complaints_v1',
   'kh_store_builder_v2',
   'kh_catalog_products',
   'kh_product_categories_v1',
@@ -44,9 +44,9 @@ const SERVER_SYNC_KEYS = [
   'kh_sunat_invoices_v1',
   'kh_customers_crm_v1',
   'kh_store_customer_accounts_v1',
-  'khalessi_delivery_fuel_v1',
-  'khalessi_erp_finance_expenses_v1',
-  'khalessi_erp_cash_closings_v1',
+  'gastro_delivery_fuel_v1',
+  'gastro_erp_finance_expenses_v1',
+  'gastro_erp_cash_closings_v1',
   'kh_inv_audits_v1',
   'kh_inv_items_v1',
   'kh_inv_lots_v1',
@@ -60,10 +60,10 @@ const SERVER_SYNC_KEYS = [
   'kh_media_gallery_v1',
   'kh_label_config_v1',
   'kh_marketing_automations_v1',
-  'khalessi_loyalty_v1',
+  'gastro_loyalty_v1',
   'kh_facturalo_api_config_v1',
   'kh_reniec_api_config',
-  'khalessi_mapbox_settings_v1',
+  'gastro_mapbox_settings_v1',
 ];
 
 const SERVER_SYNC_SET = new Set<string>(SERVER_SYNC_KEYS);
@@ -74,12 +74,12 @@ const PUBLIC_WRITABLE_KEYS = new Set<string>([
   'kh_customers_crm_v1',
   'kh_store_customer_accounts_v1',
   'kh_floor_tables_v1',
-  'khalessi_erp_complaints_v1',
+  'gastro_erp_complaints_v1',
 ]);
 
 // Claves legibles sin sesión ERP (espejo de KH_PUBLIC_READ_KEYS en storage-lib.php)
 const PUBLIC_READ_KEYS = new Set<string>([
-  'khalessi_erp_settings_v3',
+  'gastro_erp_settings_v3',
   'kh_store_builder_v2',
   'kh_catalog_products',
   'kh_product_categories_v1',
@@ -89,11 +89,11 @@ const PUBLIC_READ_KEYS = new Set<string>([
   'kh_customers_crm_v1',
   'kh_store_customer_accounts_v1',
   'kh_floor_tables_v1',
-  'khalessi_erp_complaints_v1',
+  'gastro_erp_complaints_v1',
 ]);
 
-const SETTINGS_KEY = 'khalessi_erp_settings_v3';
-const RBAC_KEY = 'khalessi_erp_rbac_v3';
+const SETTINGS_KEY = 'gastro_erp_settings_v3';
+const RBAC_KEY = 'gastro_erp_rbac_v3';
 const TOKEN_KEY = 'erp_api_token';
 
 const rejectedPins = new Set<string>();
@@ -311,7 +311,7 @@ function cacheBrandSplashAssets(settingsJson: string): void {
 const ORDERS_KEY = 'kh_orders_list';
 const IDB_PREFERRED_KEYS = new Set<string>([
   'kh_media_gallery_v1',
-  'khalessi_erp_checkpoint_v3',
+  'gastro_erp_checkpoint_v3',
 ]);
 
 function writeLocalWithQuotaFallback(key: string, value: string, warnOnFallback: boolean): void {
@@ -503,7 +503,7 @@ function enqueueServerSync(
         if (
           !isPublicWritable &&
           !getServerToken() &&
-          originalGetItemFn?.('khalessi_erp_auth_v1') === 'authenticated' &&
+          originalGetItemFn?.('gastro_erp_auth_v1') === 'authenticated' &&
           isErpAdminSurface()
         ) {
           const activePin = resolveAuthenticatedUserPin();
@@ -535,7 +535,7 @@ function enqueueServerSync(
               // Reintentar inmediatamente sin token vencido para que el pedido jamás se pierda
               res = await doPost(false);
             } else if (
-              originalGetItemFn?.('khalessi_erp_auth_v1') === 'authenticated' &&
+              originalGetItemFn?.('gastro_erp_auth_v1') === 'authenticated' &&
               isErpAdminSurface()
             ) {
               const activePin = resolveAuthenticatedUserPin();
@@ -559,7 +559,7 @@ function enqueueServerSync(
             // El servidor descartó la escritura (sin token válido). Reautenticar y reintentar una vez;
             // si sigue sin aceptarla, conservarla como pendiente para que se reenvíe después.
             const onAdminSurface =
-              originalGetItemFn?.('khalessi_erp_auth_v1') === 'authenticated' && isErpAdminSurface();
+              originalGetItemFn?.('gastro_erp_auth_v1') === 'authenticated' && isErpAdminSurface();
             if (!isPublicWritable && onAdminSurface) {
               const activePin = resolveAuthenticatedUserPin();
               if (activePin && (await authenticateServer(activePin, true))) {
@@ -672,11 +672,13 @@ export function installStorageInterceptor(): void {
 
     if (isSharedKey(key)) {
       // Nunca sobreescribir el servidor con defaults de montaje antes de hidratar,
-      // ni con usuarios/credenciales de respaldo cuando settings solo se hidrató en modo público.
+      // ni con usuarios/credenciales de respaldo cuando settings solo se hidrató en modo público fuera del panel admin.
       if (!initialReconcileCompleted && !hadPriorValue && !PUBLIC_WRITABLE_KEYS.has(key)) {
         return;
       }
-      if (key === SETTINGS_KEY && settingsHasUnhydratedSensitiveFields) {
+      const isAuthenticatedAdmin =
+        originalGetItemFn?.('gastro_erp_auth_v1') === 'authenticated' && isErpAdminSurface();
+      if (key === SETTINGS_KEY && settingsHasUnhydratedSensitiveFields && !isAuthenticatedAdmin) {
         return;
       }
       enqueueServerSync(key, { action: 'set', value });
@@ -700,6 +702,143 @@ export function installStorageInterceptor(): void {
 
 export function syncPendingOfflineQueue(): Promise<number> {
   return flushOfflineQueue(getAuthHeaders, CLIENT_ID);
+}
+
+/**
+ * Fuerza y espera la persistencia real de una clave compartida hacia el servidor MySQL.
+ * Útil para botones explícitos "Guardar Cambios" (evita que F5 aborte el guardado o vuelva a datos de prueba).
+ */
+export async function forcePersistKeyToServer(
+  key: string,
+  value: string,
+  pin?: string
+): Promise<{ ok: boolean; syncedToServer: boolean; reason?: string }> {
+  if (typeof window === 'undefined') {
+    return { ok: false, syncedToServer: false, reason: 'no_window' };
+  }
+
+  installStorageInterceptor();
+
+  if (key === ORDERS_KEY) value = stripHeavyDataUris(value);
+  memoryMirror.set(key, value);
+  if (key === SETTINGS_KEY) {
+    settingsHasUnhydratedSensitiveFields = false;
+    cacheBrandSplashAssets(value);
+  }
+  writeLocalWithQuotaFallback(key, value, true);
+
+  if (!isSharedKey(key)) {
+    return { ok: true, syncedToServer: true };
+  }
+
+  const isPublicWritable = PUBLIC_WRITABLE_KEYS.has(key);
+  lastLocalWriteAt.set(key, Date.now());
+  inFlightWrites.set(key, (inFlightWrites.get(key) || 0) + 1);
+
+  let result: { ok: boolean; syncedToServer: boolean; reason?: string } = {
+    ok: true,
+    syncedToServer: false,
+    reason: 'network_error',
+  };
+
+  const prevChain = writeChains.get(key) || Promise.resolve();
+  const nextChain = prevChain
+    .catch(() => {})
+    .then(async () => {
+      try {
+        const cleanPin = (pin || resolveAuthenticatedUserPin() || '').trim();
+        if (!isPublicWritable && !getServerToken() && cleanPin) {
+          await authenticateServer(cleanPin);
+        }
+
+        const payloadBody = JSON.stringify({ data: value });
+        const doPost = (includeAuth: boolean) =>
+          fetch(`/api/storage/${encodeURIComponent(key)}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-client-id': CLIENT_ID,
+              ...(includeAuth ? getAuthHeaders() : {}),
+            },
+            body: payloadBody,
+            ...(payloadBody.length < 48_000 ? { keepalive: true } : {}),
+          });
+
+        let res = await doPost(true);
+
+        if (res.status === 401) {
+          originalRemoveItemFn?.(TOKEN_KEY);
+          memoryMirror.delete(TOKEN_KEY);
+          if (isPublicWritable) {
+            res = await doPost(false);
+          } else if (cleanPin && (await authenticateServer(cleanPin, true))) {
+            res = await doPost(true);
+          } else {
+            failedSyncValues.set(key, { action: 'set', value });
+            void saveOfflineSnapshot(key, value);
+            result = { ok: true, syncedToServer: false, reason: 'unauthorized' };
+            return;
+          }
+        }
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        let resJson = await res.json().catch(() => null);
+        if (resJson?.ignored && !isPublicWritable && cleanPin) {
+          if (await authenticateServer(cleanPin, true)) {
+            const retry = await doPost(true);
+            const retryJson = retry.ok ? await retry.json().catch(() => null) : null;
+            if (retry.ok && !retryJson?.ignored) {
+              resJson = retryJson;
+            }
+          }
+        }
+
+        if (resJson?.ignored) {
+          failedSyncValues.set(key, { action: 'set', value });
+          void saveOfflineSnapshot(key, value);
+          result = {
+            ok: true,
+            syncedToServer: false,
+            reason: String(resJson?.reason || 'server_ignored'),
+          };
+          return;
+        }
+
+        if (memoryMirror.get(key) === value) {
+          failedSyncValues.delete(key);
+        }
+        lastLocalWriteAt.set(key, Date.now());
+        result = { ok: true, syncedToServer: true };
+      } catch (err) {
+        failedSyncValues.set(key, { action: 'set', value });
+        void saveOfflineSnapshot(key, value);
+        void enqueueOfflineOperation({
+          id: `kv:${key}`,
+          type: 'storage_put',
+          key,
+          payload: value,
+        });
+        result = {
+          ok: true,
+          syncedToServer: false,
+          reason: err instanceof Error ? err.message : 'network_error',
+        };
+      } finally {
+        const remaining = (inFlightWrites.get(key) || 1) - 1;
+        if (remaining <= 0) {
+          inFlightWrites.delete(key);
+        } else {
+          inFlightWrites.set(key, remaining);
+        }
+      }
+    });
+
+  writeChains.set(key, nextChain);
+  await nextChain;
+  return result;
 }
 
 export async function initDiskPersistence(): Promise<void> {
@@ -842,24 +981,37 @@ export async function initDiskPersistence(): Promise<void> {
 
   onServerAuthenticated = () => {
     lastHash = '';
-    const forceKeys = new Set<string>([
-      SETTINGS_KEY,
-      RBAC_KEY,
-      'khalessi_erp_hr_v1',
-      'khalessi_erp_audit_v1',
-    ]);
-    for (const k of forceKeys) {
-      failedSyncValues.delete(k);
+    const now = Date.now();
+    const forceKeys = new Set<string>();
+    for (const k of [SETTINGS_KEY, RBAC_KEY, 'gastro_erp_hr_v1', 'gastro_erp_audit_v1']) {
+      // Jamás sobrescribir claves que tienen escrituras locales recientes o pendientes por sincronizar
+      const hasPendingLocal =
+        (inFlightWrites.get(k) || 0) > 0 ||
+        failedSyncValues.has(k) ||
+        now - (lastLocalWriteAt.get(k) || 0) < 10_000;
+      if (!hasPendingLocal) {
+        forceKeys.add(k);
+      }
     }
     void (async () => {
       try {
+        // Primero reintentar subir cualquier escritura local que falló por falta de token
+        if (failedSyncValues.size > 0) {
+          for (const [key, pendingOp] of Array.from(failedSyncValues.entries())) {
+            if ((inFlightWrites.get(key) || 0) === 0) {
+              enqueueServerSync(key, pendingOp);
+            }
+          }
+        }
         const res = await fetch('/api/storage', { cache: 'no-store', headers: getAuthHeaders() });
         const onServer: Record<string, string> =
           res.ok && (res.headers.get('content-type') || '').includes('json') ? await res.json() : {};
         if (onServer[SETTINGS_KEY] === undefined) {
           settingsHasUnhydratedSensitiveFields = false;
         }
-        await reconcileFromServer(true, forceKeys);
+        if (forceKeys.size > 0) {
+          await reconcileFromServer(true, forceKeys);
+        }
         for (const key of SERVER_SYNC_KEYS) {
           // Nunca sobreescribir pedidos con una caché local vieja al autenticar: el servidor los fusiona
           if (key === 'kh_orders_list') continue;
@@ -879,7 +1031,7 @@ export async function initDiskPersistence(): Promise<void> {
 
   // 2. Autenticar silenciosamente SOLO si estamos dentro del panel ERP y aún no hay token
   if (
-    originalGetItemFn?.('khalessi_erp_auth_v1') === 'authenticated' &&
+    originalGetItemFn?.('gastro_erp_auth_v1') === 'authenticated' &&
     !getServerToken() &&
     isErpAdminSurface()
   ) {

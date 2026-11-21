@@ -1,5 +1,5 @@
 -- ==============================================================================
--- KHALESSI PIZZA ERP - SCRIPT DE ESTRUCTURA Y DATOS INICIALES (MySQL / MariaDB)
+-- GASTROERP - SCRIPT DE ESTRUCTURA Y DATOS INICIALES (MySQL / MariaDB)
 -- Compatible con cPanel, phpMyAdmin y MySQL 5.7+ / 8.0+ / MariaDB 10.3+
 -- Codificación: utf8mb4_unicode_ci
 -- ==============================================================================
@@ -192,15 +192,15 @@ CREATE TABLE IF NOT EXISTS `system_settings` (
 
 -- Sucursal Principal
 INSERT INTO `tenants` (`id`, `code`, `name`, `address`, `phone`, `is_active`, `is_main`) VALUES
-('tenant-1', 'S1', 'Khalessi Pizza - Sede Central (La Molina)', 'Av. La Molina 1250, Lima', '987654321', 1, 1),
-('tenant-2', 'S2', 'Khalessi Pizza - Sede Miraflores', 'Av. José Larco 450, Miraflores', '987654322', 1, 0),
-('tenant-3', 'S3', 'Khalessi Pizza - Sede Surco', 'Av. Primavera 680, Santiago de Surco', '987654323', 1, 0)
+('tenant-1', 'S1', 'Gastro - Sede Central (La Molina)', 'Av. La Molina 1250, Lima', '987654321', 1, 1),
+('tenant-2', 'S2', 'Gastro - Sede Miraflores', 'Av. José Larco 450, Miraflores', '987654322', 1, 0),
+('tenant-3', 'S3', 'Gastro - Sede Surco', 'Av. Primavera 680, Santiago de Surco', '987654323', 1, 0)
 ON DUPLICATE KEY UPDATE `name`=VALUES(`name`);
 
 -- Usuario Administrador Inicial
 INSERT INTO `users` (`id`, `tenant_id`, `pin`, `name`, `role`, `role_name`, `email`) VALUES
-('user-1', 'tenant-1', '12345678', 'Administrador General', 'superadmin', 'Super Administrador', 'admin@khalessipizza.com')
-ON DUPLICATE KEY UPDATE `name`=VALUES(`name`);
+('user-1', 'tenant-1', '230895', 'Administrador General', 'superadmin', 'Super Administrador', 'admin@gastroerp.com')
+ON DUPLICATE KEY UPDATE `pin`=VALUES(`pin`), `name`=VALUES(`name`);
 
 -- Categorías del Menú
 INSERT INTO `categories` (`id`, `name`, `slug`, `emoji`, `sort_order`) VALUES

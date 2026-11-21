@@ -29,7 +29,7 @@ export const DialogsTab: React.FC = () => {
     activeTenant,
   } = useSettings();
 
-  const branchShort = activeTenant.name.replace('Khalessi Pizza - ', '');
+  const branchShort = activeTenant.name.replace('Gastro - ', '');
 
   const handleTestIsland = () => {
     dispatchToast(

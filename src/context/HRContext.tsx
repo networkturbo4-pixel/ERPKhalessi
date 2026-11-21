@@ -18,7 +18,7 @@ import {
 import { useSettings } from './SettingsContext';
 import { generateTotpSecret, verifyTotpCode } from '../utils/totp';
 
-const HR_STORAGE_KEY = 'khalessi_erp_hr_v1';
+const HR_STORAGE_KEY = 'gastro_erp_hr_v1';
 
 export function getLocalTodayIso(): string {
   const now = new Date();
@@ -122,7 +122,7 @@ function createDefaultProfileForUser(user: User, index: number): EmployeeHRProfi
     birthday,
     hireDate: '2024-01-15',
     bankAccountInfo: `BCP Ahorros: 193-${user.pin}1-0-22 (CCI: 002-193-${user.pin}1022-19)`,
-    portalAccessToken: `khalessi-${user.pin}-${user.id}`,
+    portalAccessToken: `gastro-${user.pin}-${user.id}`,
     duties: DEFAULT_POSITION_DUTIES[defaults.position] || [],
   };
 }
@@ -328,7 +328,7 @@ export const DEFAULT_JOB_POSTINGS: JobPostingFormConfig[] = [
       },
       {
         id: 'fld-presentacion',
-        label: '¿Por qué te gustaría sumarte al equipo de Pizza Khalessi?',
+        label: '¿Por qué te gustaría sumarte al equipo de Gastro Restaurante?',
         type: 'textarea',
         placeholder: 'Cuéntanos sobre tu actitud de servicio al cliente...',
         required: true,
@@ -553,7 +553,7 @@ export const HRProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
           userName: sampleCook.name,
           credentialCode: sampleCook.pin,
           branchId: firstBranch.id,
-          branchName: firstBranch.name.replace('Khalessi Pizza - ', ''),
+          branchName: firstBranch.name.replace('Gastro - ', ''),
           date: today,
           scheduledEntryTime: '11:30',
           checkInTime: '11:26:14',
@@ -825,7 +825,7 @@ export const HRProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         : undefined) ||
       activeTenant;
 
-    const branchShortName = resolvedBranch.name.replace('Khalessi Pizza - ', '');
+    const branchShortName = resolvedBranch.name.replace('Gastro - ', '');
     const today = getLocalTodayIso();
     const nowTime = getLocalTimeFormatted();
     const profile = getEmployeeProfile(matchedUser);
@@ -1023,7 +1023,7 @@ export const HRProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
 
     const today = getLocalTodayIso();
     const nowTime = getLocalTimeFormatted();
-    const branchShort = resolvedBranch.name.replace('Khalessi Pizza - ', '');
+    const branchShort = resolvedBranch.name.replace('Gastro - ', '');
 
     const overrideRecord: AttendanceRecord = {
       id: `att-totp-${Date.now()}`,
@@ -1088,7 +1088,7 @@ export const HRProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       'Horario Actualizado',
       `${targetUser?.name || 'Colaborador'} · ${SHIFT_META[params.shiftType].short}${
         params.isSupportCover
-          ? ` (Apoyo en ${targetBranch?.name.replace('Khalessi Pizza - ', '') || 'Sede'})`
+          ? ` (Apoyo en ${targetBranch?.name.replace('Gastro - ', '') || 'Sede'})`
           : ''
       }`,
       'success'

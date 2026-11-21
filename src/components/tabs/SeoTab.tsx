@@ -124,7 +124,7 @@ export const SeoTab: React.FC = () => {
 
   const resolvedTitle = seo.metaTitle?.trim() || companyInfo.commercialName;
   const resolvedDesc = seo.metaDescription?.trim() || seo.aiBrandSummary || '';
-  const resolvedUrl = seo.canonicalUrl?.trim() || 'https://pizzakhalessi.com';
+  const resolvedUrl = seo.canonicalUrl?.trim() || 'https://gastroerp.com';
   const resolvedOgTitle = seo.ogTitle?.trim() || resolvedTitle;
   const resolvedOgDesc = seo.ogDescription?.trim() || resolvedDesc;
 
@@ -194,7 +194,7 @@ export const SeoTab: React.FC = () => {
               type="text"
               value={seo.metaTitle}
               onChange={e => updateSeo({ metaTitle: e.target.value })}
-              placeholder="Ej: Khalessi Pizza Artesanal | Pizzas a la Leña y Delivery"
+              placeholder="Ej: Gastro Restaurante | Pizzas a la Leña y Delivery"
               className="w-full px-3.5 py-2.5 rounded-xl saas-input text-xs sm:text-sm"
             />
           </div>
@@ -242,7 +242,7 @@ export const SeoTab: React.FC = () => {
               type="url"
               value={seo.canonicalUrl}
               onChange={e => updateSeo({ canonicalUrl: e.target.value })}
-              placeholder="https://pizzakhalessi.com"
+              placeholder="https://gastroerp.com"
               className="w-full px-3.5 py-2.5 rounded-xl saas-input text-xs sm:text-sm"
             />
           </div>
@@ -568,7 +568,7 @@ export const SeoTab: React.FC = () => {
                 type="text"
                 value={seo.twitterHandle || ''}
                 onChange={e => updateSeo({ twitterHandle: e.target.value })}
-                placeholder="@pizzakhalessi"
+                placeholder="@gastroerp"
                 className="w-full px-3.5 py-2.5 rounded-xl saas-input text-xs sm:text-sm"
               />
             </div>

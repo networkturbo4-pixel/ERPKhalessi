@@ -37,7 +37,7 @@ export function resolveInitialBootTheme(pathname?: string): InitialBrandBootThem
     primaryColor = localStorage.getItem('kh_brand_primary_v1') || primaryColor;
     erpTheme = localStorage.getItem('kh_brand_theme_v1') || '';
 
-    const rawSettings = localStorage.getItem('khalessi_erp_settings_v3');
+    const rawSettings = localStorage.getItem('gastro_erp_settings_v3');
     if (rawSettings) {
       const parsed = JSON.parse(rawSettings);
       const c = parsed?.customization;

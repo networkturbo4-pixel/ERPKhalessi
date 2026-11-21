@@ -79,7 +79,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateToSettin
       .slice(0, 10)
       .map(o => {
         const tenant = tenants.find(t => t.id === o.tenantId);
-        const branchName = tenant ? tenant.name.replace('Khalessi Pizza - ', '') : 'Principal';
+        const branchName = tenant ? tenant.name.replace('Gastro - ', '') : 'Principal';
 
         let statusStr = 'Preparación';
         if (o.status === 'en_horno' || o.status === 'en_cocina') statusStr = 'En horno';
@@ -229,7 +229,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateToSettin
           <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-950 dark:text-white">
             {branchScope === 'consolidated'
               ? 'Centro de Comando Multisucursal'
-              : `Operación en Vivo — ${activeTenant.name.replace('Khalessi Pizza - ', '')}`}
+              : `Operación en Vivo — ${activeTenant.name.replace('Gastro - ', '')}`}
           </h1>
         </div>
 
@@ -276,7 +276,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateToSettin
                 }`}
               >
                 <Store className="h-3.5 w-3.5 text-zinc-400" style={active ? { color: customization.primaryColor } : undefined} />
-                {t.name.replace('Khalessi Pizza - ', '')}
+                {t.name.replace('Gastro - ', '')}
               </button>
             );
           })}
@@ -347,7 +347,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateToSettin
                 Comandas KDS en vivo —{' '}
                 {branchScope === 'consolidated'
                   ? 'Todas las Sucursales'
-                  : activeTenant.name.replace('Khalessi Pizza - ', '')}
+                  : activeTenant.name.replace('Gastro - ', '')}
               </h2>
             </div>
             <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
@@ -436,7 +436,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigateToSettin
                   >
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-medium text-zinc-800 dark:text-zinc-100 flex items-center gap-1.5 truncate">
-                        {t.name.replace('Khalessi Pizza - ', '')}
+                        {t.name.replace('Gastro - ', '')}
                         {isCurrent && (
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                         )}

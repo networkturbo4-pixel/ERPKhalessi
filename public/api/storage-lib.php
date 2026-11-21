@@ -5,11 +5,11 @@
 
 // Claves que se sincronizan con el servidor (el resto se queda solo en el navegador)
 const KH_SYNC_KEYS = [
-    'khalessi_erp_settings_v3',
-    'khalessi_erp_rbac_v3',
-    'khalessi_erp_hr_v1',
-    'khalessi_erp_audit_v1',
-    'khalessi_erp_complaints_v1',
+    'gastro_erp_settings_v3',
+    'gastro_erp_rbac_v3',
+    'gastro_erp_hr_v1',
+    'gastro_erp_audit_v1',
+    'gastro_erp_complaints_v1',
     'kh_store_builder_v2',
     'kh_catalog_products',
     'kh_product_categories_v1',
@@ -19,9 +19,9 @@ const KH_SYNC_KEYS = [
     'kh_orders_list',
     'kh_customers_crm_v1',
     'kh_store_customer_accounts_v1',
-    'khalessi_delivery_fuel_v1',
-    'khalessi_erp_finance_expenses_v1',
-    'khalessi_erp_cash_closings_v1',
+    'gastro_delivery_fuel_v1',
+    'gastro_erp_finance_expenses_v1',
+    'gastro_erp_cash_closings_v1',
     'kh_inv_audits_v1',
     'kh_inv_items_v1',
     'kh_inv_lots_v1',
@@ -35,15 +35,15 @@ const KH_SYNC_KEYS = [
     'kh_media_gallery_v1',
     'kh_label_config_v1',
     'kh_marketing_automations_v1',
-    'khalessi_loyalty_v1',
+    'gastro_loyalty_v1',
     'kh_facturalo_api_config_v1',
     'kh_reniec_api_config',
-    'khalessi_mapbox_settings_v1',
+    'gastro_mapbox_settings_v1',
 ];
 
 // Claves que terminales operativas y tienda pueden LEER (ajustes siempre sanitizado sin claves ni PINs)
 const KH_PUBLIC_READ_KEYS = [
-    'khalessi_erp_settings_v3',
+    'gastro_erp_settings_v3',
     'kh_store_builder_v2',
     'kh_catalog_products',
     'kh_product_categories_v1',
@@ -53,8 +53,8 @@ const KH_PUBLIC_READ_KEYS = [
     'kh_customers_crm_v1',
     'kh_store_customer_accounts_v1',
     'kh_floor_tables_v1',
-    'khalessi_erp_complaints_v1',
-    'khalessi_erp_hr_v1',
+    'gastro_erp_complaints_v1',
+    'gastro_erp_hr_v1',
 ];
 
 // Claves operativas que tienda, KDS, Delivery y Libro de Reclamaciones pueden actualizar sin bloqueo 401
@@ -63,12 +63,12 @@ const KH_PUBLIC_WRITE_KEYS = [
     'kh_customers_crm_v1',
     'kh_store_customer_accounts_v1',
     'kh_floor_tables_v1',
-    'khalessi_erp_complaints_v1',
-    'khalessi_erp_hr_v1',
+    'gastro_erp_complaints_v1',
+    'gastro_erp_hr_v1',
 ];
 
-const KH_SETTINGS_KEY = 'khalessi_erp_settings_v3';
-const KH_RBAC_KEY = 'khalessi_erp_rbac_v3';
+const KH_SETTINGS_KEY = 'gastro_erp_settings_v3';
+const KH_RBAC_KEY = 'gastro_erp_rbac_v3';
 const KH_TOKEN_TTL = 60 * 60 * 24 * 7; // 7 días
 
 function kvInit(PDO $pdo): void {
@@ -143,7 +143,7 @@ function tokenSecret(): string {
     if (@file_put_contents($secretFile, "<?php\nreturn " . var_export($generated, true) . ";\n", LOCK_EX) === false) {
         // Sin permiso de escritura: secreto estable derivado de las credenciales de BD (evita tokens que nunca validan)
         $seed = (defined('DB_NAME') ? DB_NAME : '') . '|' . (defined('DB_USER') ? DB_USER : '') . '|' . (defined('DB_PASS') ? DB_PASS : '');
-        if ($seed !== '||') return hash_hmac('sha256', 'khalessi-token-v1', $seed);
+        if ($seed !== '||') return hash_hmac('sha256', 'gastro-token-v1', $seed);
     }
     return $generated;
 }

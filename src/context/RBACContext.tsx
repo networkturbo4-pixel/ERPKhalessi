@@ -194,13 +194,13 @@ export const MOCK_USERS: User[] = [
   {
     id: 'usr-1',
     name: 'César Augusto (Tú)',
-    email: 'cesar@khalessipizza.com',
+    email: 'admin@gastroerp.com',
     phone: '+51 987 654 321',
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
     roleId: 'role-admin',
     roleName: 'Super Administrador',
     status: 'active',
-    pin: '230825',
+    pin: '230895',
     documentType: 'Código (6d)',
     branchIds: ['all'],
     createdAt: '2024-01-15',
@@ -209,7 +209,7 @@ export const MOCK_USERS: User[] = [
   {
     id: 'usr-2',
     name: 'Valeria Mendoza',
-    email: 'valeria.surco@khalessipizza.com',
+    email: 'gerente.surco@gastroerp.com',
     phone: '+51 912 345 678',
     avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80',
     roleId: 'role-manager',
@@ -224,7 +224,7 @@ export const MOCK_USERS: User[] = [
   {
     id: 'usr-3',
     name: 'Mateo Rossi',
-    email: 'mateo.miraflores@khalessipizza.com',
+    email: 'gerente.miraflores@gastroerp.com',
     phone: '+51 978 112 233',
     avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
     roleId: 'role-manager',
@@ -239,7 +239,7 @@ export const MOCK_USERS: User[] = [
   {
     id: 'usr-4',
     name: 'Lucía Santillán',
-    email: 'lucia.sanisidro@khalessipizza.com',
+    email: 'gerente.sanisidro@gastroerp.com',
     phone: '+51 945 881 029',
     avatarUrl: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=200&q=80',
     roleId: 'role-cashier',
@@ -254,7 +254,7 @@ export const MOCK_USERS: User[] = [
   {
     id: 'usr-5',
     name: 'Marco Bellini',
-    email: 'marco.horno@khalessipizza.com',
+    email: 'cocina@gastroerp.com',
     phone: '+51 966 320 410',
     avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
     roleId: 'role-kitchen',
@@ -269,7 +269,7 @@ export const MOCK_USERS: User[] = [
   {
     id: 'usr-6',
     name: 'Diego Vargas',
-    email: 'diego.ruta@khalessipizza.com',
+    email: 'repartidor@gastroerp.com',
     phone: '+51 951 774 320',
     avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=200&q=80',
     roleId: 'role-delivery',
@@ -283,7 +283,7 @@ export const MOCK_USERS: User[] = [
   },
 ];
 
-const RBAC_STORAGE_KEY = 'khalessi_erp_rbac_v3';
+const RBAC_STORAGE_KEY = 'gastro_erp_rbac_v3';
 
 function loadSavedRBAC(): { roles: Role[]; currentUser: User } {
   try {

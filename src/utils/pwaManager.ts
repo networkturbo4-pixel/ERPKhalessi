@@ -92,7 +92,7 @@ export async function showOrderStatusNotification(params: {
   if (typeof window === 'undefined' || !('Notification' in window)) return;
   if (Notification.permission !== 'granted') return;
 
-  const tag = `khalessi-order-${params.orderNumber}`;
+  const tag = `gastro-order-${params.orderNumber}`;
   const targetUrl = params.url || '/?view=orders';
   let storedFavicon = '';
   try {
@@ -246,7 +246,7 @@ export function applyStoreSeoAndOpenGraph(params: {
   }
 
   // Schema.org JSON-LD for Google & AI Search Engines (ChatGPT, Perplexity, Google AI)
-  const existingLd = document.getElementById('khalessi-seo-jsonld');
+  const existingLd = document.getElementById('gastro-seo-jsonld');
   if (!seo.enableJsonLdSchema) {
     if (existingLd) existingLd.remove();
     return;
@@ -296,7 +296,7 @@ export function applyStoreSeoAndOpenGraph(params: {
 
   const scriptEl =
     (existingLd as HTMLScriptElement | null) || document.createElement('script');
-  scriptEl.id = 'khalessi-seo-jsonld';
+  scriptEl.id = 'gastro-seo-jsonld';
   scriptEl.type = 'application/ld+json';
   scriptEl.textContent = JSON.stringify(ldPayload, null, 2);
   if (!existingLd) {
@@ -305,9 +305,9 @@ export function applyStoreSeoAndOpenGraph(params: {
 }
 
 export function buildRobotsTxtContent(seo: StoreSeoConfig): string {
-  const baseUrl = (seo.canonicalUrl || 'https://pizzakhalessi.com').replace(/\/+$/, '');
+  const baseUrl = (seo.canonicalUrl || 'https://gastroerp.com').replace(/\/+$/, '');
   const lines = [
-    '# Robots.txt generado por Khalessi Pizza ERP',
+    '# Robots.txt generado por GastroERP',
     'User-agent: *',
     seo.robotsIndex ? 'Allow: /' : 'Disallow: /',
     'Disallow: /admin',
@@ -350,7 +350,7 @@ export function buildLlmsTxtContent(
   companyName: string,
   topProducts: Array<{ name: string; price: number; category?: string }> = []
 ): string {
-  const baseUrl = (seo.canonicalUrl || 'https://pizzakhalessi.com').replace(/\/+$/, '');
+  const baseUrl = (seo.canonicalUrl || 'https://gastroerp.com').replace(/\/+$/, '');
   const lines = [
     `# ${seo.ogSiteName || companyName}`,
     '',

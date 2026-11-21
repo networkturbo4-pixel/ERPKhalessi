@@ -6,7 +6,7 @@ export type GeoPoint = [number, number];
 export interface BranchCoverageResult {
   tenantId: string;
   covered: boolean;
-  matchType: 'polygon' | 'radius' | 'outside';
+  matchType: 'polygon' | 'radius' | 'national' | 'disabled' | 'outside';
   distanceKm: number;
   maxRadiusKm: number;
 }
@@ -70,6 +70,26 @@ export function evaluateBranchCoverage(
   const branchLng = tenant.operations?.longitude ?? -77.05432;
   const maxRadiusKm = tenant.operations?.deliveryRadiusKm ?? 5;
   const distanceKm = calculateHaversineKm(lat, lng, branchLat, branchLng);
+
+  if (tenant.operations?.hasDelivery === false) {
+    return {
+      tenantId: tenant.id,
+      covered: false,
+      matchType: 'disabled',
+      distanceKm,
+      maxRadiusKm,
+    };
+  }
+
+  if (tenant.operations?.shippingScope === 'national') {
+    return {
+      tenantId: tenant.id,
+      covered: true,
+      matchType: 'national',
+      distanceKm,
+      maxRadiusKm,
+    };
+  }
 
   const polygon = tenant.operations?.coveragePolygon;
   if (Array.isArray(polygon) && polygon.length >= 3) {

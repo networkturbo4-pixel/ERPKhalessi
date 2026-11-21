@@ -11,6 +11,7 @@ import {
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
 import { OfflineStatusBadge } from '../common/OfflineStatusBadge';
 import { useSettings } from '../../context/SettingsContext';
+import { resolveProductBasePrice, resolveSizePrice } from '../../utils/productPricing';
 import { isRealCulqiPublicKey, openOfficialCulqiCheckout } from '../../utils/culqiCheckout';
 import { StoreCulqiSandboxDialog } from '../store/StoreCulqiSandboxDialog';
 import { getStoreCategories } from '../store/StorefrontWidgets';
@@ -739,7 +740,7 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
                     value={t.id}
                     className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white"
                   >
-                    {t.name.replace('Khalessi Pizza - ', '')}
+                    {t.name.replace('Gastro - ', '')}
                   </option>
                 ))}
               </select>
@@ -850,7 +851,7 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
               <div className="flex items-center gap-2">
                 <span className="px-3 py-1.5 rounded-full bg-black/55 backdrop-blur-md border border-white/15 text-xs font-bold text-zinc-200 flex items-center gap-1.5 whitespace-nowrap shrink-0">
                   <Store className="w-3.5 h-3.5 text-amber-400" />
-                  {activeTenant.name.replace('Khalessi Pizza - ', '')}
+                  {activeTenant.name.replace('Gastro - ', '')}
                 </span>
                 {!embeddedInAdmin && onExitToAdmin && (
                   <button
@@ -935,7 +936,7 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
                 </button>
                 <div className="min-w-0">
                   <span className="text-[10px] font-black uppercase tracking-wider text-amber-400 block">
-                    {activeTenant.name.replace('Khalessi Pizza - ', '')}
+                    {activeTenant.name.replace('Gastro - ', '')}
                   </span>
                   <h2 className="text-xs min-[390px]:text-sm sm:text-base font-black text-white leading-tight line-clamp-2">
                     Arma tu Pedido a tu Gusto
@@ -1043,10 +1044,17 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
                   }`}
                 >
                   {filteredProducts.map((product) => {
-                    const minPrice = product.hasSizes
-                      ? Math.min(...product.sizes.filter((s) => s.enabled).map((s) => s.price))
-                      : product.basePrice;
-                    const displayPrice = Number.isFinite(minPrice) ? minPrice : product.basePrice;
+                    const minPrice =
+                      product.productType !== 'apparel' && product.hasSizes
+                        ? Math.min(
+                            ...product.sizes
+                              .filter((s) => s.enabled)
+                              .map((s) => resolveSizePrice(product, s, activeTenant?.id))
+                          )
+                        : resolveProductBasePrice(product, activeTenant?.id);
+                    const displayPrice = Number.isFinite(minPrice)
+                      ? minPrice
+                      : resolveProductBasePrice(product, activeTenant?.id);
 
                     return (
                       <div
@@ -1549,7 +1557,7 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
                 </h2>
                 <p className="text-xs text-zinc-400">
                   Tu pedido ya está en el horno de{' '}
-                  {activeTenant.name.replace('Khalessi Pizza - ', '')}.
+                  {activeTenant.name.replace('Gastro - ', '')}.
                 </p>
               </div>
 
@@ -1898,7 +1906,7 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
         isOpen={isCulqiSandboxOpen}
         storeTitle={`${companyInfo.commercialName || customization.appName} — Kiosco`}
         amountSoles={kioskSubtotal}
-        customerEmail="kiosco@khalessipizza.com"
+        customerEmail="kiosco@gastroerp.com"
         yapeEnabled={culqiCfg?.yapeEnabled ?? true}
         accentColor={customization.primaryColor || '#f97316'}
         autoButtonContrast={true}

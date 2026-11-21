@@ -269,7 +269,7 @@ export const BenefitsModuleView: React.FC = () => {
       id: editingCouponId,
       code: cpnCode,
       title: cpnTitle.trim(),
-      description: cpnDesc.trim() || 'Promoción exclusiva Tienda Virtual Khalessi',
+      description: cpnDesc.trim() || 'Promoción exclusiva Tienda Virtual Gastro',
       discountType: cpnType,
       discountValue: Number(cpnValue),
       minOrderAmount: Math.max(0, Number(cpnMinOrder)),

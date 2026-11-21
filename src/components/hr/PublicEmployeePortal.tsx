@@ -224,7 +224,7 @@ export const PublicEmployeePortal: React.FC<PublicEmployeePortalProps> = ({
                   <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 flex flex-wrap items-center gap-x-3 gap-y-1">
                     <span>DNI / C.E.: <strong className="font-mono text-zinc-800 dark:text-zinc-200">{selectedUser.pin}</strong></span>
                     <span>•</span>
-                    <span>Sede: <strong className="text-zinc-800 dark:text-zinc-200">{assignedBranch.name.replace('Khalessi Pizza - ', '')}</strong></span>
+                    <span>Sede: <strong className="text-zinc-800 dark:text-zinc-200">{assignedBranch.name.replace('Gastro - ', '')}</strong></span>
                     <span>•</span>
                     <span>Contrato: <strong className="text-zinc-800 dark:text-zinc-200">{profile.contractType}</strong></span>
                   </p>
@@ -708,7 +708,7 @@ export const PublicEmployeePortal: React.FC<PublicEmployeePortalProps> = ({
 
       {/* FOOTER */}
       <footer className="print:hidden border-t border-zinc-200 dark:border-zinc-800 py-4 px-6 text-center text-xs text-zinc-500">
-        Portal del Colaborador · {companyInfo.legalName} · Generado automáticamente por Pizza Khalessi ERP
+        Portal del Colaborador · {companyInfo.legalName} · Generado automáticamente por GastroERP
       </footer>
 
       <ToastContainer />

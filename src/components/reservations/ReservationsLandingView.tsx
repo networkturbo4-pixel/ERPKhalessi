@@ -200,7 +200,7 @@ export const ReservationsLandingView: React.FC<ReservationsLandingViewProps> = (
             </button>
             <div className="min-w-0">
               <h1 className="text-sm sm:text-base font-black text-white truncate">
-                {companyInfo.commercialName || 'Khalessi Pizza'} · Reservas
+                {companyInfo.commercialName || 'Gastro Restaurante'} · Reservas
               </h1>
               <p className="text-[11px] text-zinc-400 truncate">
                 Reserva tu mesa o programa tu pedido sin colas

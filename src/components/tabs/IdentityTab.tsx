@@ -200,7 +200,7 @@ export const IdentityTab: React.FC = () => {
               type="text"
               value={customization.appName}
               onChange={e => updateCustomization({ appName: e.target.value })}
-              placeholder="Ej. Khalessi Pizza ERP"
+              placeholder="Ej. GastroERP"
               className="w-full px-3.5 py-2.5 rounded-xl saas-input text-sm"
             />
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5">

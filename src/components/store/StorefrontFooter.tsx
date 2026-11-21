@@ -173,7 +173,7 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({
     const branchObj = tenants.find(t => t.id === claimBranchId) || activeTenant;
     const created = addComplaint({
       branchId: branchObj.id,
-      branchName: branchObj.name.replace('Khalessi Pizza - ', ''),
+      branchName: branchObj.name.replace('Gastro - ', ''),
       consumerName: consumerName.trim(),
       documentType: docType,
       documentNumber: docNumber.trim(),
@@ -224,7 +224,7 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({
         <StorefrontThemeFooter
           variant={footerVariant}
           config={footerConfig}
-          brandName={companyInfo.commercialName || customization.appName || 'Pizza Khalessi'}
+          brandName={companyInfo.commercialName || customization.appName || 'Gastro Restaurante'}
           logoUrl={customization.storeHeaderLogo || customization.logoLight || customization.logoDark}
           phone={activeTenant.operations?.phone || companyInfo.phone}
           email={companyInfo.email}
@@ -289,7 +289,7 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({
                         PIZZA
                       </span>
                       <span className="block text-sm font-extrabold tracking-tight uppercase">
-                        {companyInfo.commercialName.replace(/pizza/gi, '').trim() || 'KHALESSI'}
+                        {companyInfo.commercialName.replace(/pizza/gi, '').trim() || 'GASTRO'}
                       </span>
                     </div>
                   </div>
@@ -584,7 +584,16 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({
                 </div>
               </div>
 
-              {(social.facebook || social.instagram || social.tiktok || social.whatsapp) && (
+              {(() => {
+                const rawBranchWa = (activeTenant.operations?.whatsappNumber || '').replace(/\D/g, '');
+                const branchWaUrl = rawBranchWa
+                  ? `https://wa.me/${rawBranchWa.length === 9 ? `51${rawBranchWa}` : rawBranchWa}`
+                  : '';
+                const resolvedWhatsapp = branchWaUrl || social.whatsapp;
+                if (!(social.facebook || social.instagram || social.tiktok || resolvedWhatsapp)) {
+                  return null;
+                }
+                return (
                 <div className="space-y-3">
                   <h4
                     className={`text-[11px] font-bold uppercase tracking-[0.12em] ${
@@ -649,9 +658,9 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({
                       </a>
                     )}
 
-                    {social.whatsapp && (
+                    {resolvedWhatsapp && (
                       <a
-                        href={social.whatsapp}
+                        href={resolvedWhatsapp}
                         target="_blank"
                         rel="noreferrer"
                         aria-label="Chatear por WhatsApp"
@@ -668,7 +677,8 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({
                     )}
                   </div>
                 </div>
-              )}
+                );
+              })()}
             </div>
 
             {/* COLUMN 4: Defensa del Consumidor & Bolsa de Trabajo */}
@@ -790,7 +800,7 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({
                 </button>
               </div>
 
-              {/* Card 3: Instalar App Khalessi (PWA) */}
+              {/* Card 3: Instalar App (PWA) */}
               {!isStandalonePwa() && (
                 <button
                   type="button"
@@ -798,12 +808,12 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({
                     if (canInstallPwa) {
                       const outcome = await promptPwaInstall();
                       if (outcome === 'accepted') {
-                        dispatchToast('¡App instalada!', 'Ya puedes abrir Pizza Khalessi desde tu escritorio o pantalla de inicio.', 'success');
+                        dispatchToast('¡App instalada!', 'Ya puedes abrir Gastro Restaurante desde tu escritorio o pantalla de inicio.', 'success');
                         return;
                       }
                     }
                     openNoticeModal({
-                      title: 'Instalar App Khalessi',
+                      title: 'Instalar App',
                       message:
                         'Si tu navegador no abrió el cuadro automático: en Chrome/Edge haz clic en el menú (⋮) → "Guardar y compartir" → "Instalar página como app". En iPhone/Safari toca "Compartir" → "Añadir a pantalla de inicio".',
                       tone: 'info',
@@ -838,7 +848,7 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({
                           isLight ? 'text-zinc-900' : 'text-white'
                         }`}
                       >
-                        Instalar App Khalessi
+                        Instalar App
                       </span>
                       <span
                         className={`block text-[11px] mt-0.5 ${

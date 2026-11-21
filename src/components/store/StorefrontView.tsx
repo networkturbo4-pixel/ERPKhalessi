@@ -10,6 +10,12 @@ import {
 } from '../../types/storeBuilder';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
 import { useSettings } from '../../context/SettingsContext';
+import {
+  resolveProductAvailability,
+  resolveProductBasePrice,
+  resolveProductDisplayPrice,
+  resolveSizePrice,
+} from '../../utils/productPricing';
 import { useStoreBuilder } from '../../context/StoreBuilderContext';
 import { useStoreCustomer } from '../../context/StoreCustomerContext';
 import { useBenefits } from '../../context/BenefitsContext';
@@ -273,7 +279,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
       if (lastStatus && lastStatus !== order.status && statusLabels[order.status]) {
         void showOrderStatusNotification({
           orderNumber: order.orderNumber,
-          title: `Pedido #${String(order.orderNumber).replace(/^#/, '')} — Pizza Khalessi`,
+          title: `Pedido #${String(order.orderNumber).replace(/^#/, '')} — Gastro Restaurante`,
           body: statusLabels[order.status],
           url: '/?view=orders',
           icon:
@@ -1064,11 +1070,15 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
         branchMaxRadiusKm: activeTenant.operations?.deliveryRadiusKm || 6,
         cartSubtotal,
         tariff: activeTenant.operations?.deliveryTariff || companyInfo.deliveryTariff,
+        hasDelivery: activeTenant.operations?.hasDelivery,
+        shippingScope: activeTenant.operations?.shippingScope,
       }),
     [
       activeBranchDistanceKm,
       activeTenant.operations?.deliveryRadiusKm,
       activeTenant.operations?.deliveryTariff,
+      activeTenant.operations?.hasDelivery,
+      activeTenant.operations?.shippingScope,
       cartSubtotal,
       companyInfo.deliveryTariff,
       deliveryType,
@@ -1109,18 +1119,21 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     return products
       .filter(
         p =>
-          p.isAvailable &&
+          resolveProductAvailability(p, activeTenant.id) &&
           !inCartProductIds.has(p.id) &&
           (p.category === 'bebidas' || p.category === 'entradas' || p.category === 'postres')
       )
       .slice(0, 4);
-  }, [cartItems, products]);
+  }, [cartItems, products, activeTenant.id]);
 
   const handleQuickAddUpsell = (prod: Product) => {
-    const defaultSize = prod.hasSizes
-      ? prod.sizes.find(s => s.isDefault && s.enabled) || prod.sizes.find(s => s.enabled)
-      : undefined;
-    const unitPrice = defaultSize ? defaultSize.price : prod.basePrice;
+    const defaultSize =
+      prod.productType !== 'apparel' && prod.hasSizes
+        ? prod.sizes.find(s => s.isDefault && s.enabled) || prod.sizes.find(s => s.enabled)
+        : undefined;
+    const unitPrice = defaultSize
+      ? resolveSizePrice(prod, defaultSize, activeTenant.id)
+      : resolveProductBasePrice(prod, activeTenant.id);
     const quickItem: OrderItem = {
       itemId: `upsell-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       productId: prod.id,
@@ -1131,7 +1144,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
             id: defaultSize.id,
             name: defaultSize.name,
             slices: defaultSize.slices,
-            price: defaultSize.price,
+            price: unitPrice,
           }
         : undefined,
       subOptions: [],
@@ -1312,10 +1325,25 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
       return;
     }
 
+    if (deliveryType === 'delivery' && activeTenant.operations?.hasDelivery === false) {
+      openNoticeModal({
+        title: 'Local sin servicio de delivery',
+        message: `${activeTenant.name.replace('Gastro - ', '')} solo atiende en salón o para retiro en tienda. Cambia a Para Llevar o elige otra sucursal con delivery.`,
+        tone: 'warning',
+        confirmLabel: 'Elegir Sede / Recojo',
+        cancelLabel: 'Cerrar',
+        onConfirm: () => {
+          setIsCheckoutModalOpen(false);
+          setIsBranchSheetOpen(true);
+        },
+      });
+      return;
+    }
+
     if (deliveryType === 'delivery' && dynamicDelivery.isOutOfRange) {
       openNoticeModal({
         title: 'Dirección fuera del radio de entrega',
-        message: `Tu ubicación está a ${activeBranchDistanceKm?.toFixed(1)} km y el límite de ${activeTenant.name.replace('Khalessi Pizza - ', '')} es ${activeTenant.operations?.deliveryRadiusKm || 6} km. Cambia a la sede más cercana o elige Para Llevar.`,
+        message: `Tu ubicación está a ${activeBranchDistanceKm?.toFixed(1)} km y el límite de ${activeTenant.name.replace('Gastro - ', '')} es ${activeTenant.operations?.deliveryRadiusKm || 6} km. Cambia a la sede más cercana o elige Para Llevar.`,
         tone: 'warning',
         confirmLabel: 'Elegir Sede / Recojo',
         cancelLabel: 'Cerrar',
@@ -1353,7 +1381,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
         config: companyInfo.culqiConfig,
         culqiCardId: chosenSavedCard.culqiCardId,
         amountSoles: resolvedPayableTotal,
-        email: currentCustomer?.email || 'cliente@khalessi.pe',
+        email: currentCustomer?.email || 'cliente@gastroerp.com',
         description: `Pedido ${companyInfo.commercialName || customization.appName}`,
       });
       if (!chargeRes.ok) {
@@ -1533,7 +1561,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                 <QrCode className="w-4 h-4 shrink-0" />
                 <span className="truncate">
                   <strong>{qrTableContext.tableName}</strong> ({qrTableContext.zone || 'Salón'}) ·{' '}
-                  {activeTenant.name.replace('Khalessi Pizza - ', '')} — Pedido directo a tu mesa (Pago con tarjeta Culqi)
+                  {activeTenant.name.replace('Gastro - ', '')} — Pedido directo a tu mesa (Pago con tarjeta Culqi)
                 </span>
               </div>
               <button
@@ -1553,9 +1581,9 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
             variant={headerVariant}
             config={activeTemplate.headerConfig}
             logoUrl={headerLogoUrl}
-            brandName={companyInfo.commercialName || customization.appName || 'Pizza Khalessi'}
+            brandName={companyInfo.commercialName || customization.appName || 'Gastro Restaurante'}
             phone={activeTenant.operations?.phone || companyInfo.phone}
-            branchName={activeTenant.name.replace('Khalessi Pizza - ', '')}
+            branchName={activeTenant.name.replace('Gastro - ', '')}
             deliveryAddress={deliveryAddress || activeTenant.operations?.address}
             cartTotal={cartSubtotal}
             cartUnits={totalCartUnits}
@@ -1620,7 +1648,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                       {customization.collapsedLogo || '🍕'}
                     </span>
                     <span className="font-black text-sm sm:text-base tracking-tight font-heading hidden xs:inline-block">
-                      {companyInfo.commercialName || customization.appName || 'Pizza Khalessi'}
+                      {companyInfo.commercialName || customization.appName || 'Gastro Restaurante'}
                     </span>
                     <SeasonalLogoBadge />
                   </div>
@@ -1666,7 +1694,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                         isLightTheme ? 'text-zinc-900' : 'text-white'
                       }`}
                     >
-                      {activeTenant.name.replace('Khalessi Pizza - ', '')}
+                      {activeTenant.name.replace('Gastro - ', '')}
                     </span>
                   </span>
                 </div>
@@ -1722,7 +1750,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                     >
                       {deliveryType === 'delivery' && deliveryAddress.trim()
                         ? deliveryAddress
-                        : activeTenant.name.replace('Khalessi Pizza - ', '')}
+                        : activeTenant.name.replace('Gastro - ', '')}
                     </span>
                     <ChevronDown
                       aria-hidden="true"
@@ -2412,7 +2440,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
               }
               dispatchToast(
                 'Sede y Cobertura Actualizadas',
-                `Sede activa: ${tenants.find(t => t.id === tenantId)?.name.replace('Khalessi Pizza - ', '') || 'Actualizada'} (${selectedDeliveryType === 'delivery' ? 'Envío a Domicilio' : 'Retiro en Tienda'})`,
+                `Sede activa: ${tenants.find(t => t.id === tenantId)?.name.replace('Gastro - ', '') || 'Actualizada'} (${selectedDeliveryType === 'delivery' ? 'Envío a Domicilio' : 'Retiro en Tienda'})`,
                 'success'
               );
             }}
@@ -2573,7 +2601,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                       isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
                     }`}
                   >
-                    {activeTenant.name.replace('Khalessi Pizza - ', '')}
+                    {activeTenant.name.replace('Gastro - ', '')}
                   </span>
                 </div>
               </div>
@@ -2653,10 +2681,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                       </span>
                       <div className="space-y-2">
                         {upsellSuggestions.slice(0, 3).map(sug => {
-                          const sugPrice = sug.hasSizes
-                            ? (sug.sizes.find(s => s.isDefault && s.enabled) || sug.sizes[0])?.price ??
-                              sug.basePrice
-                            : sug.basePrice;
+                          const sugPrice = resolveProductDisplayPrice(sug, activeTenant.id);
                           return (
                             <div
                               key={sug.id}
@@ -2901,10 +2926,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                   </span>
                   <div className="grid grid-cols-1 gap-2">
                     {upsellSuggestions.map(sug => {
-                      const sugPrice = sug.hasSizes
-                        ? (sug.sizes.find(s => s.isDefault && s.enabled) || sug.sizes[0])?.price ??
-                          sug.basePrice
-                        : sug.basePrice;
+                      const sugPrice = resolveProductDisplayPrice(sug, activeTenant.id);
                       return (
                         <div
                           key={sug.id}
@@ -2987,7 +3009,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
-                        placeholder="Ej: KHALESSI15"
+                        placeholder="Ej: GASTRO15"
                         value={couponInput}
                         onChange={e => {
                           setCouponInput(e.target.value.toUpperCase());
@@ -3384,7 +3406,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                     {deliveryType === 'delivery'
                       ? '🛵 Delivery a Domicilio'
                       : '🛍️ Para Llevar (Recojo en Tienda)'}{' '}
-                    — {activeTenant.name.replace('Khalessi Pizza - ', '')}
+                    — {activeTenant.name.replace('Gastro - ', '')}
                   </span>
                 </div>
                 <button
@@ -4349,7 +4371,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                 className="text-xs font-bold uppercase tracking-wider"
                 style={{ color: accentColor }}
               >
-                ¡Pedido Recibido en {activeTenant.name.replace('Khalessi Pizza - ', '')}!
+                ¡Pedido Recibido en {activeTenant.name.replace('Gastro - ', '')}!
               </span>
               <h3
                 className={`text-2xl font-black mt-1 ${
@@ -4439,6 +4461,34 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                   </div>
                 )}
             </div>
+
+            {(() => {
+              const rawBranchWa = (activeTenant.operations?.whatsappNumber || '').replace(/\D/g, '');
+              const normalizedWaDigits = rawBranchWa
+                ? rawBranchWa.length === 9
+                  ? `51${rawBranchWa}`
+                  : rawBranchWa
+                : '';
+              const fallbackWa = companyInfo.socialLinks?.whatsapp || '';
+              const waBase = normalizedWaDigits
+                ? `https://wa.me/${normalizedWaDigits}`
+                : fallbackWa;
+              if (!waBase) return null;
+              const waMsg = encodeURIComponent(
+                `Hola ${activeTenant.name.replace('Gastro - ', '')}, acabo de realizar mi pedido ${orderConfirmed.orderNumber} por S/ ${orderConfirmed.total.toFixed(2)} (${deliveryType === 'delivery' ? 'Delivery' : 'Retiro en Tienda'}).`
+              );
+              const sep = waBase.includes('?') ? '&' : '?';
+              return (
+                <a
+                  href={`${waBase}${sep}text=${waMsg}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm transition-colors shadow-sm"
+                >
+                  <span>Enviar Pedido / Contactar por WhatsApp</span>
+                </a>
+              );
+            })()}
 
             <div className="flex flex-col sm:flex-row gap-2.5">
               <button

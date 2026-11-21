@@ -47,7 +47,7 @@ export const SystemUpdateTab: React.FC = () => {
   const hasCheckedOnMountRef = useRef(false);
   const isCheckingRef = useRef(false);
 
-  const GITHUB_REPO = 'networkturbo4-pixel/ERPKhalessi';
+  const GITHUB_REPO = 'tu-organizacion/gastro-erp';
   const log = useCallback((line: string) => {
     setTerminalLogs(prev => [...prev, line]);
   }, []);
@@ -483,7 +483,7 @@ export const SystemUpdateTab: React.FC = () => {
               <div className="h-3 w-3 rounded-full bg-amber-500" />
               <div className="h-3 w-3 rounded-full bg-emerald-500" />
               <span className="ml-2 font-mono text-xs font-semibold text-zinc-400">
-                khalessi-deploy-pipeline ~ manifest-sha256 (origin/main)
+                gastroerp-deploy-pipeline ~ manifest-sha256 (origin/main)
               </span>
             </div>
             <span className="text-[11px] font-mono text-zinc-400">

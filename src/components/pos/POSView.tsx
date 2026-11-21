@@ -17,6 +17,11 @@ import {
   lookupRucFacturalo,
 } from '../../utils/facturaloApi';
 import {
+  resolveProductAvailability,
+  resolveProductBasePrice,
+  resolveSizePrice,
+} from '../../utils/productPricing';
+import {
   loadHeldOrders,
   saveHeldOrders,
   appendSunatInvoiceRecord,
@@ -511,7 +516,7 @@ export const POSView: React.FC<POSViewProps> = ({
   // Filter catalog products
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      if (!p.isAvailable) return false;
+      if (!resolveProductAvailability(p, activeTenant.id)) return false;
       const matchesCategory = activeCategory === 'todos' || p.category === activeCategory;
       const matchesSearch =
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -617,7 +622,7 @@ export const POSView: React.FC<POSViewProps> = ({
       id: `cls-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       date: closingDaySummary.date,
       tenantId: activeTenant.id,
-      tenantName: activeTenant.name.replace('Khalessi Pizza - ', ''),
+      tenantName: activeTenant.name.replace('Gastro - ', ''),
       totalRevenue: closingDaySummary.totalRevenue,
       cashRevenue: closingDaySummary.cashRevenue,
       digitalRevenue: closingDaySummary.digitalRevenue,
@@ -2216,7 +2221,7 @@ export const POSView: React.FC<POSViewProps> = ({
                         <p className="text-xs font-black text-zinc-900 dark:text-white truncate">{currentUser.name}</p>
                         <p className="text-[11px] text-zinc-400 truncate">{currentUser.email}</p>
                         <span className="inline-block mt-0.5 text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-700 dark:text-amber-400">
-                          {currentUser.roleName} · {activeTenant.name.replace('Khalessi Pizza - ', '')}
+                          {currentUser.roleName} · {activeTenant.name.replace('Gastro - ', '')}
                         </span>
                       </div>
                     </div>
@@ -2712,9 +2717,9 @@ export const POSView: React.FC<POSViewProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(175px,1fr))] gap-3">
             {filteredProducts.map((p) => {
               const basePrice =
-                p.hasSizes && p.sizes.filter((s) => s.enabled).length > 0
-                  ? Math.min(...p.sizes.filter((s) => s.enabled).map((s) => s.price))
-                  : p.basePrice;
+                p.productType !== 'apparel' && p.hasSizes && p.sizes.filter((s) => s.enabled).length > 0
+                  ? Math.min(...p.sizes.filter((s) => s.enabled).map((s) => resolveSizePrice(p, s, activeTenant.id)))
+                  : resolveProductBasePrice(p, activeTenant.id);
 
               return (
                 <button
@@ -3403,7 +3408,7 @@ export const POSView: React.FC<POSViewProps> = ({
                   <div className="mt-1.5 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs text-emerald-800 dark:text-emerald-300">
                     <span className="font-bold flex items-center gap-1.5">
                       <Bike className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                      GPS fijado: a {custDistanceKm} km de {activeTenant.name.replace('Khalessi Pizza - ', '')}
+                      GPS fijado: a {custDistanceKm} km de {activeTenant.name.replace('Gastro - ', '')}
                     </span>
                     <span className="text-[11px] font-bold">
                       {custDistanceKm <= (activeTenant.operations?.deliveryRadiusKm || 8) ? '✓ Dentro de cobertura' : '⚠️ Fuera de cobertura'}

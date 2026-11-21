@@ -9,7 +9,7 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/storage-lib.php';
 
-const KH_FUEL_STORAGE_KEY = 'khalessi_delivery_fuel_v1';
+const KH_FUEL_STORAGE_KEY = 'gastro_delivery_fuel_v1';
 const VALID_FUEL_SOURCES = ['caja_chica', 'efectivo_ruta'];
 
 $pdo = getDbConnection();

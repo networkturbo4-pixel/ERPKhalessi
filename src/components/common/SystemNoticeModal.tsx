@@ -131,7 +131,7 @@ export const SystemNoticeModal: React.FC = () => {
     >
       {/* Style 1: Centrado con Halo */}
       {activeStyle === 'halo' && (
-        <div className="w-full max-w-lg mx-auto rounded-3xl bg-white dark:bg-[#18181c] border border-zinc-200 dark:border-zinc-700/90 shadow-2xl p-7 text-center space-y-5">
+        <div className="w-full max-w-lg mx-auto rounded-3xl bg-erp-card border border-erp-border-strong shadow-2xl p-7 text-center space-y-5">
           <div className={`h-14 w-14 mx-auto rounded-full flex items-center justify-center ${visuals.ring}`}>
             {visuals.icon}
           </div>
@@ -174,7 +174,7 @@ export const SystemNoticeModal: React.FC = () => {
 
       {/* Style 2: Cristal Esmerilado (Blur con franja superior sólida) */}
       {activeStyle === 'frost' && (
-        <div className="w-full max-w-lg mx-auto rounded-2xl bg-white/90 dark:bg-[#16171d]/90 backdrop-blur-2xl border border-zinc-200/90 dark:border-zinc-700/90 shadow-2xl overflow-hidden">
+        <div className="w-full max-w-lg mx-auto saas-card bg-erp-card/95 backdrop-blur-2xl border border-erp-border-strong shadow-2xl overflow-hidden">
           <div
             className={`h-1.5 w-full ${visuals.bar}`}
             style={tone === 'info' ? { backgroundColor: customization.primaryColor } : undefined}
@@ -234,8 +234,8 @@ export const SystemNoticeModal: React.FC = () => {
 
       {/* Style 3: Banner Ejecutivo (Horizontal con cabecera y pie de acción) */}
       {activeStyle === 'executive' && (
-        <div className="w-full max-w-lg mx-auto rounded-2xl bg-white dark:bg-[#18181c] border border-zinc-200 dark:border-zinc-700 shadow-2xl overflow-hidden">
-          <div className="px-6 py-3.5 bg-zinc-900 dark:bg-[#0d0e12] text-white flex items-center justify-between border-b border-zinc-800">
+        <div className="w-full max-w-lg mx-auto saas-card border border-erp-border-strong shadow-2xl overflow-hidden">
+          <div className="px-6 py-3.5 bg-zinc-900 dark:bg-erp-shell text-white flex items-center justify-between border-b border-erp-border">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider">
               {visuals.icon}
               <span>Aviso Operativo del Sistema</span>
@@ -259,7 +259,7 @@ export const SystemNoticeModal: React.FC = () => {
             </p>
           </div>
 
-          <div className="px-6 py-3.5 bg-zinc-50 dark:bg-[#121317] border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-2.5">
+          <div className="px-6 py-3.5 bg-erp-subcard border-t border-erp-border flex items-center justify-end gap-2.5">
             {!noticeModal.hideCancel && (
               <button
                 type="button"
@@ -288,7 +288,7 @@ export const SystemNoticeModal: React.FC = () => {
 
       {/* Style 4: Minimalista */}
       {activeStyle === 'minimalist' && (
-        <div className="w-full max-w-lg mx-auto rounded-xl bg-white dark:bg-[#18181c] border border-zinc-300 dark:border-zinc-700 shadow-2xl p-6 space-y-4">
+        <div className="w-full max-w-lg mx-auto saas-card border border-erp-border-strong shadow-2xl p-6 space-y-4">
           <div className="space-y-1.5">
             <h2 id={titleId} className="text-base font-bold text-zinc-950 dark:text-white">
               {noticeModal.title}

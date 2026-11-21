@@ -29,13 +29,13 @@ try {
     $pdo = getDbConnection();
     kvInit($pdo);
 
-    $rawSettings = kvGet($pdo, 'khalessi_erp_settings_v3');
+    $rawSettings = kvGet($pdo, 'gastro_erp_settings_v3');
     $settings = $rawSettings ? json_decode($rawSettings, true) : [];
     $seo = is_array($settings['customization']['seoConfig'] ?? null)
         ? $settings['customization']['seoConfig']
         : [];
     $company = is_array($settings['companyInfo'] ?? null) ? $settings['companyInfo'] : [];
-    $companyName = (string)($company['commercialName'] ?? ($settings['customization']['appName'] ?? 'Pizza Khalessi'));
+    $companyName = (string)($company['commercialName'] ?? ($settings['customization']['appName'] ?? 'Gastro Restaurante'));
 
     $baseUrl = ogBuildBaseUrl();
     $canonicalBase = rtrim((string)($seo['canonicalUrl'] ?? $baseUrl), '/');
@@ -58,7 +58,7 @@ try {
         $allowAi = !isset($seo['allowAiCrawlers']) || (bool)$seo['allowAiCrawlers'];
 
         $lines = [
-            '# Robots.txt generado por Khalessi Pizza ERP',
+            '# Robots.txt generado por GastroERP',
             'User-agent: *',
             $robotsIndex ? 'Allow: /' : 'Disallow: /',
             'Disallow: /admin',
@@ -121,7 +121,7 @@ try {
 
     // 3. Jobs SPA (/trabaja and /trabaja/{slug})
     if ($route === 'jobs') {
-        $rawHr = kvGet($pdo, 'khalessi_erp_hr_v1');
+        $rawHr = kvGet($pdo, 'gastro_erp_hr_v1');
         $hrData = $rawHr ? json_decode($rawHr, true) : [];
         $postings = is_array($hrData['jobPostings'] ?? null) ? $hrData['jobPostings'] : [];
         $activePostings = array_values(array_filter($postings, fn($p) => !isset($p['isActive']) || (bool)$p['isActive']));

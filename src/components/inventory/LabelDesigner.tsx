@@ -33,7 +33,7 @@ export const LabelDesigner: React.FC<LabelDesignerProps> = ({
   const [heightMm, setHeightMm] = useState<number>(30);
   const [symbology, setSymbology] = useState<BarcodeSymbology>('both');
   const [copies, setCopies] = useState<number>(1);
-  const [customHeader, setCustomHeader] = useState<string>('KHALESSI PIZZA ARTESANAL');
+  const [customHeader, setCustomHeader] = useState<string>('GASTRO RESTAURANTE');
 
   const [showItemName, setShowItemName] = useState(true);
   const [showSkuBarcode, setShowSkuBarcode] = useState(true);

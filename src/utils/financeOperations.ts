@@ -1,8 +1,8 @@
 import { Order } from '../types/catalog';
 import { DriverFuelExpense, getLocalIsoDate } from './deliveryOperations';
 
-export const FINANCE_EXPENSES_STORAGE_KEY = 'khalessi_erp_finance_expenses_v1';
-export const FINANCE_CLOSINGS_STORAGE_KEY = 'khalessi_erp_cash_closings_v1';
+export const FINANCE_EXPENSES_STORAGE_KEY = 'gastro_erp_finance_expenses_v1';
+export const FINANCE_CLOSINGS_STORAGE_KEY = 'gastro_erp_cash_closings_v1';
 
 export type ExpenseCategory =
   | 'insumos'

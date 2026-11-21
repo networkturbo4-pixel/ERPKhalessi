@@ -47,6 +47,13 @@ import {
 } from 'lucide-react';
 import { MediaGalleryModal } from '../media/MediaGalleryModal';
 import { compressImageFile } from '../../utils/imageCompressor';
+import { BranchPricingEditor } from './BranchPricingEditor';
+import { ApparelConfigEditor, DEFAULT_APPAREL_CONFIG } from './ApparelConfigEditor';
+import {
+  resolveProductBasePrice,
+  resolveSizePrice,
+  hasBranchPriceOverride,
+} from '../../utils/productPricing';
 
 export interface ProductOptionTemplate {
   id: string;
@@ -88,7 +95,7 @@ const QUICK_CATEGORY_ICONS = ['🍕', '🔥', '🥖', '🥤', '🍰', '🍝', '�
 export const ProductCatalogView: React.FC = () => {
   const { products, createProduct, updateProduct, deleteProduct, toggleProductAvailability } =
     useOrderCatalog();
-  const { customization, dispatchToast, openNoticeModal } = useSettings();
+  const { customization, dispatchToast, openNoticeModal, tenants, activeTenant } = useSettings();
 
   // Dynamic Categories state
   const loadStoredCategories = (): ProductCategoryItem[] => {
@@ -1346,6 +1353,16 @@ export const ProductCatalogView: React.FC = () => {
                                 Mitad y Mitad
                               </span>
                             )}
+                            {prod.productType === 'apparel' && (
+                              <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/40 shadow-xs">
+                                Ropa / Variantes
+                              </span>
+                            )}
+                            {hasBranchPriceOverride(prod, activeTenant?.id) && (
+                              <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30">
+                                Precio Sede
+                              </span>
+                            )}
                             {prod.badge && (
                               <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-500 text-zinc-950 shadow-xs">
                                 {prod.badge}
@@ -1388,18 +1405,18 @@ export const ProductCatalogView: React.FC = () => {
                                   className="w-3.5 h-3.5 rounded object-cover"
                                 />
                               )}
-                              <span>{s.name}:</span>
-                              <strong className="text-amber-600 dark:text-amber-400 font-bold">
-                                S/ {s.price.toFixed(2)}
-                              </strong>
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="font-bold text-amber-600 dark:text-amber-400">
-                          S/ {(prod.basePrice || 0).toFixed(2)}
-                        </span>
-                      )}
+                               <span>{s.name}:</span>
+                               <strong className="text-amber-600 dark:text-amber-400 font-bold">
+                                 S/ {resolveSizePrice(prod, s, activeTenant?.id).toFixed(2)}
+                               </strong>
+                             </span>
+                           ))}
+                         </div>
+                       ) : (
+                         <span className="font-bold text-amber-600 dark:text-amber-400">
+                           S/ {resolveProductBasePrice(prod, activeTenant?.id).toFixed(2)}
+                         </span>
+                       )}
                     </td>
 
                     {/* 4. Modificadores */}
@@ -1545,6 +1562,16 @@ export const ProductCatalogView: React.FC = () => {
                         Mitad y Mitad
                       </span>
                     )}
+                    {prod.productType === 'apparel' && (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/40">
+                        Ropa / Variantes
+                      </span>
+                    )}
+                    {hasBranchPriceOverride(prod, activeTenant?.id) && (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30">
+                        Precio Sede
+                      </span>
+                    )}
                     {prod.badge && (
                       <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-amber-500 text-zinc-950">
                         {prod.badge}
@@ -1584,14 +1611,14 @@ export const ProductCatalogView: React.FC = () => {
                         )}
                         <span>{s.name}:</span>
                         <strong className="text-amber-600 dark:text-amber-400 font-bold">
-                          S/ {s.price.toFixed(2)}
+                          S/ {resolveSizePrice(prod, s, activeTenant?.id).toFixed(2)}
                         </strong>
                       </span>
                     ))}
                   </div>
                 ) : (
                   <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
-                    Precio base: S/ {(prod.basePrice || 0).toFixed(2)}
+                    Precio base: S/ {resolveProductBasePrice(prod, activeTenant?.id).toFixed(2)}
                   </span>
                 )}
               </div>
@@ -1790,7 +1817,7 @@ export const ProductCatalogView: React.FC = () => {
                       required
                       value={tempProduct.name}
                       onChange={(e) => setTempProduct({ ...tempProduct, name: e.target.value })}
-                      placeholder="Ej: Carnívora Khalessi Supreme"
+                      placeholder="Ej: Carnívora Especial Supreme"
                       className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-white font-bold focus:outline-none focus:border-amber-500"
                     />
                   </div>
@@ -1848,16 +1875,27 @@ export const ProductCatalogView: React.FC = () => {
                     </label>
                     <select
                       value={tempProduct.productType || 'standard'}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const nextType = e.target.value as ProductType;
                         setTempProduct({
                           ...tempProduct,
-                          productType: e.target.value as ProductType,
-                          hasSizes: e.target.value === 'half_and_half' ? true : tempProduct.hasSizes,
-                        })
-                      }
+                          productType: nextType,
+                          hasSizes:
+                            nextType === 'half_and_half'
+                              ? true
+                              : nextType === 'apparel'
+                                ? false
+                                : tempProduct.hasSizes,
+                          apparelConfig:
+                            nextType === 'apparel'
+                              ? tempProduct.apparelConfig || DEFAULT_APPAREL_CONFIG
+                              : tempProduct.apparelConfig,
+                        });
+                      }}
                       className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs sm:text-sm font-bold text-zinc-900 dark:text-white"
                     >
-                      <option value="standard">Producto Estándar</option>
+                      <option value="standard">Extra (Tamaños, Sub-opciones y Adicionales)</option>
+                      <option value="apparel">Ropa / Variantes (Tallas, Color, Modelos y Retail)</option>
                       <option value="half_and_half">Pizza Mitad y Mitad (2 Sabores)</option>
                     </select>
                   </div>
@@ -2047,13 +2085,37 @@ export const ProductCatalogView: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {/* PRECIOS Y DISPONIBILIDAD POR SUCURSAL */}
+              <BranchPricingEditor
+                product={tempProduct}
+                tenants={tenants}
+                onChange={(nextBranchPrices) =>
+                  setTempProduct({ ...tempProduct, branchPrices: nextBranchPrices })
+                }
+              />
             </div>
 
-            {/* RIGHT COLUMN: Sizes + Sub-Options + Extras */}
+            {/* RIGHT COLUMN: Sizes + Sub-Options + Extras (or Apparel Editor) */}
             <div className="xl:col-span-7 space-y-5">
 
+              {tempProduct.productType === 'apparel' && (
+                <ApparelConfigEditor
+                  config={tempProduct.apparelConfig || DEFAULT_APPAREL_CONFIG}
+                  basePrice={tempProduct.basePrice || 0}
+                  productName={tempProduct.name}
+                  tenants={tenants}
+                  onChange={(nextApparel) =>
+                    setTempProduct({ ...tempProduct, apparelConfig: nextApparel })
+                  }
+                  onOpenMediaPicker={(title, onSelect) =>
+                    setMediaPickerConfig({ isOpen: true, title, onSelect })
+                  }
+                />
+              )}
+
               {/* TAMAÑOS CON FOTO Y CRUD */}
-              {tempProduct.hasSizes && (
+              {tempProduct.hasSizes && tempProduct.productType !== 'apparel' && (
                 <div className="space-y-3 p-4 bg-zinc-50 dark:bg-zinc-950/60 rounded-2xl border border-zinc-200 dark:border-zinc-800">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
@@ -3002,6 +3064,47 @@ export const ProductCatalogView: React.FC = () => {
                                     <span>Precios por Tienda</span>
                                   </label>
                                 </div>
+
+                                {choice.storePricesEnabled && tenants.length > 0 && (
+                                  <div className="p-2.5 rounded-xl bg-purple-500/5 border border-purple-500/30 space-y-1.5">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-purple-700 dark:text-purple-300 block">
+                                      Precios por Sucursal (+S/)
+                                    </span>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                      {tenants.map((t) => (
+                                        <div key={t.id}>
+                                          <label className="text-[10px] font-bold text-zinc-500 block truncate mb-0.5">
+                                            {t.name.replace('Gastro - ', '')}
+                                          </label>
+                                          <input
+                                            type="number"
+                                            step="0.5"
+                                            value={
+                                              typeof choice.branchPriceDeltas?.[t.id] === 'number'
+                                                ? choice.branchPriceDeltas[t.id]
+                                                : ''
+                                            }
+                                            placeholder={`Base: ${choice.priceDelta.toFixed(2)}`}
+                                            onChange={(e) => {
+                                              const val = e.target.value;
+                                              const nextDeltas = { ...(choice.branchPriceDeltas || {}) };
+                                              if (val === '') {
+                                                delete nextDeltas[t.id];
+                                              } else {
+                                                const parsed = parseFloat(val);
+                                                if (!Number.isNaN(parsed)) nextDeltas[t.id] = parsed;
+                                              }
+                                              handleUpdateChoice(group.id, choice.id, {
+                                                branchPriceDeltas: nextDeltas,
+                                              });
+                                            }}
+                                            className="w-full px-2 py-1 bg-white dark:bg-zinc-900 border border-purple-500/30 rounded-lg text-xs font-bold text-purple-700 dark:text-purple-300"
+                                          />
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
 
                                 {/* Row 4: Limits / Counters (matching Image 2) */}
                                 <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">

@@ -201,8 +201,8 @@ const DEFAULT_PRODUCTS: Product[] = [
     ],
   },
   {
-    id: 'prod-carnivora-khalessi',
-    name: 'Carnívora Khalessi Supreme 🥩',
+    id: 'prod-carnivora-especial',
+    name: 'Carnívora Especial Supreme 🥩',
     description: 'Para los verdaderos amantes de la carne: Jamón selecto, pepperoni crocante, carne sazonada, tocino ahumado y doble mozzarella.',
     category: 'pizzas',
     imageUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=700&q=80',
@@ -297,8 +297,8 @@ const DEFAULT_PRODUCTS: Product[] = [
     ],
   },
   {
-    id: 'prod-combo-khalessi',
-    name: 'Combo Pareja Khalessi 🍕🥖🥤',
+    id: 'prod-combo-pareja',
+    name: 'Combo Pareja Especial 🍕🥖🥤',
     description: '1 Pizza Familiar a elección + 1 Porción de Pan al Ajo con Queso + 1 Gaseosa 1.5L.',
     category: 'combos',
     imageUrl: 'https://images.unsplash.com/photo-1544982503-9f984c14501a?auto=format&fit=crop&w=700&q=80',
@@ -315,7 +315,7 @@ const DEFAULT_PRODUCTS: Product[] = [
         required: true,
         choices: [
           { id: 'sab-pepperoni', name: 'Pepperoni Hot Honey', priceDelta: 0, isDefault: true },
-          { id: 'sab-carnivora', name: 'Carnívora Khalessi', priceDelta: 4.0 },
+          { id: 'sab-carnivora', name: 'Carnívora Especial', priceDelta: 4.0 },
           { id: 'sab-americana', name: 'Americana Clásica', priceDelta: 0 },
         ],
       },
@@ -451,8 +451,8 @@ const INITIAL_ORDERS: Order[] = [
     items: [
       {
         itemId: 'item-2',
-        productId: 'prod-carnivora-khalessi',
-        productName: 'Carnívora Khalessi Supreme 🥩',
+        productId: 'prod-carnivora-especial',
+        productName: 'Carnívora Especial Supreme 🥩',
         productImage: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=700&q=80',
         size: { id: 'mediana', name: 'Mediana', slices: 6, price: 40.90 },
         subOptions: [
@@ -544,7 +544,7 @@ const STORAGE_KEYS = {
   cart: 'kh_store_cart',
 } as const;
 
-const REALTIME_CHANNEL_NAME = 'khalessi_erp_realtime_v1';
+const REALTIME_CHANNEL_NAME = 'gastro_erp_realtime_v1';
 
 interface RealtimeMessage {
   senderId: string;

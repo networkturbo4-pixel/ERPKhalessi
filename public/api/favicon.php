@@ -35,7 +35,7 @@ try {
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
 
-    $st = $pdo->prepare("SELECT v FROM kv_storage WHERE k = 'khalessi_erp_settings_v3' LIMIT 1");
+    $st = $pdo->prepare("SELECT v FROM kv_storage WHERE k = 'gastro_erp_settings_v3' LIMIT 1");
     $st->execute();
     $raw = $st->fetchColumn();
 

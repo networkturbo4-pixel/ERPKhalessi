@@ -202,7 +202,7 @@ export const CustomerAddressMapPicker: React.FC<CustomerAddressMapPickerProps> =
         html: `
           <div style="background-color: #09090b; color: white; padding: 4px 8px; border-radius: 9999px; font-weight: 900; font-size: 11px; display: flex; align-items: center; gap: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 2px solid #f59e0b; white-space: nowrap;">
             <span>🍕</span>
-            <span>${branchName.replace('Khalessi Pizza - ', '')}</span>
+            <span>${branchName.replace('Gastro - ', '')}</span>
           </div>
         `,
         iconAnchor: [60, 20],

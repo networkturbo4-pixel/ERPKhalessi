@@ -27,7 +27,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    console.error('[Khalessi ERP ErrorBoundary]', error, errorInfo);
+    console.error('[GastroERP ErrorBoundary]', error, errorInfo);
   }
 
   handleRetry = (): void => {

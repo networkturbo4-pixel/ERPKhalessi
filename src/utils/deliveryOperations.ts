@@ -1,6 +1,6 @@
 import { Order } from '../types/catalog';
 
-export const DELIVERY_FUEL_STORAGE_KEY = 'khalessi_delivery_fuel_v1';
+export const DELIVERY_FUEL_STORAGE_KEY = 'gastro_delivery_fuel_v1';
 
 export type FuelExpenseSource = 'caja_chica' | 'efectivo_ruta';
 

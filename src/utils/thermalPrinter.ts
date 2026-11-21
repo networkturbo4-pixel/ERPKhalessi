@@ -75,7 +75,7 @@ export function printThermalTicket(
 
     htmlContent = `
       <div style="text-align: center; margin-bottom: 8px;">
-        ${r.showLogo ? '<div style="font-size: 20px; font-weight: 900; letter-spacing: 1px;">KHALESSI PIZZA</div>' : ''}
+        ${r.showLogo ? '<div style="font-size: 20px; font-weight: 900; letter-spacing: 1px;">GASTROERP</div>' : ''}
         <div style="font-weight: bold; font-size: 13px;">${stripEmojis(r.businessName)}</div>
         ${r.slogan ? `<div style="font-size: 10px; font-style: italic; margin-bottom: 2px;">${stripEmojis(r.slogan)}</div>` : ''}
         ${r.ruc ? `<div style="font-size: 11px;">${stripEmojis(r.ruc)}</div>` : ''}

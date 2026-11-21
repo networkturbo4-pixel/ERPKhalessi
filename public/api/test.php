@@ -38,7 +38,7 @@ try {
         ]
     ]);
 } catch (Throwable $e) {
-    error_log('[Khalessi ERP test.php] Error: ' . $e->getMessage());
+    error_log('[GastroERP test.php] Error: ' . $e->getMessage());
     sendResponse([
         'success' => false,
         'error'   => 'Falló la prueba de conexión',

@@ -121,7 +121,7 @@ export const OrdersManagementView: React.FC = () => {
 
   const getBranchName = (tenantId: string) => {
     const found = tenants.find((t) => t.id === tenantId);
-    return found ? found.name.replace('Khalessi Pizza - ', '') : tenantId;
+    return found ? found.name.replace('Gastro - ', '') : tenantId;
   };
 
   const filteredOrders = orders.filter((o) => {
@@ -411,7 +411,7 @@ export const OrdersManagementView: React.FC = () => {
                         style={active ? { backgroundColor: customization.primaryColor } : undefined}
                       >
                         <Store className="w-3.5 h-3.5" />
-                        <span>{t.name.replace('Khalessi Pizza - ', '')} ({count})</span>
+                        <span>{t.name.replace('Gastro - ', '')} ({count})</span>
                       </button>
                     );
                   })}

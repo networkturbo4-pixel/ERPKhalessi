@@ -1,8 +1,14 @@
-import React, { useState, useRef, useEffect, useId } from 'react';
+import React, { useState, useRef, useEffect, useId, useMemo } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { PermissionGate } from '../common/PermissionGate';
-import { BranchFormat, Tenant, BranchOperationalProfile } from '../../types/settings';
+import {
+  BranchFormat,
+  BranchShippingScope,
+  Tenant,
+  BranchOperationalProfile,
+} from '../../types/settings';
 import { buildRegularPolygonAroundPoint, GeoPoint } from '../../utils/geofence';
+import { AddressPinMap } from '../store/AddressPinMap';
 import {
   Store,
   Plus,
@@ -22,6 +28,11 @@ import {
   TrendingUp,
   FileText,
   CheckCircle2,
+  MessageCircle,
+  Search,
+  Map as MapIcon,
+  Loader2,
+  Truck,
 } from 'lucide-react';
 import { emitInvoiceFacturalo, FacturaloEmissionResult } from '../../utils/facturaloApi';
 
@@ -57,6 +68,7 @@ const STATUS_OPTIONS: { value: Tenant['status']; label: string; dot: string; bad
 export const TenantsTab: React.FC = () => {
   const {
     tenants,
+    users,
     activeTenant,
     branchScope,
     switchTenant,
@@ -73,6 +85,12 @@ export const TenantsTab: React.FC = () => {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const modalTitleId = useId();
 
+  // Estados para mapa interactivo y buscador de encargado
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
+  const [mapSearchQuery, setMapSearchQuery] = useState('');
+  const [isGeocodingMap, setIsGeocodingMap] = useState(false);
+  const [showManagerDropdown, setShowManagerDropdown] = useState(false);
+
   const [form, setForm] = useState({
     name: '',
     slug: '',
@@ -85,18 +103,90 @@ export const TenantsTab: React.FC = () => {
     billingSeriesFactura: '',
     schedule: '12:00 PM – 11:30 PM',
     tablesCount: 14,
+    hasDelivery: true,
+    shippingScope: 'local' as BranchShippingScope,
     deliveryRadiusKm: 5,
     dailyGoalSoles: 5500,
     address: '',
     latitude: '-12.1116',
     longitude: '-76.9912',
+    managerUserId: '',
     managerName: '',
     yapeNumber: '',
+    whatsappNumber: '',
     activeOvens: '1 Horno de Piedra Activo',
     salesTodaySoles: 3450,
     imageUrl: '',
     coveragePolygonText: '',
   });
+
+  const filteredManagerUsers = useMemo(() => {
+    const q = form.managerName.trim().toLowerCase();
+    const activeUsers = users.filter(u => u.status === 'active');
+    if (!q) return activeUsers.slice(0, 8);
+    return activeUsers
+      .filter(
+        u =>
+          u.name.toLowerCase().includes(q) ||
+          u.roleName.toLowerCase().includes(q) ||
+          u.email.toLowerCase().includes(q)
+      )
+      .slice(0, 8);
+  }, [users, form.managerName]);
+
+  const handleSearchAddressOnMap = async () => {
+    const query = (mapSearchQuery || form.address).trim();
+    if (!query) return;
+    setIsGeocodingMap(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=pe&q=${encodeURIComponent(query)}`
+      );
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const hit = data[0];
+        const lat = Number(hit.lat);
+        const lng = Number(hit.lon);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          setForm(prev => ({
+            ...prev,
+            latitude: lat.toFixed(6),
+            longitude: lng.toFixed(6),
+            address: prev.address.trim() ? prev.address : String(hit.display_name || query),
+          }));
+          dispatchToast('Ubicación Encontrada', 'Pin actualizado en el mapa.', 'success');
+        }
+      } else {
+        dispatchToast('Sin Resultados', 'No se encontró esa dirección. Mueve el pin manualmente.', 'warning');
+      }
+    } catch {
+      dispatchToast('Error de Búsqueda', 'No se pudo consultar el mapa en este momento.', 'warning');
+    } finally {
+      setIsGeocodingMap(false);
+    }
+  };
+
+  const handlePinChangeFromMap = async (lat: number, lng: number) => {
+    setForm(prev => ({
+      ...prev,
+      latitude: lat.toFixed(6),
+      longitude: lng.toFixed(6),
+    }));
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+      );
+      const data = await res.json();
+      if (data?.display_name) {
+        setForm(prev => ({
+          ...prev,
+          address: String(data.display_name).split(',').slice(0, 3).join(',').trim(),
+        }));
+      }
+    } catch {
+      // Ignorar error de geocodificación inversa; las coordenadas ya quedaron guardadas
+    }
+  };
 
   // Estado para prueba interactiva de facturación por sucursal
   const [testingBranchTenant, setTestingBranchTenant] = useState<Tenant | null>(null);
@@ -114,13 +204,13 @@ export const TenantsTab: React.FC = () => {
         orderNumber: `KP-TEST-${Math.floor(100 + Math.random() * 900)}`,
         channel: 'pos',
         tenantId: t.id,
-        customerName: docType === 'factura' ? 'CORPORACION KHALESSI PRUEBA S.A.C.' : 'CLIENTE PRUEBA POS',
+        customerName: docType === 'factura' ? 'CORPORACION GASTRO PRUEBA S.A.C.' : 'CLIENTE PRUEBA POS',
         customerPhone: '987654321',
         paymentMethod: 'efectivo',
         paymentStatus: 'pagado',
         invoiceType: docType === 'factura' ? 'factura_ruc' : 'boleta_dni',
         invoiceDocument: docType === 'factura' ? '20608945123' : '72849103',
-        invoiceBusinessName: docType === 'factura' ? 'CORPORACION KHALESSI PRUEBA S.A.C.' : undefined,
+        invoiceBusinessName: docType === 'factura' ? 'CORPORACION GASTRO PRUEBA S.A.C.' : undefined,
         invoiceFiscalAddress: docType === 'factura' ? 'AV. PRINCIPAL 123 - LIMA' : undefined,
         items: [
           {
@@ -149,7 +239,7 @@ export const TenantsTab: React.FC = () => {
       if (res.success) {
         dispatchToast(
           'Comprobante Emitido',
-          `${docType === 'factura' ? 'Factura' : 'Boleta'} ${res.serieNumero} para ${t.name.replace('Khalessi Pizza - ', '')} verificada ante SUNAT.`,
+          `${docType === 'factura' ? 'Factura' : 'Boleta'} ${res.serieNumero} para ${t.name.replace('Gastro - ', '')} verificada ante SUNAT.`,
           'success'
         );
       } else {
@@ -197,6 +287,9 @@ export const TenantsTab: React.FC = () => {
     const nextBoleta = `B${nextSeq}`;
     const nextFactura = `F${nextSeq}`;
     setEditingTenant(null);
+    setIsMapPickerOpen(false);
+    setMapSearchQuery('');
+    setShowManagerDropdown(false);
     setForm({
       name: '',
       slug: '',
@@ -209,13 +302,17 @@ export const TenantsTab: React.FC = () => {
       billingSeries: `${nextBoleta} / ${nextFactura}`,
       schedule: '12:00 PM – 11:30 PM',
       tablesCount: 14,
+      hasDelivery: true,
+      shippingScope: 'local',
       deliveryRadiusKm: 5,
       dailyGoalSoles: 5500,
       address: '',
       latitude: '-12.1116',
       longitude: '-76.9912',
+      managerUserId: '',
       managerName: '',
       yapeNumber: '988 777 666',
+      whatsappNumber: '',
       activeOvens: '1 Horno Napolitano Activo',
       salesTodaySoles: 0,
       imageUrl: '',
@@ -236,6 +333,9 @@ export const TenantsTab: React.FC = () => {
       `F${fallbackNum}`;
 
     setEditingTenant(t);
+    setIsMapPickerOpen(false);
+    setMapSearchQuery('');
+    setShowManagerDropdown(false);
     setForm({
       name: t.name,
       slug: t.slug,
@@ -248,6 +348,8 @@ export const TenantsTab: React.FC = () => {
       billingSeries: t.operations?.billingSeries || `${bSeries.toUpperCase()} / ${fSeries.toUpperCase()}`,
       schedule: t.operations?.schedule || '12:00 PM – 11:30 PM',
       tablesCount: t.operations?.tablesCount ?? 14,
+      hasDelivery: t.operations?.hasDelivery ?? true,
+      shippingScope: t.operations?.shippingScope ?? 'local',
       deliveryRadiusKm: t.operations?.deliveryRadiusKm ?? 5,
       dailyGoalSoles: t.operations?.dailyGoalSoles || 5500,
       address: t.operations?.address || '',
@@ -255,8 +357,10 @@ export const TenantsTab: React.FC = () => {
         t.operations?.latitude !== undefined ? String(t.operations.latitude) : '-12.1116',
       longitude:
         t.operations?.longitude !== undefined ? String(t.operations.longitude) : '-76.9912',
+      managerUserId: t.operations?.managerUserId || '',
       managerName: t.operations?.managerName || '',
       yapeNumber: t.operations?.yapeNumber || '',
+      whatsappNumber: t.operations?.whatsappNumber || '',
       activeOvens: t.operations?.activeOvens || '1 Horno Activo',
       salesTodaySoles: t.operations?.salesTodaySoles ?? 0,
       imageUrl: t.operations?.imageUrl || '',
@@ -280,7 +384,7 @@ export const TenantsTab: React.FC = () => {
         .replace(/(^-|-$)/g, '');
 
     const baseOps = editingTenant?.operations;
-    const branchShort = form.name.replace('Khalessi Pizza - ', '');
+    const branchShort = form.name.replace('Gastro - ', '');
     const numericSales = Math.max(0, Number(form.salesTodaySoles) || 0);
     const numericGoal = Math.max(500, Number(form.dailyGoalSoles) || 5000);
 
@@ -323,14 +427,18 @@ export const TenantsTab: React.FC = () => {
       billingSeriesFactura: finalFactura,
       schedule: form.schedule.trim() || '12:00 PM – 11:30 PM',
       tablesCount: form.branchFormat === 'Dark Kitchen' ? 0 : Math.max(0, Number(form.tablesCount) || 0),
-      deliveryRadiusKm: Math.max(0, Number(form.deliveryRadiusKm) || 0),
-      coveragePolygon: parsedPolygon,
+      hasDelivery: form.hasDelivery,
+      shippingScope: form.hasDelivery ? form.shippingScope : 'local',
+      deliveryRadiusKm: form.hasDelivery ? Math.max(0, Number(form.deliveryRadiusKm) || 0) : 0,
+      coveragePolygon: form.hasDelivery ? parsedPolygon : undefined,
       deliveryTariff: baseOps?.deliveryTariff,
       dailyGoalSoles: numericGoal,
       address: form.address.trim() || `Local Comercial — ${branchShort}`,
       latitude: Number.isFinite(Number(form.latitude)) ? Number(form.latitude) : -12.1116,
       longitude: Number.isFinite(Number(form.longitude)) ? Number(form.longitude) : -76.9912,
       phone: baseOps?.phone || companyInfo.phone || '+51 1 780 9090',
+      whatsappNumber: form.whatsappNumber.trim() || undefined,
+      managerUserId: form.managerUserId || undefined,
       managerName: form.managerName.trim() || 'Encargado de Turno',
       salesTodaySoles: numericSales,
       salesGrowthPct: baseOps?.salesGrowthPct || '+14.2%',
@@ -349,7 +457,7 @@ export const TenantsTab: React.FC = () => {
               id: `${codePrefix}-${101 + tenants.length}`,
               customer: 'Mostrador / Salón POS',
               branchName: branchShort,
-              items: '2× Familiar Khalessi Artesanal · 1× Bebida 1.5L',
+              items: '2× Familiar Especial Artesanal · 1× Bebida 1.5L',
               totalSoles: 96,
               timeAgo: '2m',
               status: 'En horno' as const,
@@ -604,10 +712,36 @@ export const TenantsTab: React.FC = () => {
                       <span className="text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
                         <Bike className="h-3 w-3 text-emerald-500" /> Aforo y Reparto:
                       </span>
-                      <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                        {tablesCount > 0 ? `${tablesCount} mesas` : 'Solo reparto'} · {deliveryRadiusKm} km
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                          {tablesCount > 0 ? `${tablesCount} mesas` : 'Solo reparto'}
+                        </span>
+                        {t.operations?.hasDelivery === false ? (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-500/15 text-zinc-600 dark:text-zinc-300 border border-zinc-500/20">
+                            Sin Delivery
+                          </span>
+                        ) : t.operations?.shippingScope === 'national' ? (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20">
+                            Envío Nacional
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                            Local · {deliveryRadiusKm} km
+                          </span>
+                        )}
+                      </div>
                     </div>
+
+                    {t.operations?.whatsappNumber && (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
+                          <MessageCircle className="h-3 w-3 text-emerald-500" /> WhatsApp Sede:
+                        </span>
+                        <span className="font-mono font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                          {t.operations.whatsappNumber}
+                        </span>
+                      </div>
+                    )}
 
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
@@ -894,49 +1028,6 @@ export const TenantsTab: React.FC = () => {
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase mb-1">
-                          Formato Operativo
-                        </label>
-                        <select
-                          value={form.branchFormat}
-                          onChange={e => {
-                            const nextFormat = e.target.value as BranchFormat;
-                            setForm({
-                              ...form,
-                              branchFormat: nextFormat,
-                              tablesCount: nextFormat === 'Dark Kitchen' ? 0 : form.tablesCount || 12,
-                            });
-                          }}
-                          className="w-full px-3 py-2 text-xs rounded-xl saas-input"
-                        >
-                          {BRANCH_FORMATS.map(fmt => (
-                            <option key={fmt} value={fmt} className="bg-white dark:bg-zinc-900">
-                              {fmt}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase mb-1">
-                          Estado Operativo
-                        </label>
-                        <select
-                          value={form.status}
-                          onChange={e => setForm({ ...form, status: e.target.value as Tenant['status'] })}
-                          className="w-full px-3 py-2 text-xs rounded-xl saas-input"
-                        >
-                          {STATUS_OPTIONS.map(opt => (
-                            <option key={opt.value} value={opt.value} className="bg-white dark:bg-zinc-900">
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
                     <div>
                       <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase mb-1">
                         Código Establecimiento Anexo
@@ -1061,9 +1152,19 @@ export const TenantsTab: React.FC = () => {
                     </h3>
 
                     <div>
-                      <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase mb-1">
-                        Dirección Física del Local
-                      </label>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase">
+                          Dirección Física del Local
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setIsMapPickerOpen(prev => !prev)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-rose-500/15 hover:bg-rose-500/25 text-rose-700 dark:text-rose-300 transition-colors whitespace-nowrap shrink-0"
+                        >
+                          <MapIcon className="h-3 w-3" />
+                          {isMapPickerOpen ? 'Ocultar Mapa' : 'Abrir Mapa / Pin'}
+                        </button>
+                      </div>
                       <input
                         type="text"
                         required
@@ -1074,51 +1175,95 @@ export const TenantsTab: React.FC = () => {
                       />
                     </div>
 
-                    <div className="p-3 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-2">
-                      <div className="flex items-center justify-between gap-2">
+                    <div className="p-3 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-2.5">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
                         <span className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase flex items-center gap-1.5">
                           <MapPin className="h-3.5 w-3.5 text-rose-500" />
                           Geolocalización GPS (Tienda Más Cercana)
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!navigator.geolocation) {
-                              dispatchToast(
-                                'GPS No Soportado',
-                                'Tu navegador no soporta geolocalización en este dispositivo.',
-                                'warning'
-                              );
-                              return;
-                            }
-                            navigator.geolocation.getCurrentPosition(
-                              pos => {
-                                setForm(prev => ({
-                                  ...prev,
-                                  latitude: pos.coords.latitude.toFixed(6),
-                                  longitude: pos.coords.longitude.toFixed(6),
-                                }));
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!navigator.geolocation) {
                                 dispatchToast(
-                                  'Coordenadas Capturadas',
-                                  'Se asignó tu ubicación GPS actual a esta sucursal.',
-                                  'success'
-                                );
-                              },
-                              () => {
-                                dispatchToast(
-                                  'Permiso Denegado',
-                                  'Habilita el permiso de ubicación en el navegador o ingresa las coordenadas manualmente.',
+                                  'GPS No Soportado',
+                                  'Tu navegador no soporta geolocalización en este dispositivo.',
                                   'warning'
                                 );
-                              },
-                              { enableHighAccuracy: true, timeout: 8000 }
-                            );
-                          }}
-                          className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 whitespace-nowrap shrink-0 transition-colors"
-                        >
-                          📍 Usar mi GPS actual
-                        </button>
+                                return;
+                              }
+                              navigator.geolocation.getCurrentPosition(
+                                pos => {
+                                  void handlePinChangeFromMap(
+                                    pos.coords.latitude,
+                                    pos.coords.longitude
+                                  );
+                                  setIsMapPickerOpen(true);
+                                  dispatchToast(
+                                    'Coordenadas Capturadas',
+                                    'Se asignó tu ubicación GPS actual a esta sucursal.',
+                                    'success'
+                                  );
+                                },
+                                () => {
+                                  dispatchToast(
+                                    'Permiso Denegado',
+                                    'Habilita el permiso de ubicación en el navegador o ingresa las coordenadas manualmente.',
+                                    'warning'
+                                  );
+                                },
+                                { enableHighAccuracy: true, timeout: 8000 }
+                              );
+                            }}
+                            className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 whitespace-nowrap shrink-0 transition-colors"
+                          >
+                            📍 Usar mi GPS actual
+                          </button>
+                        </div>
                       </div>
+
+                      {isMapPickerOpen && (
+                        <div className="space-y-2 pt-1 border-t border-zinc-200/70 dark:border-zinc-800">
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              value={mapSearchQuery}
+                              onChange={e => setMapSearchQuery(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  void handleSearchAddressOnMap();
+                                }
+                              }}
+                              placeholder="Buscar calle, distrito o referencia en el mapa..."
+                              className="flex-1 px-2.5 py-1.5 text-xs rounded-lg saas-input"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void handleSearchAddressOnMap()}
+                              disabled={isGeocodingMap}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:opacity-90 disabled:opacity-50 whitespace-nowrap shrink-0"
+                            >
+                              {isGeocodingMap ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Search className="h-3 w-3" />
+                              )}
+                              Buscar
+                            </button>
+                          </div>
+                          <AddressPinMap
+                            lat={Number.isFinite(Number(form.latitude)) ? Number(form.latitude) : -12.1116}
+                            lng={Number.isFinite(Number(form.longitude)) ? Number(form.longitude) : -76.9912}
+                            accentColor={customization.primaryColor}
+                            onPinChange={(lat, lng) => {
+                              void handlePinChangeFromMap(lat, lng);
+                            }}
+                          />
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <label className="block text-[10px] font-semibold text-zinc-500 uppercase mb-0.5">
@@ -1149,18 +1294,125 @@ export const TenantsTab: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <div>
+                    {/* SERVICIO DE DELIVERY Y ALCANCE DE ENVÍO */}
+                    <div className="p-3 rounded-xl bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-2.5">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase flex items-center gap-1.5">
+                          <Truck className="h-3.5 w-3.5 text-emerald-500" />
+                          Servicio de Delivery y Envío
+                        </span>
+                        <div className="inline-flex rounded-lg p-0.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                          <button
+                            type="button"
+                            onClick={() => setForm(prev => ({ ...prev, hasDelivery: true }))}
+                            className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-colors whitespace-nowrap shrink-0 ${
+                              form.hasDelivery
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                            }`}
+                          >
+                            Sí tiene Delivery
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setForm(prev => ({ ...prev, hasDelivery: false }))}
+                            className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-colors whitespace-nowrap shrink-0 ${
+                              !form.hasDelivery
+                                ? 'bg-zinc-800 dark:bg-zinc-700 text-white shadow-xs'
+                                : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                            }`}
+                          >
+                            No tiene Delivery
+                          </button>
+                        </div>
+                      </div>
+
+                      {form.hasDelivery ? (
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setForm(prev => ({ ...prev, shippingScope: 'local' }))}
+                            className={`px-3 py-2 rounded-xl border text-left transition-all ${
+                              form.shippingScope === 'local'
+                                ? 'border-emerald-500 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200'
+                                : 'border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300'
+                            }`}
+                          >
+                            <div className="text-[11px] font-bold">Envío Local</div>
+                            <div className="text-[10px] opacity-80">Por radio km o geocerca</div>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setForm(prev => ({ ...prev, shippingScope: 'national' }))}
+                            className={`px-3 py-2 rounded-xl border text-left transition-all ${
+                              form.shippingScope === 'national'
+                                ? 'border-indigo-500 bg-indigo-500/10 text-indigo-800 dark:text-indigo-200'
+                                : 'border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300'
+                            }`}
+                          >
+                            <div className="text-[11px] font-bold">Envío Nacional</div>
+                            <div className="text-[10px] opacity-80">Cobertura a todo el país</div>
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                          Este local solo atenderá en salón o para retiro presencial en tienda.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div className="relative">
                         <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase mb-1">
                           Encargado de Sede
                         </label>
-                        <input
-                          type="text"
-                          value={form.managerName}
-                          onChange={e => setForm({ ...form, managerName: e.target.value })}
-                          placeholder="Encargado de Turno"
-                          className="w-full px-3 py-2 text-xs rounded-xl saas-input"
-                        />
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={form.managerName}
+                            onFocus={() => setShowManagerDropdown(true)}
+                            onBlur={() => {
+                              setTimeout(() => setShowManagerDropdown(false), 160);
+                            }}
+                            onChange={e => {
+                              setForm({ ...form, managerName: e.target.value, managerUserId: '' });
+                              setShowManagerDropdown(true);
+                            }}
+                            placeholder="Buscar usuario del sistema..."
+                            className="w-full px-3 py-2 text-xs rounded-xl saas-input pr-7"
+                          />
+                          <Search className="h-3.5 w-3.5 text-zinc-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+                        {showManagerDropdown && filteredManagerUsers.length > 0 && (
+                          <div className="absolute z-30 left-0 right-0 mt-1 max-h-44 overflow-y-auto rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-xl divide-y divide-zinc-100 dark:divide-zinc-800">
+                            {filteredManagerUsers.map(u => (
+                              <button
+                                key={u.id}
+                                type="button"
+                                onMouseDown={e => {
+                                  e.preventDefault();
+                                  setForm(prev => ({
+                                    ...prev,
+                                    managerUserId: u.id,
+                                    managerName: u.name,
+                                  }));
+                                  setShowManagerDropdown(false);
+                                }}
+                                className="w-full px-3 py-2 text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-between gap-2 transition-colors"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-xs font-semibold text-zinc-900 dark:text-white truncate">
+                                    {u.name}
+                                  </p>
+                                  <p className="text-[10px] text-zinc-500 truncate">{u.roleName}</p>
+                                </div>
+                                {form.managerUserId === u.id && (
+                                  <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase mb-1">
@@ -1171,6 +1423,18 @@ export const TenantsTab: React.FC = () => {
                           value={form.yapeNumber}
                           onChange={e => setForm({ ...form, yapeNumber: e.target.value })}
                           placeholder="988 777 666"
+                          className="w-full px-3 py-2 text-xs rounded-xl saas-input font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase mb-1">
+                          WhatsApp de la Sede
+                        </label>
+                        <input
+                          type="text"
+                          value={form.whatsappNumber}
+                          onChange={e => setForm({ ...form, whatsappNumber: e.target.value })}
+                          placeholder="51988777666"
                           className="w-full px-3 py-2 text-xs rounded-xl saas-input font-mono"
                         />
                       </div>
@@ -1198,9 +1462,10 @@ export const TenantsTab: React.FC = () => {
                           type="number"
                           min={0}
                           step="0.5"
-                          value={form.deliveryRadiusKm}
+                          disabled={!form.hasDelivery}
+                          value={form.hasDelivery ? form.deliveryRadiusKm : 0}
                           onChange={e => setForm({ ...form, deliveryRadiusKm: Number(e.target.value) })}
-                          className="w-full px-2.5 py-2 text-xs rounded-xl saas-input font-mono"
+                          className="w-full px-2.5 py-2 text-xs rounded-xl saas-input font-mono disabled:opacity-50"
                         />
                       </div>
                       <div className="col-span-1">
@@ -1218,7 +1483,7 @@ export const TenantsTab: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/50 space-y-2">
+                    <div className={`p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/50 space-y-2 ${!form.hasDelivery ? 'opacity-50 pointer-events-none' : ''}`}>
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <label className="text-[10px] font-bold uppercase text-zinc-700 dark:text-zinc-200">
                           Geocerca Poligonal ([lng, lat][]) — Opcional
@@ -1226,6 +1491,7 @@ export const TenantsTab: React.FC = () => {
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
+                            disabled={!form.hasDelivery}
                             onClick={() => {
                               const lat = Number(form.latitude) || -12.1116;
                               const lng = Number(form.longitude) || -76.9912;
@@ -1254,6 +1520,7 @@ export const TenantsTab: React.FC = () => {
                       </div>
                       <textarea
                         rows={2}
+                        disabled={!form.hasDelivery}
                         value={form.coveragePolygonText}
                         onChange={e => setForm({ ...form, coveragePolygonText: e.target.value })}
                         placeholder='[[-77.06,-11.92],[-77.04,-11.92],[-77.04,-11.95],[-77.06,-11.95]]'

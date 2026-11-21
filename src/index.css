@@ -21,17 +21,31 @@
   --erp-canvas-light: #ffffff;
   --erp-card-light: #ffffff;
   --erp-subcard-light: #f8fafc;
+  --erp-elevated-light: #ffffff;
 
   --erp-shell-dark: #09090b;
   --erp-canvas-dark: #111114;
   --erp-card-dark: #18181c;
   --erp-subcard-dark: #202026;
+  --erp-elevated-dark: #27272f;
 
   --erp-shell-bg: var(--erp-shell-light);
   --erp-canvas-bg: var(--erp-canvas-light);
   --erp-card-bg: var(--erp-card-light);
   --erp-subcard-bg: var(--erp-subcard-light);
+  --erp-elevated-bg: var(--erp-elevated-light);
+  --erp-border-subtle: rgba(228, 228, 231, 0.9);
+  --erp-border-strong: rgba(212, 212, 216, 1);
+  --erp-text-primary: #09090b;
+  --erp-text-muted: #52525b;
   --erp-border-alpha: 1;
+
+  --brand-foreground: #ffffff;
+  --erp-font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --erp-radius-card: 1rem;
+  --erp-radius-subcard: 0.75rem;
+  --erp-radius-control: 0.75rem;
+  --erp-radius-badge: 9999px;
 
   --scrollbar-thumb: rgba(113, 113, 122, 0.42);
   --scrollbar-track: transparent;
@@ -52,6 +66,11 @@
   --erp-canvas-bg: var(--erp-canvas-dark);
   --erp-card-bg: var(--erp-card-dark);
   --erp-subcard-bg: var(--erp-subcard-dark);
+  --erp-elevated-bg: var(--erp-elevated-dark);
+  --erp-border-subtle: rgba(63, 63, 70, 0.75);
+  --erp-border-strong: rgba(82, 82, 91, 0.9);
+  --erp-text-primary: #fafafa;
+  --erp-text-muted: #a1a1aa;
   --scrollbar-thumb: rgba(161, 161, 170, 0.35);
 }
 
@@ -59,18 +78,48 @@
   color-scheme: light;
 }
 
-/* Contrast level modifiers */
-:root[data-contrast="high"] .saas-card {
-  border-color: rgba(113, 113, 122, 0.45);
+/* Contrast level modifiers (cards, subcards, inputs, tables & focus rings) */
+:root[data-contrast="high"] {
+  --erp-border-subtle: rgba(113, 113, 122, 0.48);
+  --erp-border-strong: rgba(82, 82, 91, 0.72);
+  --erp-text-muted: #3f3f46;
 }
-:root.dark[data-contrast="high"] .saas-card {
-  border-color: rgba(161, 161, 170, 0.38);
+:root.dark[data-contrast="high"] {
+  --erp-border-subtle: rgba(161, 161, 170, 0.4);
+  --erp-border-strong: rgba(212, 212, 216, 0.52);
+  --erp-text-muted: #d4d4d8;
 }
-:root[data-contrast="ultra"] .saas-card {
-  border-color: rgba(39, 39, 42, 0.75);
+:root[data-contrast="ultra"] {
+  --erp-border-subtle: rgba(39, 39, 42, 0.78);
+  --erp-border-strong: rgba(24, 24, 27, 0.92);
+  --erp-text-muted: #27272a;
 }
-:root.dark[data-contrast="ultra"] .saas-card {
-  border-color: rgba(228, 228, 231, 0.55);
+:root.dark[data-contrast="ultra"] {
+  --erp-border-subtle: rgba(228, 228, 231, 0.56);
+  --erp-border-strong: rgba(244, 244, 245, 0.78);
+  --erp-text-muted: #f4f4f5;
+}
+
+:root[data-contrast="high"] .saas-card,
+:root[data-contrast="high"] .saas-subcard,
+:root[data-contrast="high"] .saas-input,
+:root[data-contrast="high"] .saas-option,
+:root[data-contrast="high"] .saas-btn-secondary {
+  border-color: var(--erp-border-subtle);
+}
+
+:root[data-contrast="ultra"] .saas-card,
+:root[data-contrast="ultra"] .saas-subcard,
+:root[data-contrast="ultra"] .saas-input,
+:root[data-contrast="ultra"] .saas-option,
+:root[data-contrast="ultra"] .saas-btn-secondary {
+  border-color: var(--erp-border-subtle);
+  border-width: 1.5px;
+}
+
+:root[data-contrast="ultra"] :focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 2px;
 }
 
 html,
@@ -82,12 +131,23 @@ body {
 body {
   margin: 0;
   background-color: var(--erp-shell-bg);
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: var(--erp-text-primary);
+  font-family: var(--erp-font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: contain;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body,
+  .erp-shell-surface,
+  .erp-canvas-surface,
+  .saas-card,
+  .saas-subcard {
+    transition: background-color 180ms ease, border-color 180ms ease, color 150ms ease;
+  }
 }
 
 /* Native <dialog> scroll containment & backdrop styling (per modern-web-guidance) */
@@ -185,31 +245,49 @@ dialog::backdrop {
 @layer components {
   .saas-card {
     background-color: var(--erp-card-bg);
-    @apply border border-zinc-200/90 dark:border-zinc-700/80 shadow-sm dark:shadow-none rounded-2xl;
+    border-color: var(--erp-border-subtle);
+    border-radius: var(--erp-radius-card);
+    @apply border shadow-sm dark:shadow-none;
   }
 
   .saas-subcard {
     background-color: var(--erp-subcard-bg);
-    @apply border border-zinc-200 dark:border-zinc-700/80 rounded-xl;
+    border-color: var(--erp-border-subtle);
+    border-radius: var(--erp-radius-subcard);
+    @apply border;
   }
 
   .saas-input {
     background-color: var(--erp-subcard-bg);
-    @apply border border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-brand-500 dark:focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20 transition-colors;
+    border-color: var(--erp-border-strong);
+    border-radius: var(--erp-radius-control);
+    @apply border text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-brand-500 dark:focus:border-brand-400 focus:ring-2 focus:ring-brand-500/20 transition-colors;
   }
 
   .saas-option {
     background-color: var(--erp-subcard-bg);
-    @apply border border-zinc-200 dark:border-zinc-700/90 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100/90 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-500 transition-all;
+    border-color: var(--erp-border-subtle);
+    border-radius: var(--erp-radius-control);
+    @apply border text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100/90 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-500 transition-all;
   }
 
   .saas-option-active {
+    border-radius: var(--erp-radius-control);
     @apply border border-brand-500 dark:border-brand-400 bg-brand-500/10 dark:bg-brand-500/15 text-zinc-950 dark:text-white ring-1 ring-brand-500/40 dark:ring-brand-400/50 transition-all;
   }
 
   .saas-btn-secondary {
     background-color: var(--erp-subcard-bg);
-    @apply border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors whitespace-nowrap;
+    border-color: var(--erp-border-strong);
+    border-radius: var(--erp-radius-control);
+    @apply border text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors whitespace-nowrap;
+  }
+
+  .saas-btn-primary {
+    background-color: var(--brand-500, #f97316);
+    color: var(--brand-foreground, #ffffff);
+    border-radius: var(--erp-radius-control);
+    @apply font-semibold shadow-sm transition-all hover:opacity-95 disabled:opacity-50 whitespace-nowrap;
   }
 }
 

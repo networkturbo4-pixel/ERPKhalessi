@@ -96,7 +96,7 @@ export const DeviceMockup: React.FC = () => {
 
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-[10px] px-2 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 font-mono">
-                {activeTenant.name.replace('Khalessi Pizza - ', '')}
+                {activeTenant.name.replace('Gastro - ', '')}
               </span>
               <div
                 className="h-2 w-2 rounded-full"

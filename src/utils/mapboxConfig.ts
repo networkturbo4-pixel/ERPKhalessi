@@ -9,7 +9,7 @@ export interface MapboxSettings {
   enable3DBuildings: boolean;
 }
 
-const STORAGE_KEY = 'khalessi_mapbox_settings_v1';
+const STORAGE_KEY = 'gastro_mapbox_settings_v1';
 
 export function isMapboxTokenValid(token?: string | null): boolean {
   if (!token) return false;
@@ -54,7 +54,7 @@ export function saveMapboxSettings(settings: Partial<MapboxSettings>): MapboxSet
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     // Broadcast for live sync across open tabs/windows
-    window.dispatchEvent(new CustomEvent('khalessi_mapbox_updated', { detail: updated }));
+    window.dispatchEvent(new CustomEvent('gastro_mapbox_updated', { detail: updated }));
   } catch (err) {
     console.error('Failed to save mapbox settings:', err);
   }

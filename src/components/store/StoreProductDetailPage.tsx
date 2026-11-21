@@ -9,6 +9,15 @@ import {
   SubOptionGroup,
 } from '../../types/catalog';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
+import { useSettings } from '../../context/SettingsContext';
+import {
+  resolveProductBasePrice,
+  resolveSizePrice,
+  resolveSubOptionPriceDelta,
+  findMatchingApparelVariant,
+  resolveApparelVariantStock,
+  resolveApparelUnitPrice,
+} from '../../utils/productPricing';
 import { toProductSlug } from '../../types/storeBuilder';
 import { shareStoreContent, updateDocumentShareMeta } from '../../utils/pwaManager';
 import {
@@ -23,6 +32,10 @@ import {
   ShoppingBag,
   MapPin,
   Share2,
+  Shirt,
+  Palette,
+  Ruler,
+  Gift,
 } from 'lucide-react';
 
 const createCartItemId = () => `item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -59,8 +72,24 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
   const headingRef = useRef<HTMLHeadingElement>(null);
   const accordionContainerRef = useRef<HTMLDivElement>(null);
   const { products: catalogProducts } = useOrderCatalog();
+  const { activeTenant } = useSettings();
+  const activeTenantId = activeTenant?.id;
 
   const isHalfAndHalf = product.productType === 'half_and_half';
+  const isApparel = product.productType === 'apparel';
+
+  const [apparelSizeId, setApparelSizeId] = useState<string>(
+    () => product.apparelConfig?.sizes.find((s) => s.enabled)?.id || ''
+  );
+  const [apparelColorId, setApparelColorId] = useState<string>(
+    () => product.apparelConfig?.colors.find((c) => c.enabled)?.id || ''
+  );
+  const [apparelModelId, setApparelModelId] = useState<string>(
+    () => product.apparelConfig?.models.find((m) => m.enabled)?.id || ''
+  );
+  const [apparelGiftWrap, setApparelGiftWrap] = useState(false);
+  const [apparelCustomPrintText, setApparelCustomPrintText] = useState('');
+  const [showSizeGuide, setShowSizeGuide] = useState(false);
   const availableFlavorPizzas = useMemo(
     () =>
       catalogProducts.filter(
@@ -271,12 +300,12 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
   };
 
   const resolveFlavorSizePrice = (flavor: Product | undefined, size: ProductSizeConfig | null): number => {
-    if (!flavor) return size ? size.price : product.basePrice;
-    if (!size) return flavor.basePrice;
+    if (!flavor) return size ? resolveSizePrice(product, size, activeTenantId) : resolveProductBasePrice(product, activeTenantId);
+    if (!size) return resolveProductBasePrice(flavor, activeTenantId);
     const matched =
       flavor.sizes.find(s => s.id === size.id) ||
       flavor.sizes.find(s => s.name.toLowerCase() === size.name.toLowerCase());
-    return matched ? matched.price : size.price;
+    return matched ? resolveSizePrice(flavor, matched, activeTenantId) : resolveSizePrice(product, size, activeTenantId);
   };
 
   const firstHalfPizza = availableFlavorPizzas.find(p => p.id === firstHalfId) || availableFlavorPizzas[0];
@@ -285,16 +314,33 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
     availableFlavorPizzas[1] ||
     availableFlavorPizzas[0];
 
+  const matchedApparelVariant = isApparel
+    ? findMatchingApparelVariant(product.apparelConfig, apparelSizeId, apparelColorId, apparelModelId)
+    : undefined;
+  const matchedApparelStock = isApparel
+    ? resolveApparelVariantStock(matchedApparelVariant, activeTenantId)
+    : undefined;
+  const selectedApparelColor = isApparel
+    ? product.apparelConfig?.colors.find(c => c.id === apparelColorId)
+    : undefined;
+
   // Price computation (Half & Half uses the highest flavor price for the chosen size)
-  const basePrice =
-    isHalfAndHalf && firstHalfPizza && secondHalfPizza
+  const basePrice = isApparel
+    ? resolveApparelUnitPrice(product, activeTenantId, {
+        sizeId: apparelSizeId,
+        colorId: apparelColorId,
+        modelId: apparelModelId,
+        giftWrap: apparelGiftWrap,
+        customPrint: Boolean(apparelCustomPrintText.trim()),
+      })
+    : isHalfAndHalf && firstHalfPizza && secondHalfPizza
       ? Math.max(
           resolveFlavorSizePrice(firstHalfPizza, selectedSize),
           resolveFlavorSizePrice(secondHalfPizza, selectedSize)
         )
       : selectedSize
-      ? selectedSize.price
-      : product.basePrice;
+      ? resolveSizePrice(product, selectedSize, activeTenantId)
+      : resolveProductBasePrice(product, activeTenantId);
 
   let subOptionsDelta = 0;
   (product.subOptions || []).forEach(group => {
@@ -510,12 +556,69 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
       }
     });
 
+    const apparelCfg = product.apparelConfig;
+    const selAppSize = apparelCfg?.sizes.find(s => s.id === apparelSizeId);
+    const selAppColor = apparelCfg?.colors.find(c => c.id === apparelColorId);
+    const selAppModel = apparelCfg?.models.find(m => m.id === apparelModelId);
+
+    if (isApparel && apparelCfg) {
+      if (selAppModel) {
+        subOptionsList.push({
+          groupId: 'apparel-model',
+          groupName: 'Modelo',
+          choiceId: selAppModel.id,
+          choiceName: selAppModel.name,
+          priceDelta: selAppModel.priceDelta || 0,
+        });
+      }
+      if (selAppColor) {
+        subOptionsList.push({
+          groupId: 'apparel-color',
+          groupName: 'Color',
+          choiceId: selAppColor.id,
+          choiceName: selAppColor.name,
+          priceDelta: selAppColor.priceDelta || 0,
+        });
+      }
+      if (selAppSize) {
+        subOptionsList.push({
+          groupId: 'apparel-size',
+          groupName: 'Talla',
+          choiceId: selAppSize.id,
+          choiceName: selAppSize.name,
+          priceDelta: selAppSize.priceDelta || 0,
+        });
+      }
+      if (apparelGiftWrap && apparelCfg.allowGiftWrap) {
+        subOptionsList.push({
+          groupId: 'apparel-giftwrap',
+          groupName: 'Empaque',
+          choiceId: 'gift-wrap',
+          choiceName: 'Empaque de regalo',
+          priceDelta: apparelCfg.giftWrapPrice || 0,
+        });
+      }
+      if (apparelCustomPrintText.trim() && apparelCfg.allowCustomPrint) {
+        subOptionsList.push({
+          groupId: 'apparel-customprint',
+          groupName: apparelCfg.customPrintLabel || 'Personalización',
+          choiceId: 'custom-print',
+          choiceName: apparelCustomPrintText.trim(),
+          priceDelta: apparelCfg.customPrintPrice || 0,
+        });
+      }
+    }
+
     const item: OrderItem = {
       itemId: createCartItemId(),
       productId: product.id,
       productName: product.name,
       productImage:
-        isHalfAndHalf && firstHalfPizza ? firstHalfPizza.imageUrl : product.imageUrl,
+        isApparel && selAppColor?.imageUrl
+          ? selAppColor.imageUrl
+          : isHalfAndHalf && firstHalfPizza
+          ? firstHalfPizza.imageUrl
+          : product.imageUrl,
       halfAndHalf:
         isHalfAndHalf && firstHalfPizza && secondHalfPizza
           ? {
@@ -527,6 +630,21 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
               secondHalfImage: secondHalfPizza.imageUrl,
             }
           : undefined,
+      apparelSelection: isApparel
+        ? {
+            sizeId: selAppSize?.id,
+            sizeName: selAppSize?.name,
+            colorId: selAppColor?.id,
+            colorName: selAppColor?.name,
+            colorHex: selAppColor?.hex,
+            modelId: selAppModel?.id,
+            modelName: selAppModel?.name,
+            variantId: matchedApparelVariant?.id,
+            variantSku: matchedApparelVariant?.sku,
+            giftWrap: apparelGiftWrap || undefined,
+            customPrintText: apparelCustomPrintText.trim() || undefined,
+          }
+        : undefined,
       size: selectedSize
         ? {
             id: selectedSize.id,
@@ -548,11 +666,11 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
   };
 
   const shareDisplayPrice = useMemo(() => {
-    if (product.hasSizes && Array.isArray(product.sizes) && product.sizes.length > 0) {
-      return product.sizes[0].price;
+    if (product.productType !== 'apparel' && product.hasSizes && Array.isArray(product.sizes) && product.sizes.length > 0) {
+      return resolveSizePrice(product, product.sizes[0], activeTenantId);
     }
-    return product.basePrice || 0;
-  }, [product.hasSizes, product.sizes, product.basePrice]);
+    return resolveProductBasePrice(product, activeTenantId);
+  }, [product, activeTenantId]);
 
   useEffect(() => {
     const slug = toProductSlug(product.name);
@@ -850,8 +968,210 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
               aria-label="Opciones de personalización del producto"
               className="store-option-accordion space-y-3"
             >
+              {/* Apparel Selectors (Color, Model, Size, Textile Options) */}
+              {isApparel && product.apparelConfig && (
+                <div
+                  className={`rounded-3xl border p-4 sm:p-5 space-y-4 shadow-xs ${
+                    isLightTheme ? 'bg-white border-zinc-200/90' : 'bg-neutral-900 border-neutral-800'
+                  }`}
+                >
+                  {(product.apparelConfig.brand || product.apparelConfig.material || product.apparelConfig.collection) && (
+                    <div className="flex flex-wrap gap-1.5 text-[11px]">
+                      {product.apparelConfig.brand && (
+                        <span className="px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 font-bold text-zinc-700 dark:text-zinc-300">
+                          Marca: {product.apparelConfig.brand}
+                        </span>
+                      )}
+                      {product.apparelConfig.material && (
+                        <span className="px-2.5 py-0.5 rounded-full bg-zinc-100 dark:bg-zinc-800 font-bold text-zinc-700 dark:text-zinc-300">
+                          {product.apparelConfig.material}
+                        </span>
+                      )}
+                      {product.apparelConfig.collection && (
+                        <span className="px-2.5 py-0.5 rounded-full bg-sky-500/15 font-bold text-sky-600 dark:text-sky-300">
+                          {product.apparelConfig.collection}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {product.apparelConfig.colors.filter(c => c.enabled).length > 0 && (
+                    <div className="space-y-2">
+                      <span className="text-xs font-black uppercase tracking-wider text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+                        <Palette className="w-4 h-4" /> Color: {selectedApparelColor?.name || 'Elige'}
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {product.apparelConfig.colors
+                          .filter(c => c.enabled)
+                          .map(col => (
+                            <button
+                              key={col.id}
+                              type="button"
+                              onClick={() => setApparelColorId(col.id)}
+                              className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center gap-2 transition-all ${
+                                apparelColorId === col.id
+                                  ? 'border-purple-500 bg-purple-500/15 ring-2 ring-purple-500/30'
+                                  : isLightTheme
+                                  ? 'border-zinc-200 bg-zinc-50 text-zinc-700'
+                                  : 'border-neutral-800 bg-neutral-800/50 text-neutral-300'
+                              }`}
+                            >
+                              <span
+                                className="w-4 h-4 rounded-full border border-zinc-300 dark:border-zinc-600 shrink-0"
+                                style={{ backgroundColor: col.hex }}
+                              />
+                              <span>{col.name}</span>
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {product.apparelConfig.models.filter(m => m.enabled).length > 0 && (
+                    <div className="space-y-2">
+                      <span className="text-xs font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                        <Shirt className="w-4 h-4" /> Modelo / Corte
+                      </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {product.apparelConfig.models
+                          .filter(m => m.enabled)
+                          .map(mod => (
+                            <button
+                              key={mod.id}
+                              type="button"
+                              onClick={() => setApparelModelId(mod.id)}
+                              className={`p-2.5 rounded-xl border text-left transition-all ${
+                                apparelModelId === mod.id
+                                  ? 'border-emerald-500 bg-emerald-500/15 ring-2 ring-emerald-500/30'
+                                  : isLightTheme
+                                  ? 'border-zinc-200 bg-zinc-50 text-zinc-700'
+                                  : 'border-neutral-800 bg-neutral-800/50 text-neutral-300'
+                              }`}
+                            >
+                              <div className="font-bold text-xs">{mod.name}</div>
+                              {mod.description && (
+                                <div className="text-[10px] opacity-70 line-clamp-1">{mod.description}</div>
+                              )}
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {product.apparelConfig.sizes.filter(s => s.enabled).length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                          <Ruler className="w-4 h-4" /> Talla
+                        </span>
+                        {product.apparelConfig.sizeGuideText && (
+                          <button
+                            type="button"
+                            onClick={() => setShowSizeGuide(v => !v)}
+                            className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                          >
+                            {showSizeGuide ? 'Ocultar Guía' : 'Guía de Tallas'}
+                          </button>
+                        )}
+                      </div>
+                      {showSizeGuide && product.apparelConfig.sizeGuideText && (
+                        <div className="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-xs">
+                          {product.apparelConfig.sizeGuideText}
+                        </div>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        {product.apparelConfig.sizes
+                          .filter(s => s.enabled)
+                          .map(sz => (
+                            <button
+                              key={sz.id}
+                              type="button"
+                              onClick={() => setApparelSizeId(sz.id)}
+                              className={`min-w-[52px] px-3 py-2 rounded-xl border text-xs font-black transition-all ${
+                                apparelSizeId === sz.id
+                                  ? 'border-amber-500 bg-amber-500/20 ring-2 ring-amber-500/40'
+                                  : isLightTheme
+                                  ? 'border-zinc-200 bg-zinc-50 text-zinc-700'
+                                  : 'border-neutral-800 bg-neutral-800/50 text-neutral-300'
+                              }`}
+                            >
+                              {sz.name}
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {matchedApparelVariant && (
+                    <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                      {matchedApparelVariant.sku && (
+                        <span className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 font-mono">
+                          SKU: {matchedApparelVariant.sku}
+                        </span>
+                      )}
+                      {typeof matchedApparelStock === 'number' && (
+                        <span
+                          className={`px-2.5 py-1 rounded-lg font-bold ${
+                            matchedApparelStock > 0
+                              ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300'
+                              : 'bg-rose-500/15 text-rose-600 dark:text-rose-300'
+                          }`}
+                        >
+                          {matchedApparelStock > 0 ? `Stock: ${matchedApparelStock} und.` : 'Agotado'}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {(product.apparelConfig.allowGiftWrap || product.apparelConfig.allowCustomPrint) && (
+                    <div className="space-y-2 pt-1">
+                      {product.apparelConfig.allowGiftWrap && (
+                        <label className="flex items-center justify-between p-3 rounded-xl border border-zinc-200 dark:border-neutral-800 cursor-pointer">
+                          <span className="flex items-center gap-2 text-xs font-bold">
+                            <Gift className="w-4 h-4 text-rose-500" />
+                            <span>Empaque de regalo</span>
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {(product.apparelConfig.giftWrapPrice || 0) > 0 && (
+                              <span className="text-xs font-black text-amber-600 dark:text-amber-400">
+                                +S/ {(product.apparelConfig.giftWrapPrice || 0).toFixed(2)}
+                              </span>
+                            )}
+                            <input
+                              type="checkbox"
+                              checked={apparelGiftWrap}
+                              onChange={e => setApparelGiftWrap(e.target.checked)}
+                              className="accent-amber-500"
+                            />
+                          </div>
+                        </label>
+                      )}
+                      {product.apparelConfig.allowCustomPrint && (
+                        <div className="p-3 rounded-xl border border-zinc-200 dark:border-neutral-800 space-y-1.5">
+                          <div className="flex items-center justify-between text-xs font-bold">
+                            <span>{product.apparelConfig.customPrintLabel || 'Personalización'}</span>
+                            {(product.apparelConfig.customPrintPrice || 0) > 0 && (
+                              <span className="text-amber-600 dark:text-amber-400 font-black">
+                                +S/ {(product.apparelConfig.customPrintPrice || 0).toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+                          <input
+                            type="text"
+                            value={apparelCustomPrintText}
+                            onChange={e => setApparelCustomPrintText(e.target.value)}
+                            placeholder="Texto o iniciales para bordar/estampar (opcional)..."
+                            className="w-full px-3 py-1.5 rounded-lg bg-transparent border border-zinc-300 dark:border-neutral-700 text-xs"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* 1. Size Selection Accordion (Image 4 Design) */}
-              {product.hasSizes && product.sizes.some(s => s.enabled) && (
+              {!isApparel && product.hasSizes && product.sizes.some(s => s.enabled) && (
                 <details
                   open
                   onToggle={syncExpandAllState}

@@ -1,4 +1,4 @@
-import { CulqiGatewayConfig, DeliveryTariffConfig } from '../types/settings';
+import { BranchShippingScope, CulqiGatewayConfig, DeliveryTariffConfig } from '../types/settings';
 
 declare global {
   interface Window {
@@ -78,7 +78,7 @@ export function isRealCulqiPublicKey(publicKey?: string): boolean {
   const clean = publicKey.trim();
   return (
     /^pk_(test|live)_[A-Za-z0-9]{12,}$/.test(clean) &&
-    !clean.includes('demo_khalessi')
+    !clean.includes('demo_gastro')
   );
 }
 
@@ -221,6 +221,8 @@ export function calculateDynamicDeliveryFee(params: {
   branchMaxRadiusKm: number;
   cartSubtotal: number;
   tariff?: DeliveryTariffConfig;
+  hasDelivery?: boolean;
+  shippingScope?: BranchShippingScope;
 }): DynamicDeliveryComputation {
   if (params.orderMode === 'pickup') {
     return {
@@ -231,10 +233,20 @@ export function calculateDynamicDeliveryFee(params: {
     };
   }
 
+  if (params.hasDelivery === false) {
+    return {
+      feeSoles: 0,
+      matchedBracketLabel: 'Local sin servicio de delivery (solo recojo)',
+      isFreeBySubtotal: false,
+      isOutOfRange: true,
+    };
+  }
+
   const tariff = params.tariff;
   const maxRadius = params.branchMaxRadiusKm > 0 ? params.branchMaxRadiusKm : 8;
+  const isNational = params.shippingScope === 'national';
 
-  if (params.distanceKm !== null && params.distanceKm > maxRadius) {
+  if (!isNational && params.distanceKm !== null && params.distanceKm > maxRadius) {
     return {
       feeSoles: tariff?.baseFallbackFeeSoles ?? 5,
       matchedBracketLabel: `Fuera de cobertura (${params.distanceKm.toFixed(1)} km > ${maxRadius} km máx.)`,
@@ -252,6 +264,16 @@ export function calculateDynamicDeliveryFee(params: {
       feeSoles: 0,
       matchedBracketLabel: `Envío Gratis por compra ≥ S/ ${tariff.freeDeliveryMinSubtotal.toFixed(0)}`,
       isFreeBySubtotal: true,
+      isOutOfRange: false,
+    };
+  }
+
+  if (isNational && (!tariff || !tariff.enabled || params.distanceKm === null || params.distanceKm > maxRadius)) {
+    const fallback = tariff?.baseFallbackFeeSoles ?? 15.0;
+    return {
+      feeSoles: Number(fallback.toFixed(2)),
+      matchedBracketLabel: 'Envío a Nivel Nacional',
+      isFreeBySubtotal: false,
       isOutOfRange: false,
     };
   }
@@ -375,7 +397,7 @@ export async function createCulqiCardTokenAndSave(params: {
         body: JSON.stringify({
           email: params.email.trim(),
           firstName: nameParts[0] || 'Cliente',
-          lastName: nameParts.slice(1).join(' ') || 'Khalessi',
+          lastName: nameParts.slice(1).join(' ') || 'Gastro',
           phoneNumber: params.phone,
           address: params.address || 'Lima, Peru',
           tokenId: tokenData.id,
@@ -438,7 +460,7 @@ export async function chargeSavedCulqiCard(params: {
           currencyCode: 'PEN',
           email: params.email.trim(),
           sourceId: cardId,
-          description: params.description || 'Pedido Khalessi Pizza',
+          description: params.description || 'Pedido Gastro Restaurante',
         }),
       });
       const data = await resp.json();

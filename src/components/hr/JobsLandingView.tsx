@@ -64,7 +64,7 @@ export const JobsLandingView: React.FC<JobsLandingViewProps> = ({
   const resolveBranchNames = (branchIds: string[]) => {
     if (!branchIds || branchIds.length === 0) return ['Todas las sedes'];
     const names = branchIds
-      .map(id => tenants.find(t => t.id === id)?.name.replace('Khalessi Pizza - ', ''))
+      .map(id => tenants.find(t => t.id === id)?.name.replace('Gastro - ', ''))
       .filter((n): n is string => Boolean(n));
     return names.length > 0 ? names : ['Sedes disponibles'];
   };
@@ -265,7 +265,7 @@ export const JobsLandingView: React.FC<JobsLandingViewProps> = ({
                       <option value="all">Todas las sedes</option>
                       {tenants.map(t => (
                         <option key={t.id} value={t.id}>
-                          {t.name.replace('Khalessi Pizza - ', '')}
+                          {t.name.replace('Gastro - ', '')}
                         </option>
                       ))}
                     </select>

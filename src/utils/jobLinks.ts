@@ -28,7 +28,7 @@ export function getJobPublicUrl(posting?: Pick<JobPostingFormConfig, 'id' | 'pos
   const origin =
     typeof window !== 'undefined' && window.location.origin
       ? window.location.origin
-      : 'https://pizzakhalessi.com';
+      : 'https://gastroerp.com';
   return `${origin}${getJobPublicPath(posting)}`;
 }
 

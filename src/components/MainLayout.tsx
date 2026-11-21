@@ -380,7 +380,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
   const activeBranchLabel =
     branchScope === 'consolidated'
       ? `Consolidado (${tenants.length} sedes)`
-      : activeTenant.name.replace('Khalessi Pizza - ', '');
+      : activeTenant.name.replace('Gastro - ', '');
 
   const isSuperAdminOrManager =
     currentUser.roleId === 'role-admin' ||
@@ -427,13 +427,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
         <SystemNoticeModal />
 
         {/* Dedicated Operational Station Top Bar */}
-        <header className="h-14 sm:h-16 px-2.5 sm:px-6 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex items-center justify-between gap-2 sm:gap-3 shrink-0 shadow-sm z-30">
+        <header className="h-14 sm:h-16 px-2.5 sm:px-6 border-b border-erp-border bg-erp-card flex items-center justify-between gap-2 sm:gap-3 shrink-0 shadow-sm z-30">
           {/* Left: Branding & Branch Selector */}
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <div
               className={`h-10 w-10 rounded-xl flex items-center justify-center font-black text-lg shadow-sm shrink-0 overflow-hidden ${
                 customization.favicon
-                  ? 'bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-700'
+                  ? 'bg-erp-subcard border border-erp-border'
                   : 'text-white'
               }`}
               style={customization.favicon ? undefined : { backgroundColor: customization.primaryColor }}
@@ -465,7 +465,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
               {isCashierRole || allowedStationTenants.length <= 1 ? (
                 <div className="flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 truncate max-w-[220px]">
                   <Store className="w-3 h-3 shrink-0" />
-                  <span className="truncate">{activeTenant.name.replace('Khalessi Pizza - ', '')}</span>
+                  <span className="truncate">{activeTenant.name.replace('Gastro - ', '')}</span>
                 </div>
               ) : (
                 <div className="relative" ref={stationTenantMenuRef}>
@@ -475,12 +475,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                     className="flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors truncate max-w-[200px]"
                   >
                     <Store className="w-3 h-3 shrink-0" />
-                    <span className="truncate">{activeTenant.name.replace('Khalessi Pizza - ', '')}</span>
+                    <span className="truncate">{activeTenant.name.replace('Gastro - ', '')}</span>
                     <ChevronsUpDown className="w-3 h-3 shrink-0 opacity-60" />
                   </button>
 
                   {isStationTenantMenuOpen && (
-                    <div className="absolute left-0 top-full mt-2 w-64 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                    <div className="absolute left-0 top-full mt-2 w-64 saas-card shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
                       <div className="px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-zinc-400">
                         Cambiar de Sucursal
                       </div>
@@ -498,7 +498,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                               : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
                           }`}
                         >
-                          <span className="truncate">{t.name.replace('Khalessi Pizza - ', '')}</span>
+                          <span className="truncate">{t.name.replace('Gastro - ', '')}</span>
                           {t.id === activeTenant.id && <Check className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
                         </button>
                       ))}
@@ -558,9 +558,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
 
               {/* Operator Popover Menu */}
               {isStationUserMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl p-2 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-100">
+                <div className="absolute right-0 top-full mt-2 w-72 saas-card shadow-2xl p-2 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-100">
                   {/* User Profile Card */}
-                  <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800/80">
+                  <div className="p-3 saas-subcard">
                     <div className="flex items-center gap-2.5">
                       <img
                         src={currentUser.avatarUrl}
@@ -697,7 +697,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
         </header>
 
         {/* Operational Workspace Body (1600px max width) */}
-        <main className="flex-1 overflow-y-auto p-3 sm:p-5 bg-zinc-50 dark:bg-zinc-950 custom-scrollbar">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-5 erp-canvas-surface custom-scrollbar">
           <div className="max-w-[1600px] mx-auto w-full">
             <Suspense fallback={<ModuleWorkspaceSkeleton />}>
               {isCashierRole ? (
@@ -728,8 +728,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
         {/* Modal for Personal Technical Sheet / Remuneration Voucher */}
         {isPersonalVoucherOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
-            <div className="w-full max-w-4xl max-h-[92vh] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col">
-              <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between bg-zinc-50 dark:bg-zinc-950">
+            <div className="w-full max-w-4xl max-h-[92vh] saas-card shadow-2xl overflow-hidden flex flex-col">
+              <div className="p-3 border-b border-erp-border flex items-center justify-between bg-erp-subcard">
                 <span className="font-bold text-sm text-zinc-900 dark:text-white flex items-center gap-2">
                   <Receipt className="w-4 h-4 text-amber-500" />
                   Ficha Técnica & Boleta Oficial · {currentUser.name}
@@ -921,7 +921,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                           <Store className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
                           <div className="text-left min-w-0">
                             <span className="truncate block">
-                              {t.name.replace('Khalessi Pizza - ', '')}
+                              {t.name.replace('Gastro - ', '')}
                             </span>
                             <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate block">
                               {t.operations?.branchCode ? `${t.operations.branchCode} · ` : ''}
@@ -1875,7 +1875,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
         return (
           <nav
             aria-label="Navegación rápida móvil"
-            className="lg:hidden fixed bottom-0 inset-x-0 z-30 erp-mobile-safe-bottom bg-white/95 dark:bg-zinc-950/95 backdrop-blur-xl border-t border-zinc-200/90 dark:border-zinc-800 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_-8px_24px_rgba(0,0,0,0.45)]"
+            className="lg:hidden fixed bottom-0 inset-x-0 z-30 erp-mobile-safe-bottom bg-erp-card/95 backdrop-blur-xl border-t border-erp-border shadow-[0_-8px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_-8px_24px_rgba(0,0,0,0.45)]"
           >
             <div className="grid grid-flow-col auto-cols-fr items-center px-2 pt-1.5">
               {navItems.map(item => {

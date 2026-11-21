@@ -1,7 +1,7 @@
 <?php
 /**
  * Bot Asistente de Pedidos (Proxy Seguro Google Gemini + Sincronización de Gustos)
- * Khalessi Pizza ERP
+ * GastroERP
  */
 require_once __DIR__ . '/config.php';
 
@@ -82,7 +82,7 @@ if (GEMINI_API_KEY === '') {
     sendResponse(['success' => false, 'fallback' => true, 'reason' => 'GEMINI_API_KEY no configurada']);
 }
 
-$storeName = (string)($body['storeName'] ?? 'Khalessi Pizza');
+$storeName = (string)($body['storeName'] ?? 'Gastro Restaurante');
 $branchName = (string)($body['branchName'] ?? '');
 $customerName = (string)($body['customerName'] ?? '');
 $catalog = is_array($body['catalog'] ?? null) ? $body['catalog'] : [];
@@ -133,7 +133,7 @@ $curlErr = curl_error($ch);
 curl_close($ch);
 
 if ($responseRaw === false || $httpCode < 200 || $httpCode >= 300) {
-    error_log('[Khalessi OrderBot Gemini] HTTP ' . $httpCode . ' ' . $curlErr);
+    error_log('[GastroERP OrderBot Gemini] HTTP ' . $httpCode . ' ' . $curlErr);
     sendResponse(['success' => false, 'fallback' => true, 'reason' => 'Error de comunicación con Gemini']);
 }
 

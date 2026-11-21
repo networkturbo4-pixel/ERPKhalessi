@@ -142,7 +142,7 @@ export const LoginScreen: React.FC<{ onNavigateToStore?: () => void }> = ({ onNa
       const serverAuth = await authenticateAndHydrateServer(clean);
       if (serverAuth.ok) {
         try {
-          const raw = localStorage.getItem('khalessi_erp_settings_v3');
+          const raw = localStorage.getItem('gastro_erp_settings_v3');
           const parsed = raw ? JSON.parse(raw) : null;
           const hydratedUsers: User[] = Array.isArray(parsed?.users) ? parsed.users : [];
           matchedUser = hydratedUsers.find(u => String(u.pin || '').replace(/\D/g, '') === clean);
@@ -150,7 +150,7 @@ export const LoginScreen: React.FC<{ onNavigateToStore?: () => void }> = ({ onNa
             matchedUser = {
               id: serverAuth.user.id || 'bootstrap',
               name: serverAuth.user.name || 'Super Administrador',
-              email: 'admin@khalessipizza.com',
+              email: 'admin@gastroerp.com',
               phone: '',
               avatarUrl: '',
               roleId: serverAuth.user.roleId || 'role-admin',
@@ -706,7 +706,7 @@ export const LoginScreen: React.FC<{ onNavigateToStore?: () => void }> = ({ onNa
                           value={t.id}
                           className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"
                         >
-                          {t.name.replace('Khalessi Pizza - ', '')}
+                          {t.name.replace('Gastro - ', '')}
                         </option>
                       ))}
                     </select>
@@ -986,7 +986,7 @@ export const LoginScreen: React.FC<{ onNavigateToStore?: () => void }> = ({ onNa
                     key={t.id}
                     className="px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-[11px] font-semibold text-zinc-200"
                   >
-                    {t.operations?.branchCode || 'SUC'} · {t.name.replace('Khalessi Pizza - ', '')}
+                    {t.operations?.branchCode || 'SUC'} · {t.name.replace('Gastro - ', '')}
                   </span>
                 ))}
               </div>

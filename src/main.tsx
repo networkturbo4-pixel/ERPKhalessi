@@ -81,7 +81,7 @@ function preloadHeroLcpImage(url: string, maxWaitMs: number): Promise<void> {
 }
 
 async function bootstrap() {
-  const hasCachedState = Boolean(localStorage.getItem('khalessi_erp_settings_v3'))
+  const hasCachedState = Boolean(localStorage.getItem('gastro_erp_settings_v3'))
 
   if (!hasCachedState) {
     // Primera visita en un dispositivo nuevo: hidratar desde el servidor (máx 3000ms) mientras se muestra el splash de marca

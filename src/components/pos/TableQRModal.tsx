@@ -123,7 +123,7 @@ export const TableQRModal: React.FC<TableQRModalProps> = ({
 
   const handlePrintCards = (targetTables: RestaurantTable[]) => {
     if (targetTables.length === 0) return;
-    const brandName = companyInfo.commercialName || 'Khalessi Pizza';
+    const brandName = companyInfo.commercialName || 'Gastro Restaurante';
 
     const cardsHtml = targetTables
       .map((tbl) => {

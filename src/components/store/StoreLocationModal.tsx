@@ -190,10 +190,14 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
         branchMaxRadiusKm: activeTenant.operations?.deliveryRadiusKm || 6,
         cartSubtotal,
         tariff: activeTenant.operations?.deliveryTariff || companyTariff,
+        hasDelivery: activeTenant.operations?.hasDelivery,
+        shippingScope: activeTenant.operations?.shippingScope,
       }),
     [
       activeTenant.operations?.deliveryRadiusKm,
       activeTenant.operations?.deliveryTariff,
+      activeTenant.operations?.hasDelivery,
+      activeTenant.operations?.shippingScope,
       cartSubtotal,
       companyTariff,
       deliveryType,
@@ -208,7 +212,7 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
     const match = findBestBranchForPoint(coords, tenants);
     if (match.matchedTenant) {
       setSelectedTenantId(match.matchedTenant.id);
-      setAutoAssignedBranch(match.matchedTenant.name.replace('Khalessi Pizza - ', ''));
+      setAutoAssignedBranch(match.matchedTenant.name.replace('Gastro - ', ''));
     } else {
       setAutoAssignedBranch(null);
     }
@@ -493,7 +497,7 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                       onClick={() => setSelectedTenantId(coverageMatch.matchedTenant!.id)}
                       className="px-2.5 py-1 rounded-lg bg-rose-600 text-white font-bold text-[11px] hover:bg-rose-700 transition-colors whitespace-nowrap shrink-0"
                     >
-                      Usar sede con cobertura ({coverageMatch.matchedTenant.name.replace('Khalessi Pizza - ', '')})
+                      Usar sede con cobertura ({coverageMatch.matchedTenant.name.replace('Gastro - ', '')})
                     </button>
                   )}
                   <button
@@ -513,12 +517,18 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                   <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                   <span className="truncate">
                     {autoAssignedBranch && deliveryType === 'delivery'
-                      ? `Asignada por cobertura: ${activeTenant.name.replace('Khalessi Pizza - ', '')}`
-                      : `Tienda activa: ${activeTenant.name.replace('Khalessi Pizza - ', '')}`}
+                      ? `Asignada por cobertura: ${activeTenant.name.replace('Gastro - ', '')}`
+                      : `Tienda activa: ${activeTenant.name.replace('Gastro - ', '')}`}
                   </span>
                 </div>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-600 text-white shrink-0">
-                  {deliveryType === 'pickup' ? 'Retiro' : selectedCoverage?.matchType === 'polygon' ? 'En Polígono' : 'En Radio'}
+                  {deliveryType === 'pickup'
+                    ? 'Retiro'
+                    : selectedCoverage?.matchType === 'national'
+                    ? 'Nacional'
+                    : selectedCoverage?.matchType === 'polygon'
+                    ? 'En Polígono'
+                    : 'En Radio'}
                 </span>
               </div>
             )}
@@ -528,7 +538,7 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
               {filteredTenants.map(tenant => {
                 const isSelected = tenant.id === selectedTenantId;
                 const isCurrentActive = tenant.id === activeTenantId;
-                const name = tenant.name.replace('Khalessi Pizza - ', '');
+                const name = tenant.name.replace('Gastro - ', '');
                 const address = tenant.operations?.address || 'Lima, Perú';
                 const isMain = tenant.id === 'tenant-belaunde' || tenant.id === 'tenant-1';
                 const cov = coverageMatch.evaluations.get(tenant.id);
@@ -538,6 +548,8 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                   branchMaxRadiusKm: tenant.operations?.deliveryRadiusKm || 6,
                   cartSubtotal,
                   tariff: tenant.operations?.deliveryTariff || companyTariff,
+                  hasDelivery: tenant.operations?.hasDelivery,
+                  shippingScope: tenant.operations?.shippingScope,
                 });
 
                 return (
@@ -573,7 +585,7 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                         ) : (
                           <div className="w-full h-full bg-gradient-to-br from-red-600 to-rose-700 flex flex-col items-center justify-center text-white">
                             <span className="text-[9px] font-black leading-tight">PIZZA</span>
-                            <span className="text-[7px] font-bold tracking-tighter opacity-90">KHALESSI</span>
+                            <span className="text-[7px] font-bold tracking-tighter opacity-90">GASTRO</span>
                           </div>
                         )}
                       </div>
@@ -609,10 +621,25 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                               <Store className="w-3 h-3" />
                               <span>Retiro Gratis</span>
                             </span>
+                          ) : tenant.operations?.hasDelivery === false ? (
+                            <span className={`px-2 py-0.5 rounded-md border flex items-center gap-1 ${isLightTheme ? 'bg-zinc-100 text-zinc-700 border-zinc-300' : 'bg-zinc-800 text-zinc-300 border-zinc-700'}`}>
+                              <Store className="w-3 h-3" />
+                              <span>Solo Retiro (Sin Delivery)</span>
+                            </span>
                           ) : cov?.covered ? (
-                            <span className={`px-2 py-0.5 rounded-md border flex items-center gap-1 ${isLightTheme ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-emerald-950/50 text-emerald-300 border-emerald-900/50'}`}>
+                            <span className={`px-2 py-0.5 rounded-md border flex items-center gap-1 ${
+                              cov.matchType === 'national'
+                                ? (isLightTheme ? 'bg-indigo-50 text-indigo-800 border-indigo-200' : 'bg-indigo-950/50 text-indigo-300 border-indigo-900/50')
+                                : (isLightTheme ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-emerald-950/50 text-emerald-300 border-emerald-900/50')
+                            }`}>
                               <Bike className="w-3 h-3" />
-                              <span>{cardFee.feeSoles === 0 ? 'Envío Gratis' : `Envío S/ ${cardFee.feeSoles.toFixed(2)}`}</span>
+                              <span>
+                                {cov.matchType === 'national'
+                                  ? `Envío Nacional · ${cardFee.feeSoles === 0 ? 'Gratis' : `S/ ${cardFee.feeSoles.toFixed(2)}`}`
+                                  : cardFee.feeSoles === 0
+                                  ? 'Envío Gratis'
+                                  : `Envío S/ ${cardFee.feeSoles.toFixed(2)}`}
+                              </span>
                             </span>
                           ) : (
                             <span className={`px-2 py-0.5 rounded-md border flex items-center gap-1 ${isLightTheme ? 'bg-rose-50 text-rose-800 border-rose-200' : 'bg-rose-950/50 text-rose-300 border-rose-900/50'}`}>
@@ -667,7 +694,7 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                 }`}
                 style={{ backgroundColor: isDeliveryBlocked ? '#64748b' : accentColor }}
               >
-                <span>{isDeliveryBlocked ? 'Fuera de cobertura' : `Pedir en ${activeTenant.name.replace('Khalessi Pizza - ', '')}`}</span>
+                <span>{isDeliveryBlocked ? 'Fuera de cobertura' : `Pedir en ${activeTenant.name.replace('Gastro - ', '')}`}</span>
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -738,7 +765,7 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                         onClick={() => setSelectedTenantId(coverageMatch.matchedTenant!.id)}
                         className="px-2.5 py-1 rounded-lg bg-rose-600 text-white font-bold text-[11px] whitespace-nowrap shrink-0"
                       >
-                        Usar {coverageMatch.matchedTenant.name.replace('Khalessi Pizza - ', '')}
+                        Usar {coverageMatch.matchedTenant.name.replace('Gastro - ', '')}
                       </button>
                     )}
                     <button
@@ -774,13 +801,13 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-red-600 to-rose-700 flex flex-col items-center justify-center text-white">
                         <span className="text-[9px] font-black leading-tight">PIZZA</span>
-                        <span className="text-[7px] font-bold tracking-tighter opacity-90">KHALESSI</span>
+                        <span className="text-[7px] font-bold tracking-tighter opacity-90">GASTRO</span>
                       </div>
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <h4 className={`font-black text-sm truncate ${isLightTheme ? 'text-zinc-950' : 'text-white'}`}>
-                      {activeTenant.name.replace('Khalessi Pizza - ', '')}
+                      {activeTenant.name.replace('Gastro - ', '')}
                     </h4>
                     <p className={`text-xs truncate ${isLightTheme ? 'text-zinc-600' : 'text-neutral-400'}`}>
                       {activeTenant.operations?.address || 'Lima, Perú'}

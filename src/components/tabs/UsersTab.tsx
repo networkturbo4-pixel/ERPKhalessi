@@ -206,7 +206,7 @@ export const UsersTab: React.FC = () => {
   const formatUserBranches = (u: User) => {
     if (!u.branchIds || u.branchIds.includes('all')) return 'Todas las Sedes';
     return u.branchIds
-      .map(id => tenants.find(t => t.id === id)?.name.replace('Khalessi Pizza - ', '') || 'Sede')
+      .map(id => tenants.find(t => t.id === id)?.name.replace('Gastro - ', '') || 'Sede')
       .join(', ');
   };
 
@@ -222,7 +222,7 @@ export const UsersTab: React.FC = () => {
           <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
             {branchScope === 'consolidated'
               ? `Mostrando planilla corporativa consolidada (${users.length} colaboradores).`
-              : `Contexto activo: ${activeTenant.name.replace('Khalessi Pizza - ', '')}.`}
+              : `Contexto activo: ${activeTenant.name.replace('Gastro - ', '')}.`}
           </p>
         </div>
 
@@ -264,7 +264,7 @@ export const UsersTab: React.FC = () => {
               >
                 <Store className="h-3.5 w-3.5" />
                 {onlyCurrentBranch
-                  ? `Solo ${activeTenant.name.replace('Khalessi Pizza - ', '')}`
+                  ? `Solo ${activeTenant.name.replace('Gastro - ', '')}`
                   : 'Ver toda la empresa'}
               </button>
             )}
@@ -534,7 +534,7 @@ export const UsersTab: React.FC = () => {
                       required
                       value={formData.email}
                       onChange={e => setFormData({ ...formData, email: e.target.value })}
-                      placeholder="rodrigo@khalessipizza.com"
+                      placeholder="rodrigo@gastroerp.com"
                       className="w-full px-3 py-2 text-xs rounded-lg saas-input"
                     />
                   </div>
@@ -564,7 +564,7 @@ export const UsersTab: React.FC = () => {
                       <option value="all">Todas las Sucursales (Corporativo)</option>
                       {tenants.map(t => (
                         <option key={t.id} value={t.id}>
-                          {t.name.replace('Khalessi Pizza - ', '')}
+                          {t.name.replace('Gastro - ', '')}
                         </option>
                       ))}
                     </select>
@@ -795,7 +795,7 @@ export const UsersTab: React.FC = () => {
                       <option value="all">Todas las Sucursales</option>
                       {tenants.map(t => (
                         <option key={t.id} value={t.id}>
-                          {t.name.replace('Khalessi Pizza - ', '')}
+                          {t.name.replace('Gastro - ', '')}
                         </option>
                       ))}
                     </select>

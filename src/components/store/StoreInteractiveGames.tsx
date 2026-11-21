@@ -42,11 +42,11 @@ const ROULETTE_PRIZES: RoulettePrize[] = [
   {
     id: 'p2',
     label: '15% DSCTO',
-    sublabel: 'Cupón: KHALESSI15',
+    sublabel: 'Cupón: GASTRO15',
     color: '#0284c7',
     textColor: '#ffffff',
     type: 'coupon',
-    value: 'KHALESSI15',
+    value: 'GASTRO15',
     icon: '🎟️',
   },
   {
@@ -364,7 +364,7 @@ export const StoreInteractiveGames: React.FC<StoreInteractiveGamesProps> = ({
               <span>Gira y Gana Premios Inmediatos</span>
             </div>
             <h3 className={`text-xl sm:text-2xl font-black ${isLightTheme ? 'text-zinc-950' : 'text-white'}`}>
-              Ruleta Mágica Khalessi
+              Ruleta Mágica
             </h3>
             <p className={`text-xs sm:text-sm mt-1 ${isLightTheme ? 'text-zinc-600' : 'text-neutral-400'}`}>
               Gana cupones, bebidas gratis o puntos directos para tu cuenta de cliente.

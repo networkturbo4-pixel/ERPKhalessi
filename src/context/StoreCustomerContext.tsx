@@ -318,7 +318,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
               id: `pt-init-${Date.now()}`,
               date: now,
               delta: welcomeAmount,
-              reason: 'Bono de Bienvenida Club Khalessi',
+              reason: 'Bono de Bienvenida Club Gastro',
             },
           ]
         : [];
@@ -348,7 +348,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
       setActiveCustomerId(newAccount.id);
       setGuestOrderIds([]);
       dispatchToast(
-        '¡Bienvenido a Khalessi!',
+        '¡Bienvenido a Gastro!',
         `Tu cuenta de cliente ha sido creada, ${newAccount.fullName.split(' ')[0]}.`,
         'success'
       );
@@ -851,7 +851,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
       },
       entregado: {
         title: '¡Pedido Entregado! 🍕🎉',
-        message: 'Gracias por pedir en Khalessi Pizza. ¡Buen provecho!',
+        message: 'Gracias por pedir en Gastro Restaurante. ¡Buen provecho!',
         tone: 'success',
       },
       cancelado: {

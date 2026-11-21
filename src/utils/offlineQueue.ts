@@ -15,7 +15,7 @@ export interface OfflineSyncStatus {
   lastSyncedAt: string | null;
 }
 
-const DB_NAME = 'khalessi_offline_db_v1';
+const DB_NAME = 'gastro_offline_db_v1';
 const DB_VERSION = 1;
 const STORE_QUEUE = 'pending_sync_queue';
 const STORE_SNAPSHOTS = 'kv_snapshots';

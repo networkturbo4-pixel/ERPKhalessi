@@ -56,7 +56,7 @@ export const DEFAULT_THERMAL_CONFIG: ThermalPrintConfig = {
   fontFamily: 'monospace',
   receipt: {
     showLogo: true,
-    businessName: 'KHALESSI PIZZA ARTESANAL',
+    businessName: 'GASTRO RESTAURANTE',
     slogan: 'El verdadero sabor al horno de piedra',
     ruc: 'RUC 20608945123',
     address: 'Av. Primavera 1024, Santiago de Surco - Lima',
@@ -79,7 +79,7 @@ export const DEFAULT_THERMAL_CONFIG: ThermalPrintConfig = {
     showQrCode: true,
     qrType: 'yape_plin',
     footerMessage: '¡Gracias por su preferencia! Que disfrute su pizza.',
-    wifiInfo: 'WiFi Clientes: Khalessi_Guest (Clave: pizza2026)',
+    wifiInfo: 'WiFi Clientes: Gastro_Guest (Clave: pizza2026)',
   },
   comanda: {
     headerStation: 'COCINA & HORNO',

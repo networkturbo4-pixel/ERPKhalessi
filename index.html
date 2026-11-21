@@ -6,15 +6,15 @@
     <meta name="theme-color" content="#e11d48" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta property="og:site_name" content="Pizza Khalessi" />
+    <meta property="og:site_name" content="Gastro Restaurante" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Pizza Khalessi | Pizzas Artesanales & Delivery" />
+    <meta property="og:title" content="Gastro Restaurante | Pizzas Artesanales & Delivery" />
     <meta property="og:description" content="Pide en línea tus pizzas artesanales, combos y promociones con seguimiento en vivo." />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/api/favicon.php" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Pizza Khalessi | Plataforma Multisucursal</title>
+    <title>Gastro Restaurante | Plataforma Multisucursal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -61,7 +61,7 @@
             id="kh-splash-title"
             style="font-size:15px;font-weight:800;letter-spacing:-0.02em;color:#f4f4f5;"
           >
-            Pizza Khalessi
+            Gastro Restaurante
           </div>
 
           <div
@@ -99,19 +99,31 @@
             var primary = localStorage.getItem('kh_brand_primary_v1') || '';
             var theme = localStorage.getItem('kh_brand_theme_v1') || '';
             var brandName = '';
-            if (!icon || !primary || !brandName) {
-              var raw = localStorage.getItem('khalessi_erp_settings_v3');
-              if (raw) {
-                var parsed = JSON.parse(raw);
-                var c = parsed && parsed.customization ? parsed.customization : null;
-                if (c) {
-                  icon = icon || c.favicon || c.storeHeaderLogo || c.logoDark || c.logoLight || '';
-                  primary = primary || c.primaryColor || '';
-                  theme = theme || c.themePreference || '';
-                }
-                if (parsed && parsed.companyInfo && parsed.companyInfo.commercialName) {
-                  brandName = parsed.companyInfo.commercialName;
-                }
+            var savedLightBg = '';
+            var savedDarkBg = '';
+            var savedAccentLight = '';
+            var savedAccentDark = '';
+            var savedScale = '';
+            var savedContrast = '';
+            var savedRadius = '';
+            var raw = localStorage.getItem('gastro_erp_settings_v3');
+            if (raw) {
+              var parsed = JSON.parse(raw);
+              var c = parsed && parsed.customization ? parsed.customization : null;
+              if (c) {
+                icon = icon || c.favicon || c.storeHeaderLogo || c.logoDark || c.logoLight || '';
+                primary = primary || c.primaryColor || '';
+                theme = theme || c.themePreference || '';
+                savedLightBg = c.lightBgColor || '';
+                savedDarkBg = c.darkBgColor || '';
+                savedAccentLight = c.accentColorLight || '';
+                savedAccentDark = c.accentColorDark || '';
+                savedScale = c.systemScale || '';
+                savedContrast = c.contrastLevel || '';
+                savedRadius = c.borderRadius || '';
+              }
+              if (parsed && parsed.companyInfo && parsed.companyInfo.commercialName) {
+                brandName = parsed.companyInfo.commercialName;
               }
             }
             var path = window.location.pathname || '/';
@@ -153,8 +165,18 @@
             }
 
             document.documentElement.classList.toggle('dark', !useLight);
-            var surfaceBg = useLight ? (isStorefront ? '#f8fafc' : '#f4f4f5') : (isStorefront ? '#0b0c10' : '#09090b');
+            if (savedContrast) document.documentElement.dataset.contrast = savedContrast;
+            if (savedRadius) document.documentElement.dataset.radius = savedRadius;
+            if (savedScale) {
+              var scalePx = { xs: '13.5px', sm: '14.75px', md: '16px', lg: '17.25px', xl: '18.5px' }[savedScale];
+              if (scalePx) document.documentElement.style.fontSize = scalePx;
+            }
+            var surfaceBg = useLight
+              ? (isStorefront ? '#f8fafc' : (savedLightBg || '#f4f4f5'))
+              : (isStorefront ? '#0b0c10' : (savedDarkBg || '#09090b'));
             document.body.style.backgroundColor = surfaceBg;
+            var metaTheme = document.querySelector('meta[name="theme-color"]');
+            if (metaTheme) metaTheme.setAttribute('content', surfaceBg);
 
             var splash = document.getElementById('kh-brand-splash');
             var shell = document.getElementById('kh-favicon-shell');
@@ -189,7 +211,8 @@
               }
             }
 
-            var accent = primary && /^#[0-9a-fA-F]{6}$/.test(primary) ? primary : '#e11d48';
+            var resolvedPrimary = useLight ? (savedAccentLight || primary) : (savedAccentDark || primary);
+            var accent = resolvedPrimary && /^#[0-9a-fA-F]{6}$/.test(resolvedPrimary) ? resolvedPrimary : '#e11d48';
             if (shell && !useLight) {
               shell.style.boxShadow = '0 20px 50px -12px rgba(0,0,0,0.55), 0 0 0 1px ' + accent + '38';
             }

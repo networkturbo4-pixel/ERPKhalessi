@@ -164,12 +164,24 @@ export const StoreCustomerOrdersDrawer: React.FC<StoreCustomerOrdersDrawerProps>
 
   const getBranchName = (tenantId: string) => {
     const found = tenants.find(t => t.id === tenantId);
-    return found ? found.name.replace('Khalessi Pizza - ', '') : 'Local Principal';
+    return found ? found.name.replace('Gastro - ', '') : 'Local Principal';
   };
 
   const getElapsedMinutes = (isoDate: string) => {
     const diff = nowTimestamp - new Date(isoDate).getTime();
     return Math.max(1, Math.floor(diff / 60000));
+  };
+
+  const formatElapsedTime = (isoDate: string) => {
+    const mins = getElapsedMinutes(isoDate);
+    if (mins < 60) return `Hace ${mins} min`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) {
+      const remMins = mins % 60;
+      return remMins > 0 ? `Hace ${hours} h ${remMins} min` : `Hace ${hours} h`;
+    }
+    const days = Math.floor(hours / 24);
+    return days === 1 ? 'Hace 1 día' : `Hace ${days} días`;
   };
 
   const handleReorder = (order: Order) => {
@@ -230,51 +242,109 @@ export const StoreCustomerOrdersDrawer: React.FC<StoreCustomerOrdersDrawerProps>
       );
     }
 
-    const steps = isPickupOrder(order) ? PICKUP_STEPS : DELIVERY_STEPS;
+    const pickup = isPickupOrder(order);
+    const steps = pickup ? PICKUP_STEPS : DELIVERY_STEPS;
     const activeIndex = Math.max(
       0,
       steps.findIndex(s => s.key === order.status)
     );
+    const currentStep = steps[activeIndex] || steps[0];
+    const progressPct = steps.length > 1 ? Math.round((activeIndex / (steps.length - 1)) * 100) : 100;
 
     return (
-      <div className="space-y-3 pt-1">
-        {/* Stepper Icons Row */}
-        <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>
-          {steps.map((step, idx) => {
-            const reached = idx <= activeIndex;
-            const isCurrent = idx === activeIndex && order.status !== 'entregado';
-            const Icon = step.Icon;
-            return (
-              <div key={step.key} className="flex flex-col items-center text-center gap-1">
-                <div
-                  data-no-doodle="true"
-                  data-auto-contrast={reached && autoButtonContrast ? 'true' : 'false'}
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
-                    reached
-                      ? 'store-btn-solid shadow-xs'
-                      : isLightTheme
-                      ? 'bg-zinc-100 border border-zinc-200 text-zinc-400'
-                      : 'bg-neutral-900 border border-neutral-800 text-neutral-500'
-                  } ${isCurrent ? 'ring-2 ring-amber-400/60 scale-105' : ''}`}
-                >
-                  <Icon className="w-4 h-4" />
+      <div className="space-y-3.5 pt-1">
+        {/* Modality & Step Counter Pill */}
+        <div className="flex items-center justify-between gap-2 text-[11px]">
+          <span
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold ${
+              isLightTheme
+                ? 'bg-zinc-100 text-zinc-700 border border-zinc-200/80'
+                : 'bg-neutral-900 text-neutral-300 border border-neutral-800'
+            }`}
+          >
+            {pickup ? <MapPin className="w-3 h-3" style={{ color: accentColor }} /> : <Bike className="w-3 h-3" style={{ color: accentColor }} />}
+            <span>{pickup ? 'Recojo en Local (5 pasos)' : 'Delivery a Domicilio (6 pasos)'}</span>
+          </span>
+          <span className={`font-black tabular-nums ${isLightTheme ? 'text-zinc-500' : 'text-neutral-400'}`}>
+            Paso {activeIndex + 1} de {steps.length}
+          </span>
+        </div>
+
+        {/* Connected Stepper Timeline */}
+        <div className="relative pt-1">
+          {/* Background & Active Connector Line */}
+          <div
+            className={`absolute top-5 left-4 right-4 h-1 rounded-full overflow-hidden ${
+              isLightTheme ? 'bg-zinc-200' : 'bg-neutral-800'
+            }`}
+          >
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${progressPct}%`,
+                backgroundColor: accentColor,
+              }}
+            />
+          </div>
+
+          <div
+            className="relative grid gap-1"
+            style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
+          >
+            {steps.map((step, idx) => {
+              const reached = idx <= activeIndex;
+              const isCurrent = idx === activeIndex && order.status !== 'entregado';
+              const Icon = step.Icon;
+              return (
+                <div key={step.key} className="flex flex-col items-center text-center gap-1.5">
+                  <div
+                    data-no-doodle="true"
+                    data-auto-contrast={reached && autoButtonContrast ? 'true' : 'false'}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+                      reached
+                        ? 'store-btn-solid shadow-sm'
+                        : isLightTheme
+                        ? 'bg-white border-2 border-zinc-200 text-zinc-400'
+                        : 'bg-neutral-950 border-2 border-neutral-800 text-neutral-500'
+                    } ${isCurrent ? 'ring-4 ring-amber-400/30 scale-110' : ''}`}
+                  >
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <span
+                    className={`text-[10px] font-bold leading-tight ${
+                      isCurrent
+                        ? isLightTheme
+                          ? 'text-zinc-950 font-black'
+                          : 'text-white font-black'
+                        : reached
+                        ? isLightTheme
+                          ? 'text-zinc-700'
+                          : 'text-neutral-200'
+                        : isLightTheme
+                        ? 'text-zinc-400'
+                        : 'text-neutral-500'
+                    }`}
+                  >
+                    {step.short}
+                  </span>
                 </div>
-                <span
-                  className={`text-[10px] font-bold leading-tight ${
-                    reached
-                      ? isLightTheme
-                        ? 'text-zinc-900'
-                        : 'text-white'
-                      : isLightTheme
-                      ? 'text-zinc-400'
-                      : 'text-neutral-500'
-                  }`}
-                >
-                  {step.short}
-                </span>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Active Step Description Banner */}
+        <div
+          className={`px-3 py-2 rounded-xl text-[11px] font-semibold flex items-center justify-between gap-2 ${
+            isLightTheme ? 'bg-zinc-50 text-zinc-700 border border-zinc-200/70' : 'bg-neutral-900/80 text-neutral-300 border border-neutral-800'
+          }`}
+        >
+          <span>
+            Etapa actual: <strong className={isLightTheme ? 'text-zinc-950' : 'text-white'}>{currentStep.label}</strong>
+          </span>
+          <span className="font-black tabular-nums" style={{ color: accentColor }}>
+            {progressPct}%
+          </span>
         </div>
 
         {/* Driver (Motorizado) live handoff card — delivery orders only */}
@@ -501,97 +571,114 @@ export const StoreCustomerOrdersDrawer: React.FC<StoreCustomerOrdersDrawerProps>
                           : 'border-neutral-900 text-neutral-400'
                       }`}
                     >
-                      <span className="inline-flex items-center gap-1">
+                      <span className="inline-flex items-center gap-1 font-semibold">
                         <Clock className="w-3.5 h-3.5" style={{ color: accentColor }} />
-                        <span>Hace {getElapsedMinutes(selectedOrder.createdAt)} min</span>
+                        <span>{formatElapsedTime(selectedOrder.createdAt)}</span>
                       </span>
-                      <span>Tiempo estimado: ~{selectedOrder.estimatedMinutes} min</span>
+                      <span className="font-semibold">Tiempo estimado: ~{selectedOrder.estimatedMinutes} min</span>
                     </div>
                   )}
                 </div>
 
-                {/* Delivery / Branch & Payment Info */}
-                <div
-                  className={`p-4 rounded-2xl border space-y-2.5 text-xs ${
-                    isLightTheme
-                      ? 'bg-white border-zinc-200/90 text-zinc-900 shadow-xs'
-                      : 'bg-neutral-950 border-neutral-800 text-white'
-                  }`}
-                >
-                  <div className="flex items-start gap-2.5">
-                    <MapPin className="w-4 h-4 shrink-0 mt-0.5" style={{ color: accentColor }} />
-                    <div className="min-w-0">
+                {/* Delivery / Branch & Payment Info (2-Column Grid) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  {/* Card 1: Entrega / Recojo */}
+                  <div
+                    className={`p-3.5 rounded-2xl border flex items-start gap-2.5 ${
+                      isLightTheme
+                        ? 'bg-white border-zinc-200/90 text-zinc-900 shadow-xs'
+                        : 'bg-neutral-950 border-neutral-800 text-white'
+                    }`}
+                  >
+                    <div
+                      className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                        isLightTheme ? 'bg-zinc-100' : 'bg-neutral-900'
+                      }`}
+                    >
+                      <MapPin className="w-4 h-4" style={{ color: accentColor }} />
+                    </div>
+                    <div className="min-w-0 space-y-0.5">
                       <span
-                        className={`font-black block ${
-                          isLightTheme ? 'text-zinc-900' : 'text-white'
+                        className={`text-[10px] font-black uppercase tracking-wider block ${
+                          isLightTheme ? 'text-zinc-400' : 'text-neutral-500'
                         }`}
                       >
                         {isPickupOrder(selectedOrder) ? 'Recojo en Sucursal' : 'Dirección de Entrega'}
                       </span>
                       <span
-                        className={`block ${
-                          isLightTheme ? 'text-zinc-700' : 'text-neutral-300'
+                        className={`font-bold block leading-snug ${
+                          isLightTheme ? 'text-zinc-900' : 'text-white'
                         }`}
                       >
                         {selectedOrder.deliveryAddress || getBranchName(selectedOrder.tenantId)}
                       </span>
                       {selectedOrder.deliveryReference && (
                         <span
-                          className={`block ${
-                            isLightTheme ? 'text-zinc-500' : 'text-neutral-500'
+                          className={`text-[11px] block ${
+                            isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
                           }`}
                         >
                           Ref: {selectedOrder.deliveryReference}
                         </span>
                       )}
                       <span
-                        className={`text-[11px] block mt-0.5 ${
+                        className={`text-[11px] block ${
                           isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
                         }`}
                       >
-                        Sucursal: {getBranchName(selectedOrder.tenantId)}
+                        {getBranchName(selectedOrder.tenantId)}
                       </span>
                     </div>
                   </div>
 
+                  {/* Card 2: Método y Estado de Pago */}
                   <div
-                    className={`pt-2.5 border-t flex items-center justify-between ${
-                      isLightTheme ? 'border-zinc-100' : 'border-neutral-900'
+                    className={`p-3.5 rounded-2xl border flex items-start justify-between gap-2.5 ${
+                      isLightTheme
+                        ? 'bg-white border-zinc-200/90 text-zinc-900 shadow-xs'
+                        : 'bg-neutral-950 border-neutral-800 text-white'
                     }`}
                   >
-                    <span
-                      className={`inline-flex items-center gap-1.5 ${
-                        isLightTheme ? 'text-zinc-600' : 'text-neutral-400'
-                      }`}
-                    >
-                      {selectedOrder.paymentMethod === 'tarjeta' ? (
-                        <CreditCard className="w-3.5 h-3.5 text-blue-500" />
-                      ) : selectedOrder.paymentMethod === 'yape_plin' ? (
-                        <Smartphone className="w-3.5 h-3.5 text-purple-500" />
-                      ) : (
-                        <Banknote className="w-3.5 h-3.5 text-emerald-500" />
-                      )}
-                      <span>
-                        Pago:{' '}
-                        <strong className={isLightTheme ? 'text-zinc-900' : 'text-white'}>
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <div
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                          isLightTheme ? 'bg-zinc-100' : 'bg-neutral-900'
+                        }`}
+                      >
+                        {selectedOrder.paymentMethod === 'tarjeta' ? (
+                          <CreditCard className="w-4 h-4 text-blue-500" />
+                        ) : selectedOrder.paymentMethod === 'yape_plin' ? (
+                          <Smartphone className="w-4 h-4 text-purple-500" />
+                        ) : (
+                          <Banknote className="w-4 h-4 text-emerald-500" />
+                        )}
+                      </div>
+                      <div className="min-w-0 space-y-0.5">
+                        <span
+                          className={`text-[10px] font-black uppercase tracking-wider block ${
+                            isLightTheme ? 'text-zinc-400' : 'text-neutral-500'
+                          }`}
+                        >
+                          Método de Pago
+                        </span>
+                        <strong className={`block font-bold ${isLightTheme ? 'text-zinc-900' : 'text-white'}`}>
                           {selectedOrder.paymentMethod === 'yape_plin'
                             ? 'Yape / Plin'
                             : selectedOrder.paymentMethod === 'tarjeta'
                             ? 'Tarjeta'
                             : 'Efectivo'}
                         </strong>
-                      </span>
-                    </span>
-
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                        selectedOrder.paymentStatus === 'pagado'
-                          ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
-                          : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20'
-                      }`}
-                    >
-                      {selectedOrder.paymentStatus === 'pagado' ? 'Pagado' : 'Contraentrega'}
-                    </span>
+                        <span
+                          className={`inline-block mt-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                            selectedOrder.paymentStatus === 'pagado'
+                              ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
+                              : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20'
+                          }`}
+                        >
+                          {selectedOrder.paymentStatus === 'pagado' ? 'Pagado' : 'Contraentrega'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -755,17 +842,23 @@ export const StoreCustomerOrdersDrawer: React.FC<StoreCustomerOrdersDrawerProps>
                               </span>
                             )}
                             {item.subOptions.length > 0 && (
-                              <div className="mt-1 space-y-0.5">
-                                {item.subOptions.map((s, idx) => (
-                                  <span
-                                    key={idx}
-                                    className={`text-[11px] block leading-tight ${
-                                      isLightTheme ? 'text-zinc-600' : 'text-neutral-300'
-                                    }`}
-                                  >
-                                    • <span className="opacity-75">{s.groupName}:</span> {s.choiceName}
-                                  </span>
-                                ))}
+                              <div className="mt-1.5 flex flex-wrap gap-1">
+                                {item.subOptions.map((s, idx) => {
+                                  const cleanGroup = s.groupName.replace(/:+\s*$/, '').trim();
+                                  return (
+                                    <span
+                                      key={idx}
+                                      className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md border leading-tight ${
+                                        isLightTheme
+                                          ? 'bg-zinc-50 border-zinc-200/80 text-zinc-700'
+                                          : 'bg-neutral-900 border-neutral-800 text-neutral-300'
+                                      }`}
+                                    >
+                                      <span className="opacity-65">{cleanGroup}:</span>
+                                      <strong className="font-bold">{s.choiceName}</strong>
+                                    </span>
+                                  );
+                                })}
                               </div>
                             )}
                             {item.extras.length > 0 && (
@@ -1026,7 +1119,7 @@ export const StoreCustomerOrdersDrawer: React.FC<StoreCustomerOrdersDrawerProps>
                             >
                               {getBranchName(order.tenantId)} •{' '}
                               {isActiveOrderStatus(order.status)
-                                ? `Hace ${getElapsedMinutes(order.createdAt)} min`
+                                ? formatElapsedTime(order.createdAt)
                                 : new Date(order.createdAt).toLocaleDateString('es-PE')}
                             </span>
                           </div>

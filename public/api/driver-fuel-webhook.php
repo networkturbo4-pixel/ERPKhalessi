@@ -15,7 +15,7 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/storage-lib.php';
 
-const KH_FUEL_WEBHOOK_KEY = 'khalessi_delivery_fuel_v1';
+const KH_FUEL_WEBHOOK_KEY = 'gastro_delivery_fuel_v1';
 
 $pdo = getDbConnection();
 kvInit($pdo);
@@ -156,7 +156,7 @@ $tenantId = isset($input['tenantId']) && is_string($input['tenantId']) && trim($
     : '';
 
 if ($driverId === '' && $phone !== '') {
-    $hrRaw = kvGet($pdo, 'khalessi_erp_hr_v1');
+    $hrRaw = kvGet($pdo, 'gastro_erp_hr_v1');
     if ($hrRaw !== null) {
         $hrData = json_decode($hrRaw, true);
         $profiles = is_array($hrData['profiles'] ?? null) ? $hrData['profiles'] : [];

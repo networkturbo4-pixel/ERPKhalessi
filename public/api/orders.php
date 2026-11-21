@@ -49,7 +49,7 @@ function ensureOrderDeliveryColumns(PDO $pdo): void {
             ");
         }
     } catch (Throwable $e) {
-        error_log('[Khalessi ERP orders.php] ensureOrderDeliveryColumns: ' . $e->getMessage());
+        error_log('[GastroERP orders.php] ensureOrderDeliveryColumns: ' . $e->getMessage());
     }
 }
 
@@ -188,7 +188,7 @@ switch ($method) {
             sendResponse(['success' => true, 'order_id' => $orderId, 'message' => 'Orden registrada']);
         } catch (Throwable $e) {
             $pdo->rollBack();
-            error_log('[Khalessi ERP orders.php] POST error: ' . $e->getMessage());
+            error_log('[GastroERP orders.php] POST error: ' . $e->getMessage());
             sendResponse(['success' => false, 'error' => 'Error al registrar la orden'], 500);
         }
         break;
@@ -310,7 +310,7 @@ switch ($method) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
-            error_log('[Khalessi ERP orders.php] PUT error: ' . $e->getMessage());
+            error_log('[GastroERP orders.php] PUT error: ' . $e->getMessage());
             sendResponse(['success' => false, 'error' => 'Error al actualizar el estado del pedido'], 500);
         }
         break;

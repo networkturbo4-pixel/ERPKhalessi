@@ -43,7 +43,7 @@ export interface GoogleWalletLocation {
 
 export function getBranchLocationsFromStorage(): GoogleWalletLocation[] {
   try {
-    const raw = localStorage.getItem('khalessi_erp_settings_v3');
+    const raw = localStorage.getItem('gastro_erp_settings_v3');
     if (!raw) return [];
     const parsed = JSON.parse(raw) as {
       tenants?: Array<{ operations?: { latitude?: number; longitude?: number } }>;
@@ -93,9 +93,9 @@ export async function createGoogleWalletSaveLink(
       body: JSON.stringify({
         action: 'create-save-link',
         issuerId: gw.issuerId.trim(),
-        classSuffix: gw.classSuffix?.trim() || 'khalessi_loyalty_v1',
-        issuerName: gw.issuerName?.trim() || 'Khalessi Pizza',
-        programName: params.config.cardTitle || 'Tarjeta de Puntos Khalessi',
+        classSuffix: gw.classSuffix?.trim() || 'gastro_loyalty_v1',
+        issuerName: gw.issuerName?.trim() || 'Gastro Restaurante',
+        programName: params.config.cardTitle || 'Tarjeta de Puntos',
         subtitle: params.config.cardSubtitle || '',
         logoUrl: normalizePublicHttpsUrl(gw.logoUrl),
         heroImageUrl: normalizePublicHttpsUrl(gw.heroImageUrl),
@@ -146,7 +146,7 @@ export async function sendGoogleWalletPromo(
       body: JSON.stringify({
         action: 'send-promo',
         issuerId: params.issuerId.trim(),
-        classSuffix: params.classSuffix.trim() || 'khalessi_loyalty_v1',
+        classSuffix: params.classSuffix.trim() || 'gastro_loyalty_v1',
         header: params.header.trim(),
         body: params.body.trim(),
         promoUrl: params.promoUrl?.trim() || '',
@@ -183,7 +183,7 @@ export function syncGoogleWalletPointsInBackground(params: {
       body: JSON.stringify({
         action: 'sync-points',
         issuerId: gw.issuerId.trim(),
-        classSuffix: gw.classSuffix?.trim() || 'khalessi_loyalty_v1',
+        classSuffix: gw.classSuffix?.trim() || 'gastro_loyalty_v1',
         customerId: params.customerId,
         points: params.points,
         goal: cfg.stampsPerCardGoal || 8,

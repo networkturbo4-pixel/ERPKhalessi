@@ -102,7 +102,7 @@ export const FinanceModuleView: React.FC = () => {
 
   const branchNameById = (tenantId: string) => {
     const found = tenants.find((t) => t.id === tenantId);
-    return found ? found.name.replace('Khalessi Pizza - ', '') : tenantId;
+    return found ? found.name.replace('Gastro - ', '') : tenantId;
   };
 
   // Lista unificada de egresos del día (combustible + otros egresos)
@@ -714,7 +714,7 @@ export const FinanceModuleView: React.FC = () => {
                   >
                     {tenants.map((t) => (
                       <option key={t.id} value={t.id}>
-                        {t.name.replace('Khalessi Pizza - ', '')}
+                        {t.name.replace('Gastro - ', '')}
                       </option>
                     ))}
                   </select>

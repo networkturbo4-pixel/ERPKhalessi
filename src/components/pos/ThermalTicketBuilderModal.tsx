@@ -772,7 +772,7 @@ export const ThermalTicketBuilderModal: React.FC<ThermalTicketBuilderModalProps>
                 <div>
                   {config.receipt.showLogo && (
                     <div className="text-center text-sm font-black tracking-wider mb-1">
-                      KHALESSI PIZZA
+                      GASTROERP
                     </div>
                   )}
                   <div className="text-center font-bold text-xs uppercase mb-0.5 break-words">

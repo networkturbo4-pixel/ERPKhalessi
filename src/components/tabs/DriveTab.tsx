@@ -9,7 +9,7 @@ export const DriveTab: React.FC = () => {
   const [showFolderModal, setShowFolderModal] = useState(false);
 
   const mockDriveFolders = [
-    { id: '1AbC_D98zX_khalessi_cloud_root', name: '📁 Khalessi_ERP_Cloud_Storage (Principal)' },
+    { id: '1AbC_D98zX_gastro_cloud_root', name: '📁 GastroERP_Cloud_Storage (Principal)' },
     { id: '2BcD_E87yW_facturas_pdf', name: '📁 Comprobantes_Facturacion_SUNAT' },
     { id: '3CdE_F76xV_recetas_fotos', name: '📁 Fotos_Platos_y_Pizzas' },
     { id: '4DeF_G65uT_backups_db', name: '📁 Copias_Seguridad_ERP' },

@@ -13,7 +13,7 @@ const serverDir = path.join(root, 'server');
 const outputZip = path.join(root, 'deploy_cpanel.zip');
 
 // Limpiar artefactos antiguos antes de compilar
-for (const legacyZip of ['deploy_cpanel.zip', 'dist-pizzakhalessi.zip']) {
+for (const legacyZip of ['deploy_cpanel.zip', 'dist-gastroerp.zip']) {
   const fullZip = path.join(root, legacyZip);
   if (fs.existsSync(fullZip)) {
     fs.rmSync(fullZip, { force: true });
@@ -43,8 +43,12 @@ if (fs.existsSync(serverDir)) {
 
 // Las credenciales y secretos locales nunca viajan en release
 fs.rmSync(path.join(release, 'api', 'config.local.php'), { force: true });
+fs.rmSync(path.join(release, 'api', 'install.lock'), { force: true });
 fs.rmSync(path.join(release, 'api', '.token_secret.php'), { force: true });
 fs.rmSync(path.join(release, 'api', '.rate_limit'), { recursive: true, force: true });
+fs.rmSync(path.join(release, 'server', 'config.json'), { force: true });
+fs.rmSync(path.join(release, 'server', '.env'), { force: true });
+fs.rmSync(path.join(release, 'uploads', 'branding'), { recursive: true, force: true });
 fs.rmSync(path.join(release, 'api', 'storage', 'google-wallet-sa.json'), { force: true });
 fs.rmSync(path.join(release, 'api', 'storage', 'marketing-vapid.json'), { force: true });
 fs.rmSync(path.join(release, 'api', 'storage', 'marketing-cron-key.txt'), { force: true });

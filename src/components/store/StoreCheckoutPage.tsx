@@ -615,7 +615,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
             ) : (
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-red-600 to-rose-700 flex flex-col items-center justify-center text-white shrink-0 shadow-sm">
                 <span className="text-[7px] font-black leading-tight">PIZZA</span>
-                <span className="text-[5px] font-bold tracking-tighter opacity-90">KHALESSI</span>
+                <span className="text-[5px] font-bold tracking-tighter opacity-90">GASTRO</span>
               </div>
             )}
             <span className="font-black text-sm sm:text-base tracking-tight hidden sm:inline">
@@ -812,7 +812,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
                         : 'Retiro en Local'}
                     </span>
                     <h4 className="font-black text-xs sm:text-sm truncate">
-                      {activeTenant.name.replace('Khalessi Pizza - ', '')}
+                      {activeTenant.name.replace('Gastro - ', '')}
                     </h4>
                     <p className={`text-xs truncate ${isLightTheme ? 'text-zinc-500' : 'text-neutral-400'}`}>
                       {isTableQrMode
@@ -1542,7 +1542,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
             <div className="flex items-start justify-between gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-3">
               <div>
                 <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">
-                  PIZZA KHALESSI • ACCESO OBLIGATORIO
+                  GASTROERP • ACCESO OBLIGATORIO
                 </span>
                 <h3 className="text-lg font-black text-zinc-950 dark:text-white mt-0.5">
                   {authModalTab === 'signup' ? 'Crea tu cuenta de cliente' : 'Inicia sesión'}
