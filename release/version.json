@@ -1,8 +1,8 @@
 {
-  "buildId": "20261121035156",
-  "builtAt": "2026-11-21T03:51:56.467Z",
-  "commitSha": "8728778",
-  "message": "fix(updater): apuntar system-update al repositorio real networkturbo4-pixel/ERPKhalessi",
+  "buildId": "20261121040605",
+  "builtAt": "2026-11-21T04:06:05.236Z",
+  "commitSha": "fc88877",
+  "message": "feat(themes): agregar fondo de pagina, color fondo de footer y contraste en storefront",
   "totalFiles": 113,
-  "manifestSha256": "d5368efa927287818082c9d82d2593c97cf81cf909ca2053369bf26a7ab3404e"
+  "manifestSha256": "c6eb2f341364b6ef721639bbe2edef5ff36d77d73a4adc8afa9e1012e11067ad"
 }
