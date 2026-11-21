@@ -1,8 +1,8 @@
 {
-  "buildId": "20261121211717",
-  "builtAt": "2026-11-21T21:17:17.167Z",
-  "commitSha": "a75c27a",
-  "message": "feat(rbac): agregar todos los modulos y asignacion simplificada por apartados",
-  "totalFiles": 116,
-  "manifestSha256": "00bc7ca495d79028d995298dfcfb093e785fbef3723241188f88da22da0ad47a"
+  "buildId": "20261121213353",
+  "builtAt": "2026-11-21T21:33:53.778Z",
+  "commitSha": "418da08",
+  "message": "feat(rbac): enforce custom role permissions and redesign RolesTab",
+  "totalFiles": 117,
+  "manifestSha256": "9b8ff4443f6f5dfd154e69f2db17e80dfa59ea4e35a9bbc33f8e469a8b66c2ce"
 }
