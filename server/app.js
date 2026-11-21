@@ -9,6 +9,7 @@ const url = require('url');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { handleWhatsAppRoute } = require('./whatsappEngine');
 
 // Carga configuración generada por el instalador (server/config.json) si existe
 try {
@@ -477,6 +478,31 @@ const server = http.createServer((req, res) => {
       } catch (err) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: false, error: err?.message || 'Error interno en Culqi charge-saved' }));
+      }
+    });
+    return;
+  }
+
+  // 2D. WHATSAPP CLOUD API (Meta Webhook, Chatbot Engine & Tracking)
+  if (pathname.startsWith('/api/whatsapp/')) {
+    const broadcastSseEvent = (payload) => {
+      const rawMessage = `data: ${JSON.stringify(payload)}\n\n`;
+      const targetBranch = payload.branchId;
+      for (const [clientId, client] of clients.entries()) {
+        if (targetBranch && targetBranch !== 'all' && client.branchId !== 'all' && client.branchId !== targetBranch) {
+          continue;
+        }
+        try {
+          client.res.write(rawMessage);
+        } catch {
+          clients.delete(clientId);
+        }
+      }
+    };
+    Promise.resolve(handleWhatsAppRoute(req, res, parsedUrl, pathname, MAX_BODY_BYTES, broadcastSseEvent)).catch((err) => {
+      if (!res.headersSent) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: err?.message || 'WhatsApp route error' }));
       }
     });
     return;

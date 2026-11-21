@@ -32,6 +32,10 @@ const loadBenefitsModuleView = () =>
   import('./benefits/BenefitsModuleView').then(m => ({ default: m.BenefitsModuleView }));
 const loadMarketingModuleView = () =>
   import('./marketing/MarketingModuleView').then(m => ({ default: m.MarketingModuleView }));
+const loadOmnichannelInboxView = () =>
+  import('./inbox/OmnichannelInboxView').then(m => ({ default: m.OmnichannelInboxView }));
+const loadWhatsAppModuleView = () =>
+  import('./whatsapp/WhatsAppModuleView').then(m => ({ default: m.WhatsAppModuleView }));
 const loadProductCatalogView = () =>
   import('./pos/ProductCatalogView').then(m => ({ default: m.ProductCatalogView }));
 const loadKioskSelfServiceView = () =>
@@ -61,6 +65,8 @@ const OrdersManagementView = lazy(loadOrdersManagementView);
 const ClientsCRMView = lazy(loadClientsCRMView);
 const BenefitsModuleView = lazy(loadBenefitsModuleView);
 const MarketingModuleView = lazy(loadMarketingModuleView);
+const OmnichannelInboxView = lazy(loadOmnichannelInboxView);
+const WhatsAppModuleView = lazy(loadWhatsAppModuleView);
 const ProductCatalogView = lazy(loadProductCatalogView);
 const KioskSelfServiceView = lazy(loadKioskSelfServiceView);
 const PublicEmployeePortal = lazy(loadPublicEmployeePortal);
@@ -101,6 +107,8 @@ import {
   Receipt,
   Gift,
   Megaphone,
+  Inbox,
+  MessageSquare,
   Smartphone,
   Boxes,
   FileImage,
@@ -122,6 +130,8 @@ export type MainModuleId =
   | 'clients'
   | 'benefits'
   | 'marketing'
+  | 'inbox'
+  | 'whatsapp'
   | 'products'
   | 'media'
   | 'pages'
@@ -146,6 +156,8 @@ const MODULE_MOBILE_LABELS: Record<MainModuleId, string> = {
   clients: 'Clientes CRM',
   benefits: 'Beneficios',
   marketing: 'Marketing',
+  inbox: 'Bandeja',
+  whatsapp: 'WhatsApp Bot',
   products: 'Catálogo',
   media: 'Galería',
   pages: 'Páginas',
@@ -278,7 +290,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
       const saved = localStorage.getItem('kh_active_main_module') as MainModuleId;
       if (saved && [
         'pos', 'kitchen', 'delivery', 'orders', 'catalog', 'tables',
-        'kiosk', 'benefits', 'marketing', 'hr', 'crm', 'store_builder', 'settings', 'dashboard', 'inventory',
+        'kiosk', 'benefits', 'marketing', 'inbox', 'whatsapp', 'hr', 'crm', 'store_builder', 'settings', 'dashboard', 'inventory',
         'products', 'clients', 'media', 'pages', 'finance', 'billing'
       ].includes(saved)) {
         return saved;
@@ -1341,6 +1353,66 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
               )}
             </button>
 
+            {/* Bandeja Omnicanal de Mensajes Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveMainModule('inbox');
+                setMobileMenuOpen(false);
+              }}
+              className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-all ${
+                sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
+              } ${
+                activeMainModule === 'inbox'
+                  ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
+              }`}
+              title="Bandeja Omnicanal (WhatsApp, Messenger, Instagram)"
+            >
+              <Inbox
+                className="h-4 w-4 shrink-0 transition-colors"
+                style={activeMainModule === 'inbox' ? { color: customization.primaryColor } : undefined}
+              />
+              {(!sidebarCollapsed || mobileMenuOpen) && (
+                <div className="flex items-center justify-between flex-1 min-w-0">
+                  <span className="truncate">Bandeja</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-sky-500/15 text-sky-600 dark:text-sky-400 font-bold">
+                    Chat
+                  </span>
+                </div>
+              )}
+            </button>
+
+            {/* WhatsApp Cloud API & Chatbot Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setActiveMainModule('whatsapp');
+                setMobileMenuOpen(false);
+              }}
+              className={`group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] transition-all ${
+                sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
+              } ${
+                activeMainModule === 'whatsapp'
+                  ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
+                  : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
+              }`}
+              title="WhatsApp Cloud API & Chatbot"
+            >
+              <MessageSquare
+                className="h-4 w-4 shrink-0 transition-colors"
+                style={activeMainModule === 'whatsapp' ? { color: '#25D366' } : undefined}
+              />
+              {(!sidebarCollapsed || mobileMenuOpen) && (
+                <div className="flex items-center justify-between flex-1 min-w-0">
+                  <span className="truncate">WhatsApp</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold">
+                    Bot
+                  </span>
+                </div>
+              )}
+            </button>
+
             <button
               type="button"
               onClick={() => {
@@ -1786,13 +1858,21 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
         </header>
 
         {/* ELEVATED SAAS MAIN SURFACE (1600PX WORKSPACE) */}
-        <main className="flex-1 w-full min-w-0 saas-scroll erp-canvas-surface lg:rounded-2xl lg:border lg:border-zinc-200/90 dark:lg:border-zinc-800 lg:shadow-sm">
+        <main
+          className={`flex-1 w-full min-w-0 erp-canvas-surface lg:rounded-2xl lg:border lg:border-zinc-200/90 dark:lg:border-zinc-800 lg:shadow-sm ${
+            activeMainModule === 'inbox' ? 'overflow-hidden' : 'saas-scroll'
+          }`}
+        >
           <div
-            className={`max-w-[1600px] mx-auto w-full px-3 pt-4 sm:px-5 sm:pt-5 lg:px-5 lg:py-5 xl:px-8 xl:py-7 ${
-              activeMainModule !== 'pos'
-                ? 'pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))] lg:pb-5'
-                : 'pb-24 lg:pb-5'
-            }`}
+            className={
+              activeMainModule === 'inbox'
+                ? 'w-full h-full p-0 lg:p-3'
+                : `max-w-[1600px] mx-auto w-full px-3 pt-4 sm:px-5 sm:pt-5 lg:px-5 lg:py-5 xl:px-8 xl:py-7 ${
+                    activeMainModule !== 'pos'
+                      ? 'pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))] lg:pb-5'
+                      : 'pb-24 lg:pb-5'
+                  }`
+            }
           >
             <Suspense fallback={<ModuleWorkspaceSkeleton />}>
               {activeMainModule === 'dashboard' ? (
@@ -1818,6 +1898,18 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 <BenefitsModuleView />
               ) : activeMainModule === 'marketing' ? (
                 <MarketingModuleView />
+              ) : activeMainModule === 'inbox' ? (
+                <PermissionGate permission="inbox:view">
+                  <OmnichannelInboxView
+                    onOpenWhatsAppBot={() => setActiveMainModule('whatsapp')}
+                  />
+                </PermissionGate>
+              ) : activeMainModule === 'whatsapp' ? (
+                <PermissionGate permission="whatsapp:view">
+                  <WhatsAppModuleView
+                    onOpenInbox={() => setActiveMainModule('inbox')}
+                  />
+                </PermissionGate>
               ) : activeMainModule === 'products' ? (
                 <ProductCatalogView />
               ) : activeMainModule === 'media' ? (
@@ -1871,6 +1963,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
             : []),
           { id: 'more', label: 'Más', icon: Menu },
         ];
+
+        if (activeMainModule === 'inbox') {
+          return null;
+        }
 
         return (
           <nav

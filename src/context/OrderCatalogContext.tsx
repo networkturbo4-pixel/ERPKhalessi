@@ -14,6 +14,7 @@ import { useSettings } from './SettingsContext';
 import { soundSynth } from '../utils/audio';
 import { getAuthHeaders, syncPendingOfflineQueue } from '../utils/diskPersistence';
 import { syncGoogleWalletPointsInBackground } from '../utils/googleWallet';
+import { notifyOrderStatusViaWhatsApp } from '../utils/whatsappService';
 import {
   OfflineSyncStatus,
   subscribeOfflineStatus,
@@ -1478,6 +1479,14 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
       'success'
     );
 
+    const branchForWa = tenants.find((t) => t.id === newOrder.tenantId)?.name || activeTenant.name;
+    void notifyOrderStatusViaWhatsApp({
+      order: newOrder,
+      status: 'recibido',
+      branchName: branchForWa,
+      brandName: customization.appName,
+    });
+
     return newOrder;
   };
 
@@ -1556,6 +1565,21 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
         cancelado: 'Cancelado ❌',
       };
       dispatchToast(`Pedido ${targetOrder.orderNumber}`, `Estado en tiempo real: ${statusLabels[status]}`, 'info');
+
+      if (prevStatus !== status) {
+        const branchForWa = tenants.find((t) => t.id === targetOrder.tenantId)?.name || activeTenant.name;
+        const updatedOrderSnapshot: Order = {
+          ...targetOrder,
+          status,
+          ...(patch?.assignedDriverName ? { assignedDriverName: patch.assignedDriverName } : {}),
+        };
+        void notifyOrderStatusViaWhatsApp({
+          order: updatedOrderSnapshot,
+          status,
+          branchName: branchForWa,
+          brandName: customization.appName,
+        });
+      }
 
       // Notify external lifecycle listeners
       orderLifecycleListeners.forEach((listener) => {

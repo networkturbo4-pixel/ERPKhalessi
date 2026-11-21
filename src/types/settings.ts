@@ -278,6 +278,8 @@ export type ErpModuleKey =
   | 'clients'
   | 'benefits'
   | 'marketing'
+  | 'inbox'
+  | 'whatsapp'
   | 'quotes'
   | 'hr'
   | 'workspace'

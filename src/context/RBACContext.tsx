@@ -21,6 +21,8 @@ export const ERP_MODULES_CATALOG: ErpModuleMeta[] = [
   { key: 'clients', label: 'Clientes CRM & Fidelización', shortDesc: 'Historial de pedidos, cartera y perfiles de clientes', category: 'comercial' },
   { key: 'benefits', label: 'Beneficios, Cupones & Puntos', shortDesc: 'Gestor de cupones promocionales, tarjetas de puntos y premios canjeables', category: 'comercial' },
   { key: 'marketing', label: 'Marketing, Web Push & Campañas', shortDesc: 'Notificaciones Web Push (Android/iOS/Windows), segmentos y envíos programados', category: 'comercial' },
+  { key: 'inbox', label: 'Bandeja Omnicanal de Mensajes', shortDesc: 'Atención en vivo de WhatsApp, Messenger e Instagram con etiquetas, notas y atajos', category: 'comercial' },
+  { key: 'whatsapp', label: 'WhatsApp API & Chatbot', shortDesc: 'Seguimiento automático de pedidos y chatbot con flujos en WhatsApp Cloud API (Meta)', category: 'comercial' },
   { key: 'finances', label: 'Finanzas, Bancos & SUNAT', shortDesc: 'Facturación electrónica, cuentas bancarias y billeteras QR', category: 'comercial' },
   { key: 'hr', label: 'Recursos Humanos & Biométrico', shortDesc: 'Legajos sanitarios, reloj de asistencia, turnos, pre-planilla y TOTP', category: 'administracion' },
   { key: 'workspace', label: 'Multisucursal & Transferencias', shortDesc: 'Gestión de locales físicos y envíos entre tiendas', category: 'administracion' },
@@ -91,6 +93,14 @@ export const SYSTEM_PERMISSIONS: Permission[] = [
   { id: 'mkt1', code: 'marketing:view', name: 'Ver Módulo Marketing', description: 'Analizar clientes VIP, inactivos, pizza favorita y campañas', module: 'marketing', action: 'view' },
   { id: 'mkt2', code: 'marketing:manage', name: 'Enviar Campañas y Push', description: 'Crear y programar notificaciones Web Push, WhatsApp y Cron', module: 'marketing', action: 'edit' },
 
+  // 10D. Bandeja Omnicanal de Mensajes
+  { id: 'inb1', code: 'inbox:view', name: 'Ver Bandeja Omnicanal', description: 'Atender chats de WhatsApp, Messenger e Instagram en vivo', module: 'inbox', action: 'view' },
+  { id: 'inb2', code: 'inbox:manage', name: 'Gestionar Etiquetas y Atajos', description: 'Crear etiquetas CRM, respuestas rápidas y asignar conversaciones', module: 'inbox', action: 'edit' },
+
+  // 10E. WhatsApp Cloud API & Chatbot
+  { id: 'wa1', code: 'whatsapp:view', name: 'Ver Bandeja y Flujos WhatsApp', description: 'Consultar conversaciones en vivo, simulador y logs de WhatsApp Cloud API', module: 'whatsapp', action: 'view' },
+  { id: 'wa2', code: 'whatsapp:manage', name: 'Configurar WhatsApp API y Chatbot', description: 'Editar credenciales Meta, flujos del bot y notificaciones de seguimiento', module: 'whatsapp', action: 'edit' },
+
   // 11. Finanzas
   { id: 'p10', code: 'finances:view', name: 'Ver Flujo de Caja y Ventas', description: 'Consultar ingresos consolidados y márgenes', module: 'finances', action: 'view' },
   { id: 'fin2', code: 'finances:create', name: 'Registrar Egreso / Gasto Chica', description: 'Cargar pagos menores de tienda con sustento', module: 'finances', action: 'create' },
@@ -144,6 +154,8 @@ export const INITIAL_ROLES: Role[] = [
       'clients:view', 'clients:create', 'clients:edit',
       'benefits:view', 'benefits:manage',
       'marketing:view', 'marketing:manage',
+      'inbox:view', 'inbox:manage',
+      'whatsapp:view', 'whatsapp:manage',
       'finances:view', 'finances:create',
       'hr:view', 'hr:attendance', 'hr:schedules', 'hr:payroll',
       'workspace:access', 'workspace:transfer',
