@@ -37,13 +37,18 @@ const ACTION_COLUMNS: Array<{
 const CATEGORY_TABS: Array<{
   id: 'all' | ErpModuleMeta['category'];
   label: string;
+  desc: string;
 }> = [
-  { id: 'all', label: 'Todos los Módulos' },
-  { id: 'operaciones', label: 'Operaciones Tienda' },
-  { id: 'inventario', label: 'Recetas & Almacén' },
-  { id: 'comercial', label: 'Comercial & Finanzas' },
-  { id: 'administracion', label: 'Gobierno & Sistema' },
+  { id: 'all', label: 'Todos los Apartados', desc: 'Vista completa del ERP' },
+  { id: 'plataforma', label: 'Plataforma & Gestión', desc: 'Dashboard, Pedidos, Almacén, Clientes, Productos, RRHH, Finanzas, Facturación' },
+  { id: 'canales', label: 'Web, Medios & Canales', desc: 'Galería, Páginas, Marketing, Bandeja Omnicanal, WhatsApp Bot' },
+  { id: 'operaciones', label: 'Operaciones & Ventas', desc: 'POS, Kiosco 9:16, Cocina KDS, Delivery, Salón, Beneficios' },
+  { id: 'configuracion', label: 'Configuración', desc: 'Identidad, Design System, Usuarios, Matriz RBAC, DevOps' },
 ];
+
+const APARTADOS_ONLY = CATEGORY_TABS.filter(
+  (c): c is { id: ErpModuleMeta['category']; label: string; desc: string } => c.id !== 'all'
+);
 
 export const RolesTab: React.FC = () => {
   const { roles, setRoles, permissions, modulesCatalog, canEditRole } = useRBAC();
@@ -57,7 +62,7 @@ export const RolesTab: React.FC = () => {
   const [isCreatingRole, setIsCreatingRole] = useState(false);
   const [newRoleName, setNewRoleName] = useState('');
   const [newRoleDesc, setNewRoleDesc] = useState('');
-  const [cloneFromRoleId, setCloneFromRoleId] = useState<string>('role-cashier');
+  const [newRoleApartados, setNewRoleApartados] = useState<ErpModuleMeta['category'][]>(['operaciones']);
 
   const selectedRole = roles.find(r => r.id === selectedRoleId) || roles[0];
   const editPermissionCheck = canEditRole(selectedRole?.id || '');
@@ -111,6 +116,28 @@ export const RolesTab: React.FC = () => {
       `Actualización Matriz RBAC (${selectedRole.name})`,
       `El rol "${selectedRole.name}" quedó configurado con ${unique.length} permisos activos.`
     );
+  };
+
+  const getApartadoPermissionCodes = (cat: ErpModuleMeta['category']): string[] => {
+    const modKeys = new Set(modulesCatalog.filter(m => m.category === cat).map(m => m.key));
+    return permissions.filter(p => modKeys.has(p.module)).map(p => p.code);
+  };
+
+  const isApartadoFull = (rolePerms: string[], cat: ErpModuleMeta['category']): boolean => {
+    const codes = getApartadoPermissionCodes(cat);
+    return codes.length > 0 && codes.every(c => rolePerms.includes(c));
+  };
+
+  const handleToggleApartado = (cat: ErpModuleMeta['category']) => {
+    if (!guardEditable()) return;
+    const codes = getApartadoPermissionCodes(cat);
+    if (codes.length === 0) return;
+    const activeFull = isApartadoFull(selectedRole.permissions, cat);
+    if (activeFull) {
+      updateRolePermissions(selectedRole.permissions.filter(c => !codes.includes(c)));
+    } else {
+      updateRolePermissions([...selectedRole.permissions, ...codes]);
+    }
   };
 
   const handleToggleSingle = (code: string) => {
@@ -188,13 +215,23 @@ export const RolesTab: React.FC = () => {
     e.preventDefault();
     if (!newRoleName.trim()) return;
 
-    const templateRole = roles.find(r => r.id === cloneFromRoleId);
+    const initialPermissions = Array.from(
+      new Set(newRoleApartados.flatMap(cat => getApartadoPermissionCodes(cat)))
+    );
+
     const newRole: Role = {
       id: `role-${Date.now()}`,
       name: newRoleName.trim(),
-      description: newRoleDesc.trim() || 'Perfil personalizado para operaciones multisucursal.',
+      description:
+        newRoleDesc.trim() ||
+        (newRoleApartados.length > 0
+          ? `Acceso por apartados: ${newRoleApartados
+              .map(id => APARTADOS_ONLY.find(a => a.id === id)?.label)
+              .filter(Boolean)
+              .join(', ')}.`
+          : 'Perfil personalizado para operaciones multisucursal.'),
       isSystem: false,
-      permissions: templateRole ? [...templateRole.permissions] : ['dashboard:view'],
+      permissions: initialPermissions,
     };
 
     setRoles(prev => [...prev, newRole]);
@@ -202,6 +239,7 @@ export const RolesTab: React.FC = () => {
     setIsCreatingRole(false);
     setNewRoleName('');
     setNewRoleDesc('');
+    setNewRoleApartados(['operaciones']);
     logAuditEvent(
       'rbac',
       'critical',
@@ -407,6 +445,55 @@ export const RolesTab: React.FC = () => {
             </div>
           </div>
 
+          {/* Asignación Rápida por Apartados del Menú (si asignas un apartado ya no necesitas marcar módulo por módulo) */}
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-bold text-zinc-900 dark:text-white">
+                Asignación Rápida por Apartados del Sistema
+              </span>
+              <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                Si asignas un apartado completo, ya no necesitas marcar permisos módulo por módulo.
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
+              {APARTADOS_ONLY.map(ap => {
+                const isFull = isApartadoFull(selectedRole.permissions, ap.id);
+                const apModsCount = modulesCatalog.filter(m => m.category === ap.id).length;
+                return (
+                  <button
+                    key={ap.id}
+                    type="button"
+                    disabled={isLockedRole}
+                    onClick={() => handleToggleApartado(ap.id)}
+                    className={`p-3 rounded-xl border text-left transition-all disabled:opacity-50 ${
+                      isFull
+                        ? 'border-emerald-500/60 bg-emerald-500/10'
+                        : 'border-zinc-200 dark:border-zinc-700/80 hover:border-zinc-300 dark:hover:border-zinc-600'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-zinc-900 dark:text-white truncate">
+                        {ap.label}
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                          isFull
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-zinc-200/80 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
+                        }`}
+                      >
+                        {isFull ? 'Apartado Completo' : `${apModsCount} mód.`}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400 line-clamp-1 mt-1">
+                      {ap.desc}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Search + Category Pills */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-1.5">
@@ -480,10 +567,12 @@ export const RolesTab: React.FC = () => {
                   const allRowActive =
                     modPerms.length > 0 && activeCount === modPerms.length;
                   const isExpanded = Boolean(expandedModules[mod.key]);
+                  const coveredByApartado = isApartadoFull(selectedRole.permissions, mod.category);
+                  const rowLocked = isLockedRole || coveredByApartado;
 
                   return (
                     <React.Fragment key={mod.key}>
-                      <tr className="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30 transition-colors">
+                      <tr className={`transition-colors ${coveredByApartado ? 'bg-emerald-500/[0.04]' : 'hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30'}`}>
                         {/* Module Name + Expand Button */}
                         <td className="py-3 px-4">
                           <div className="flex items-start gap-2.5">
@@ -500,13 +589,20 @@ export const RolesTab: React.FC = () => {
                               )}
                             </button>
                             <div>
-                              <button
-                                type="button"
-                                onClick={() => toggleExpandModule(mod.key)}
-                                className="font-bold text-zinc-900 dark:text-white hover:underline text-left"
-                              >
-                                {mod.label}
-                              </button>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpandModule(mod.key)}
+                                  className="font-bold text-zinc-900 dark:text-white hover:underline text-left"
+                                >
+                                  {mod.label}
+                                </button>
+                                {coveredByApartado && (
+                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                                    Apartado Completo
+                                  </span>
+                                )}
+                              </div>
                               <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
                                 {mod.shortDesc}
                               </span>
@@ -533,9 +629,13 @@ export const RolesTab: React.FC = () => {
                             <td key={col.action} className="py-3 px-2.5 text-center">
                               <button
                                 type="button"
-                                disabled={isLockedRole}
+                                disabled={rowLocked}
                                 onClick={() => handleToggleSingle(perm.code)}
-                                title={`${perm.name}: ${perm.description}`}
+                                title={
+                                  coveredByApartado
+                                    ? 'Cubierto automáticamente por Apartado Completo'
+                                    : `${perm.name}: ${perm.description}`
+                                }
                                 className={`h-7 w-7 rounded-lg inline-flex items-center justify-center border transition-all disabled:opacity-50 ${
                                   checked
                                     ? 'text-white border-transparent shadow-sm'
@@ -561,7 +661,7 @@ export const RolesTab: React.FC = () => {
                             </span>
                             <button
                               type="button"
-                              disabled={isLockedRole}
+                              disabled={rowLocked}
                               onClick={() => handleToggleModuleRow(mod.key)}
                               className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors disabled:opacity-40 ${
                                 allRowActive
@@ -569,7 +669,7 @@ export const RolesTab: React.FC = () => {
                                   : 'saas-btn-secondary'
                               }`}
                             >
-                              {allRowActive ? 'Completo' : 'Marcar fila'}
+                              {coveredByApartado ? 'Por Apartado' : allRowActive ? 'Completo' : 'Marcar fila'}
                             </button>
                           </div>
                         </td>
@@ -592,7 +692,7 @@ export const RolesTab: React.FC = () => {
                                     <input
                                       type="checkbox"
                                       checked={isChecked}
-                                      disabled={isLockedRole}
+                                      disabled={rowLocked}
                                       onChange={() => handleToggleSingle(perm.code)}
                                       className="mt-0.5 h-4 w-4 rounded"
                                     />
@@ -656,20 +756,72 @@ export const RolesTab: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase mb-1">
-                    Copiar Permisos Base Desde
-                  </label>
-                  <select
-                    value={cloneFromRoleId}
-                    onChange={e => setCloneFromRoleId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-lg saas-input"
-                  >
-                    {roles.map(r => (
-                      <option key={r.id} value={r.id}>
-                        {r.name} ({r.permissions.length} permisos)
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase">
+                      Asignar Apartados del Sistema (1 clic)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setNewRoleApartados(prev =>
+                          prev.length === APARTADOS_ONLY.length
+                            ? []
+                            : APARTADOS_ONLY.map(a => a.id)
+                        )
+                      }
+                      className="text-[11px] font-semibold hover:underline"
+                      style={{ color: customization.primaryColor }}
+                    >
+                      {newRoleApartados.length === APARTADOS_ONLY.length
+                        ? 'Desmarcar todos'
+                        : 'Marcar todos'}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {APARTADOS_ONLY.map(ap => {
+                      const active = newRoleApartados.includes(ap.id);
+                      const modCount = modulesCatalog.filter(m => m.category === ap.id).length;
+                      return (
+                        <button
+                          key={ap.id}
+                          type="button"
+                          onClick={() =>
+                            setNewRoleApartados(prev =>
+                              prev.includes(ap.id)
+                                ? prev.filter(id => id !== ap.id)
+                                : [...prev, ap.id]
+                            )
+                          }
+                          className={`p-2.5 rounded-xl border text-left transition-all ${
+                            active
+                              ? 'border-emerald-500/70 bg-emerald-500/10'
+                              : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1.5">
+                            <span className="text-xs font-bold text-zinc-900 dark:text-white truncate">
+                              {ap.label}
+                            </span>
+                            <span
+                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                                active
+                                  ? 'bg-emerald-500 text-white'
+                                  : 'bg-zinc-200/80 dark:bg-zinc-800 text-zinc-500'
+                              }`}
+                            >
+                              {active ? 'Incluido' : `${modCount} mód.`}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-zinc-500 dark:text-zinc-400 line-clamp-1 mt-0.5">
+                            {ap.desc}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-1.5">
+                    Al asignar un apartado aquí, el rol recibe acceso completo a todos sus módulos sin tener que marcar uno por uno.
+                  </p>
                 </div>
 
                 <div>

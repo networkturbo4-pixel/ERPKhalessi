@@ -5,28 +5,40 @@ export interface ErpModuleMeta {
   key: ErpModuleKey;
   label: string;
   shortDesc: string;
-  category: 'operaciones' | 'inventario' | 'comercial' | 'administracion';
+  category: 'plataforma' | 'canales' | 'operaciones' | 'configuracion';
 }
 
 export const ERP_MODULES_CATALOG: ErpModuleMeta[] = [
-  { key: 'dashboard', label: 'Dashboard & BI Ejecutivo', shortDesc: 'KPIs en vivo, ventas por hora y comparativa multisucursal', category: 'operaciones' },
+  // 1. Plataforma & Gestión
+  { key: 'dashboard', label: 'Dashboard & BI Ejecutivo', shortDesc: 'KPIs en vivo, ventas por hora y comparativa multisucursal', category: 'plataforma' },
+  { key: 'orders', label: 'Pedidos en Vivo & Comandas', shortDesc: 'Seguimiento centralizado de pedidos online, salón, POS y delivery', category: 'plataforma' },
+  { key: 'inventory', label: 'Almacén, Stock & Mermas', shortDesc: 'Control de harinas, quesos, lotes de caducidad y kardex', category: 'plataforma' },
+  { key: 'purchases', label: 'Compras & Proveedores', shortDesc: 'Órdenes de compra consolidadas, guías y recepción', category: 'plataforma' },
+  { key: 'clients', label: 'Clientes CRM & Fidelización', shortDesc: 'Historial de pedidos, cartera y perfiles de clientes', category: 'plataforma' },
+  { key: 'services', label: 'Productos, Recetas & Masas', shortDesc: 'Tamaños de pizza, bordes, ingredientes y escandallos BOM', category: 'plataforma' },
+  { key: 'hr', label: 'Recursos Humanos & Biométrico', shortDesc: 'Legajos sanitarios, reloj de asistencia, turnos, pre-planilla y TOTP', category: 'plataforma' },
+  { key: 'finances', label: 'Finanzas, Bancos & Caja', shortDesc: 'Flujo de caja, cuentas bancarias, egresos y billeteras QR', category: 'plataforma' },
+  { key: 'billing', label: 'Facturación Electrónica SUNAT', shortDesc: 'Emisión de boletas, facturas, notas de crédito y resumen OSE', category: 'plataforma' },
+  { key: 'workspace', label: 'Multisucursal & Transferencias', shortDesc: 'Gestión de locales físicos y envíos entre tiendas', category: 'plataforma' },
+
+  // 2. Web, Medios & Canales
+  { key: 'media', label: 'Galería de Medios', shortDesc: 'Repositorio central de imágenes, fotos de pizzas y recursos web', category: 'canales' },
+  { key: 'pages', label: 'Páginas & Tienda Virtual', shortDesc: 'Constructor visual de páginas públicas, landing y catálogo web', category: 'canales' },
+  { key: 'marketing', label: 'Marketing, Web Push & Campañas', shortDesc: 'Notificaciones Web Push (Android/iOS/Windows), segmentos y envíos programados', category: 'canales' },
+  { key: 'inbox', label: 'Bandeja Omnicanal de Mensajes', shortDesc: 'Atención en vivo de WhatsApp, Messenger e Instagram con etiquetas, notas y atajos', category: 'canales' },
+  { key: 'whatsapp', label: 'WhatsApp API & Chatbot', shortDesc: 'Seguimiento automático de pedidos y chatbot con flujos en WhatsApp Cloud API (Meta)', category: 'canales' },
+
+  // 3. Operaciones & Ventas
   { key: 'pos', label: 'Punto de Venta (POS) & Caja', shortDesc: 'Toma de pedidos mostrador, cobros QR/tarjeta y arqueos', category: 'operaciones' },
+  { key: 'kiosk', label: 'Kiosco Autoservicio 9:16', shortDesc: 'Pantalla táctil de autopedido para clientes en tienda', category: 'operaciones' },
   { key: 'kds', label: 'Cocina KDS & Hornos', shortDesc: 'Pantallas de horneado, tiempos de cocción y despacho', category: 'operaciones' },
   { key: 'delivery', label: 'Delivery & Flota Motorizados', shortDesc: 'Rutas propias, integración Rappi/PedidosYa y tracking', category: 'operaciones' },
   { key: 'tables', label: 'Salón, Mesas & Comandas', shortDesc: 'Mapa de mesas por piso, cuentas divididas y reservas', category: 'operaciones' },
-  { key: 'services', label: 'Catálogo, Recetas & Masas', shortDesc: 'Tamaños de pizza, bordes, ingredientes y escandallos BOM', category: 'inventario' },
-  { key: 'inventory', label: 'Almacén, Stock & Mermas', shortDesc: 'Control de harinas, quesos, lotes de caducidad y kardex', category: 'inventario' },
-  { key: 'purchases', label: 'Compras & Proveedores', shortDesc: 'Órdenes de compra consolidadas, guías y recepción', category: 'inventario' },
-  { key: 'quotes', label: 'Cotizaciones & Eventos', shortDesc: 'Paquetes corporativos, catering y descuentos especiales', category: 'comercial' },
-  { key: 'clients', label: 'Clientes CRM & Fidelización', shortDesc: 'Historial de pedidos, cartera y perfiles de clientes', category: 'comercial' },
-  { key: 'benefits', label: 'Beneficios, Cupones & Puntos', shortDesc: 'Gestor de cupones promocionales, tarjetas de puntos y premios canjeables', category: 'comercial' },
-  { key: 'marketing', label: 'Marketing, Web Push & Campañas', shortDesc: 'Notificaciones Web Push (Android/iOS/Windows), segmentos y envíos programados', category: 'comercial' },
-  { key: 'inbox', label: 'Bandeja Omnicanal de Mensajes', shortDesc: 'Atención en vivo de WhatsApp, Messenger e Instagram con etiquetas, notas y atajos', category: 'comercial' },
-  { key: 'whatsapp', label: 'WhatsApp API & Chatbot', shortDesc: 'Seguimiento automático de pedidos y chatbot con flujos en WhatsApp Cloud API (Meta)', category: 'comercial' },
-  { key: 'finances', label: 'Finanzas, Bancos & SUNAT', shortDesc: 'Facturación electrónica, cuentas bancarias y billeteras QR', category: 'comercial' },
-  { key: 'hr', label: 'Recursos Humanos & Biométrico', shortDesc: 'Legajos sanitarios, reloj de asistencia, turnos, pre-planilla y TOTP', category: 'administracion' },
-  { key: 'workspace', label: 'Multisucursal & Transferencias', shortDesc: 'Gestión de locales físicos y envíos entre tiendas', category: 'administracion' },
-  { key: 'settings', label: 'Configuración Global & Seguridad', shortDesc: 'Identidad, Design System, usuarios, matriz RBAC y DevOps', category: 'administracion' },
+  { key: 'benefits', label: 'Beneficios, Cupones & Puntos', shortDesc: 'Gestor de cupones promocionales, tarjetas de puntos y premios canjeables', category: 'operaciones' },
+  { key: 'quotes', label: 'Cotizaciones & Eventos', shortDesc: 'Paquetes corporativos, catering y descuentos especiales', category: 'operaciones' },
+
+  // 4. Configuración & Sistema
+  { key: 'settings', label: 'Configuración Global & Seguridad', shortDesc: 'Identidad, Design System, usuarios, matriz RBAC y DevOps', category: 'configuracion' },
 ];
 
 export const SYSTEM_PERMISSIONS: Permission[] = [
@@ -34,12 +46,21 @@ export const SYSTEM_PERMISSIONS: Permission[] = [
   { id: 'd1', code: 'dashboard:view', name: 'Ver KPIs de Sede', description: 'Visualizar métricas operativas del local asignado', module: 'dashboard', action: 'view' },
   { id: 'd2', code: 'dashboard:export', name: 'Exportar Reportes BI', description: 'Descargar cierres en Excel / PDF', module: 'dashboard', action: 'special' },
 
+  // 1B. Pedidos en Vivo
+  { id: 'ord1', code: 'orders:view', name: 'Ver Pedidos en Vivo', description: 'Consultar comandas y pedidos de todos los canales', module: 'orders', action: 'view' },
+  { id: 'ord2', code: 'orders:edit', name: 'Gestionar Estados de Pedido', description: 'Avanzar o modificar pedidos desde el monitor central', module: 'orders', action: 'edit' },
+  { id: 'ord3', code: 'orders:delete', name: 'Anular Pedidos', description: 'Cancelar pedidos con registro de motivo', module: 'orders', action: 'delete' },
+
   // 2. POS
   { id: 'pos1', code: 'pos:view', name: 'Abrir Terminal POS', description: 'Ingresar a pantalla táctil de punto de venta', module: 'pos', action: 'view' },
   { id: 'pos2', code: 'pos:create', name: 'Emitir Comandas y Boletas', description: 'Registrar ventas rápidas en mostrador', module: 'pos', action: 'create' },
   { id: 'pos3', code: 'pos:edit', name: 'Modificar Pedido Abierto', description: 'Cambiar ingredientes o mitad/mitad antes de horno', module: 'pos', action: 'edit' },
   { id: 'pos4', code: 'pos:delete', name: 'Anular Ticket / Nota Crédito', description: 'Cancelar ventas con registro de auditoría', module: 'pos', action: 'delete' },
   { id: 'pos5', code: 'pos:cash_close', name: 'Cierre Ciego de Caja', description: 'Cuadrar efectivo, Yape/Plin y POS bancario', module: 'pos', action: 'special' },
+
+  // 2B. Kiosco 9:16
+  { id: 'ksk1', code: 'kiosk:view', name: 'Ver Modo Kiosco', description: 'Abrir pantalla de autoservicio en tienda', module: 'kiosk', action: 'view' },
+  { id: 'ksk2', code: 'kiosk:manage', name: 'Configurar Kiosco', description: 'Ajustar flujo y opciones del terminal autoservicio', module: 'kiosk', action: 'edit' },
 
   // 3. KDS Cocina
   { id: 'kds1', code: 'kds:view', name: 'Ver Monitor Cocina KDS', description: 'Visualizar cola de pizzas en preparación y horno', module: 'kds', action: 'view' },
@@ -98,14 +119,21 @@ export const SYSTEM_PERMISSIONS: Permission[] = [
   { id: 'inb2', code: 'inbox:manage', name: 'Gestionar Etiquetas y Atajos', description: 'Crear etiquetas CRM, respuestas rápidas y asignar conversaciones', module: 'inbox', action: 'edit' },
 
   // 10E. WhatsApp Cloud API & Chatbot
-  { id: 'wa1', code: 'whatsapp:view', name: 'Ver Bandeja y Flujos WhatsApp', description: 'Consultar conversaciones en vivo, simulador y logs de WhatsApp Cloud API', module: 'whatsapp', action: 'view' },
+  { id: 'wa1', code: 'whatsapp:view', name: 'Ver Flujos WhatsApp', description: 'Consultar flujos del chatbot y logs de WhatsApp Cloud API', module: 'whatsapp', action: 'view' },
   { id: 'wa2', code: 'whatsapp:manage', name: 'Configurar WhatsApp API y Chatbot', description: 'Editar credenciales Meta, flujos del bot y notificaciones de seguimiento', module: 'whatsapp', action: 'edit' },
 
-  // 11. Finanzas
+  // 10F. Galería de Medios y Páginas Web
+  { id: 'med1', code: 'media:view', name: 'Ver Galería de Medios', description: 'Explorar imágenes y recursos multimedia del sistema', module: 'media', action: 'view' },
+  { id: 'med2', code: 'media:manage', name: 'Subir y Eliminar Medios', description: 'Cargar fotos de productos y banners', module: 'media', action: 'edit' },
+  { id: 'pag1', code: 'pages:view', name: 'Ver Páginas Web', description: 'Consultar páginas públicas y estructura storefront', module: 'pages', action: 'view' },
+  { id: 'pag2', code: 'pages:manage', name: 'Editar Constructor de Páginas', description: 'Crear y publicar páginas personalizadas', module: 'pages', action: 'edit' },
+
+  // 11. Finanzas y Facturación SUNAT
   { id: 'p10', code: 'finances:view', name: 'Ver Flujo de Caja y Ventas', description: 'Consultar ingresos consolidados y márgenes', module: 'finances', action: 'view' },
   { id: 'fin2', code: 'finances:create', name: 'Registrar Egreso / Gasto Chica', description: 'Cargar pagos menores de tienda con sustento', module: 'finances', action: 'create' },
   { id: 'p11', code: 'finances:manage_banks', name: 'Gestionar Bancos y QR Yape/Plin', description: 'Configurar cuentas recaudadoras y QRs oficiales', module: 'finances', action: 'edit' },
-  { id: 'fin4', code: 'finances:sunat', name: 'Reenvío Resumen SUNAT/OSE', description: 'Gestionar facturación electrónica y bajas', module: 'finances', action: 'special' },
+  { id: 'bil1', code: 'billing:view', name: 'Ver Comprobantes SUNAT', description: 'Consultar boletas, facturas y notas emitidas', module: 'billing', action: 'view' },
+  { id: 'bil2', code: 'billing:emit', name: 'Emitir y Reenviar SUNAT/OSE', description: 'Generar comprobantes electrónicos y gestionar bajas', module: 'billing', action: 'special' },
 
   // 12. Recursos Humanos & Asistencia (hr)
   { id: 'hr1', code: 'hr:view', name: 'Ver Legajos y Asistencia', description: 'Consultar personal de sede, carnets sanitarios y marcaciones del día', module: 'hr', action: 'view' },
