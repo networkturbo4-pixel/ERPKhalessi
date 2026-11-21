@@ -17,7 +17,9 @@ define('INSTALL_LOCK_FILE', __DIR__ . '/install.lock');
 define('CONFIG_LOCAL_FILE', __DIR__ . '/config.local.php');
 define('DATABASE_SQL_FILE', dirname(__DIR__) . '/database.sql');
 define('BRANDING_UPLOAD_DIR', dirname(__DIR__) . '/uploads/branding');
-define('SERVER_DIR', dirname(__DIR__, 2) . '/server');
+$_prodServerDir = dirname(__DIR__) . '/server';
+$_devServerDir = dirname(__DIR__, 2) . '/server';
+define('SERVER_DIR', file_exists($_prodServerDir . '/app.js') ? $_prodServerDir : $_devServerDir);
 define('SERVER_CONFIG_FILE', SERVER_DIR . '/config.json');
 
 function jsonOut(array $payload, int $status = 200): void {
