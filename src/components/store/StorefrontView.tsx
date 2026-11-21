@@ -371,13 +371,17 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     };
   }, [isLightTheme]);
 
+  const customPageBg = activeTemplate.pageBgColor?.trim() || '';
+  const storeContrastLevel = activeTemplate.contrastLevel || 'standard';
+
   const storeThemeVars = useMemo(
     () =>
       ({
         '--store-btn-bg': buttonColor,
         '--store-btn-fg': buttonTextColor,
+        ...(customPageBg ? { '--store-page-bg': customPageBg } : {}),
       }) as React.CSSProperties,
-    [buttonColor, buttonTextColor]
+    [buttonColor, buttonTextColor, customPageBg]
   );
 
   // Order Mode, Branch & Real-Time Geolocation State
@@ -1545,9 +1549,17 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
       </Suspense>
     ) : (
       <div
-        style={storeThemeVars}
+        style={{
+          ...storeThemeVars,
+          ...(customPageBg ? { backgroundColor: customPageBg } : {}),
+        }}
+        data-store-contrast={storeContrastLevel}
         className={`min-h-dvh w-full max-w-full overflow-x-clip flex flex-col font-sans transition-colors ${
-          headerVariant === 'flame_grill'
+          customPageBg
+            ? isLightTheme
+              ? 'text-zinc-900 selection:bg-amber-500 selection:text-white'
+              : 'text-neutral-100 selection:bg-amber-500 selection:text-neutral-950'
+            : headerVariant === 'flame_grill'
             ? 'bg-[#F5EBDC] text-[#502314] selection:bg-[#D62300] selection:text-white'
             : isLightTheme
             ? 'bg-zinc-50 text-zinc-900 selection:bg-amber-500 selection:text-white'

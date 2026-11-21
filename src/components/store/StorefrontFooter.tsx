@@ -254,6 +254,10 @@ export const StorefrontFooter: React.FC<StorefrontFooterProps> = ({
         />
       ) : (
       <footer
+        style={{
+          ...(footerConfig?.bgColor ? { backgroundColor: footerConfig.bgColor } : {}),
+          ...(footerConfig?.textColor ? { color: footerConfig.textColor } : {}),
+        }}
         className={`mt-14 border-t relative transition-colors ${
           isLight
             ? 'bg-[#F4F5F7] text-zinc-600 border-zinc-200/90'

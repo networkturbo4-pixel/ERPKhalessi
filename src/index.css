@@ -122,6 +122,22 @@
   outline-offset: 2px;
 }
 
+/* Storefront Contrast Modifiers */
+[data-store-contrast="high"] section,
+[data-store-contrast="high"] article,
+[data-store-contrast="high"] footer {
+  --tw-border-opacity: 1;
+}
+[data-store-contrast="ultra"] article,
+[data-store-contrast="ultra"] input,
+[data-store-contrast="ultra"] select {
+  border-width: 1.5px;
+}
+[data-store-contrast="ultra"] :focus-visible {
+  outline: 2px solid var(--store-btn-bg, var(--brand-500));
+  outline-offset: 2px;
+}
+
 html,
 body {
   max-width: 100%;

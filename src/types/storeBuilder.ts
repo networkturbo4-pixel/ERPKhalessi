@@ -473,6 +473,8 @@ export interface CustomPage {
   status: 'published' | 'draft';
   themeMode: 'dark' | 'light';
   footerTheme: 'light' | 'dark';
+  pageBgColor?: string;
+  contrastLevel?: 'standard' | 'high' | 'ultra';
   accentColor: string;
   buttonColor?: string;
   buttonTextColor?: string;
@@ -555,6 +557,8 @@ export interface StoreTemplate {
   previewBadge: string;
   themeMode: 'dark' | 'light';
   footerTheme: 'light' | 'dark';
+  pageBgColor?: string;
+  contrastLevel?: 'standard' | 'high' | 'ultra';
   headerVariant?: StoreHeaderVariant;
   footerVariant?: StoreFooterVariant;
   headerConfig?: StoreHeaderConfig;

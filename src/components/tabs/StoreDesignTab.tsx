@@ -11,10 +11,13 @@ import {
   Layers,
   Sun,
   Moon,
+  Contrast,
+  ShieldCheck,
 } from 'lucide-react';
 import { useStoreBuilder } from '../../context/StoreBuilderContext';
 import { useSettings } from '../../context/SettingsContext';
-import { StoreTemplate } from '../../types/storeBuilder';
+import { StoreTemplate, getOptimalContrastHex } from '../../types/storeBuilder';
+import { getContrastRatio, getWcagBadge } from '../../utils/themeTokens';
 import { HeaderFooterCustomizerPanel } from '../store/HeaderFooterCustomizerPanel';
 
 const TemplateWireframePreview: React.FC<{ tpl: StoreTemplate }> = ({ tpl }) => {
@@ -23,11 +26,18 @@ const TemplateWireframePreview: React.FC<{ tpl: StoreTemplate }> = ({ tpl }) => 
   const accent = tpl.accentColor || '#f59e0b';
   const btn = tpl.buttonColor || accent;
   const isWarmBg = tpl.id === 'tpl-flame-cream';
+  const customPageBg = tpl.pageBgColor?.trim();
+  const customFooterBg = tpl.footerConfig?.bgColor?.trim();
 
   return (
     <div
+      style={customPageBg ? { backgroundColor: customPageBg } : undefined}
       className={`w-full h-40 rounded-xl border overflow-hidden flex flex-col justify-between select-none ${
-        isDark
+        customPageBg
+          ? isDark
+            ? 'border-zinc-800'
+            : 'border-zinc-200'
+          : isDark
           ? 'bg-zinc-950 border-zinc-800'
           : isWarmBg
           ? 'bg-[#F5EBDC] border-amber-200/80'
@@ -130,8 +140,13 @@ const TemplateWireframePreview: React.FC<{ tpl: StoreTemplate }> = ({ tpl }) => 
 
       {/* Mini Footer */}
       <div
+        style={customFooterBg ? { backgroundColor: customFooterBg } : undefined}
         className={`h-3.5 px-2 flex items-center justify-between shrink-0 ${
-          isFooterDark ? 'bg-zinc-900' : 'bg-zinc-100 border-t border-zinc-200'
+          customFooterBg
+            ? 'border-t border-black/10 dark:border-white/10'
+            : isFooterDark
+            ? 'bg-zinc-900'
+            : 'bg-zinc-100 border-t border-zinc-200'
         }`}
       >
         <span className="h-1 w-8 rounded-full bg-zinc-500/50" />
@@ -365,6 +380,200 @@ export const StoreDesignTab: React.FC = () => {
             onCommit={(hex) => updateActiveTemplateMeta({ buttonColor: hex })}
           />
         </div>
+
+        {/* Page Background, Footer Background & Contrast Controls */}
+        {(() => {
+          const resolvedPageBg =
+            activeTemplate.pageBgColor?.trim() ||
+            (activeTemplate.themeMode === 'light' ? '#fafafa' : '#0a0a0a');
+          const resolvedFooterBg =
+            activeTemplate.footerConfig?.bgColor?.trim() ||
+            (activeTemplate.footerTheme === 'light' ? '#f4f5f7' : '#090a0f');
+          const resolvedFooterText =
+            activeTemplate.footerConfig?.textColor?.trim() ||
+            (activeTemplate.footerTheme === 'light' ? '#52525b' : '#a1a1aa');
+          const btnHex = activeTemplate.buttonColor || activeTemplate.accentColor || '#f59e0b';
+          const btnTextHex =
+            activeTemplate.buttonTextColor || getOptimalContrastHex(btnHex);
+          const btnRatio = getContrastRatio(btnHex, btnTextHex);
+          const btnWcag = getWcagBadge(btnRatio);
+          const footerRatio = getContrastRatio(resolvedFooterBg, resolvedFooterText);
+          const footerWcag = getWcagBadge(footerRatio);
+
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-3 border-t border-zinc-100 dark:border-zinc-800 text-xs">
+              {/* Fondo de Página */}
+              <div className="p-3 rounded-xl bg-zinc-50/80 dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                    Color Fondo de Página
+                  </span>
+                  {activeTemplate.pageBgColor && (
+                    <button
+                      type="button"
+                      onClick={() => updateActiveTemplateMeta({ pageBgColor: undefined })}
+                      className="text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:underline"
+                    >
+                      Auto
+                    </button>
+                  )}
+                </div>
+                <ColorPickerField
+                  label="Fondo del Lienzo"
+                  value={resolvedPageBg}
+                  onCommit={(hex) => updateActiveTemplateMeta({ pageBgColor: hex })}
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { name: 'Blanco', hex: '#ffffff' },
+                    { name: 'Crema', hex: '#f5ebdc' },
+                    { name: 'Carbón', hex: '#09090b' },
+                    { name: 'Medianoche', hex: '#080e1a' },
+                    { name: 'Espresso', hex: '#140e0b' },
+                  ].map((p) => (
+                    <button
+                      key={p.hex}
+                      type="button"
+                      onClick={() => updateActiveTemplateMeta({ pageBgColor: p.hex })}
+                      title={p.name}
+                      className={`h-5 w-5 rounded-full border transition-transform hover:scale-110 ${
+                        resolvedPageBg.toLowerCase() === p.hex
+                          ? 'ring-2 ring-amber-500 border-white'
+                          : 'border-zinc-300 dark:border-zinc-700'
+                      }`}
+                      style={{ backgroundColor: p.hex }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Color Fondo del Footer */}
+              <div className="p-3 rounded-xl bg-zinc-50/80 dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                    Color Fondo del Footer
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${footerWcag.toneClass}`}
+                      title={`Contraste texto/fondo del footer: ${footerRatio.toFixed(2)}:1`}
+                    >
+                      {footerWcag.label} ({footerRatio.toFixed(1)}:1)
+                    </span>
+                    {(activeTemplate.footerConfig?.bgColor || activeTemplate.footerConfig?.textColor) && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateActiveTemplateMeta({
+                            footerConfig: {
+                              ...(activeTemplate.footerConfig || {}),
+                              bgColor: undefined,
+                              textColor: undefined,
+                            },
+                          })
+                        }
+                        className="text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:underline"
+                      >
+                        Auto
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <ColorPickerField
+                    label="Fondo Footer"
+                    value={resolvedFooterBg}
+                    onCommit={(hex) =>
+                      updateActiveTemplateMeta({
+                        footerConfig: {
+                          ...(activeTemplate.footerConfig || {}),
+                          bgColor: hex,
+                          textColor:
+                            activeTemplate.footerConfig?.textColor ||
+                            getOptimalContrastHex(hex),
+                        },
+                      })
+                    }
+                  />
+                  <ColorPickerField
+                    label="Texto Footer"
+                    value={resolvedFooterText}
+                    onCommit={(hex) =>
+                      updateActiveTemplateMeta({
+                        footerConfig: {
+                          ...(activeTemplate.footerConfig || {}),
+                          textColor: hex,
+                        },
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              {/* Contraste de Tienda y Botones */}
+              <div className="p-3 rounded-xl bg-zinc-50/80 dark:bg-zinc-950/60 border border-zinc-200/80 dark:border-zinc-800 space-y-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1">
+                    <Contrast className="w-3 h-3 text-amber-500" />
+                    Contraste &amp; Legibilidad
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${btnWcag.toneClass}`}
+                    title={`Contraste botón: ${btnRatio.toFixed(2)}:1`}
+                  >
+                    <ShieldCheck className="w-3 h-3" />
+                    Botón {btnWcag.label}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(
+                    [
+                      { id: 'standard', label: 'Estándar' },
+                      { id: 'high', label: 'Alto' },
+                      { id: 'ultra', label: 'Ultra AAA' },
+                    ] as const
+                  ).map((lvl) => {
+                    const active = (activeTemplate.contrastLevel || 'standard') === lvl.id;
+                    return (
+                      <button
+                        key={lvl.id}
+                        type="button"
+                        onClick={() => updateActiveTemplateMeta({ contrastLevel: lvl.id })}
+                        className={`py-1.5 px-2 rounded-lg border text-[11px] font-bold whitespace-nowrap ${
+                          active
+                            ? 'border-amber-500 bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                            : 'border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'
+                        }`}
+                      >
+                        {lvl.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <label className="flex items-center justify-between gap-2 pt-1 cursor-pointer">
+                  <span className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300">
+                    Contraste automático en botones
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(activeTemplate.autoButtonContrast ?? true)}
+                    onChange={(e) =>
+                      updateActiveTemplateMeta({
+                        autoButtonContrast: e.target.checked,
+                        buttonTextColor: e.target.checked
+                          ? getOptimalContrastHex(btnHex)
+                          : activeTemplate.buttonTextColor,
+                      })
+                    }
+                    className="h-4 w-4 rounded accent-amber-500"
+                  />
+                </label>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Full Header & Footer Customizer */}
         <HeaderFooterCustomizerPanel
