@@ -1,8 +1,8 @@
 {
-  "buildId": "20261121204056",
-  "builtAt": "2026-11-21T20:40:56.903Z",
-  "commitSha": "604857f",
-  "message": "feat(whatsapp,inbox): integrar WhatsApp Cloud API, flujos con conectores y Bandeja Omnicanal",
+  "buildId": "20261121211717",
+  "builtAt": "2026-11-21T21:17:17.167Z",
+  "commitSha": "a75c27a",
+  "message": "feat(rbac): agregar todos los modulos y asignacion simplificada por apartados",
   "totalFiles": 116,
-  "manifestSha256": "46e2c6f21548d8b4b29a5a14477ec69afdab4658e0d8e8edcb101a13688f1461"
+  "manifestSha256": "00bc7ca495d79028d995298dfcfb093e785fbef3723241188f88da22da0ad47a"
 }
