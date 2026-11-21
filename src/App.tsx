@@ -9,6 +9,7 @@ import { InventoryProvider } from './context/InventoryContext';
 import { MediaGalleryProvider } from './context/MediaGalleryContext';
 import { BrandBootSplash } from './components/common/AppSurfaceSkeleton';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { clearLocalCacheKey } from './utils/diskPersistence';
 
 const loadMainLayout = () =>
   import('./components/MainLayout').then(m => ({ default: m.MainLayout }));
@@ -182,6 +183,29 @@ export function App() {
     ? decodeURIComponent(reservationsRouteMatch[1])
     : null;
 
+  if (isInstallRoute) {
+    return (
+      <ErrorBoundary>
+        <Suspense fallback={<BrandBootSplash pathname={currentPath} />}>
+          <InstallerWizardView
+            onNavigateToStore={() => {
+              clearLocalCacheKey('gastro_erp_settings_v3');
+              clearLocalCacheKey('gastro_erp_checkpoint_v3');
+              clearLocalCacheKey('kh_store_builder_v2');
+              window.location.assign('/');
+            }}
+            onNavigateToAdmin={() => {
+              clearLocalCacheKey('gastro_erp_settings_v3');
+              clearLocalCacheKey('gastro_erp_checkpoint_v3');
+              clearLocalCacheKey('kh_store_builder_v2');
+              window.location.assign('/admin');
+            }}
+          />
+        </Suspense>
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <RBACProvider>
@@ -193,12 +217,7 @@ export function App() {
                   <BenefitsProvider>
                     <StoreBuilderProvider>
                       <Suspense fallback={<BrandBootSplash pathname={currentPath} />}>
-                        {isInstallRoute ? (
-                          <InstallerWizardView
-                            onNavigateToStore={() => navigate('/')}
-                            onNavigateToAdmin={() => navigate('/admin')}
-                          />
-                        ) : isKioskRoute ? (
+                        {isKioskRoute ? (
                           <KioskSelfServiceView
                             embeddedInAdmin={false}
                             onExitToAdmin={() => navigate('/admin')}

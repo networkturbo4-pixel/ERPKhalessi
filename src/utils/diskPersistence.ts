@@ -704,6 +704,21 @@ export function syncPendingOfflineQueue(): Promise<number> {
   return flushOfflineQueue(getAuthHeaders, CLIENT_ID);
 }
 
+/** Limpia únicamente la caché local del navegador sin enviar DELETE al servidor. */
+export function clearLocalCacheKey(key: string): void {
+  memoryMirror.delete(key);
+  void deleteOfflineSnapshot(key);
+  try {
+    if (originalRemoveItemFn) {
+      originalRemoveItemFn(key);
+    } else if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(key);
+    }
+  } catch {
+    // ignore
+  }
+}
+
 /**
  * Fuerza y espera la persistencia real de una clave compartida hacia el servidor MySQL.
  * Útil para botones explícitos "Guardar Cambios" (evita que F5 aborte el guardado o vuelva a datos de prueba).
