@@ -235,14 +235,15 @@ export const DEFAULT_CHATBOT_FLOW_NODES: WhatsAppFlowNode[] = [
 
 export function createDefaultWhatsAppConfig(): WhatsAppModuleConfig {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://tu-dominio.com';
+  const realtimeBase = `${origin.replace(/\/+$/, '')}/realtime`;
   return {
     numberMode: 'centralized',
     salesMode: 'in_chat_order',
     autoReplyEnabled: true,
     humanHandoffMinutes: 30,
     storefrontBaseUrl: origin,
-    realtimeServerUrl: origin,
-    centralizedCredentials: createEmptyMetaCredentials(origin),
+    realtimeServerUrl: realtimeBase,
+    centralizedCredentials: createEmptyMetaCredentials(realtimeBase),
     branchCredentials: {},
     metaSocialChannels: {
       facebookEnabled: false,
@@ -441,18 +442,26 @@ export function interpolateTemplateText(
   return template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => vars[key] ?? '');
 }
 
+function buildWhatsAppEndpoint(serverBaseUrl: string | undefined, routePath: string): string {
+  const cleaned = (serverBaseUrl || '')
+    .trim()
+    .replace(/\/api\/whatsapp\/.*$/i, '')
+    .replace(/\/+$/, '');
+  return cleaned ? `${cleaned}${routePath}` : routePath;
+}
+
 export async function syncWhatsAppConfigToServer(params: {
   config: WhatsAppModuleConfig;
   products: Product[];
   branches: Array<{ id: string; name: string; address?: string }>;
   orders: Order[];
 }): Promise<{ ok: boolean; error?: string }> {
-  const baseUrl = (params.config.realtimeServerUrl || '').replace(/\/+$/, '');
-  const endpoint = baseUrl ? `${baseUrl}/api/whatsapp/config` : '/api/whatsapp/config';
+  const endpoint = buildWhatsAppEndpoint(params.config.realtimeServerUrl, '/api/whatsapp/config');
   try {
     const resp = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(15000),
       body: JSON.stringify({
         config: params.config,
         branches: params.branches,
@@ -492,12 +501,12 @@ export async function testMetaConnection(
   creds: WhatsAppMetaCredentials,
   serverBaseUrl?: string
 ): Promise<{ ok: boolean; verifiedName?: string; displayPhoneNumber?: string; qualityRating?: string; error?: string }> {
-  const base = (serverBaseUrl || '').replace(/\/+$/, '');
-  const endpoint = base ? `${base}/api/whatsapp/test-connection` : '/api/whatsapp/test-connection';
+  const endpoint = buildWhatsAppEndpoint(serverBaseUrl, '/api/whatsapp/test-connection');
   try {
     const resp = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(15000),
       body: JSON.stringify({
         phoneNumberId: creds.phoneNumberId,
         accessToken: creds.accessToken,
@@ -530,8 +539,7 @@ export async function sendAgentWhatsAppReply(params: {
 }): Promise<{ ok: boolean; simulated?: boolean; error?: string }> {
   const creds = resolveActiveCredentials(params.config, params.branchId);
   const cleanPhone = normalizeWhatsAppPhone(params.toPhone);
-  const base = (params.config.realtimeServerUrl || '').replace(/\/+$/, '');
-  const endpoint = base ? `${base}/api/whatsapp/send-message` : '/api/whatsapp/send-message';
+  const endpoint = buildWhatsAppEndpoint(params.config.realtimeServerUrl, '/api/whatsapp/send-message');
 
   if (!creds.enabled || !creds.phoneNumberId || !creds.accessToken) {
     appendWhatsAppLog({
@@ -627,8 +635,7 @@ export async function notifyOrderStatusViaWhatsApp(params: {
     return { ok: true, simulated: true };
   }
 
-  const base = (config.realtimeServerUrl || '').replace(/\/+$/, '');
-  const endpoint = base ? `${base}/api/whatsapp/send-template` : '/api/whatsapp/send-template';
+  const endpoint = buildWhatsAppEndpoint(config.realtimeServerUrl, '/api/whatsapp/send-template');
 
   try {
     const resp = await fetch(endpoint, {

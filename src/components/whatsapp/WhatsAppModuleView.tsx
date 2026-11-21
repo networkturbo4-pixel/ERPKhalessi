@@ -1504,7 +1504,7 @@ export const WhatsAppModuleView: React.FC<WhatsAppModuleViewProps> = ({ onOpenIn
                   type="url"
                   value={config.realtimeServerUrl}
                   onChange={(e) => updateConfig((prev) => ({ ...prev, realtimeServerUrl: e.target.value.trim() }))}
-                  placeholder="https://tu-dominio.com"
+                  placeholder="https://tu-dominio.com/realtime"
                   className="w-full px-3 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-mono"
                 />
               </div>

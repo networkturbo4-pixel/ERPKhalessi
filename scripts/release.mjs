@@ -48,6 +48,7 @@ fs.rmSync(path.join(release, 'api', '.token_secret.php'), { force: true });
 fs.rmSync(path.join(release, 'api', '.rate_limit'), { recursive: true, force: true });
 fs.rmSync(path.join(release, 'server', 'config.json'), { force: true });
 fs.rmSync(path.join(release, 'server', '.env'), { force: true });
+fs.rmSync(path.join(release, 'server', 'whatsapp_state.json'), { force: true });
 fs.rmSync(path.join(release, 'uploads', 'branding'), { recursive: true, force: true });
 fs.rmSync(path.join(release, 'api', 'storage', 'google-wallet-sa.json'), { force: true });
 fs.rmSync(path.join(release, 'api', 'storage', 'marketing-vapid.json'), { force: true });
