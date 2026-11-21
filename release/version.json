@@ -1,8 +1,8 @@
 {
-  "buildId": "20261121223815",
-  "builtAt": "2026-11-21T22:38:15.769Z",
-  "commitSha": "e33bf9f",
-  "message": "feat(payments): add WhatsApp Culqi payment links, server webhook, and auto KDS dispatch",
+  "buildId": "20261121234423",
+  "builtAt": "2026-11-21T23:44:23.471Z",
+  "commitSha": "e9e38eb",
+  "message": "fix(whatsapp): support /realtime prefix and harden Meta test connection",
   "totalFiles": 120,
-  "manifestSha256": "bc4a18d0c43bac311d34ac1fba56b92618ca64dc29a7d1c661e9cd2bd19a4420"
+  "manifestSha256": "ff8616bd179e3a3c7d5fa31c46da2dc355c6deca971fae42a2751f40f0197146"
 }

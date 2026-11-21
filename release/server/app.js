@@ -134,6 +134,9 @@ heartbeatTimer.unref();
 const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url || '/', true);
   const pathname = (parsedUrl.pathname || '/').toLowerCase().replace(/\/+$/, '') || '/';
+  const apiPathname = pathname.startsWith('/realtime/api/')
+    ? pathname.slice('/realtime'.length)
+    : pathname;
   const clientIp = getClientIp(req);
 
   // Cabeceras de seguridad y CORS restrictivo
@@ -300,7 +303,7 @@ const server = http.createServer((req, res) => {
   }
 
   // 2B. CULQI TOKENIZATION: Guardar tarjeta (Customer + Card)
-  if (pathname === '/api/culqi/save-card' && req.method === 'POST') {
+  if (apiPathname === '/api/culqi/save-card' && req.method === 'POST') {
     const chunks = [];
     let bodyBytes = 0;
     let aborted = false;
@@ -411,7 +414,7 @@ const server = http.createServer((req, res) => {
   }
 
   // 2C. CULQI ONE-CLICK CHARGE: Cobrar con tarjeta guardada (crd_...)
-  if (pathname === '/api/culqi/charge-saved' && req.method === 'POST') {
+  if (apiPathname === '/api/culqi/charge-saved' && req.method === 'POST') {
     const chunks = [];
     let bodyBytes = 0;
     let aborted = false;
@@ -484,7 +487,7 @@ const server = http.createServer((req, res) => {
   }
 
   // 2D. WHATSAPP CLOUD API (Meta Webhook, Chatbot Engine & Tracking)
-  if (pathname.startsWith('/api/whatsapp/')) {
+  if (apiPathname.startsWith('/api/whatsapp/')) {
     const broadcastSseEvent = (payload) => {
       const rawMessage = `data: ${JSON.stringify(payload)}\n\n`;
       const targetBranch = payload.branchId;
@@ -499,7 +502,7 @@ const server = http.createServer((req, res) => {
         }
       }
     };
-    Promise.resolve(handleWhatsAppRoute(req, res, parsedUrl, pathname, MAX_BODY_BYTES, broadcastSseEvent)).catch((err) => {
+    Promise.resolve(handleWhatsAppRoute(req, res, parsedUrl, apiPathname, MAX_BODY_BYTES, broadcastSseEvent)).catch((err) => {
       if (!res.headersSent) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: false, error: err?.message || 'WhatsApp route error' }));
