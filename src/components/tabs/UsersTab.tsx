@@ -36,7 +36,7 @@ export const UsersTab: React.FC = () => {
     openNoticeModal,
     dispatchToast,
   } = useSettings();
-  const { roles } = useRBAC();
+  const { roles, currentUser, setCurrentUser } = useRBAC();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended'>('all');
@@ -164,11 +164,15 @@ export const UsersTab: React.FC = () => {
 
     const cleanPin = editingUser.pin.replace(/\D/g, '');
     const roleObj = roles.find(r => r.id === editingUser.roleId);
-    updateUser({
+    const updatedUser: User = {
       ...editingUser,
       pin: cleanPin,
       roleName: roleObj ? roleObj.name : editingUser.roleName,
-    });
+    };
+    updateUser(updatedUser);
+    if (updatedUser.id === currentUser.id) {
+      setCurrentUser(updatedUser);
+    }
     setEditingUser(null);
   };
 

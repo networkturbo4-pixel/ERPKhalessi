@@ -14,84 +14,155 @@ import {
   Copy,
   Check,
   ChevronDown,
-  ChevronRight,
-  Sparkles,
   Eye,
-  PlusCircle,
-  Edit3,
   Eraser,
+  Users,
+  Layers,
+  Globe,
+  ShoppingBag,
+  Settings,
+  CheckCircle2,
+  SlidersHorizontal,
 } from 'lucide-react';
 
-const ACTION_COLUMNS: Array<{
-  action: PermissionActionType;
+const ACTION_LABELS: Record<PermissionActionType, string> = {
+  view: 'Ver',
+  create: 'Crear',
+  edit: 'Editar',
+  delete: 'Anular',
+  special: 'Especial',
+};
+
+const APARTADOS: Array<{
+  id: ErpModuleMeta['category'];
   label: string;
-  short: string;
+  shortDesc: string;
+  icon: React.FC<{ className?: string; style?: React.CSSProperties }>;
 }> = [
-  { action: 'view', label: 'Ver / Acceso', short: 'Ver' },
-  { action: 'create', label: 'Crear / Emitir', short: 'Crear' },
-  { action: 'edit', label: 'Editar / Operar', short: 'Editar' },
-  { action: 'delete', label: 'Eliminar / Anular', short: 'Anular' },
-  { action: 'special', label: 'Autorizar / Especial', short: 'Especial' },
+  {
+    id: 'plataforma',
+    label: 'Plataforma & Gestión',
+    shortDesc: 'Dashboard, Pedidos, Almacén, Clientes, Productos, RRHH, Finanzas y SUNAT',
+    icon: Layers,
+  },
+  {
+    id: 'canales',
+    label: 'Web, Medios & Canales',
+    shortDesc: 'Galería, Páginas, Marketing, Bandeja Omnicanal y WhatsApp Bot',
+    icon: Globe,
+  },
+  {
+    id: 'operaciones',
+    label: 'Operaciones & Ventas',
+    shortDesc: 'POS & Mesas, Kiosco 9:16, Cocina KDS, Delivery y Beneficios',
+    icon: ShoppingBag,
+  },
+  {
+    id: 'configuracion',
+    label: 'Configuración',
+    shortDesc: 'Marca, Design System, Usuarios, Matriz RBAC, Sedes y DevOps',
+    icon: Settings,
+  },
 ];
 
-const CATEGORY_TABS: Array<{
-  id: 'all' | ErpModuleMeta['category'];
-  label: string;
-  desc: string;
-}> = [
-  { id: 'all', label: 'Todos los Apartados', desc: 'Vista completa del ERP' },
-  { id: 'plataforma', label: 'Plataforma & Gestión', desc: 'Dashboard, Pedidos, Almacén, Clientes, Productos, RRHH, Finanzas, Facturación' },
-  { id: 'canales', label: 'Web, Medios & Canales', desc: 'Galería, Páginas, Marketing, Bandeja Omnicanal, WhatsApp Bot' },
-  { id: 'operaciones', label: 'Operaciones & Ventas', desc: 'POS, Kiosco 9:16, Cocina KDS, Delivery, Salón, Beneficios' },
-  { id: 'configuracion', label: 'Configuración', desc: 'Identidad, Design System, Usuarios, Matriz RBAC, DevOps' },
-];
+interface TactileSwitchProps {
+  checked: boolean;
+  disabled?: boolean;
+  accentColor: string;
+  onChange: () => void;
+  ariaLabel: string;
+}
 
-const APARTADOS_ONLY = CATEGORY_TABS.filter(
-  (c): c is { id: ErpModuleMeta['category']; label: string; desc: string } => c.id !== 'all'
+const TactileSwitch: React.FC<TactileSwitchProps> = ({
+  checked,
+  disabled,
+  accentColor,
+  onChange,
+  ariaLabel,
+}) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    aria-label={ariaLabel}
+    disabled={disabled}
+    onClick={e => {
+      e.stopPropagation();
+      onChange();
+    }}
+    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-erp-card ${
+      disabled ? 'opacity-45 cursor-not-allowed' : 'cursor-pointer active:scale-[0.96]'
+    } ${
+      checked
+        ? 'border-transparent'
+        : 'bg-zinc-200 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700'
+    }`}
+    style={checked ? { backgroundColor: accentColor } : undefined}
+  >
+    <span
+      className={`pointer-events-none inline-block h-4.5 w-4.5 rounded-full bg-white shadow-sm transition-transform duration-150 ease-out ${
+        checked ? 'translate-x-[22px]' : 'translate-x-[3px]'
+      }`}
+    />
+  </button>
 );
 
 export const RolesTab: React.FC = () => {
   const { roles, setRoles, permissions, modulesCatalog, canEditRole } = useRBAC();
-  const { customization, dispatchToast, openNoticeModal, logAuditEvent } = useSettings();
+  const { users, customization, dispatchToast, openNoticeModal, logAuditEvent } = useSettings();
 
   const [selectedRoleId, setSelectedRoleId] = useState<string>(roles[0]?.id || 'role-admin');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState<'all' | ErpModuleMeta['category']>('all');
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({});
 
+  // Create Role Modal state
   const [isCreatingRole, setIsCreatingRole] = useState(false);
   const [newRoleName, setNewRoleName] = useState('');
   const [newRoleDesc, setNewRoleDesc] = useState('');
-  const [newRoleApartados, setNewRoleApartados] = useState<ErpModuleMeta['category'][]>(['operaciones']);
+  const [newRoleApartados, setNewRoleApartados] = useState<ErpModuleMeta['category'][]>([
+    'operaciones',
+  ]);
 
   const selectedRole = roles.find(r => r.id === selectedRoleId) || roles[0];
   const editPermissionCheck = canEditRole(selectedRole?.id || '');
   const isLockedRole =
     !editPermissionCheck.allowed || (selectedRole.isSystem && selectedRole.id === 'role-admin');
 
-  const filteredModules = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return modulesCatalog.filter(mod => {
-      const catMatch = activeCategory === 'all' || mod.category === activeCategory;
-      if (!catMatch) return false;
-      if (!q) return true;
-      const modPerms = permissions.filter(p => p.module === mod.key);
-      return (
-        mod.label.toLowerCase().includes(q) ||
-        mod.shortDesc.toLowerCase().includes(q) ||
-        modPerms.some(
-          p =>
-            p.name.toLowerCase().includes(q) ||
-            p.description.toLowerCase().includes(q) ||
-            p.code.toLowerCase().includes(q)
-        )
-      );
-    });
-  }, [modulesCatalog, permissions, activeCategory, searchQuery]);
+  const usersCountByRole = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const u of users) {
+      map[u.roleId] = (map[u.roleId] || 0) + 1;
+    }
+    return map;
+  }, [users]);
+
+  const getApartadoPermissionCodes = (cat: ErpModuleMeta['category']): string[] => {
+    const modKeys = new Set(modulesCatalog.filter(m => m.category === cat).map(m => m.key));
+    return permissions.filter(p => modKeys.has(p.module)).map(p => p.code);
+  };
+
+  const isApartadoFull = (rolePerms: string[], cat: ErpModuleMeta['category']): boolean => {
+    const codes = getApartadoPermissionCodes(cat);
+    return codes.length > 0 && codes.every(c => rolePerms.includes(c));
+  };
+
+  const getApartadoPartialCount = (rolePerms: string[], cat: ErpModuleMeta['category']) => {
+    const mods = modulesCatalog.filter(m => m.category === cat);
+    let activeMods = 0;
+    for (const m of mods) {
+      const mCodes = permissions.filter(p => p.module === m.key).map(p => p.code);
+      if (mCodes.some(c => rolePerms.includes(c))) activeMods++;
+    }
+    return { activeMods, totalMods: mods.length };
+  };
 
   const guardEditable = (): boolean => {
     if (!editPermissionCheck.allowed) {
-      dispatchToast('Acción no permitida', editPermissionCheck.reason || 'Permiso denegado', 'error');
+      dispatchToast(
+        'Acción no permitida',
+        editPermissionCheck.reason || 'Permiso denegado',
+        'error'
+      );
       return false;
     }
     if (selectedRole.isSystem && selectedRole.id === 'role-admin') {
@@ -118,22 +189,23 @@ export const RolesTab: React.FC = () => {
     );
   };
 
-  const getApartadoPermissionCodes = (cat: ErpModuleMeta['category']): string[] => {
-    const modKeys = new Set(modulesCatalog.filter(m => m.category === cat).map(m => m.key));
-    return permissions.filter(p => modKeys.has(p.module)).map(p => p.code);
-  };
-
-  const isApartadoFull = (rolePerms: string[], cat: ErpModuleMeta['category']): boolean => {
-    const codes = getApartadoPermissionCodes(cat);
-    return codes.length > 0 && codes.every(c => rolePerms.includes(c));
-  };
-
   const handleToggleApartado = (cat: ErpModuleMeta['category']) => {
     if (!guardEditable()) return;
     const codes = getApartadoPermissionCodes(cat);
     if (codes.length === 0) return;
     const activeFull = isApartadoFull(selectedRole.permissions, cat);
     if (activeFull) {
+      updateRolePermissions(selectedRole.permissions.filter(c => !codes.includes(c)));
+    } else {
+      updateRolePermissions([...selectedRole.permissions, ...codes]);
+    }
+  };
+
+  const handleToggleModule = (moduleKey: string) => {
+    if (!guardEditable()) return;
+    const codes = permissions.filter(p => p.module === moduleKey).map(p => p.code);
+    const anyActive = codes.some(c => selectedRole.permissions.includes(c));
+    if (anyActive) {
       updateRolePermissions(selectedRole.permissions.filter(c => !codes.includes(c)));
     } else {
       updateRolePermissions([...selectedRole.permissions, ...codes]);
@@ -149,52 +221,22 @@ export const RolesTab: React.FC = () => {
     updateRolePermissions(next);
   };
 
-  const handleToggleModuleRow = (moduleKey: string) => {
-    if (!guardEditable()) return;
-    const codes = permissions.filter(p => p.module === moduleKey).map(p => p.code);
-    const allActive = codes.every(c => selectedRole.permissions.includes(c));
-    if (allActive) {
-      updateRolePermissions(selectedRole.permissions.filter(c => !codes.includes(c)));
-    } else {
-      updateRolePermissions([...selectedRole.permissions, ...codes]);
-    }
-  };
-
-  const handleToggleColumnAction = (action: PermissionActionType) => {
-    if (!guardEditable()) return;
-    const visibleModuleKeys = new Set(filteredModules.map(m => m.key));
-    const columnCodes = permissions
-      .filter(p => visibleModuleKeys.has(p.module) && p.action === action)
-      .map(p => p.code);
-    if (columnCodes.length === 0) return;
-
-    const allChecked = columnCodes.every(c => selectedRole.permissions.includes(c));
-    if (allChecked) {
-      updateRolePermissions(selectedRole.permissions.filter(c => !columnCodes.includes(c)));
-    } else {
-      updateRolePermissions([...selectedRole.permissions, ...columnCodes]);
-    }
-  };
-
-  const applyQuickPreset = (preset: 'readonly' | 'store_ops' | 'full' | 'clear') => {
+  const applyQuickPreset = (preset: 'readonly' | 'clear') => {
     if (!guardEditable()) return;
     if (preset === 'readonly') {
       updateRolePermissions(permissions.filter(p => p.action === 'view').map(p => p.code));
-      dispatchToast('Plantilla Aplicada', 'Se asignaron permisos de Solo Lectura en todos los módulos.', 'info');
-    } else if (preset === 'store_ops') {
-      const opsModules = new Set(['dashboard', 'pos', 'kds', 'delivery', 'tables', 'clients', 'workspace']);
-      updateRolePermissions(
-        permissions
-          .filter(p => opsModules.has(p.module) && p.action !== 'delete')
-          .map(p => p.code)
+      dispatchToast(
+        'Solo Lectura Aplicado',
+        `El rol "${selectedRole.name}" ahora tiene acceso de lectura en todos los módulos.`,
+        'info'
       );
-      dispatchToast('Plantilla Aplicada', 'Perfil Operativo de Tienda configurado.', 'success');
-    } else if (preset === 'full') {
-      updateRolePermissions(permissions.map(p => p.code));
-      dispatchToast('Acceso Completo', 'Todos los permisos fueron habilitados para este rol.', 'success');
     } else {
       updateRolePermissions([]);
-      dispatchToast('Permisos Limpiados', 'Se desmarcaron todos los privilegios del rol.', 'info');
+      dispatchToast(
+        'Permisos Limpiados',
+        `Se desactivaron todos los permisos de "${selectedRole.name}".`,
+        'info'
+      );
     }
   };
 
@@ -225,11 +267,11 @@ export const RolesTab: React.FC = () => {
       description:
         newRoleDesc.trim() ||
         (newRoleApartados.length > 0
-          ? `Acceso por apartados: ${newRoleApartados
-              .map(id => APARTADOS_ONLY.find(a => a.id === id)?.label)
+          ? `Acceso a: ${newRoleApartados
+              .map(id => APARTADOS.find(a => a.id === id)?.label)
               .filter(Boolean)
               .join(', ')}.`
-          : 'Perfil personalizado para operaciones multisucursal.'),
+          : 'Rol personalizado con permisos por módulo.'),
       isSystem: false,
       permissions: initialPermissions,
     };
@@ -246,541 +288,627 @@ export const RolesTab: React.FC = () => {
       'Creación de Nuevo Rol RBAC',
       `Se creó el rol "${newRole.name}" con ${newRole.permissions.length} permisos iniciales.`
     );
-    dispatchToast('Rol Creado', `Se registró "${newRole.name}" en la matriz RBAC.`);
+    dispatchToast(
+      'Rol Creado',
+      `"${newRole.name}" está listo. Ya puedes asignarlo a usuarios en la pestaña Usuarios.`
+    );
   };
 
   const handleDeleteRole = (role: Role) => {
-    if (role.isSystem) {
-      dispatchToast('Rol Protegido', 'No se pueden eliminar roles base del sistema.', 'error');
-      return;
-    }
+    if (role.isSystem) return;
+    const assignedCount = usersCountByRole[role.id] || 0;
     openNoticeModal({
-      title: `¿Eliminar el rol "${role.name}"?`,
+      title: '¿Eliminar este rol?',
       message:
-        'Los usuarios que tengan este rol deberán ser reasignados a otro perfil activo para operar en sucursal.',
+        assignedCount > 0
+          ? `El rol "${role.name}" está asignado actualmente a ${assignedCount} usuario(s). Si lo eliminas, deberás reasignarles otro rol.`
+          : `Se eliminará el rol "${role.name}" de forma permanente. Esta acción no se puede deshacer.`,
       tone: 'danger',
       confirmLabel: 'Eliminar Rol',
       cancelLabel: 'Cancelar',
       onConfirm: () => {
         setRoles(prev => prev.filter(r => r.id !== role.id));
-        setSelectedRoleId(roles[0].id);
+        if (selectedRoleId === role.id) {
+          setSelectedRoleId(roles[0]?.id || 'role-admin');
+        }
         logAuditEvent(
           'rbac',
           'critical',
           'Eliminación de Rol RBAC',
-          `Se eliminó el rol personalizado "${role.name}" de la matriz corporativa.`
+          `Se eliminó el rol personalizado "${role.name}".`
         );
-        dispatchToast('Rol Eliminado', 'El perfil fue retirado de la matriz RBAC.', 'info');
+        dispatchToast('Rol Eliminado', `El perfil "${role.name}" fue removido.`, 'info');
       },
     });
   };
 
-  const toggleExpandModule = (key: string) => {
-    setExpandedModules(prev => ({ ...prev, [key]: !prev[key] }));
-  };
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+
+  const activeApartadosCount = APARTADOS.filter(ap =>
+    isApartadoFull(selectedRole.permissions, ap.id)
+  ).length;
+
+  const activeModulesCount = useMemo(() => {
+    return modulesCatalog.filter(mod => {
+      const mCodes = permissions.filter(p => p.module === mod.key).map(p => p.code);
+      return mCodes.some(c => selectedRole.permissions.includes(c));
+    }).length;
+  }, [modulesCatalog, permissions, selectedRole.permissions]);
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-zinc-200 dark:border-zinc-800">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight text-zinc-950 dark:text-white flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5" style={{ color: customization.primaryColor }} />
-            Matriz RBAC Escalable por Módulos y Acciones
-          </h2>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-            Gestiona {modulesCatalog.length} módulos del ERP y {permissions.length} permisos granulares con marcado por fila, columna y plantillas rápidas.
-          </p>
+    <PermissionGate permission="settings:roles">
+      <div className="space-y-5">
+        {/* Top Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold tracking-tight flex items-center gap-2 text-erp-text">
+              <ShieldCheck
+                className="h-5 w-5 shrink-0"
+                style={{ color: customization.primaryColor }}
+              />
+              Roles y Permisos
+            </h2>
+            <p className="text-xs text-erp-muted mt-0.5">
+              Activa apartados completos en 1 toque o personaliza módulos específicos. Los cambios aplican en tiempo real.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsCreatingRole(true)}
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold text-white shadow-sm transition-transform duration-150 ease-out hover:brightness-110 active:scale-[0.97] whitespace-nowrap shrink-0 cursor-pointer"
+            style={{ backgroundColor: customization.primaryColor }}
+          >
+            <Plus className="h-4 w-4" />
+            Nuevo Rol
+          </button>
         </div>
 
-        <PermissionGate permission="settings:roles" hideInsteadOfBanner>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => handleCloneRole(selectedRole)}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl saas-btn-secondary whitespace-nowrap"
-            >
-              <Copy className="h-3.5 w-3.5" />
-              Duplicar Rol Actual
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsCreatingRole(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white rounded-xl shadow-sm transition-all hover:opacity-95 whitespace-nowrap"
-              style={{ backgroundColor: customization.primaryColor }}
-            >
-              <Plus className="h-4 w-4" />
-              Nuevo Rol
-            </button>
-          </div>
-        </PermissionGate>
-      </div>
+        {/* Master-Detail Workspace */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          {/* LEFT: Role List (Master) */}
+          <aside className="lg:col-span-4 xl:col-span-3 space-y-2">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-erp-muted">
+                Perfiles ({roles.length})
+              </span>
+            </div>
 
-      <PermissionGate permission="settings:roles">
-        {/* 1. Horizontal Compact Role Cards Strip */}
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3.5">
-          {roles.map(role => {
-            const isSelected = selectedRole.id === role.id;
-            const coveragePct = Math.round((role.permissions.length / permissions.length) * 100);
+            <div className="space-y-1.5">
+              {roles.map(role => {
+                const isSelected = role.id === selectedRole.id;
+                const assignedUsers = usersCountByRole[role.id] || 0;
+                const roleModCount = modulesCatalog.filter(mod =>
+                  permissions
+                    .filter(p => p.module === mod.key)
+                    .some(p => role.permissions.includes(p.code))
+                ).length;
+                const pct =
+                  modulesCatalog.length > 0
+                    ? Math.round((roleModCount / modulesCatalog.length) * 100)
+                    : 0;
 
-            return (
-              <div
-                key={role.id}
-                onClick={() => setSelectedRoleId(role.id)}
-                className={`p-4 rounded-2xl cursor-pointer flex flex-col justify-between gap-3 transition-all ${
-                  isSelected
-                    ? 'saas-option-active'
-                    : 'saas-card hover:border-zinc-300 dark:hover:border-zinc-600'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-zinc-950 dark:text-white truncate">
-                        {role.name}
+                return (
+                  <button
+                    key={role.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedRoleId(role.id);
+                      setExpandedModules({});
+                    }}
+                    className={`w-full text-left p-3 rounded-xl border transition-colors duration-150 ease-out active:scale-[0.99] cursor-pointer ${
+                      isSelected
+                        ? 'bg-erp-card border-erp-border shadow-sm ring-1'
+                        : 'bg-erp-card/60 border-transparent hover:bg-erp-card hover:border-erp-border/80'
+                    }`}
+                    style={
+                      isSelected
+                        ? {
+                            borderColor: customization.primaryColor,
+                            boxShadow: `0 0 0 1px ${customization.primaryColor}33`,
+                          }
+                        : undefined
+                    }
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-erp-text truncate">
+                            {role.name}
+                          </span>
+                          {role.isSystem && role.id === 'role-admin' && (
+                            <Lock className="h-3 w-3 text-amber-500 shrink-0" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 text-[11px] text-erp-muted">
+                          <span className="inline-flex items-center gap-1">
+                            <Users className="h-3 w-3" />
+                            {assignedUsers}
+                          </span>
+                          <span>·</span>
+                          <span>
+                            {roleModCount}/{modulesCatalog.length} mód.
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-mono font-semibold text-erp-muted shrink-0">
+                        {pct}%
                       </span>
-                      {role.isSystem && (
-                        <Lock className="h-3 w-3 text-amber-500 shrink-0" />
-                      )}
                     </div>
-                    <p className="text-[11px] text-zinc-600 dark:text-zinc-400 line-clamp-2 mt-1">
-                      {role.description}
-                    </p>
-                  </div>
 
-                  {!role.isSystem && (
+                    <div className="w-full h-1 bg-erp-subcard rounded-full overflow-hidden mt-2.5">
+                      <div
+                        className="h-full rounded-full transition-[width] duration-200 ease-out"
+                        style={{
+                          width: `${pct}%`,
+                          backgroundColor: isSelected ? customization.primaryColor : '#71717a',
+                        }}
+                      />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
+
+          {/* RIGHT: Focused Role Editor (Detail) */}
+          <section className="lg:col-span-8 xl:col-span-9 space-y-5">
+            {/* Selected Role Summary Card */}
+            <div className="bg-erp-card border border-erp-border rounded-2xl p-4 sm:p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base font-bold text-erp-text">{selectedRole.name}</h3>
+                    {selectedRole.isSystem ? (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-zinc-500/10 text-erp-muted border border-erp-border">
+                        Rol del sistema
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        Personalizado
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-erp-muted mt-1 leading-relaxed">
+                    {selectedRole.description}
+                  </p>
+                </div>
+
+                {/* Role Actions */}
+                <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                  {!isLockedRole && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => applyQuickPreset('readonly')}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-erp-subcard border border-erp-border text-erp-text hover:bg-erp-hover transition-colors duration-150 active:scale-[0.97] whitespace-nowrap cursor-pointer"
+                        title="Solo permiso de lectura en todo el sistema"
+                      >
+                        <Eye className="h-3.5 w-3.5 text-sky-500" />
+                        Solo Lectura
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyQuickPreset('clear')}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-erp-subcard border border-erp-border text-erp-muted hover:text-rose-500 hover:border-rose-500/30 transition-colors duration-150 active:scale-[0.97] whitespace-nowrap cursor-pointer"
+                        title="Quitar todos los permisos"
+                      >
+                        <Eraser className="h-3.5 w-3.5" />
+                        Vaciar
+                      </button>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleCloneRole(selectedRole)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-erp-subcard border border-erp-border text-erp-text hover:bg-erp-hover transition-colors duration-150 active:scale-[0.97] whitespace-nowrap cursor-pointer"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Duplicar
+                  </button>
+                  {!selectedRole.isSystem && (
                     <button
                       type="button"
-                      onClick={e => {
-                        e.stopPropagation();
-                        handleDeleteRole(role);
-                      }}
-                      className="p-1 rounded-lg text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 shrink-0"
+                      onClick={() => handleDeleteRole(selectedRole)}
+                      className="inline-flex items-center justify-center p-1.5 rounded-lg bg-erp-subcard border border-erp-border text-erp-muted hover:text-rose-500 hover:border-rose-500/30 transition-colors duration-150 active:scale-[0.97] cursor-pointer"
                       title="Eliminar rol"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   )}
                 </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="font-semibold" style={{ color: customization.primaryColor }}>
-                      {role.permissions.length} / {permissions.length} permisos
-                    </span>
-                    <span className="font-mono text-zinc-500 dark:text-zinc-400">{coveragePct}%</span>
-                  </div>
-                  <div className="h-1.5 w-full rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-300"
-                      style={{
-                        width: `${coveragePct}%`,
-                        backgroundColor: customization.primaryColor,
-                      }}
-                    />
-                  </div>
-                </div>
               </div>
-            );
-          })}
-        </div>
 
-        {/* 2. Matrix Control Bar (Search + Category Filter + 1-Click Presets) */}
-        <div className="saas-card p-5 space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-zinc-200 dark:border-zinc-800">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h3 className="text-base font-bold text-zinc-950 dark:text-white">
-                Editando: {selectedRole.name}
-              </h3>
-              {selectedRole.isSystem && selectedRole.id === 'role-admin' && (
-                <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-amber-500/15 ring-1 ring-amber-500/30 text-amber-700 dark:text-amber-300 font-semibold">
-                  <Lock className="h-3 w-3" /> Rol Maestro Protegido (Duplica para editar)
+              {/* Compact Stats Strip */}
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 pt-3 border-t border-erp-border text-xs text-erp-muted">
+                <span>
+                  <strong className="text-erp-text font-semibold">{activeApartadosCount}/4</strong>{' '}
+                  apartados completos
                 </span>
-              )}
-              {!editPermissionCheck.allowed && (
-                <span className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-300 bg-amber-500/15 px-3 py-1 rounded-lg border border-amber-500/30">
-                  <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
-                  {editPermissionCheck.reason}
+                <span>
+                  <strong className="text-erp-text font-semibold">
+                    {activeModulesCount}/{modulesCatalog.length}
+                  </strong>{' '}
+                  módulos activos
                 </span>
+                <span>
+                  <strong className="text-erp-text font-semibold">
+                    {usersCountByRole[selectedRole.id] || 0}
+                  </strong>{' '}
+                  usuario(s) asignados
+                </span>
+              </div>
+
+              {isLockedRole && (
+                <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-300">
+                  <ShieldAlert className="h-4 w-4 shrink-0" />
+                  <span>
+                    {!editPermissionCheck.allowed
+                      ? editPermissionCheck.reason
+                      : 'Super Administrador tiene acceso total garantizado. Usa "Duplicar" si deseas crear un rol con menos permisos.'}
+                  </span>
+                </div>
               )}
             </div>
 
-            {/* Quick Presets */}
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mr-1">
-                Plantillas rápidas:
-              </span>
-              <button
-                type="button"
-                disabled={isLockedRole}
-                onClick={() => applyQuickPreset('readonly')}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold saas-btn-secondary disabled:opacity-40"
-              >
-                <Eye className="h-3 w-3" /> Solo Lectura
-              </button>
-              <button
-                type="button"
-                disabled={isLockedRole}
-                onClick={() => applyQuickPreset('store_ops')}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold saas-btn-secondary disabled:opacity-40"
-              >
-                <Sparkles className="h-3 w-3 text-amber-500" /> Operativo Tienda
-              </button>
-              <button
-                type="button"
-                disabled={isLockedRole}
-                onClick={() => applyQuickPreset('full')}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold saas-btn-secondary disabled:opacity-40"
-              >
-                <Check className="h-3 w-3 text-emerald-500" /> Marcar Todo
-              </button>
-              <button
-                type="button"
-                disabled={isLockedRole}
-                onClick={() => applyQuickPreset('clear')}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 disabled:opacity-40 whitespace-nowrap"
-              >
-                <Eraser className="h-3 w-3" /> Vaciar
-              </button>
-            </div>
-          </div>
+            {/* STEP 1: Apartados Completos */}
+            <div className="bg-erp-card border border-erp-border rounded-2xl p-4 sm:p-5 space-y-3.5">
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-erp-text">
+                  1. Acceso rápido por Apartados
+                </h4>
+                <p className="text-xs text-erp-muted mt-0.5">
+                  Activa un apartado para conceder acceso completo a todos sus módulos sin configurarlos uno por uno.
+                </p>
+              </div>
 
-          {/* Asignación Rápida por Apartados del Menú (si asignas un apartado ya no necesitas marcar módulo por módulo) */}
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs font-bold text-zinc-900 dark:text-white">
-                Asignación Rápida por Apartados del Sistema
-              </span>
-              <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                Si asignas un apartado completo, ya no necesitas marcar permisos módulo por módulo.
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5">
-              {APARTADOS_ONLY.map(ap => {
-                const isFull = isApartadoFull(selectedRole.permissions, ap.id);
-                const apModsCount = modulesCatalog.filter(m => m.category === ap.id).length;
-                return (
-                  <button
-                    key={ap.id}
-                    type="button"
-                    disabled={isLockedRole}
-                    onClick={() => handleToggleApartado(ap.id)}
-                    className={`p-3 rounded-xl border text-left transition-all disabled:opacity-50 ${
-                      isFull
-                        ? 'border-emerald-500/60 bg-emerald-500/10'
-                        : 'border-zinc-200 dark:border-zinc-700/80 hover:border-zinc-300 dark:hover:border-zinc-600'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold text-zinc-900 dark:text-white truncate">
-                        {ap.label}
-                      </span>
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                          isFull
-                            ? 'bg-emerald-500 text-white'
-                            : 'bg-zinc-200/80 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
-                        }`}
-                      >
-                        {isFull ? 'Apartado Completo' : `${apModsCount} mód.`}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400 line-clamp-1 mt-1">
-                      {ap.desc}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Search + Category Pills */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-1.5">
-              {CATEGORY_TABS.map(cat => {
-                const active = activeCategory === cat.id;
-                return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => setActiveCategory(cat.id)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
-                      active ? 'saas-option-active' : 'saas-option'
-                    }`}
-                  >
-                    {cat.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="relative w-full md:w-72">
-              <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-zinc-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Filtrar módulo o permiso (ej. KDS, SUNAT)..."
-                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl saas-input"
-              />
-            </div>
-          </div>
-
-          {/* 3. High-Density Tabular RBAC Matrix */}
-          <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700/80">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-zinc-100/90 dark:bg-[#202026] text-zinc-700 dark:text-zinc-200 border-b border-zinc-200 dark:border-zinc-700/80">
-                  <th className="py-3 px-4 font-bold uppercase tracking-wider min-w-[240px]">
-                    Módulo del ERP ({filteredModules.length})
-                  </th>
-                  {ACTION_COLUMNS.map(col => (
-                    <th key={col.action} className="py-3 px-2.5 text-center min-w-[92px]">
-                      <button
-                        type="button"
-                        disabled={isLockedRole}
-                        onClick={() => handleToggleColumnAction(col.action)}
-                        className="inline-flex flex-col items-center gap-0.5 mx-auto group disabled:cursor-not-allowed"
-                        title={`Marcar o desmarcar columna "${col.label}" en los módulos visibles`}
-                      >
-                        <span className="font-bold uppercase tracking-wider group-hover:text-brand-500 transition-colors">
-                          {col.short}
-                        </span>
-                        <span className="text-[9px] font-normal text-zinc-500 dark:text-zinc-400">
-                          Columna
-                        </span>
-                      </button>
-                    </th>
-                  ))}
-                  <th className="py-3 px-4 text-right font-bold uppercase tracking-wider whitespace-nowrap">
-                    Fila Completa
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-zinc-200/80 dark:divide-zinc-800">
-                {filteredModules.map(mod => {
-                  const modPerms = permissions.filter(p => p.module === mod.key);
-                  const activeCount = modPerms.filter(p =>
-                    selectedRole.permissions.includes(p.code)
-                  ).length;
-                  const allRowActive =
-                    modPerms.length > 0 && activeCount === modPerms.length;
-                  const isExpanded = Boolean(expandedModules[mod.key]);
-                  const coveredByApartado = isApartadoFull(selectedRole.permissions, mod.category);
-                  const rowLocked = isLockedRole || coveredByApartado;
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {APARTADOS.map(ap => {
+                  const Icon = ap.icon;
+                  const full = isApartadoFull(selectedRole.permissions, ap.id);
+                  const { activeMods, totalMods } = getApartadoPartialCount(
+                    selectedRole.permissions,
+                    ap.id
+                  );
 
                   return (
-                    <React.Fragment key={mod.key}>
-                      <tr className={`transition-colors ${coveredByApartado ? 'bg-emerald-500/[0.04]' : 'hover:bg-zinc-50/80 dark:hover:bg-zinc-800/30'}`}>
-                        {/* Module Name + Expand Button */}
-                        <td className="py-3 px-4">
-                          <div className="flex items-start gap-2.5">
-                            <button
-                              type="button"
-                              onClick={() => toggleExpandModule(mod.key)}
-                              className="mt-0.5 p-1 rounded-md hover:bg-zinc-200/70 dark:hover:bg-zinc-700 text-zinc-500 dark:text-zinc-300 shrink-0"
-                              title="Ver detalle granular de permisos"
-                            >
-                              {isExpanded ? (
-                                <ChevronDown className="h-3.5 w-3.5" />
-                              ) : (
-                                <ChevronRight className="h-3.5 w-3.5" />
-                              )}
-                            </button>
-                            <div>
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleExpandModule(mod.key)}
-                                  className="font-bold text-zinc-900 dark:text-white hover:underline text-left"
-                                >
-                                  {mod.label}
-                                </button>
-                                {coveredByApartado && (
-                                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-                                    Apartado Completo
-                                  </span>
-                                )}
-                              </div>
-                              <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
-                                {mod.shortDesc}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* 5 Action Cells */}
-                        {ACTION_COLUMNS.map(col => {
-                          const matching = modPerms.filter(p => p.action === col.action);
-                          if (matching.length === 0) {
-                            return (
-                              <td key={col.action} className="py-3 px-2.5 text-center">
-                                <span className="text-zinc-300 dark:text-zinc-700 select-none">—</span>
-                              </td>
-                            );
+                    <div
+                      key={ap.id}
+                      onClick={() => !isLockedRole && handleToggleApartado(ap.id)}
+                      className={`p-3.5 rounded-xl border transition-colors duration-150 ease-out flex items-start justify-between gap-3 ${
+                        isLockedRole ? 'cursor-default' : 'cursor-pointer hover:border-erp-text/20'
+                      } ${
+                        full
+                          ? 'bg-erp-subcard/80 border-erp-border shadow-xs'
+                          : 'bg-erp-subcard/30 border-erp-border/70'
+                      }`}
+                      style={
+                        full
+                          ? {
+                              borderColor: `${customization.primaryColor}66`,
+                              backgroundColor: `${customization.primaryColor}0D`,
+                            }
+                          : undefined
+                      }
+                    >
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <div
+                          className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                          style={
+                            full
+                              ? {
+                                  backgroundColor: `${customization.primaryColor}20`,
+                                  color: customization.primaryColor,
+                                }
+                              : undefined
                           }
-
-                          // Usually 1 permission per action cell
-                          const perm = matching[0];
-                          const checked = selectedRole.permissions.includes(perm.code);
-
-                          return (
-                            <td key={col.action} className="py-3 px-2.5 text-center">
-                              <button
-                                type="button"
-                                disabled={rowLocked}
-                                onClick={() => handleToggleSingle(perm.code)}
-                                title={
-                                  coveredByApartado
-                                    ? 'Cubierto automáticamente por Apartado Completo'
-                                    : `${perm.name}: ${perm.description}`
-                                }
-                                className={`h-7 w-7 rounded-lg inline-flex items-center justify-center border transition-all disabled:opacity-50 ${
-                                  checked
-                                    ? 'text-white border-transparent shadow-sm'
-                                    : 'bg-zinc-100 dark:bg-[#22232a] border-zinc-300 dark:border-zinc-700 text-transparent hover:border-zinc-400 dark:hover:border-zinc-500'
-                                }`}
-                                style={
-                                  checked
-                                    ? { backgroundColor: customization.primaryColor }
-                                    : undefined
-                                }
-                              >
-                                <Check className="h-4 w-4" />
-                              </button>
-                            </td>
-                          );
-                        })}
-
-                        {/* Row Summary & Toggle All */}
-                        <td className="py-3 px-4 text-right whitespace-nowrap">
-                          <div className="inline-flex items-center gap-2.5">
-                            <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
-                              {activeCount}/{modPerms.length}
-                            </span>
-                            <button
-                              type="button"
-                              disabled={rowLocked}
-                              onClick={() => handleToggleModuleRow(mod.key)}
-                              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors disabled:opacity-40 ${
-                                allRowActive
-                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
-                                  : 'saas-btn-secondary'
-                              }`}
-                            >
-                              {coveredByApartado ? 'Por Apartado' : allRowActive ? 'Completo' : 'Marcar fila'}
-                            </button>
+                        >
+                          <Icon className={`h-4 w-4 ${full ? '' : 'text-erp-muted'}`} />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-erp-text">{ap.label}</span>
                           </div>
-                        </td>
-                      </tr>
+                          <p className="text-[11px] text-erp-muted mt-0.5 leading-snug line-clamp-2">
+                            {ap.shortDesc}
+                          </p>
+                          <span
+                            className={`inline-block text-[10px] font-semibold mt-1.5 ${
+                              full
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : activeMods > 0
+                                ? 'text-amber-600 dark:text-amber-400'
+                                : 'text-erp-muted'
+                            }`}
+                          >
+                            {full
+                              ? `Completo (${totalMods} módulos)`
+                              : activeMods > 0
+                              ? `Personalizado (${activeMods}/${totalMods} módulos)`
+                              : `Sin acceso (0/${totalMods})`}
+                          </span>
+                        </div>
+                      </div>
 
-                      {/* Expanded Granular Drawer */}
-                      {isExpanded && (
-                        <tr className="bg-zinc-50/90 dark:bg-[#14151a]">
-                          <td colSpan={7} className="px-6 py-3.5">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                              {modPerms.map(perm => {
-                                const isChecked = selectedRole.permissions.includes(perm.code);
-                                return (
-                                  <label
-                                    key={perm.code}
-                                    className={`flex items-start gap-2.5 p-2.5 rounded-xl cursor-pointer ${
-                                      isChecked ? 'saas-option-active' : 'saas-option'
-                                    }`}
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      disabled={rowLocked}
-                                      onChange={() => handleToggleSingle(perm.code)}
-                                      className="mt-0.5 h-4 w-4 rounded"
-                                    />
-                                    <div className="min-w-0">
-                                      <span className="text-xs font-semibold text-zinc-900 dark:text-white block">
-                                        {perm.name}
-                                      </span>
-                                      <span className="text-[11px] text-zinc-600 dark:text-zinc-400 block">
-                                        {perm.description}
-                                      </span>
-                                      <code className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400">
-                                        {perm.code}
-                                      </code>
-                                    </div>
-                                  </label>
-                                );
-                              })}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
+                      <div className="pt-0.5">
+                        <TactileSwitch
+                          checked={full}
+                          disabled={isLockedRole}
+                          accentColor={customization.primaryColor}
+                          onChange={() => handleToggleApartado(ap.id)}
+                          ariaLabel={`Activar apartado ${ap.label}`}
+                        />
+                      </div>
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
+              </div>
+            </div>
+
+            {/* STEP 2: Ajuste fino por Módulo (solo para apartados que NO están completos) */}
+            <div className="bg-erp-card border border-erp-border rounded-2xl p-4 sm:p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-erp-text">
+                    2. Módulos por Apartado
+                  </h4>
+                  <p className="text-xs text-erp-muted mt-0.5">
+                    Los apartados completos se gestionan arriba. Para el resto, activa módulos individuales o despliega sus acciones.
+                  </p>
+                </div>
+
+                <div className="relative sm:w-56 shrink-0">
+                  <Search className="h-3.5 w-3.5 text-erp-muted absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    placeholder="Buscar módulo..."
+                    className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-erp-subcard border border-erp-border text-xs text-erp-text placeholder:text-erp-muted focus:outline-none focus:ring-2"
+                    style={{ ['--tw-ring-color' as string]: customization.primaryColor }}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {APARTADOS.map(ap => {
+                  const full = isApartadoFull(selectedRole.permissions, ap.id);
+                  const apModules = modulesCatalog.filter(m => {
+                    if (m.category !== ap.id) return false;
+                    if (!normalizedQuery) return true;
+                    const mPerms = permissions.filter(p => p.module === m.key);
+                    return (
+                      m.label.toLowerCase().includes(normalizedQuery) ||
+                      m.shortDesc.toLowerCase().includes(normalizedQuery) ||
+                      mPerms.some(
+                        p =>
+                          p.name.toLowerCase().includes(normalizedQuery) ||
+                          p.description.toLowerCase().includes(normalizedQuery)
+                      )
+                    );
+                  });
+
+                  if (normalizedQuery && apModules.length === 0) return null;
+
+                  return (
+                    <div
+                      key={ap.id}
+                      className="rounded-xl border border-erp-border/80 overflow-hidden"
+                    >
+                      <div className="px-3.5 py-2.5 bg-erp-subcard/60 border-b border-erp-border/70 flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-erp-text">
+                          {ap.label}
+                        </span>
+                        {full && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Apartado completo activo
+                          </span>
+                        )}
+                      </div>
+
+                      {full ? (
+                        <div className="px-3.5 py-3 bg-erp-card flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <p className="text-xs text-erp-muted">
+                            Todos los módulos de <strong className="text-erp-text">{ap.label}</strong> están habilitados automáticamente. No necesitas marcar permisos uno por uno.
+                          </p>
+                          {!isLockedRole && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleApartado(ap.id)}
+                              className="text-[11px] font-semibold text-erp-muted hover:text-erp-text underline underline-offset-2 shrink-0 cursor-pointer self-start sm:self-auto"
+                            >
+                              Desactivar apartado
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="divide-y divide-erp-border/60 bg-erp-card">
+                          {apModules.map(mod => {
+                            const modPerms = permissions.filter(p => p.module === mod.key);
+                            const activeCount = modPerms.filter(p =>
+                              selectedRole.permissions.includes(p.code)
+                            ).length;
+                            const isEnabled = activeCount > 0;
+                            const isPartial = isEnabled && activeCount < modPerms.length;
+                            const isExpanded = !!expandedModules[mod.key];
+
+                            return (
+                              <div key={mod.key} className="transition-colors duration-150">
+                                <div className="px-3.5 py-2.5 flex items-center justify-between gap-3 hover:bg-erp-hover/40">
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="text-xs font-semibold text-erp-text">
+                                        {mod.label}
+                                      </span>
+                                      {isPartial && (
+                                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 font-semibold">
+                                          {activeCount}/{modPerms.length}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-[11px] text-erp-muted truncate mt-0.5">
+                                      {mod.shortDesc}
+                                    </p>
+                                  </div>
+
+                                  <div className="flex items-center gap-2.5 shrink-0">
+                                    {modPerms.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setExpandedModules(prev => ({
+                                            ...prev,
+                                            [mod.key]: !prev[mod.key],
+                                          }))
+                                        }
+                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium text-erp-muted hover:text-erp-text hover:bg-erp-subcard transition-colors duration-150 cursor-pointer"
+                                        title="Ajustar permisos específicos"
+                                      >
+                                        <SlidersHorizontal className="h-3 w-3" />
+                                        <span className="hidden sm:inline">Permisos</span>
+                                        <ChevronDown
+                                          className={`h-3 w-3 transition-transform duration-150 ease-out ${
+                                            isExpanded ? 'rotate-180' : ''
+                                          }`}
+                                        />
+                                      </button>
+                                    )}
+
+                                    <TactileSwitch
+                                      checked={isEnabled}
+                                      disabled={isLockedRole}
+                                      accentColor={customization.primaryColor}
+                                      onChange={() => handleToggleModule(mod.key)}
+                                      ariaLabel={`Activar módulo ${mod.label}`}
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Expandable Granular Action Pills */}
+                                {isExpanded && (
+                                  <div className="px-3.5 pb-3 pt-1 bg-erp-subcard/35 border-t border-erp-border/40">
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {modPerms.map(perm => {
+                                        const active = selectedRole.permissions.includes(perm.code);
+                                        return (
+                                          <button
+                                            key={perm.code}
+                                            type="button"
+                                            disabled={isLockedRole}
+                                            onClick={() => handleToggleSingle(perm.code)}
+                                            title={perm.description}
+                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-colors duration-150 ease-out active:scale-[0.97] ${
+                                              isLockedRole
+                                                ? 'opacity-50 cursor-not-allowed'
+                                                : 'cursor-pointer'
+                                            } ${
+                                              active
+                                                ? 'text-white border-transparent shadow-xs'
+                                                : 'bg-erp-card border-erp-border text-erp-muted hover:text-erp-text'
+                                            }`}
+                                            style={
+                                              active
+                                                ? { backgroundColor: customization.primaryColor }
+                                                : undefined
+                                            }
+                                          >
+                                            {active && <Check className="h-3 w-3 shrink-0" />}
+                                            <span>{perm.name}</span>
+                                            <span
+                                              className={`text-[9px] uppercase font-mono px-1 rounded ${
+                                                active
+                                                  ? 'bg-white/20 text-white'
+                                                  : 'bg-erp-subcard text-erp-muted'
+                                              }`}
+                                            >
+                                              {ACTION_LABELS[perm.action]}
+                                            </span>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
         </div>
 
-        {/* Modal Crear Nuevo Rol (Single-line buttons!) */}
+        {/* Create New Role Modal */}
         {isCreatingRole && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm animate-in fade-in">
-            <div className="w-full max-w-lg bg-white dark:bg-[#18181c] rounded-2xl border border-zinc-200 dark:border-zinc-700 p-6 shadow-2xl space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
-                <h3 className="text-sm font-bold text-zinc-900 dark:text-white flex items-center gap-2">
-                  <PlusCircle className="h-4 w-4" style={{ color: customization.primaryColor }} />
-                  Crear Nuevo Perfil RBAC
-                </h3>
+          <div className="fixed inset-0 z-50 bg-black/55 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+            <div className="bg-erp-card border border-erp-border rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+              <div className="px-5 py-4 border-b border-erp-border flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-erp-text">Crear Nuevo Rol</h3>
+                  <p className="text-[11px] text-erp-muted mt-0.5">
+                    Elige un nombre y los apartados iniciales. Luego podrás ajustar módulos si lo necesitas.
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={() => setIsCreatingRole(false)}
-                  className="text-zinc-400 hover:text-zinc-700 dark:hover:text-white"
+                  className="p-1.5 rounded-lg text-erp-muted hover:text-erp-text hover:bg-erp-subcard transition-colors duration-150 cursor-pointer"
+                  aria-label="Cerrar"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
 
-              <form onSubmit={handleCreateRole} className="space-y-3.5">
-                <div>
-                  <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase mb-1">
-                    Nombre del Rol
-                  </label>
+              <form onSubmit={handleCreateRole} className="p-5 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-erp-text">Nombre del Rol</label>
                   <input
                     type="text"
                     required
+                    autoFocus
                     value={newRoleName}
                     onChange={e => setNewRoleName(e.target.value)}
-                    placeholder="Ej. Supervisor de Delivery / Auditor de Almacén"
-                    className="w-full px-3 py-2 text-xs rounded-lg saas-input"
+                    placeholder="Ej. Soporte WhatsApp, Supervisor de Turno..."
+                    className="w-full px-3.5 py-2 rounded-xl bg-erp-subcard border border-erp-border text-sm text-erp-text placeholder:text-erp-muted focus:outline-none focus:ring-2"
+                    style={{ ['--tw-ring-color' as string]: customization.primaryColor }}
                   />
                 </div>
 
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
-                    <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase">
-                      Asignar Apartados del Sistema (1 clic)
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-erp-text">
+                    Descripción breve <span className="text-erp-muted font-normal">(opcional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newRoleDesc}
+                    onChange={e => setNewRoleDesc(e.target.value)}
+                    placeholder="Ej. Atención de bandeja omnicanal y pedidos en vivo"
+                    className="w-full px-3.5 py-2 rounded-xl bg-erp-subcard border border-erp-border text-xs text-erp-text placeholder:text-erp-muted focus:outline-none focus:ring-2"
+                    style={{ ['--tw-ring-color' as string]: customization.primaryColor }}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-erp-text">
+                      Apartados con acceso completo
                     </label>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setNewRoleApartados(prev =>
-                          prev.length === APARTADOS_ONLY.length
-                            ? []
-                            : APARTADOS_ONLY.map(a => a.id)
-                        )
-                      }
-                      className="text-[11px] font-semibold hover:underline"
-                      style={{ color: customization.primaryColor }}
-                    >
-                      {newRoleApartados.length === APARTADOS_ONLY.length
-                        ? 'Desmarcar todos'
-                        : 'Marcar todos'}
-                    </button>
+                    <span className="text-[11px] text-erp-muted">
+                      {newRoleApartados.length} seleccionado(s)
+                    </span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {APARTADOS_ONLY.map(ap => {
+
+                  <div className="space-y-2">
+                    {APARTADOS.map(ap => {
+                      const Icon = ap.icon;
                       const active = newRoleApartados.includes(ap.id);
                       const modCount = modulesCatalog.filter(m => m.category === ap.id).length;
+
                       return (
                         <button
                           key={ap.id}
@@ -788,77 +916,75 @@ export const RolesTab: React.FC = () => {
                           onClick={() =>
                             setNewRoleApartados(prev =>
                               prev.includes(ap.id)
-                                ? prev.filter(id => id !== ap.id)
+                                ? prev.filter(x => x !== ap.id)
                                 : [...prev, ap.id]
                             )
                           }
-                          className={`p-2.5 rounded-xl border text-left transition-all ${
+                          className={`w-full text-left px-3.5 py-2.5 rounded-xl border flex items-center justify-between gap-3 transition-colors duration-150 active:scale-[0.99] cursor-pointer ${
                             active
-                              ? 'border-emerald-500/70 bg-emerald-500/10'
-                              : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
+                              ? 'border-transparent'
+                              : 'bg-erp-subcard/40 border-erp-border hover:bg-erp-subcard'
                           }`}
+                          style={
+                            active
+                              ? {
+                                  backgroundColor: `${customization.primaryColor}14`,
+                                  borderColor: `${customization.primaryColor}66`,
+                                }
+                              : undefined
+                          }
                         >
-                          <div className="flex items-center justify-between gap-1.5">
-                            <span className="text-xs font-bold text-zinc-900 dark:text-white truncate">
-                              {ap.label}
-                            </span>
-                            <span
-                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
-                                active
-                                  ? 'bg-emerald-500 text-white'
-                                  : 'bg-zinc-200/80 dark:bg-zinc-800 text-zinc-500'
-                              }`}
-                            >
-                              {active ? 'Incluido' : `${modCount} mód.`}
-                            </span>
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <Icon
+                              className="h-4 w-4 shrink-0"
+                              style={active ? { color: customization.primaryColor } : undefined}
+                            />
+                            <div className="min-w-0">
+                              <div className="text-xs font-semibold text-erp-text">
+                                {ap.label}{' '}
+                                <span className="text-[10px] font-normal text-erp-muted">
+                                  ({modCount} mód.)
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-erp-muted truncate">{ap.shortDesc}</p>
+                            </div>
                           </div>
-                          <p className="text-[10px] text-zinc-500 dark:text-zinc-400 line-clamp-1 mt-0.5">
-                            {ap.desc}
-                          </p>
+
+                          <div
+                            className={`h-5 w-5 rounded-full flex items-center justify-center border shrink-0 transition-colors duration-150 ${
+                              active ? 'border-transparent text-white' : 'border-erp-border'
+                            }`}
+                            style={active ? { backgroundColor: customization.primaryColor } : undefined}
+                          >
+                            {active && <Check className="h-3 w-3" />}
+                          </div>
                         </button>
                       );
                     })}
                   </div>
-                  <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-1.5">
-                    Al asignar un apartado aquí, el rol recibe acceso completo a todos sus módulos sin tener que marcar uno por uno.
-                  </p>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase mb-1">
-                    Descripción Operativa
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={newRoleDesc}
-                    onChange={e => setNewRoleDesc(e.target.value)}
-                    placeholder="Responsabilidades principales en las sucursales..."
-                    className="w-full px-3 py-2 text-xs rounded-lg saas-input"
-                  />
-                </div>
-
-                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-200 dark:border-zinc-800">
+                <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-erp-border">
                   <button
                     type="button"
                     onClick={() => setIsCreatingRole(false)}
-                    className="px-4 py-2 text-xs font-semibold rounded-xl saas-btn-secondary whitespace-nowrap shrink-0"
+                    className="px-4 py-2 rounded-xl text-xs font-semibold bg-erp-subcard border border-erp-border text-erp-text hover:bg-erp-hover transition-colors duration-150 active:scale-[0.97] whitespace-nowrap shrink-0 cursor-pointer"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white rounded-xl shadow-sm whitespace-nowrap shrink-0"
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-white shadow-sm transition-transform duration-150 ease-out hover:brightness-110 active:scale-[0.97] whitespace-nowrap shrink-0 cursor-pointer"
                     style={{ backgroundColor: customization.primaryColor }}
                   >
-                    <Edit3 className="h-3.5 w-3.5" />
-                    Crear y Configurar Rol
+                    Crear Rol
                   </button>
                 </div>
               </form>
             </div>
           </div>
         )}
-      </PermissionGate>
-    </div>
+      </div>
+    </PermissionGate>
   );
 };

@@ -8,7 +8,6 @@ import { UnsavedChangesModal } from './common/UnsavedChangesModal';
 import { SystemNoticeModal } from './common/SystemNoticeModal';
 import { SeasonalOverlay } from './common/SeasonalOverlay';
 import { ModuleWorkspaceSkeleton } from './common/AppSurfaceSkeleton';
-import { PermissionGate } from './common/PermissionGate';
 import { MediaGalleryModal } from './media/MediaGalleryModal';
 import { compressImageFile } from '../utils/imageCompressor';
 
@@ -168,6 +167,50 @@ const MODULE_MOBILE_LABELS: Record<MainModuleId, string> = {
   settings: 'Configuración',
 };
 
+const MODULE_PERMISSION_MAP: Record<MainModuleId, string[]> = {
+  dashboard: ['dashboard:view'],
+  orders: ['orders:view', 'pos:view', 'kds:view', 'delivery:view'],
+  inventory: ['inventory:view', 'purchases:view'],
+  clients: ['clients:view'],
+  products: ['services:view'],
+  hr: ['hr:view', 'hr:attendance', 'hr:schedules'],
+  finance: ['finances:view'],
+  billing: ['billing:view', 'finances:view'],
+  media: ['media:view'],
+  pages: ['pages:view'],
+  marketing: ['marketing:view'],
+  inbox: ['inbox:view'],
+  whatsapp: ['whatsapp:view'],
+  settings: ['settings:view', 'settings:users', 'settings:roles', 'settings:manage'],
+  pos: ['pos:view', 'tables:view'],
+  kiosk: ['kiosk:view', 'pos:view'],
+  kitchen: ['kds:view'],
+  delivery: ['delivery:view'],
+  benefits: ['benefits:view'],
+};
+
+const ALL_MAIN_MODULES_ORDER: MainModuleId[] = [
+  'dashboard',
+  'orders',
+  'pos',
+  'inbox',
+  'whatsapp',
+  'kitchen',
+  'delivery',
+  'clients',
+  'products',
+  'inventory',
+  'hr',
+  'finance',
+  'billing',
+  'marketing',
+  'benefits',
+  'media',
+  'pages',
+  'kiosk',
+  'settings',
+];
+
 export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNavigateToKiosk }) => {
   const {
     customization,
@@ -189,6 +232,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
   const [isProfileMediaPickerOpen, setIsProfileMediaPickerOpen] = useState(false);
 
   const { currentUser, setCurrentUser, roles, hasPermission } = useRBAC();
+  const canAccessModule = React.useCallback(
+    (mod: MainModuleId): boolean => {
+      if (currentUser.roleId === 'role-admin') return true;
+      const requiredAny = MODULE_PERMISSION_MAP[mod];
+      if (!requiredAny || requiredAny.length === 0) return true;
+      return requiredAny.some((perm) => hasPermission(perm));
+    },
+    [currentUser.roleId, hasPermission]
+  );
   const { todayRecords, getEmployeeProfile, updateEmployeeProfile } = useHR();
   const { orders, customers } = useOrderCatalog();
 
@@ -309,6 +361,16 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
     }
   }, [activeMainModule]);
 
+  // Auto-redirect to first permitted module when current role lacks access to activeMainModule
+  useEffect(() => {
+    if (!canAccessModule(activeMainModule)) {
+      const firstAllowed = ALL_MAIN_MODULES_ORDER.find((m) => canAccessModule(m));
+      if (firstAllowed && firstAllowed !== activeMainModule) {
+        setActiveMainModule(firstAllowed);
+      }
+    }
+  }, [activeMainModule, canAccessModule]);
+
   // Silent idle prefetch of core operational POS/Orders/Kitchen views after active view paints
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -369,20 +431,20 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey && e.key === '1') {
+      if (e.altKey && e.key === '1' && canAccessModule('dashboard')) {
         e.preventDefault();
         setActiveMainModule('dashboard');
-      } else if (e.altKey && e.key === '2') {
+      } else if (e.altKey && e.key === '2' && canAccessModule('settings')) {
         e.preventDefault();
         setActiveMainModule('settings');
-      } else if (e.altKey && e.key === '3') {
+      } else if (e.altKey && e.key === '3' && canAccessModule('hr')) {
         e.preventDefault();
         setActiveMainModule('hr');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [canAccessModule]);
 
   const activeLogo =
     isDarkResolved && customization.logoDark
@@ -400,14 +462,19 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
     hasPermission('workspace:manage_branch') ||
     hasPermission('workspace:consolidated');
 
+  const BUILT_IN_ROLE_IDS = ['role-admin', 'role-manager', 'role-cashier', 'role-kitchen', 'role-delivery'];
+  const isCustomRole = !BUILT_IN_ROLE_IDS.includes(currentUser.roleId);
+
   const isCashierRole =
     !isSuperAdminOrManager &&
+    !isCustomRole &&
     (currentUser.roleId === 'role-cashier' ||
       currentUser.roleName.toLowerCase().includes('cajer') ||
       currentUser.roleName.toLowerCase().includes('caja'));
 
   const isKitchenRole =
     !isSuperAdminOrManager &&
+    !isCustomRole &&
     (currentUser.roleId === 'role-kitchen' ||
       currentUser.roleName.toLowerCase().includes('cocin') ||
       currentUser.roleName.toLowerCase().includes('pizz') ||
@@ -415,6 +482,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
 
   const isDeliveryRole =
     !isSuperAdminOrManager &&
+    !isCustomRole &&
     (currentUser.roleId === 'role-delivery' ||
       currentUser.roleName.toLowerCase().includes('motoriz') ||
       currentUser.roleName.toLowerCase().includes('delivery') ||
@@ -992,6 +1060,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
 
         {/* Navigation Modules */}
         <div className="flex-1 px-2.5 py-3 space-y-5 saas-scroll">
+          {(['dashboard', 'orders', 'inventory', 'clients', 'products', 'hr', 'finance', 'billing', 'media', 'pages', 'marketing', 'inbox', 'whatsapp', 'settings'] as MainModuleId[]).some(canAccessModule) && (
           <div className="space-y-0.5">
             {(!sidebarCollapsed || mobileMenuOpen) && (
               <span className="px-2.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block mb-1.5">
@@ -999,6 +1068,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
               </span>
             )}
 
+            {canAccessModule('dashboard') && (
             <button
               type="button"
               onClick={() => {
@@ -1030,8 +1100,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 </div>
               )}
             </button>
+            )}
 
             {/* Pedidos Multisucursal Button */}
+            {canAccessModule('orders') && (
             <button
               type="button"
               onClick={() => {
@@ -1060,9 +1132,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 </div>
               )}
             </button>
+            )}
 
             {/* Inventario & Recetas Button */}
-            <PermissionGate permission="inventory:view" hideInsteadOfBanner>
+            {canAccessModule('inventory') && (
               <button
                 type="button"
                 onClick={() => {
@@ -1088,9 +1161,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                   </div>
                 )}
               </button>
-            </PermissionGate>
+            )}
 
             {/* Clientes CRM Button */}
+            {canAccessModule('clients') && (
             <button
               type="button"
               onClick={() => {
@@ -1119,8 +1193,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 </div>
               )}
             </button>
+            )}
 
             {/* Catálogo & Modificadores */}
+            {canAccessModule('products') && (
             <button
               type="button"
               onClick={() => {
@@ -1149,8 +1225,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 </div>
               )}
             </button>
+            )}
 
-            {/* MÓDULO RECURSOS HUMANOS O MI BOLETA SEGÚN PERMISOS */}
+            {/* MÓDULO RECURSOS HUMANOS */}
+            {canAccessModule('hr') && (
             <button
               type="button"
               onClick={() => {
@@ -1164,46 +1242,27 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                   ? 'saas-card !rounded-lg text-zinc-950 dark:text-white font-semibold'
                   : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/5 font-medium'
               }`}
-              title={
-                hasPermission('hr:schedules') || hasPermission('hr:view') || currentUser.roleId === 'role-admin'
-                  ? 'Recursos Humanos & Biométrico (Alt+3)'
-                  : 'Mi Boleta de Pago & Autoservicio (Alt+3)'
-              }
+              title="Recursos Humanos & Biométrico (Alt+3)"
             >
-              {hasPermission('hr:schedules') || hasPermission('hr:view') || currentUser.roleId === 'role-admin' ? (
-                <UserCheck
-                  className="h-4 w-4 shrink-0 transition-colors"
-                  style={activeMainModule === 'hr' ? { color: customization.primaryColor } : undefined}
-                />
-              ) : (
-                <Receipt
-                  className="h-4 w-4 shrink-0 transition-colors"
-                  style={activeMainModule === 'hr' ? { color: customization.primaryColor } : undefined}
-                />
-              )}
+              <UserCheck
+                className="h-4 w-4 shrink-0 transition-colors"
+                style={activeMainModule === 'hr' ? { color: customization.primaryColor } : undefined}
+              />
               {(!sidebarCollapsed || mobileMenuOpen) && (
                 <div className="flex items-center justify-between flex-1 min-w-0">
-                  <span className="truncate">
-                    {hasPermission('hr:schedules') || hasPermission('hr:view') || currentUser.roleId === 'role-admin'
-                      ? 'Recursos Humanos'
-                      : 'Mi Boleta de Pago'}
-                  </span>
+                  <span className="truncate">Recursos Humanos</span>
                   <span className="flex items-center gap-1.5">
-                    {hasPermission('hr:schedules') || hasPermission('hr:view') || currentUser.roleId === 'role-admin' ? (
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
-                        {todayRecords.length} hoy
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold">
-                        Personal
-                      </span>
-                    )}
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                      {todayRecords.length} hoy
+                    </span>
                   </span>
                 </div>
               )}
             </button>
+            )}
 
             {/* Finanzas & Caja Button */}
+            {canAccessModule('finance') && (
             <button
               type="button"
               onClick={() => {
@@ -1232,8 +1291,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 </div>
               )}
             </button>
+            )}
 
             {/* Facturación Electrónica SUNAT Button */}
+            {canAccessModule('billing') && (
             <button
               type="button"
               onClick={() => {
@@ -1262,8 +1323,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 </div>
               )}
             </button>
+            )}
 
             {/* Galería de Medios & Fotos Button */}
+            {canAccessModule('media') && (
             <button
               type="button"
               onClick={() => {
@@ -1292,8 +1355,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 </div>
               )}
             </button>
+            )}
 
             {/* Páginas Personalizadas & Landing Pages Button */}
+            {canAccessModule('pages') && (
             <button
               type="button"
               onClick={() => {
@@ -1322,8 +1387,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 </div>
               )}
             </button>
+            )}
 
             {/* Marketing & Web Push Button */}
+            {canAccessModule('marketing') && (
             <button
               type="button"
               onClick={() => {
@@ -1352,8 +1419,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 </div>
               )}
             </button>
+            )}
 
             {/* Bandeja Omnicanal de Mensajes Button */}
+            {canAccessModule('inbox') && (
             <button
               type="button"
               onClick={() => {
@@ -1382,8 +1451,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 </div>
               )}
             </button>
+            )}
 
             {/* WhatsApp Cloud API & Chatbot Button */}
+            {canAccessModule('whatsapp') && (
             <button
               type="button"
               onClick={() => {
@@ -1412,7 +1483,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 </div>
               )}
             </button>
+            )}
 
+            {canAccessModule('settings') && (
             <button
               type="button"
               onClick={() => {
@@ -1450,8 +1523,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 </div>
               )}
             </button>
+            )}
           </div>
+          )}
 
+          {(['pos', 'kiosk', 'kitchen', 'delivery', 'benefits'] as MainModuleId[]).some(canAccessModule) && (
           <div className="space-y-0.5">
             {(!sidebarCollapsed || mobileMenuOpen) && (
               <span className="px-2.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 block mb-1.5">
@@ -1460,6 +1536,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
             )}
 
             {/* POS Button */}
+            {canAccessModule('pos') && (
             <button
               type="button"
               onClick={() => {
@@ -1488,8 +1565,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 </div>
               )}
             </button>
+            )}
 
             {/* Kiosco Autoservicio 9:16 (Culqi) Button */}
+            {canAccessModule('kiosk') && (
             <button
               type="button"
               onClick={() => {
@@ -1518,8 +1597,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 </div>
               )}
             </button>
+            )}
 
             {/* Cocina KDS Button */}
+            {canAccessModule('kitchen') && (
             <button
               type="button"
               onClick={() => {
@@ -1556,8 +1637,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 </div>
               )}
             </button>
+            )}
 
             {/* Delivery & Motorizados Button */}
+            {canAccessModule('delivery') && (
             <button
               type="button"
               onClick={() => {
@@ -1586,8 +1669,10 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 </div>
               )}
             </button>
+            )}
 
             {/* Beneficios, Cupones & Puntos Button */}
+            {canAccessModule('benefits') && (
             <button
               type="button"
               onClick={() => {
@@ -1616,25 +1701,27 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 </div>
               )}
             </button>
-
-            {onNavigateToStore && (
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={onNavigateToStore}
-                  className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-xs transition-colors ${
-                    sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
-                  }`}
-                  title="Abrir Tienda Virtual (Web)"
-                >
-                  <Globe2 className="h-4 w-4 shrink-0" />
-                  {(!sidebarCollapsed || mobileMenuOpen) && (
-                    <span className="truncate">Ver Tienda Virtual</span>
-                  )}
-                </button>
-              </div>
             )}
           </div>
+          )}
+
+          {onNavigateToStore && (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={onNavigateToStore}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold text-xs transition-colors ${
+                  sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
+                }`}
+                title="Abrir Tienda Virtual (Web)"
+              >
+                <Globe2 className="h-4 w-4 shrink-0" />
+                {(!sidebarCollapsed || mobileMenuOpen) && (
+                  <span className="truncate">Ver Tienda Virtual</span>
+                )}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Bottom SaaS Control Dock */}
@@ -1875,7 +1962,19 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
             }
           >
             <Suspense fallback={<ModuleWorkspaceSkeleton />}>
-              {activeMainModule === 'dashboard' ? (
+              {!canAccessModule(activeMainModule) ? (
+                <div className="max-w-md mx-auto my-16 saas-card p-6 text-center space-y-3">
+                  <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
+                    <ShieldCheck className="h-6 w-6" />
+                  </div>
+                  <h2 className="text-base font-bold text-zinc-900 dark:text-white">
+                    Sin acceso a este módulo
+                  </h2>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    Tu rol actual (<strong>{currentUser.roleName}</strong>) no tiene permisos asignados para esta vista. Solicita acceso a un administrador en la Matriz RBAC.
+                  </p>
+                </div>
+              ) : activeMainModule === 'dashboard' ? (
                 <DashboardView onNavigateToSettings={() => setActiveMainModule('settings')} />
               ) : activeMainModule === 'hr' ? (
                 <HRModuleView />
@@ -1899,17 +1998,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
               ) : activeMainModule === 'marketing' ? (
                 <MarketingModuleView />
               ) : activeMainModule === 'inbox' ? (
-                <PermissionGate permission="inbox:view">
-                  <OmnichannelInboxView
-                    onOpenWhatsAppBot={() => setActiveMainModule('whatsapp')}
-                  />
-                </PermissionGate>
+                <OmnichannelInboxView
+                  onOpenWhatsAppBot={() => setActiveMainModule('whatsapp')}
+                />
               ) : activeMainModule === 'whatsapp' ? (
-                <PermissionGate permission="whatsapp:view">
-                  <WhatsAppModuleView
-                    onOpenInbox={() => setActiveMainModule('inbox')}
-                  />
-                </PermissionGate>
+                <WhatsAppModuleView
+                  onOpenInbox={() => setActiveMainModule('inbox')}
+                />
               ) : activeMainModule === 'products' ? (
                 <ProductCatalogView />
               ) : activeMainModule === 'media' ? (
@@ -1938,9 +2033,12 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
             o.status !== 'entregado' &&
             o.status !== 'cancelado'
         ).length;
-        const canPos = hasPermission('pos:use') || isSuperAdminOrManager;
-        const canKitchen = hasPermission('kitchen:view') || isSuperAdminOrManager;
-        const canDelivery = hasPermission('delivery:view') || isSuperAdminOrManager;
+        const canDashboard = canAccessModule('dashboard');
+        const canPos = canAccessModule('pos');
+        const canOrders = canAccessModule('orders');
+        const canKitchen = canAccessModule('kitchen');
+        const canDelivery = canAccessModule('delivery');
+        const canInbox = canAccessModule('inbox');
 
         const navItems: {
           id: MainModuleId | 'more';
@@ -1948,18 +2046,22 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
           icon: React.ComponentType<{ className?: string }>;
           badge?: number;
         }[] = [
-          { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard },
+          ...(canDashboard ? [{ id: 'dashboard' as MainModuleId, label: 'Inicio', icon: LayoutDashboard }] : []),
           ...(canPos ? [{ id: 'pos' as MainModuleId, label: 'POS', icon: Pizza }] : []),
-          {
-            id: 'orders',
-            label: 'Pedidos',
-            icon: ClipboardList,
-            badge: pendingOrdersBadge > 0 ? pendingOrdersBadge : undefined,
-          },
+          ...(canOrders
+            ? [{
+                id: 'orders' as MainModuleId,
+                label: 'Pedidos',
+                icon: ClipboardList,
+                badge: pendingOrdersBadge > 0 ? pendingOrdersBadge : undefined,
+              }]
+            : []),
           ...(canKitchen
             ? [{ id: 'kitchen' as MainModuleId, label: 'Cocina', icon: Flame }]
             : canDelivery
             ? [{ id: 'delivery' as MainModuleId, label: 'Ruta', icon: Bike }]
+            : canInbox
+            ? [{ id: 'inbox' as MainModuleId, label: 'Bandeja', icon: Inbox }]
             : []),
           { id: 'more', label: 'Más', icon: Menu },
         ];
