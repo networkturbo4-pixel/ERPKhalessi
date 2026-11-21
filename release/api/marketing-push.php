@@ -1,6 +1,6 @@
 <?php
 /**
- * Khalessi Pizza ERP - Marketing Web Push (VAPID ES256 + RFC 8291 aes128gcm) & Cron de Campañas
+ * GastroERP - Marketing Web Push (VAPID ES256 + RFC 8291 aes128gcm) & Cron de Campañas
  * Compatible con Android, Apple iOS 16.4+ (PWA), Windows y macOS sin dependencias externas.
  */
 declare(strict_types=1);
@@ -166,7 +166,7 @@ function mkt_sign_vapid_jwt(string $endpoint, string $privatePem): string
     $payload = mkt_b64url_encode((string) json_encode([
         'aud' => $aud,
         'exp' => time() + 43200,
-        'sub' => 'mailto:marketing@pizzakhalessi.com',
+        'sub' => 'mailto:marketing@gastroerp.com',
     ], JSON_UNESCAPED_SLASHES));
 
     $signingInput = "{$header}.{$payload}";
@@ -295,10 +295,10 @@ function mkt_dispatch_campaign_push(array $campaign, array $vapid): array
     }));
 
     $payloadArr = [
-        'title' => (string) ($campaign['title'] ?? 'Pizza Khalessi'),
+        'title' => (string) ($campaign['title'] ?? 'Gastro Restaurante'),
         'body' => (string) ($campaign['body'] ?? ''),
         'url' => (string) ($campaign['targetUrl'] ?? '/'),
-        'tag' => 'khalessi-mkt-' . ($campaign['id'] ?? time()),
+        'tag' => 'gastro-mkt-' . ($campaign['id'] ?? time()),
     ];
     if (!empty($campaign['imageUrl'])) {
         $payloadArr['image'] = (string) $campaign['imageUrl'];
@@ -379,7 +379,7 @@ function mkt_run_due_campaigns(): array
                 CURLOPT_POSTFIELDS => json_encode([
                     'action' => 'send-promo',
                     'issuerId' => (string) $c['issuerId'],
-                    'classSuffix' => (string) ($c['classSuffix'] ?? 'khalessi_loyalty_v1'),
+                    'classSuffix' => (string) ($c['classSuffix'] ?? 'gastro_loyalty_v1'),
                     'header' => (string) ($c['title'] ?? ''),
                     'body' => (string) ($c['body'] ?? ''),
                     'promoUrl' => (string) ($c['targetUrl'] ?? ''),

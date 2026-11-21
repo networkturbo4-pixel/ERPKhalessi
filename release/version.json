@@ -1,8 +1,8 @@
 {
-  "buildId": "20261120035448",
-  "builtAt": "2026-11-20T03:54:48.390Z",
-  "commitSha": "f3fb256",
-  "message": "feat(store): tarjeta interactiva, tokenizacion Culqi 1-clic, direcciones con mapa GPS y UI moderna tipo Rappi",
-  "totalFiles": 109,
-  "manifestSha256": "c515a878fddc24c148e562f4d9defefd7a9a409aa9e7352cf4c0959aa9a2b910"
+  "buildId": "20261121034050",
+  "builtAt": "2026-11-21T03:40:50.045Z",
+  "commitSha": "517141c",
+  "message": "feat(install,settings): instalador web (/install), configuracion Node.js SSE y persistencia garantizada en pestanas de configuracion",
+  "totalFiles": 113,
+  "manifestSha256": "2314fbee10ee9cda3db035d4e5f5ef9f9ed7d6801613088487769b951c745ecb"
 }

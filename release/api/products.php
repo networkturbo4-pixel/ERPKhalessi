@@ -34,6 +34,6 @@ try {
         'products'   => $products,
     ]);
 } catch (Throwable $e) {
-    error_log('[Khalessi ERP products.php] Query error: ' . $e->getMessage());
+    error_log('[GastroERP products.php] Query error: ' . $e->getMessage());
     sendResponse(['success' => false, 'error' => 'Error al consultar productos'], 500);
 }

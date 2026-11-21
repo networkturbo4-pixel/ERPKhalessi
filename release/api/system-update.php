@@ -20,7 +20,7 @@ header("Content-Type: application/json; charset=UTF-8");
 header("Cache-Control: no-store, no-cache, must-revalidate");
 
 $action = isset($_GET['action']) ? trim((string)$_GET['action']) : 'check';
-$repo = 'networkturbo4-pixel/ERPKhalessi';
+$repo = 'tu-organizacion/gastro-erp';
 $branch = 'main';
 $rootTarget = realpath(__DIR__ . '/..') ?: dirname(__DIR__);
 
@@ -38,7 +38,7 @@ function fetchRemoteData(string $url, int $timeout = 60): ?string {
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
             curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
-            curl_setopt($ch, CURLOPT_USERAGENT, 'Khalessi-ERP-Updater/2.0');
+            curl_setopt($ch, CURLOPT_USERAGENT, 'GastroERP-Updater/2.0');
             curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
             curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, $verifySsl);
@@ -70,7 +70,7 @@ function fetchRemoteData(string $url, int $timeout = 60): ?string {
         $opts = [
             'http' => [
                 'method' => 'GET',
-                'header' => "User-Agent: Khalessi-ERP-Updater/2.0\r\nCache-Control: no-cache\r\nAccept: */*\r\n",
+                'header' => "User-Agent: GastroERP-Updater/2.0\r\nCache-Control: no-cache\r\nAccept: */*\r\n",
                 'follow_location' => 1,
                 'max_redirects' => 5,
                 'timeout' => $timeout,
@@ -119,7 +119,7 @@ function fetchRemoteBatch(array $requests, int $concurrency = 12, int $timeout =
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
             curl_setopt($ch, CURLOPT_MAXREDIRS, 5);
-            curl_setopt($ch, CURLOPT_USERAGENT, 'Khalessi-ERP-Updater/2.0');
+            curl_setopt($ch, CURLOPT_USERAGENT, 'GastroERP-Updater/2.0');
             curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
             curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 12);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);

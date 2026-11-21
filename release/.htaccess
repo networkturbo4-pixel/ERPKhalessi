@@ -58,7 +58,7 @@
   ExpiresByType application/javascript "access plus 1 year"
 </IfModule>
 
-# Nunca servir credenciales ni librerias internas
-<FilesMatch "^(config\.local\.php|config\.local\.example\.php|config\.php|storage-lib\.php|\.token_secret\.php)$">
+# Nunca servir credenciales, bloqueos de instalación ni librerias internas
+<FilesMatch "^(config\.local\.php|config\.local\.example\.php|config\.php|storage-lib\.php|\.token_secret\.php|install\.lock|config\.json)$">
   Require all denied
 </FilesMatch>

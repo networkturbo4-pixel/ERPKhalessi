@@ -1,5 +1,5 @@
 /**
- * Khalessi Pizza ERP - Servidor Real-Time SSE para cPanel
+ * GastroERP - Servidor Real-Time SSE para cPanel
  * Diseñado para alta concurrencia (20+ sucursales y miles de pantallas)
  * Cero dependencias externas.
  */
@@ -7,6 +7,25 @@
 const http = require('http');
 const url = require('url');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+
+// Carga configuración generada por el instalador (server/config.json) si existe
+try {
+  const localCfgPath = path.join(__dirname, 'config.json');
+  if (fs.existsSync(localCfgPath)) {
+    const localCfg = JSON.parse(fs.readFileSync(localCfgPath, 'utf8'));
+    if (localCfg && typeof localCfg === 'object') {
+      for (const [k, v] of Object.entries(localCfg)) {
+        if (v !== undefined && v !== null && v !== '' && !process.env[k]) {
+          process.env[k] = String(v);
+        }
+      }
+    }
+  }
+} catch (err) {
+  console.warn('[GastroERP Realtime Node.js] No se pudo leer server/config.json:', err.message);
+}
 
 const PORT = process.env.PORT || 3000;
 const MAX_CLIENTS = Number.parseInt(process.env.ERP_MAX_SSE_CLIENTS || '2000', 10);
@@ -311,7 +330,7 @@ const server = http.createServer((req, res) => {
         const {
           email,
           firstName = 'Cliente',
-          lastName = 'Khalessi',
+          lastName = 'Gastro',
           phoneNumber = '999999999',
           address = 'Lima, Peru',
           addressCity = 'Lima',
@@ -419,7 +438,7 @@ const server = http.createServer((req, res) => {
           return;
         }
 
-        const { amountCents, currencyCode = 'PEN', email, sourceId, description = 'Pedido Khalessi Pizza' } = payload;
+        const { amountCents, currencyCode = 'PEN', email, sourceId, description = 'Pedido Gastro Restaurante' } = payload;
         if (!amountCents || !email || !sourceId) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: false, error: 'amountCents, email y sourceId son requeridos' }));
@@ -469,7 +488,7 @@ const server = http.createServer((req, res) => {
     JSON.stringify(
       {
         status: 'online',
-        service: 'Khalessi ERP Realtime Engine (Node.js)',
+        service: 'GastroERP Realtime Engine (Node.js)',
         connectedClients: clients.size,
         uptimeSeconds: Math.floor(process.uptime()),
         memoryUsageMb: (process.memoryUsage().rss / 1024 / 1024).toFixed(2),
@@ -483,17 +502,17 @@ const server = http.createServer((req, res) => {
 });
 
 server.on('error', err => {
-  console.error('[Khalessi Realtime Node.js] Server error:', err);
+  console.error('[GastroERP Realtime Node.js] Server error:', err);
 });
 
 process.on('uncaughtException', err => {
-  console.error('[Khalessi Realtime Node.js] Uncaught exception:', err);
+  console.error('[GastroERP Realtime Node.js] Uncaught exception:', err);
 });
 
 process.on('unhandledRejection', reason => {
-  console.error('[Khalessi Realtime Node.js] Unhandled rejection:', reason);
+  console.error('[GastroERP Realtime Node.js] Unhandled rejection:', reason);
 });
 
 server.listen(PORT, () => {
-  console.log(`[Khalessi Realtime Node.js] Escuchando en puerto ${PORT}`);
+  console.log(`[GastroERP Realtime Node.js] Escuchando en puerto ${PORT}`);
 });

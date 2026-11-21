@@ -1,6 +1,6 @@
 <?php
 /**
- * Khalessi Pizza ERP - Generador dinámico de imagen de sellos (PNG 1032x336) para Google Wallet Hero Image.
+ * GastroERP - Generador dinámico de imagen de sellos (PNG 1032x336) para Google Wallet Hero Image.
  * Uso: /api/google-wallet-stamps.php?points=5&goal=8&bg=18181b&accent=f59e0b
  */
 declare(strict_types=1);

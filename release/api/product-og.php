@@ -36,12 +36,12 @@ try {
     $pdo = getDbConnection();
     kvInit($pdo);
 
-    $rawSettings = kvGet($pdo, 'khalessi_erp_settings_v3');
+    $rawSettings = kvGet($pdo, 'gastro_erp_settings_v3');
     $settings = $rawSettings ? json_decode($rawSettings, true) : [];
     $seoCfg = is_array($settings['customization']['seoConfig'] ?? null)
         ? $settings['customization']['seoConfig']
         : [];
-    $companyName = (string)($settings['companyInfo']['commercialName'] ?? 'Pizza Khalessi');
+    $companyName = (string)($settings['companyInfo']['commercialName'] ?? 'Gastro Restaurante');
 
     $rawProducts = kvGet($pdo, 'kh_catalog_products');
     if ($rawProducts) {

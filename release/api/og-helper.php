@@ -6,7 +6,7 @@
 
 function ogBuildBaseUrl(): string {
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-    $host = $_SERVER['HTTP_HOST'] ?? 'pizzakhalessi.com';
+    $host = $_SERVER['HTTP_HOST'] ?? 'gastroerp.com';
     return "{$scheme}://{$host}";
 }
 
@@ -66,17 +66,17 @@ function ogStripStaticMeta(string $html): string {
 function ogInjectHead(string $html, array $meta): string {
     $html = ogStripStaticMeta($html);
 
-    $title = htmlspecialchars((string)($meta['title'] ?? 'Pizza Khalessi'), ENT_QUOTES, 'UTF-8');
+    $title = htmlspecialchars((string)($meta['title'] ?? 'Gastro Restaurante'), ENT_QUOTES, 'UTF-8');
     $desc = htmlspecialchars((string)($meta['description'] ?? ''), ENT_QUOTES, 'UTF-8');
     $keywords = htmlspecialchars((string)($meta['keywords'] ?? ''), ENT_QUOTES, 'UTF-8');
     $robots = htmlspecialchars((string)($meta['robots'] ?? 'index, follow'), ENT_QUOTES, 'UTF-8');
     $canonical = htmlspecialchars((string)($meta['canonical'] ?? ''), ENT_QUOTES, 'UTF-8');
-    $ogTitle = htmlspecialchars((string)($meta['ogTitle'] ?? $meta['title'] ?? 'Pizza Khalessi'), ENT_QUOTES, 'UTF-8');
+    $ogTitle = htmlspecialchars((string)($meta['ogTitle'] ?? $meta['title'] ?? 'Gastro Restaurante'), ENT_QUOTES, 'UTF-8');
     $ogDesc = htmlspecialchars((string)($meta['ogDescription'] ?? $meta['description'] ?? ''), ENT_QUOTES, 'UTF-8');
     $ogImage = htmlspecialchars((string)($meta['ogImage'] ?? ''), ENT_QUOTES, 'UTF-8');
     $ogType = htmlspecialchars((string)($meta['ogType'] ?? 'website'), ENT_QUOTES, 'UTF-8');
     $ogUrl = htmlspecialchars((string)($meta['ogUrl'] ?? $meta['canonical'] ?? ''), ENT_QUOTES, 'UTF-8');
-    $ogSiteName = htmlspecialchars((string)($meta['ogSiteName'] ?? 'Pizza Khalessi'), ENT_QUOTES, 'UTF-8');
+    $ogSiteName = htmlspecialchars((string)($meta['ogSiteName'] ?? 'Gastro Restaurante'), ENT_QUOTES, 'UTF-8');
     $locale = htmlspecialchars((string)($meta['locale'] ?? 'es_PE'), ENT_QUOTES, 'UTF-8');
     $twitterCard = htmlspecialchars((string)($meta['twitterCard'] ?? ($ogImage !== '' ? 'summary_large_image' : 'summary')), ENT_QUOTES, 'UTF-8');
     $twitterHandle = htmlspecialchars((string)($meta['twitterHandle'] ?? ''), ENT_QUOTES, 'UTF-8');
@@ -111,7 +111,7 @@ function ogInjectHead(string $html, array $meta): string {
     if (!empty($meta['jsonLd']) && is_array($meta['jsonLd'])) {
         $json = json_encode($meta['jsonLd'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
         if ($json !== false) {
-            $tags .= "\n    <script id=\"khalessi-seo-jsonld\" type=\"application/ld+json\">{$json}</script>";
+            $tags .= "\n    <script id=\"gastro-seo-jsonld\" type=\"application/ld+json\">{$json}</script>";
         }
     }
 

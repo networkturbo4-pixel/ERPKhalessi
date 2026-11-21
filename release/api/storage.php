@@ -23,7 +23,7 @@ header('Cache-Control: no-store, no-cache, must-revalidate');
 
 function isAllowedSyncKey(string $k, bool $isAuth): bool {
     if (in_array($k, KH_SYNC_KEYS, true)) return true;
-    return $isAuth && (strncmp($k, 'kh_', 3) === 0 || strncmp($k, 'khalessi_', 9) === 0);
+    return $isAuth && (strncmp($k, 'kh_', 3) === 0 || strncmp($k, 'gastro_', 7) === 0);
 }
 
 function readableFor(string $k, bool $isAuth): bool {
@@ -33,7 +33,7 @@ function readableFor(string $k, bool $isAuth): bool {
 
 function valueFor(string $k, string $v, bool $isAuth): string {
     if (!$isAuth && $k === KH_SETTINGS_KEY) return sanitizeSettingsForPublic($v);
-    if (!$isAuth && $k === 'khalessi_erp_hr_v1') return sanitizeHrForPublic($v);
+    if (!$isAuth && $k === 'gastro_erp_hr_v1') return sanitizeHrForPublic($v);
     return $v;
 }
 

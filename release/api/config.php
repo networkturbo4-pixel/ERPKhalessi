@@ -1,7 +1,7 @@
 <?php
 /**
  * Conexión Centralizada a MySQL mediante PDO
- * Khalessi Pizza ERP - Backend API para cPanel
+ * GastroERP - Backend API para cPanel
  */
 
 // Cabeceras HTTP para permitir comunicación con React (CORS) y formato JSON
@@ -54,7 +54,7 @@ function getDbConnection() {
         try {
             $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
         } catch (PDOException $e) {
-            error_log('[Khalessi ERP DB] Connection error: ' . $e->getMessage());
+            error_log('[GastroERP DB] Connection error: ' . $e->getMessage());
             http_response_code(500);
             echo json_encode([
                 'success' => false,
