@@ -1,8 +1,8 @@
 {
-  "buildId": "20261121034516",
-  "builtAt": "2026-11-21T03:45:16.445Z",
-  "commitSha": "e53749b",
-  "message": "fix(install): detectar server/app.js en ruta de produccion cPanel (../server) y desarrollo (../../server)",
+  "buildId": "20261121034918",
+  "builtAt": "2026-11-21T03:49:18.549Z",
+  "commitSha": "aae6f38",
+  "message": "fix(sse,install): evitar MIME text/html en /realtime/stream y aislar /install de defaults de SettingsProvider",
   "totalFiles": 113,
-  "manifestSha256": "79ed0cdc3372ca73fffa486043d72cc580e54491f4637cee6273a4a69e76bebd"
+  "manifestSha256": "acf2204d649f55c6eb0c1b0d08f7541641e5c42028c4a47acf95dbba29bc6e6b"
 }
