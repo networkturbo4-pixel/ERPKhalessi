@@ -19,6 +19,8 @@ const loadStorefrontView = () =>
   import('./components/store/StorefrontView').then(m => ({ default: m.StorefrontView }));
 const loadCustomPagePublicView = () =>
   import('./components/store/CustomPagePublicView').then(m => ({ default: m.CustomPagePublicView }));
+const loadOrderPaymentPage = () =>
+  import('./components/store/OrderPaymentPage').then(m => ({ default: m.OrderPaymentPage }));
 const loadKioskSelfServiceView = () =>
   import('./components/kiosk/KioskSelfServiceView').then(m => ({ default: m.KioskSelfServiceView }));
 const loadJobsLandingView = () =>
@@ -38,6 +40,7 @@ const MainLayout = lazy(loadMainLayout);
 const LoginScreen = lazy(loadLoginScreen);
 const StorefrontView = lazy(loadStorefrontView);
 const CustomPagePublicView = lazy(loadCustomPagePublicView);
+const OrderPaymentPage = lazy(loadOrderPaymentPage);
 const KioskSelfServiceView = lazy(loadKioskSelfServiceView);
 const JobsLandingView = lazy(loadJobsLandingView);
 const ReservationsLandingView = lazy(loadReservationsLandingView);
@@ -60,6 +63,11 @@ export function preloadInitialRouteChunk(): void {
 
   if (path.startsWith('/kiosco') || hash.startsWith('#kiosco')) {
     void loadKioskSelfServiceView();
+    return;
+  }
+
+  if (path.startsWith('/pagar/') || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('payOrder'))) {
+    void loadOrderPaymentPage();
     return;
   }
 
@@ -170,6 +178,11 @@ export function App() {
     };
   }, [isInstallRoute]);
 
+  const payOrderMatch = currentPath.match(/^\/pagar\/([^/]+)\/?$/);
+  const payOrderId =
+    (payOrderMatch ? decodeURIComponent(payOrderMatch[1]) : null) ||
+    (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('payOrder') : null);
+
   const customPageSlugMatch = currentPath.match(/^\/p\/([^/]+)\/?$/);
   const customPageSlug = customPageSlugMatch ? decodeURIComponent(customPageSlugMatch[1]) : null;
 
@@ -241,6 +254,11 @@ export function App() {
                               onNavigateToAdmin={() => navigate('/admin')}
                             />
                           </LazyHRProvider>
+                        ) : payOrderId ? (
+                          <OrderPaymentPage
+                            orderId={payOrderId}
+                            onNavigateHome={() => navigate('/')}
+                          />
                         ) : customPageSlug ? (
                           <CustomPagePublicView
                             slug={customPageSlug}

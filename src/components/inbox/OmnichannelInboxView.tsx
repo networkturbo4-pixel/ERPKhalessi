@@ -3619,12 +3619,24 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
               )
             );
             appendAuditEvent(activeConversation.id, `Creó pedido ${ord.orderNumber}`);
-            const storeUrl = config.storefrontBaseUrl || window.location.origin;
-            const summary = ord.items.map((i) => `• ${i.quantity}x ${i.productName}`).join('\n');
+            const storeUrl = (config.storefrontBaseUrl || window.location.origin).replace(/\/+$/, '');
+            const payLink = `${storeUrl}/pagar/${encodeURIComponent(ord.id)}`;
+            const summary = ord.items
+              .map((i) => {
+                const sz = i.size?.name ? ` (${i.size.name})` : '';
+                const subs =
+                  i.subOptions && i.subOptions.length > 0
+                    ? ` [${i.subOptions.map((s) => s.choiceName).join(', ')}]`
+                    : '';
+                return `• ${i.quantity}x ${i.productName}${sz}${subs}`;
+              })
+              .join('\n');
             void sendDirectAgentMessage(
               activeConversation,
-              `✅ *Pedido confirmado ${ord.orderNumber}*\n${summary}\n*Total:* S/ ${ord.total.toFixed(2)}\n*Entrega:* ${ord.deliveryAddress}${
-                sendLink ? `\n\nPaga en línea aquí: ${storeUrl}` : ''
+              `✅ *Pedido registrado ${ord.orderNumber}*\n${summary}\n*Total:* S/ ${ord.total.toFixed(2)}\n*Entrega:* ${ord.deliveryAddress}${
+                sendLink
+                  ? `\n\n💳 *Paga en línea (Tarjeta o Yape) aquí:*\n${payLink}\n_(Apenas se confirme tu pago, el pedido pasa automáticamente a Cocina 🍕🔥)_`
+                  : ''
               }`
             );
           }}

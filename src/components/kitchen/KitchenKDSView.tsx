@@ -48,8 +48,20 @@ export const KitchenKDSView: React.FC = () => {
         ).length
       : 0;
 
+  // Retener pedidos con enlace de pago online Culqi pendiente hasta que la pasarela confirme el pago
+  const isAwaitingOnlinePayment = (o: Order) =>
+    o.paymentStatus === 'pendiente' &&
+    o.paymentMethod === 'culqi' &&
+    Boolean(o.deliveryReference?.includes('Bandeja Omnicanal') || o.channel === 'online');
+
+  const awaitingPaymentCount = branchOrders.filter(
+    (o) => o.status === 'recibido' && isAwaitingOnlinePayment(o)
+  ).length;
+
   // Active kitchen stages
-  const receivedOrders = branchOrders.filter((o) => o.status === 'recibido');
+  const receivedOrders = branchOrders.filter(
+    (o) => o.status === 'recibido' && !isAwaitingOnlinePayment(o)
+  );
   const cookingOrders = branchOrders.filter((o) => o.status === 'en_cocina' || o.status === 'en_horno');
   const readyOrders = branchOrders.filter((o) => o.status === 'listo');
   const inRouteCount = branchOrders.filter((o) => o.status === 'en_ruta').length;
@@ -328,6 +340,13 @@ export const KitchenKDSView: React.FC = () => {
 
   return (
     <div className="max-w-[1600px] mx-auto w-full space-y-4 touch-surface">
+      {awaitingPaymentCount > 0 && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-800 dark:text-amber-300">
+          <span className="font-semibold">
+            ⏳ {awaitingPaymentCount} pedido(s) de WhatsApp/Online esperando confirmación de pago Culqi — pasarán automáticamente a Recibidos apenas se apruebe el cobro.
+          </span>
+        </div>
+      )}
 
 
       {/* Mobile Stage Tabs (Hidden on Desktop md+, tactile 48px height on mobile) */}
