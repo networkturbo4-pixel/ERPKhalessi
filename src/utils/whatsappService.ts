@@ -536,6 +536,9 @@ export async function sendAgentWhatsAppReply(params: {
   branchId: string;
   toPhone: string;
   text: string;
+  mediaType?: 'image' | 'video' | 'audio' | 'document';
+  mediaUrl?: string;
+  mediaFilename?: string;
 }): Promise<{ ok: boolean; simulated?: boolean; error?: string }> {
   const creds = resolveActiveCredentials(params.config, params.branchId);
   const cleanPhone = normalizeWhatsAppPhone(params.toPhone);
@@ -547,7 +550,7 @@ export async function sendAgentWhatsAppReply(params: {
       channelType: 'agent_reply',
       branchId: params.branchId,
       toPhone: cleanPhone || params.toPhone,
-      summary: params.text.slice(0, 120),
+      summary: (params.text || params.mediaFilename || params.mediaType || '').slice(0, 120),
       status: 'simulated',
       errorMessage: 'Modo simulación (credenciales Meta inactivas)',
     });
@@ -562,6 +565,9 @@ export async function sendAgentWhatsAppReply(params: {
         branchId: params.branchId,
         toPhone: cleanPhone,
         text: params.text,
+        mediaType: params.mediaType,
+        mediaUrl: params.mediaUrl,
+        mediaFilename: params.mediaFilename,
         credentialsOverride: creds,
       }),
     });

@@ -213,6 +213,74 @@ async function sendInteractiveOrText(creds, toPhone, text, interactiveType, opti
   });
 }
 
+async function uploadMediaToMeta(creds, dataUrl, filename) {
+  const match = String(dataUrl || '').match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) {
+    throw new Error('Formato dataUrl inválido para subir multimedia a Meta');
+  }
+  const mimeType = match[1] || 'application/octet-stream';
+  const buffer = Buffer.from(match[2], 'base64');
+  const version = creds.apiVersion || 'v21.0';
+  const endpoint = `https://graph.facebook.com/${version}/${creds.phoneNumberId}/media`;
+  const form = new FormData();
+  form.append('messaging_product', 'whatsapp');
+  form.append('type', mimeType);
+  form.append('file', new Blob([buffer], { type: mimeType }), filename || 'archivo');
+
+  const resp = await fetch(endpoint, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${creds.accessToken}` },
+    body: form,
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok || !data?.id) {
+    throw new Error(data?.error?.message || `Error subiendo media a Meta (HTTP ${resp.status})`);
+  }
+  return data.id;
+}
+
+async function sendMediaMessage(creds, toPhone, { mediaType, mediaUrl, mediaFilename, caption }) {
+  const cleanTo = normalizePhone(toPhone);
+  if (!cleanTo) return { ok: false, error: 'Número de destino inválido' };
+  if (!creds || !creds.enabled || !creds.phoneNumberId || !creds.accessToken) {
+    return { ok: false, simulated: true, error: 'Credenciales de Meta Cloud API no configuradas o desactivadas' };
+  }
+
+  const normalizedType = ['image', 'video', 'audio', 'document'].includes(mediaType) ? mediaType : 'document';
+  let mediaPayload;
+  if (String(mediaUrl || '').startsWith('data:')) {
+    const mediaId = await uploadMediaToMeta(creds, mediaUrl, mediaFilename || `adjunto_${Date.now()}`);
+    mediaPayload = { id: mediaId };
+  } else if (/^https?:\/\//i.test(String(mediaUrl || ''))) {
+    mediaPayload = { link: String(mediaUrl) };
+  } else {
+    return { ok: false, error: 'URL de multimedia no soportada por Meta Cloud API' };
+  }
+
+  if (caption && normalizedType !== 'audio') {
+    mediaPayload.caption = String(caption).slice(0, 1024);
+  }
+  if (normalizedType === 'document' && mediaFilename) {
+    mediaPayload.filename = String(mediaFilename).slice(0, 240);
+  }
+
+  return sendMetaGraphPayload(creds, {
+    to: cleanTo,
+    type: normalizedType,
+    [normalizedType]: mediaPayload,
+  });
+}
+
+function buildMediaProxyUrl(mediaId, branchId) {
+  const base = String(state.config?.realtimeServerUrl || '')
+    .trim()
+    .replace(/\/api\/whatsapp\/.*$/i, '')
+    .replace(/\/+$/, '');
+  const prefix = base || '/realtime';
+  const query = branchId ? `?branchId=${encodeURIComponent(branchId)}` : '';
+  return `${prefix}/api/whatsapp/media/${encodeURIComponent(mediaId)}${query}`;
+}
+
 function buildBotReply(conv, userInput, buttonId) {
   const cfg = state.config || {};
   const nodes = Array.isArray(cfg.flowNodes) ? cfg.flowNodes.filter((n) => n.enabled) : [];
@@ -508,6 +576,9 @@ async function handleWhatsAppRoute(req, res, parsedUrl, pathname, maxBodyBytes, 
 
             let userText = '';
             let buttonId = '';
+            let mediaType;
+            let mediaUrl;
+            let mediaFilename;
             if (msg.type === 'text') {
               userText = msg.text?.body || '';
             } else if (msg.type === 'interactive') {
@@ -518,6 +589,28 @@ async function handleWhatsAppRoute(req, res, parsedUrl, pathname, maxBodyBytes, 
                 buttonId = msg.interactive.list_reply.id || '';
                 userText = msg.interactive.list_reply.title || buttonId;
               }
+            } else if (msg.type === 'image' && msg.image?.id) {
+              mediaType = 'image';
+              mediaUrl = buildMediaProxyUrl(msg.image.id, resolved?.branchId);
+              userText = msg.image.caption || '';
+            } else if (msg.type === 'sticker' && msg.sticker?.id) {
+              mediaType = 'image';
+              mediaUrl = buildMediaProxyUrl(msg.sticker.id, resolved?.branchId);
+              mediaFilename = 'sticker.webp';
+              userText = '';
+            } else if (msg.type === 'video' && msg.video?.id) {
+              mediaType = 'video';
+              mediaUrl = buildMediaProxyUrl(msg.video.id, resolved?.branchId);
+              userText = msg.video.caption || '';
+            } else if (msg.type === 'audio' && msg.audio?.id) {
+              mediaType = 'audio';
+              mediaUrl = buildMediaProxyUrl(msg.audio.id, resolved?.branchId);
+              userText = '';
+            } else if (msg.type === 'document' && msg.document?.id) {
+              mediaType = 'document';
+              mediaUrl = buildMediaProxyUrl(msg.document.id, resolved?.branchId);
+              mediaFilename = msg.document.filename || 'documento';
+              userText = msg.document.caption || '';
             } else {
               userText = `[${msg.type || 'mensaje'}]`;
             }
@@ -549,6 +642,9 @@ async function handleWhatsAppRoute(req, res, parsedUrl, pathname, maxBodyBytes, 
               sender: 'customer',
               text: userText,
               timestamp: new Date().toISOString(),
+              ...(mediaType ? { mediaType } : {}),
+              ...(mediaUrl ? { mediaUrl } : {}),
+              ...(mediaFilename ? { mediaFilename } : {}),
             });
             if (conv.messages.length > MAX_MESSAGES_PER_CHAT) {
               conv.messages = conv.messages.slice(-MAX_MESSAGES_PER_CHAT);
@@ -689,22 +785,34 @@ async function handleWhatsAppRoute(req, res, parsedUrl, pathname, maxBodyBytes, 
     return true;
   }
 
-  // 5. Enviar respuesta manual de un asesor humano
+  // 5. Enviar respuesta manual de un asesor humano (texto o multimedia)
   if (pathname === '/api/whatsapp/send-message' && req.method === 'POST') {
     try {
       const rawBuf = await readBodyBuffer(req, maxBodyBytes);
-      const { branchId, toPhone, text, credentialsOverride } = JSON.parse(rawBuf.toString('utf8') || '{}');
+      const { branchId, toPhone, text, mediaType, mediaUrl, mediaFilename, credentialsOverride } = JSON.parse(
+        rawBuf.toString('utf8') || '{}'
+      );
       const resolved = resolveCredentials(branchId, null);
       const creds = credentialsOverride || (resolved ? resolved.creds : null);
       const cleanTo = normalizePhone(toPhone);
-      const result = await sendInteractiveOrText(creds, cleanTo, text || '', 'text', []);
+      const cleanCaption =
+        mediaUrl && text && String(text).startsWith('Adjunto:') ? '' : text || '';
+      const result =
+        mediaUrl && mediaType
+          ? await sendMediaMessage(creds, cleanTo, {
+              mediaType,
+              mediaUrl,
+              mediaFilename,
+              caption: cleanCaption,
+            })
+          : await sendInteractiveOrText(creds, cleanTo, text || '', 'text', []);
 
       appendLog({
         direction: 'outbound',
         channelType: 'agent_reply',
         branchId: branchId || 'central',
         toPhone: cleanTo,
-        summary: String(text || '').slice(0, 120),
+        summary: String(text || mediaFilename || mediaType || '').slice(0, 120),
         status: result.ok ? 'sent' : result.simulated ? 'simulated' : 'failed',
         errorMessage: result.ok ? undefined : result.error,
       });
@@ -712,6 +820,56 @@ async function handleWhatsAppRoute(req, res, parsedUrl, pathname, maxBodyBytes, 
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(result));
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: err.message }));
+    }
+    return true;
+  }
+
+  // 5B. Proxy seguro para descargar imágenes, stickers, videos, audios y documentos de Meta
+  if (pathname.startsWith('/api/whatsapp/media/') && req.method === 'GET') {
+    try {
+      const mediaId = pathname.slice('/api/whatsapp/media/'.length).replace(/[^A-Za-z0-9_-]/g, '');
+      const branchId = parsedUrl.query?.branchId ? String(parsedUrl.query.branchId) : null;
+      const resolved = resolveCredentials(branchId, null);
+      const creds = resolved ? resolved.creds : null;
+
+      if (!mediaId || !creds || !creds.accessToken) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'Media o credenciales no disponibles' }));
+        return true;
+      }
+
+      const version = creds.apiVersion || 'v21.0';
+      const metaResp = await fetch(`https://graph.facebook.com/${version}/${mediaId}`, {
+        headers: { Authorization: `Bearer ${creds.accessToken}` },
+      });
+      const metaInfo = await metaResp.json().catch(() => ({}));
+      if (!metaResp.ok || !metaInfo?.url) {
+        res.writeHead(metaResp.status || 502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: metaInfo?.error?.message || 'No se pudo obtener URL de media' }));
+        return true;
+      }
+
+      const fileResp = await fetch(metaInfo.url, {
+        headers: { Authorization: `Bearer ${creds.accessToken}` },
+      });
+      if (!fileResp.ok) {
+        res.writeHead(fileResp.status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: `Error descargando media (${fileResp.status})` }));
+        return true;
+      }
+
+      const arrayBuf = await fileResp.arrayBuffer();
+      const buf = Buffer.from(arrayBuf);
+      res.writeHead(200, {
+        'Content-Type': metaInfo.mime_type || fileResp.headers.get('content-type') || 'application/octet-stream',
+        'Content-Length': String(buf.length),
+        'Cache-Control': 'private, max-age=3600',
+        'Cross-Origin-Resource-Policy': 'cross-origin',
+      });
+      res.end(buf);
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: false, error: err.message }));

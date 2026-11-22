@@ -53,6 +53,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Moon,
+  LogOut,
 } from 'lucide-react';
 import {
   detectMediaTypeFromFile,
@@ -145,11 +146,13 @@ const NOTE_COLORS = ['#fef08a', '#bae6fd', '#bbf7d0', '#fbcfe8', '#ddd6fe'];
 interface OmnichannelInboxViewProps {
   onOpenWhatsAppBot?: () => void;
   onMobilePaneChange?: (pane: 'list' | 'chat') => void;
+  onLogout?: () => void;
 }
 
 export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
   onOpenWhatsAppBot,
   onMobilePaneChange,
+  onLogout,
 }) => {
   const { activeTenant, tenants, branchScope, customization, users, openNoticeModal } = useSettings();
   const { currentUser } = useRBAC();
@@ -279,6 +282,7 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
   const [chatInput, setChatInput] = useState('');
   const [inChatSearchOpen, setInChatSearchOpen] = useState(false);
   const [inChatSearchQuery, setInChatSearchQuery] = useState('');
+  const [activeMsgActionsId, setActiveMsgActionsId] = useState<string | null>(null);
   const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
   const [forwardingMsg, setForwardingMsg] = useState<WhatsAppChatMessage | null>(null);
   const [lightboxMedia, setLightboxMedia] = useState<{ url: string; filename?: string } | null>(null);
@@ -308,6 +312,8 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
   const newMessageDialogRef = useRef<HTMLDialogElement>(null);
   const chatHistoryPushedRef = useRef(false);
   const [mobilePane, setMobilePane] = useState<'list' | 'chat'>('list');
+  const [chatSwipeX, setChatSwipeX] = useState(0);
+  const chatSwipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     onMobilePaneChange?.(mobilePane);
@@ -328,6 +334,39 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
     typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
   );
   const [rightDrawerTab, setRightDrawerTab] = useState<RightDrawerTab>('order');
+
+  // Gesto / botón Atrás nativo de Android: cierra cajones o vuelve del chat a la lista
+  useEffect(() => {
+    const handleAndroidBack = (e: Event) => {
+      if (newMessageOpen) {
+        e.preventDefault();
+        setNewMessageOpen(false);
+        return;
+      }
+      if (rightDrawerOpen && window.innerWidth < 1024) {
+        e.preventDefault();
+        setRightDrawerOpen(false);
+        return;
+      }
+      if (mobilePane === 'chat') {
+        e.preventDefault();
+        setMobilePane('list');
+      }
+    };
+    const handleOpenConversation = (e: Event) => {
+      const convId = (e as CustomEvent<string>).detail;
+      if (typeof convId === 'string' && convId.trim()) {
+        setSelectedConvId(convId.trim());
+        setMobilePane('chat');
+      }
+    };
+    window.addEventListener('kh-android-back', handleAndroidBack);
+    window.addEventListener('kh-open-conversation', handleOpenConversation);
+    return () => {
+      window.removeEventListener('kh-android-back', handleAndroidBack);
+      window.removeEventListener('kh-open-conversation', handleOpenConversation);
+    };
+  }, [mobilePane, newMessageOpen, rightDrawerOpen]);
 
   // Forms auxiliares
   const [newTagName, setNewTagName] = useState('');
@@ -1137,6 +1176,9 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
           branchId: activeConversation.branchId || activeTenant.id,
           toPhone: activeConversation.customerPhone,
           text: msg.text,
+          mediaType: msg.mediaType,
+          mediaUrl: msg.mediaUrl,
+          mediaFilename: msg.mediaFilename,
         });
       }
       return;
@@ -1545,6 +1587,18 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
                 <Plus className="w-4 h-4 shrink-0" />
                 <span>Nuevo</span>
               </button>
+
+              {onLogout && (
+                <button
+                  type="button"
+                  onClick={onLogout}
+                  className="inline-flex items-center justify-center h-9 w-9 rounded-xl bg-zinc-100 dark:bg-zinc-900 text-zinc-600 dark:text-zinc-300 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/40 dark:hover:text-rose-400 border border-zinc-200/70 dark:border-zinc-800 active:scale-[0.96] transition-colors shrink-0"
+                  title="Cerrar sesión"
+                  aria-label="Cerrar sesión"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
             {/* Filtro de estado estético (Segmented Pill Strip) */}
@@ -1781,6 +1835,38 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
 
         {/* COLUMNA CENTRAL: CHAT EN VIVO */}
         <div
+          onTouchStart={(e) => {
+            if (mobilePane !== 'chat' || e.touches.length !== 1) return;
+            const t = e.touches[0];
+            chatSwipeStartRef.current = { x: t.clientX, y: t.clientY };
+          }}
+          onTouchMove={(e) => {
+            if (!chatSwipeStartRef.current || mobilePane !== 'chat' || e.touches.length !== 1) return;
+            const t = e.touches[0];
+            const dx = t.clientX - chatSwipeStartRef.current.x;
+            const dy = Math.abs(t.clientY - chatSwipeStartRef.current.y);
+            if (dx > 16 && dy < 45) {
+              setChatSwipeX(Math.min(dx * 0.45, 110));
+            } else if (dy >= 45) {
+              chatSwipeStartRef.current = null;
+              setChatSwipeX(0);
+            }
+          }}
+          onTouchEnd={(e) => {
+            if (!chatSwipeStartRef.current) {
+              setChatSwipeX(0);
+              return;
+            }
+            const t = e.changedTouches[0];
+            const dx = t.clientX - chatSwipeStartRef.current.x;
+            const dy = Math.abs(t.clientY - chatSwipeStartRef.current.y);
+            chatSwipeStartRef.current = null;
+            setChatSwipeX(0);
+            if (mobilePane === 'chat' && dx > 75 && dy < 55) {
+              setMobilePane('list');
+            }
+          }}
+          style={chatSwipeX > 0 ? { transform: `translateX(${chatSwipeX}px)`, transition: 'none' } : undefined}
           className={`${
             mobilePane === 'list' ? 'hidden lg:flex' : 'flex'
           } ${
@@ -2111,29 +2197,36 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
                         </div>
                       )}
                       <div
+                        onClick={() =>
+                          setActiveMsgActionsId((prev) => (prev === msg.id ? null : msg.id))
+                        }
                         className={`group flex flex-col w-full min-w-0 ${isCustomer ? 'items-start' : 'items-end'}`}
                       >
-                        <div className="flex items-center gap-1.5 max-w-[88%] sm:max-w-[82%] min-w-0">
+                        <div className="flex items-center gap-1.5 max-w-[92%] sm:max-w-[82%] min-w-0">
                           {!isCustomer && !msg.isDeleted && (
-                            <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity shrink-0">
+                            <div className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 flex items-center gap-0.5 transition-opacity shrink-0">
                               <button
                                 type="button"
-                                onClick={() =>
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setReplyingTo({
                                     id: msg.id,
                                     sender: msg.senderName || (msg.sender === 'bot' ? 'Chatbot' : 'Asesor'),
                                     text: msg.text,
-                                  })
-                                }
-                                className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                                  });
+                                }}
+                                className="p-1.5 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100 active:bg-zinc-200/70 dark:active:bg-zinc-800"
                                 title="Citar mensaje"
                               >
                                 <Reply className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 type="button"
-                                onClick={() => setForwardingMsg(msg)}
-                                className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setForwardingMsg(msg);
+                                }}
+                                className="p-1.5 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100 active:bg-zinc-200/70 dark:active:bg-zinc-800"
                                 title="Reenviar a otro chat"
                               >
                                 <Forward className="w-3.5 h-3.5" />
@@ -2142,16 +2235,22 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
                                 <>
                                   <button
                                     type="button"
-                                    onClick={() => handleStartEditMessage(msg)}
-                                    className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleStartEditMessage(msg);
+                                    }}
+                                    className="p-1.5 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100 active:bg-zinc-200/70 dark:active:bg-zinc-800"
                                     title="Editar mensaje"
                                   >
                                     <Edit3 className="w-3.5 h-3.5" />
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => handleDeleteMessage(msg.id)}
-                                    className="p-1 rounded-md text-zinc-400 hover:text-rose-500"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteMessage(msg.id);
+                                    }}
+                                    className="p-1.5 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-rose-500 active:bg-rose-100/70 dark:active:bg-rose-950/40"
                                     title="Eliminar mensaje"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
@@ -2275,25 +2374,29 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
                           </div>
 
                           {isCustomer && !msg.isDeleted && (
-                            <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity shrink-0">
+                            <div className="opacity-100 lg:opacity-0 lg:group-hover:opacity-100 flex items-center gap-0.5 transition-opacity shrink-0">
                               <button
                                 type="button"
-                                onClick={() =>
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   setReplyingTo({
                                     id: msg.id,
                                     sender: msg.senderName || activeConversation.customerName,
                                     text: msg.text,
-                                  })
-                                }
-                                className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                                  });
+                                }}
+                                className="p-1.5 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100 active:bg-zinc-200/70 dark:active:bg-zinc-800"
                                 title="Citar mensaje"
                               >
                                 <Reply className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 type="button"
-                                onClick={() => setForwardingMsg(msg)}
-                                className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setForwardingMsg(msg);
+                                }}
+                                className="p-1.5 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-100 active:bg-zinc-200/70 dark:active:bg-zinc-800"
                                 title="Reenviar"
                               >
                                 <Forward className="w-3.5 h-3.5" />
@@ -2319,7 +2422,11 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
                                 ))}
                               </div>
                             )}
-                            <div className="opacity-0 group-hover:opacity-100 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-white/90 dark:bg-zinc-900/90 border border-zinc-200/70 dark:border-zinc-700 shadow-sm transition-opacity">
+                            <div
+                              className={`${
+                                activeMsgActionsId === msg.id ? 'opacity-100' : 'opacity-0 pointer-events-none lg:pointer-events-auto'
+                              } lg:group-hover:opacity-100 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-white/90 dark:bg-zinc-900/90 border border-zinc-200/70 dark:border-zinc-700 shadow-sm transition-opacity`}
+                            >
                               {MESSAGE_REACTIONS.map((emoji) => (
                                 <button
                                   key={emoji}
