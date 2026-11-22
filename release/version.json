@@ -1,8 +1,8 @@
 {
-  "buildId": "20261122220044",
-  "builtAt": "2026-11-22T22:00:44.453Z",
-  "commitSha": "29999b5",
-  "message": "fix(sync): prevent stale localStorage/IndexedDB cache from overwriting MySQL on system updates",
+  "buildId": "20261122221434",
+  "builtAt": "2026-11-22T22:14:34.179Z",
+  "commitSha": "88a7b23",
+  "message": "chore(release): release 20261122220044",
   "totalFiles": 124,
-  "manifestSha256": "6910387860b2bb21dd882fe426d6778c3ecef213c6c450dc72d3b8a371ec24c0"
+  "manifestSha256": "262a75b749fcf6ab5e0466ea8e7e3fbc20aeb928cc0700464fe7f2e24e4d2c5c"
 }

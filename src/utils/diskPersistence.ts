@@ -1172,7 +1172,14 @@ export async function initDiskPersistence(): Promise<void> {
       es.onmessage = ev => {
         if (!ev.data) return;
         try {
-          const msg: StorageSsePayload = JSON.parse(ev.data);
+          const rawParsed = JSON.parse(ev.data);
+          if (rawParsed?.type === 'driver_location_update' && rawParsed?.ping?.driverId) {
+            window.dispatchEvent(
+              new CustomEvent('kh-sse-driver-location', { detail: rawParsed.ping })
+            );
+            return;
+          }
+          const msg: StorageSsePayload = rawParsed;
           if (!msg.key || !isSharedKey(msg.key) || msg.senderId === CLIENT_ID) return;
 
           if (msg.action === 'remove') {

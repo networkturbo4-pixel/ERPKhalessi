@@ -120,37 +120,19 @@ export const DeliveryControlTowerView: React.FC = () => {
     return () => window.clearInterval(id);
   }, [activeTenant.id, branchScope]);
 
-  // Real-time SSE subscription for live driver GPS updates
+  // Real-time SSE subscription forwarded from diskPersistence (/realtime/stream)
   useEffect(() => {
-    const base = getConfiguredServerUrl();
-    if (!base && typeof window !== 'undefined' && window.location.port === '5173') {
-      return;
-    }
-    const branchParam = branchScope === 'consolidated' ? 'all' : activeTenant.id;
-    const sseUrl = base
-      ? `${base.replace(/\/+$/, '')}/events?branchId=${encodeURIComponent(branchParam)}`
-      : `/events?branchId=${encodeURIComponent(branchParam)}`;
-
-    let es: EventSource | null = null;
-    try {
-      es = new EventSource(sseUrl);
-      es.onmessage = (evt) => {
-        try {
-          const parsed = JSON.parse(evt.data);
-          if (parsed?.type === 'driver_location_update' && parsed?.ping?.driverId) {
-            recordDriverLocationPing(parsed.ping);
-          }
-        } catch {
-          // ignore malformed SSE payloads
-        }
-      };
-    } catch {
-      // ignore SSE unsupported
-    }
-    return () => {
-      es?.close();
+    const onSsePing = (evt: Event) => {
+      const ping = (evt as CustomEvent).detail;
+      if (ping?.driverId) {
+        recordDriverLocationPing(ping);
+      }
     };
-  }, [activeTenant.id, branchScope]);
+    window.addEventListener('kh-sse-driver-location', onSsePing);
+    return () => {
+      window.removeEventListener('kh-sse-driver-location', onSsePing);
+    };
+  }, []);
 
   // Build unified driver roster from RBAC users with delivery role + any active fleet entries
   const driverRoster: DriverLiveState[] = useMemo(() => {
