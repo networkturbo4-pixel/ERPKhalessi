@@ -1,8 +1,8 @@
 {
-  "buildId": "20261122031932",
-  "builtAt": "2026-11-22T03:19:32.329Z",
-  "commitSha": "4d3d100",
-  "message": "feat(whatsapp): support incoming and outgoing images, stickers, videos, audio, and documents",
+  "buildId": "20261122041004",
+  "builtAt": "2026-11-22T04:10:04.009Z",
+  "commitSha": "e03e890",
+  "message": "fix(inbox): sync incoming WhatsApp webhook messages from server state",
   "totalFiles": 122,
-  "manifestSha256": "ce9dd930849d997c75458b833f7a69c823f6dae1d056e341cf8e0b5170f6aa16"
+  "manifestSha256": "b0fde53a2736d43cd52840a29705c5575c1d548576624b5c75228839ee228552"
 }
