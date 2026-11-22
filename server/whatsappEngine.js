@@ -559,6 +559,16 @@ async function handleWhatsAppRoute(req, res, parsedUrl, pathname, maxBodyBytes, 
           if (creds && creds.appSecret) {
             const sig = String(req.headers['x-hub-signature-256'] || '');
             if (!verifyMetaSignature(rawBuf, sig, creds.appSecret)) {
+              appendLog({
+                direction: 'inbound',
+                channelType: 'webhook',
+                branchId: resolved?.branchId || 'central',
+                toPhone: incomingPhoneNumberId || 'webhook',
+                summary: 'Firma X-Hub-Signature-256 inválida (revisa App Secret)',
+                status: 'failed',
+                errorMessage: 'Invalid X-Hub-Signature-256',
+              });
+              persistState();
               res.writeHead(401, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ ok: false, error: 'Invalid X-Hub-Signature-256' }));
               return true;

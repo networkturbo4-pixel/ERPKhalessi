@@ -497,6 +497,40 @@ export async function syncWhatsAppConfigToServer(params: {
   }
 }
 
+export async function fetchWhatsAppServerState(
+  serverBaseUrl?: string
+): Promise<{ ok: boolean; conversations: WhatsAppConversation[]; logs: WhatsAppDeliveryLog[]; error?: string }> {
+  const endpoint = buildWhatsAppEndpoint(serverBaseUrl, '/api/whatsapp/state');
+  try {
+    const resp = await fetch(endpoint, {
+      method: 'GET',
+      signal: AbortSignal.timeout(10000),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || !data?.ok) {
+      return { ok: false, conversations: [], logs: [], error: data?.error || `HTTP ${resp.status}` };
+    }
+    const conversations: WhatsAppConversation[] = Array.isArray(data.conversations)
+      ? data.conversations.map((c: Partial<WhatsAppConversation>) => ({
+          ...(c as WhatsAppConversation),
+          channel: c.channel || 'whatsapp',
+          tags: Array.isArray(c.tags) ? c.tags : [],
+          cart: Array.isArray(c.cart) ? c.cart : [],
+          messages: Array.isArray(c.messages) ? c.messages : [],
+        }))
+      : [];
+    const logs: WhatsAppDeliveryLog[] = Array.isArray(data.logs) ? data.logs : [];
+    return { ok: true, conversations, logs };
+  } catch (err) {
+    return {
+      ok: false,
+      conversations: [],
+      logs: [],
+      error: err instanceof Error ? err.message : 'No se pudo consultar el estado del servidor',
+    };
+  }
+}
+
 export async function testMetaConnection(
   creds: WhatsAppMetaCredentials,
   serverBaseUrl?: string

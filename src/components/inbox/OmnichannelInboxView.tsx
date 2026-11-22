@@ -98,6 +98,7 @@ import {
   INBOX_QUICK_REPLIES_KEY,
   INBOX_TAGS_KEY,
   WHATSAPP_CONVERSATIONS_KEY,
+  fetchWhatsAppServerState,
   interpolateTemplateText,
   loadInboxNotes,
   loadInboxQuickReplies,
@@ -439,6 +440,74 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
     window.addEventListener('storage', onStorageSync);
     return () => window.removeEventListener('storage', onStorageSync);
   }, []);
+
+  // Sincronización periódica con el servidor Node.js (/api/whatsapp/state) para recibir mensajes entrantes del Webhook de Meta
+  useEffect(() => {
+    let cancelled = false;
+    const syncFromServer = async () => {
+      const res = await fetchWhatsAppServerState(config.realtimeServerUrl);
+      if (cancelled || !res.ok || res.conversations.length === 0) return;
+
+      updateConversations((prev) => {
+        let changed = false;
+        const next = [...prev];
+
+        for (const srv of res.conversations) {
+          const srvPhone = normalizeWhatsAppPhone(srv.customerPhone);
+          const idx = next.findIndex(
+            (c) =>
+              c.id === srv.id ||
+              (c.channel === 'whatsapp' && srvPhone && normalizeWhatsAppPhone(c.customerPhone) === srvPhone)
+          );
+
+          if (idx === -1) {
+            next.unshift({
+              ...srv,
+              channel: 'whatsapp',
+              branchId: srv.branchId || activeTenant.id,
+              tags: Array.isArray(srv.tags) ? srv.tags : [],
+              cart: Array.isArray(srv.cart) ? srv.cart : [],
+            });
+            changed = true;
+            continue;
+          }
+
+          const existing = next[idx];
+          const existingIds = new Set(existing.messages.map((m) => m.id));
+          const incomingMsgs = (srv.messages || []).filter((m) => !existingIds.has(m.id));
+
+          if (incomingMsgs.length > 0) {
+            const mergedMsgs = [...existing.messages, ...incomingMsgs].sort(
+              (a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp)
+            );
+            const newCustomerCount = incomingMsgs.filter((m) => m.sender === 'customer').length;
+            next[idx] = {
+              ...existing,
+              customerName: srv.customerName || existing.customerName,
+              lastMessageAt: srv.lastMessageAt || existing.lastMessageAt,
+              unreadCount: (existing.unreadCount || 0) + newCustomerCount,
+              messages: mergedMsgs,
+            };
+            changed = true;
+          }
+        }
+
+        return changed ? next : prev;
+      });
+    };
+
+    void syncFromServer();
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void syncFromServer();
+      }
+    }, 4000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [config.realtimeServerUrl, activeTenant.id]);
 
   // Filtrado por sucursal + canal + etiqueta + búsqueda
   const branchConversations = useMemo(() => {
