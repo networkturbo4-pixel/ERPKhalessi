@@ -20,7 +20,12 @@ import {
   ComplaintRecord,
   ComplaintStatus,
 } from '../types/settings';
-import { MOCK_USERS, useRBAC } from './RBACContext';
+import {
+  MOCK_USERS,
+  useRBAC,
+  resolveUserDefaultModule,
+  erpModuleToMainModuleId,
+} from './RBACContext';
 import { soundSynth } from '../utils/audio';
 import {
   buildBrandScale,
@@ -972,6 +977,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const lastSerializedPayloadRef = useRef<string>('');
   const lastSerializedComplaintsRef = useRef<string>('');
   const lastSerializedAuditRef = useRef<string>('');
+  const hasMountedSettingsPersistRef = useRef<boolean>(false);
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     try {
@@ -1370,7 +1376,10 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
 
     try {
-      localStorage.setItem('kh_active_main_module', 'dashboard');
+      const targetModule = erpModuleToMainModuleId(
+        resolveUserDefaultModule(updatedLoginUser, roles)
+      );
+      localStorage.setItem('kh_active_main_module', targetModule);
     } catch {
       // ignore
     }
@@ -1436,6 +1445,12 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         activeTab,
       };
       const json = JSON.stringify(payload);
+      // En el primer montaje solo memorizar el estado inicial sin disparar escrituras sobre el servidor
+      if (!hasMountedSettingsPersistRef.current) {
+        hasMountedSettingsPersistRef.current = true;
+        lastSerializedPayloadRef.current = json;
+        return;
+      }
       if (lastSerializedPayloadRef.current === json) {
         return;
       }

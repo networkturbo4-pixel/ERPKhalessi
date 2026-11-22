@@ -259,6 +259,7 @@ export interface User {
   pin: string; // 8 digits (DNI / CE primary), 6 digits, or 4 digits
   documentType?: 'DNI (8d)' | 'CE (8d)' | 'Código (6d)' | 'PIN (4d)';
   branchIds?: string[]; // ['all'] or specific tenant IDs
+  defaultModule?: ErpModuleKey;
   createdAt: string;
   lastLogin?: string;
 }
@@ -304,6 +305,7 @@ export interface Role {
   name: string;
   description: string;
   isSystem: boolean;
+  defaultModule?: ErpModuleKey;
   permissions: string[];
 }
 

@@ -4,12 +4,18 @@ import './index.css'
 import App, { preloadInitialRouteChunk } from './App.tsx'
 import { installStorageInterceptor, initDiskPersistence } from './utils/diskPersistence'
 import { registerServiceWorker } from './utils/pwaManager'
+import { installServerApiBridge, isInboxAppMode, isNativeCapacitor } from './utils/serverUrl'
+
+// 0. Enrutar /api y /realtime al servidor remoto cuando corre como APK / modo Bandeja
+installServerApiBridge()
 
 // 1. Conectar sincrónicamente el interceptor de almacenamiento ANTES de montar React
 installStorageInterceptor()
 
-// 2. Registrar Service Worker para PWA instalable y notificaciones
-void registerServiceWorker()
+// 2. Registrar Service Worker para PWA instalable y notificaciones (solo web, no dentro de APK)
+if (!isNativeCapacitor()) {
+  void registerServiceWorker()
+}
 
 // 2. Iniciar en paralelo la precarga del chunk de la vista activa para cero cascada de red
 preloadInitialRouteChunk()
@@ -20,7 +26,7 @@ function resolveHeroPreloadUrl(): string {
   try {
     const path = window.location.pathname || '/'
     const hash = window.location.hash || ''
-    if (path.startsWith('/admin') || path.startsWith('/kiosco') || path.startsWith('/p/') || hash.startsWith('#admin') || hash.startsWith('#kiosco')) {
+    if (isInboxAppMode() || path.startsWith('/admin') || path.startsWith('/kiosco') || path.startsWith('/p/') || hash.startsWith('#admin') || hash.startsWith('#kiosco')) {
       return ''
     }
     const raw = localStorage.getItem('kh_store_builder_v2')
@@ -82,12 +88,21 @@ function preloadHeroLcpImage(url: string, maxWaitMs: number): Promise<void> {
 
 async function bootstrap() {
   const hasCachedState = Boolean(localStorage.getItem('gastro_erp_settings_v3'))
+  let forceServerHydration = false
+  try {
+    if (sessionStorage.getItem('kh_force_server_hydration') === '1') {
+      forceServerHydration = true
+      sessionStorage.removeItem('kh_force_server_hydration')
+    }
+  } catch {
+    // ignore sessionStorage restrictions
+  }
 
-  if (!hasCachedState) {
-    // Primera visita en un dispositivo nuevo: hidratar desde el servidor (máx 3000ms) mientras se muestra el splash de marca
+  if (!hasCachedState || forceServerHydration) {
+    // Primera visita o recarga tras actualización del sistema: hidratar desde MySQL ANTES de montar React
     await Promise.race([
       initDiskPersistence(),
-      new Promise<void>(resolve => setTimeout(resolve, 3000)),
+      new Promise<void>(resolve => setTimeout(resolve, forceServerHydration ? 4000 : 3000)),
     ])
     // Precargar la imagen Hero LCP antes de quitar el splash para evitar recuadros grises vacíos
     const heroUrl = resolveHeroPreloadUrl()

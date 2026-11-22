@@ -142,6 +142,12 @@ html,
 body {
   max-width: 100%;
   overflow-x: clip;
+  overscroll-behavior: none;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -152,8 +158,33 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-  -webkit-tap-highlight-color: transparent;
-  overscroll-behavior-y: contain;
+}
+
+/* Mobile-native: prevent iOS Safari auto-zoom on focus (<16px) on touch devices */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+}
+
+/* Mobile-native: eliminate 300ms tap delay & prevent long-press text selection on controls */
+button,
+a,
+[role="button"],
+.tappable {
+  touch-action: manipulation;
+}
+
+button,
+[role="button"],
+.tab,
+.chip,
+.drag-handle {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -220,6 +251,8 @@ dialog:modal {
   gap: 0.375rem;
   overflow-x: auto;
   scroll-snap-type: x proximity;
+  touch-action: pan-y;
+  overscroll-behavior-x: contain;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -229,6 +262,16 @@ dialog:modal {
 .erp-pill-tabs > * {
   scroll-snap-align: start;
   flex-shrink: 0;
+}
+
+.no-scrollbar {
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 dialog:modal.modal-wide,
@@ -284,26 +327,26 @@ dialog::backdrop {
     background-color: var(--erp-subcard-bg);
     border-color: var(--erp-border-subtle);
     border-radius: var(--erp-radius-control);
-    @apply border text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100/90 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-500 transition-all;
+    @apply border text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100/90 dark:hover:bg-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-500 active:scale-[0.98] transition-all duration-100 ease-out;
   }
 
   .saas-option-active {
     border-radius: var(--erp-radius-control);
-    @apply border border-brand-500 dark:border-brand-400 bg-brand-500/10 dark:bg-brand-500/15 text-zinc-950 dark:text-white ring-1 ring-brand-500/40 dark:ring-brand-400/50 transition-all;
+    @apply border border-brand-500 dark:border-brand-400 bg-brand-500/10 dark:bg-brand-500/15 text-zinc-950 dark:text-white ring-1 ring-brand-500/40 dark:ring-brand-400/50 active:scale-[0.98] transition-all duration-100 ease-out;
   }
 
   .saas-btn-secondary {
     background-color: var(--erp-subcard-bg);
     border-color: var(--erp-border-strong);
     border-radius: var(--erp-radius-control);
-    @apply border text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors whitespace-nowrap;
+    @apply border text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-500 active:scale-[0.97] transition-all duration-100 ease-out whitespace-nowrap;
   }
 
   .saas-btn-primary {
     background-color: var(--brand-500, #f97316);
     color: var(--brand-foreground, #ffffff);
     border-radius: var(--erp-radius-control);
-    @apply font-semibold shadow-sm transition-all hover:opacity-95 disabled:opacity-50 whitespace-nowrap;
+    @apply font-semibold shadow-sm transition-all duration-100 ease-out hover:opacity-95 active:scale-[0.97] disabled:opacity-50 whitespace-nowrap;
   }
 }
 

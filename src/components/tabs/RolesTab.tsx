@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useRBAC, ErpModuleMeta } from '../../context/RBACContext';
 import { useSettings } from '../../context/SettingsContext';
 import { PermissionGate } from '../common/PermissionGate';
-import { PermissionActionType, Role } from '../../types/settings';
+import { PermissionActionType, Role, ErpModuleKey } from '../../types/settings';
 import {
   ShieldCheck,
   Plus,
@@ -519,24 +519,52 @@ export const RolesTab: React.FC = () => {
                 </div>
               </div>
 
-              {/* Compact Stats Strip */}
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 pt-3 border-t border-erp-border text-xs text-erp-muted">
-                <span>
-                  <strong className="text-erp-text font-semibold">{activeApartadosCount}/4</strong>{' '}
-                  apartados completos
-                </span>
-                <span>
-                  <strong className="text-erp-text font-semibold">
-                    {activeModulesCount}/{modulesCatalog.length}
-                  </strong>{' '}
-                  módulos activos
-                </span>
-                <span>
-                  <strong className="text-erp-text font-semibold">
-                    {usersCountByRole[selectedRole.id] || 0}
-                  </strong>{' '}
-                  usuario(s) asignados
-                </span>
+              {/* Compact Stats Strip + Default Module */}
+              <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2 pt-3 border-t border-erp-border text-xs text-erp-muted">
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+                  <span>
+                    <strong className="text-erp-text font-semibold">{activeApartadosCount}/4</strong>{' '}
+                    apartados completos
+                  </span>
+                  <span>
+                    <strong className="text-erp-text font-semibold">
+                      {activeModulesCount}/{modulesCatalog.length}
+                    </strong>{' '}
+                    módulos activos
+                  </span>
+                  <span>
+                    <strong className="text-erp-text font-semibold">
+                      {usersCountByRole[selectedRole.id] || 0}
+                    </strong>{' '}
+                    usuario(s) asignados
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-erp-muted">
+                    Apartado inicial:
+                  </span>
+                  <select
+                    disabled={isLockedRole}
+                    value={selectedRole.defaultModule || ''}
+                    onChange={e => {
+                      const nextMod = (e.target.value as ErpModuleKey) || undefined;
+                      setRoles(prev =>
+                        prev.map(r =>
+                          r.id === selectedRole.id ? { ...r, defaultModule: nextMod } : r
+                        )
+                      );
+                    }}
+                    className="px-2.5 py-1 text-xs rounded-lg saas-input disabled:opacity-60"
+                  >
+                    <option value="">Automático (prioridad por permisos)</option>
+                    {modulesCatalog.map(mod => (
+                      <option key={mod.key} value={mod.key}>
+                        {mod.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               {isLockedRole && (

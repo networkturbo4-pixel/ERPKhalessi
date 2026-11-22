@@ -967,6 +967,25 @@ function diskStoragePlugin(): Plugin {
             return
           }
 
+          if (action === 'backup' && req.method === 'POST') {
+            res.setHeader('Content-Type', 'application/json; charset=utf-8')
+            res.statusCode = 200
+            res.end(
+              JSON.stringify({
+                success: true,
+                backup: {
+                  id: Date.now(),
+                  label: 'manual-dev',
+                  build_id: localVersion.buildId,
+                  keys_count: fs.existsSync(storageDir) ? fs.readdirSync(storageDir).filter(f => f.endsWith('.json')).length : 0,
+                  created_at: new Date().toISOString(),
+                },
+                message: 'Respaldo verificado en almacenamiento local de desarrollo.',
+              })
+            )
+            return
+          }
+
           if (action === 'deploy' && req.method === 'POST') {
             res.setHeader('Content-Type', 'application/json; charset=utf-8')
             res.statusCode = 200

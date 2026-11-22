@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { useRBAC } from '../../context/RBACContext';
 import { PermissionGate } from '../common/PermissionGate';
-import { User } from '../../types/settings';
+import { User, ErpModuleKey } from '../../types/settings';
 import {
   Users,
   Search,
@@ -36,7 +36,7 @@ export const UsersTab: React.FC = () => {
     openNoticeModal,
     dispatchToast,
   } = useSettings();
-  const { roles, currentUser, setCurrentUser } = useRBAC();
+  const { roles, currentUser, setCurrentUser, modulesCatalog } = useRBAC();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended'>('all');
@@ -68,6 +68,7 @@ export const UsersTab: React.FC = () => {
     pin: '',
     documentType: 'DNI (8d)' as User['documentType'],
     branchId: activeTenant.id,
+    defaultModule: '' as ErpModuleKey | '',
   });
 
   const filteredUsers = users.filter(u => {
@@ -142,6 +143,7 @@ export const UsersTab: React.FC = () => {
           ? 'Código (6d)'
           : 'PIN (4d)',
       branchIds: formData.branchId === 'all' ? ['all'] : [formData.branchId],
+      defaultModule: formData.defaultModule || undefined,
     });
     setIsCreateOpen(false);
     setFormData({
@@ -154,6 +156,7 @@ export const UsersTab: React.FC = () => {
       pin: '',
       documentType: 'DNI (8d)',
       branchId: activeTenant.id,
+      defaultModule: '',
     });
   };
 
@@ -591,6 +594,29 @@ export const UsersTab: React.FC = () => {
                     </select>
                   </div>
 
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase mb-1">
+                      Apartado de Inicio (APK / Login)
+                    </label>
+                    <select
+                      value={formData.defaultModule}
+                      onChange={e =>
+                        setFormData({
+                          ...formData,
+                          defaultModule: (e.target.value as ErpModuleKey) || '',
+                        })
+                      }
+                      className="w-full px-3 py-2 text-xs rounded-lg saas-input"
+                    >
+                      <option value="">Automático (según rol / permisos)</option>
+                      {modulesCatalog.map(mod => (
+                        <option key={mod.key} value={mod.key}>
+                          {mod.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div className="sm:col-span-2 space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase">
@@ -817,6 +843,29 @@ export const UsersTab: React.FC = () => {
                       {roles.map(r => (
                         <option key={r.id} value={r.id}>
                           {r.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 uppercase mb-1">
+                      Apartado de Inicio (APK / Login)
+                    </label>
+                    <select
+                      value={editingUser.defaultModule || ''}
+                      onChange={e =>
+                        setEditingUser({
+                          ...editingUser,
+                          defaultModule: (e.target.value as ErpModuleKey) || undefined,
+                        })
+                      }
+                      className="w-full px-3 py-2 text-xs rounded-lg saas-input"
+                    >
+                      <option value="">Automático (según rol / permisos)</option>
+                      {modulesCatalog.map(mod => (
+                        <option key={mod.key} value={mod.key}>
+                          {mod.label}
                         </option>
                       ))}
                     </select>

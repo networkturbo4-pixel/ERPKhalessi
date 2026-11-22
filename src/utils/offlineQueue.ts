@@ -3,6 +3,7 @@ export interface OfflineQueueItem {
   type: 'storage_put' | 'order_create';
   key: string;
   payload: string;
+  baseRev?: number;
   createdAt: string;
   attempts: number;
   lastError?: string;
@@ -190,13 +191,20 @@ async function updateQueueItemAttempt(item: OfflineQueueItem, errMsg: string): P
   });
 }
 
+export interface FlushOfflineOptions {
+  getServerRev?: (key: string) => number | undefined;
+  onSynced?: (key: string, newRev?: number) => void;
+  onConflict?: (key: string, serverData: string, serverRev: number) => void;
+}
+
 /**
  * Flushes queued storage/order mutations from IndexedDB to /api/storage/{key}.
  * Returns the number of successfully synced items.
  */
 export async function flushOfflineQueue(
   getAuthHeadersFn?: () => Record<string, string>,
-  clientId?: string
+  clientId?: string,
+  options?: FlushOfflineOptions
 ): Promise<number> {
   if (flushInProgress) return 0;
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -227,33 +235,70 @@ export async function flushOfflineQueue(
         continue;
       }
 
+      // Si ya sabemos que el servidor tiene una revisión más reciente, descartar entrada obsoleta sin pisar el servidor
+      const knownServerRev = options?.getServerRev?.(item.key);
+      if (
+        item.key !== 'kh_orders_list' &&
+        item.key !== 'kh_whatsapp_conversations_v1' &&
+        typeof item.baseRev === 'number' &&
+        typeof knownServerRev === 'number' &&
+        knownServerRev > item.baseRev
+      ) {
+        await removeQueueItem(item.id);
+        continue;
+      }
+
       try {
-        const res = await fetch(`/api/storage/${encodeURIComponent(item.key)}`, {
+        const bodyPayload: Record<string, unknown> = { data: item.payload };
+        if (typeof item.baseRev === 'number') {
+          bodyPayload.baseRev = item.baseRev;
+        }
+        const serializedBody = JSON.stringify(bodyPayload);
+
+        let res = await fetch(`/api/storage/${encodeURIComponent(item.key)}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             ...(clientId ? { 'x-client-id': clientId } : {}),
             ...(getAuthHeadersFn ? getAuthHeadersFn() : {}),
           },
-          body: JSON.stringify({ data: item.payload }),
+          body: serializedBody,
         });
 
-        if (!res.ok && res.status !== 401) {
-          throw new Error(`HTTP ${res.status}`);
-        }
         if (res.status === 401) {
           // Retry once without auth header for public writable keys
-          const retry = await fetch(`/api/storage/${encodeURIComponent(item.key)}`, {
+          res = await fetch(`/api/storage/${encodeURIComponent(item.key)}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               ...(clientId ? { 'x-client-id': clientId } : {}),
             },
-            body: JSON.stringify({ data: item.payload }),
+            body: serializedBody,
           });
-          if (!retry.ok) throw new Error(`HTTP ${retry.status}`);
         }
 
+        if (res.status === 409) {
+          // El servidor tiene datos más recientes: descartar mutación vieja y adoptar datos vigentes
+          const conflictBody = await res.json().catch(() => null);
+          if (conflictBody && typeof conflictBody.data === 'string') {
+            options?.onConflict?.(item.key, conflictBody.data, Number(conflictBody.rev || 0));
+          }
+          await removeQueueItem(item.id);
+          continue;
+        }
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const okBody = await res.json().catch(() => null);
+        if (okBody?.ignored) {
+          // Si el servidor ignoró por falta de token, no reintentar eternamente si ya es vieja
+          await updateQueueItemAttempt(item, String(okBody.reason || 'server_ignored'));
+          continue;
+        }
+
+        options?.onSynced?.(item.key, typeof okBody?.rev === 'number' ? okBody.rev : undefined);
         await removeQueueItem(item.id);
         synced++;
       } catch (err) {
@@ -278,22 +323,21 @@ export async function flushOfflineQueue(
 
 export function initOfflineQueueListeners(
   getAuthHeadersFn?: () => Record<string, string>,
-  clientId?: string
+  clientId?: string,
+  options?: FlushOfflineOptions
 ): void {
   if (typeof window === 'undefined' || initialized) return;
   initialized = true;
 
   currentStatus.isOnline = navigator.onLine;
-  void refreshPendingCount().then((count) => {
-    if (count > 0 && navigator.onLine) {
-      void flushOfflineQueue(getAuthHeadersFn, clientId);
-    }
-  });
+  // Solo consultar el conteo al iniciar; el flush se ejecuta DESPUÉS de reconcileFromServer()
+  // para nunca sobrescribir el servidor con snapshots viejos guardados en IndexedDB.
+  void refreshPendingCount();
 
   window.addEventListener('online', () => {
     currentStatus.isOnline = true;
     notifyListeners();
-    void flushOfflineQueue(getAuthHeadersFn, clientId);
+    void flushOfflineQueue(getAuthHeadersFn, clientId, options);
   });
 
   window.addEventListener('offline', () => {

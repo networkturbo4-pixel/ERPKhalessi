@@ -162,6 +162,7 @@ export const INITIAL_ROLES: Role[] = [
     name: 'Super Administrador',
     description: 'Control corporativo total sobre todas las sucursales, finanzas, Design System y seguridad RBAC.',
     isSystem: true,
+    defaultModule: 'dashboard',
     permissions: SYSTEM_PERMISSIONS.map(p => p.code),
   },
   {
@@ -169,6 +170,7 @@ export const INITIAL_ROLES: Role[] = [
     name: 'Gerente de Sucursal',
     description: 'Dirige la operación integral de su local: turnos, inventario, compras menores, caja y KDS.',
     isSystem: false,
+    defaultModule: 'dashboard',
     permissions: [
       'dashboard:view', 'dashboard:export',
       'pos:view', 'pos:create', 'pos:edit', 'pos:delete', 'pos:cash_close',
@@ -195,6 +197,7 @@ export const INITIAL_ROLES: Role[] = [
     name: 'Cajero POS & Mostrador',
     description: 'Atención ágil en mostrador, cobros Yape/Plin/Tarjeta, salón y despacho delivery.',
     isSystem: false,
+    defaultModule: 'pos',
     permissions: [
       'dashboard:view',
       'pos:view', 'pos:create', 'pos:edit', 'pos:cash_close',
@@ -211,6 +214,7 @@ export const INITIAL_ROLES: Role[] = [
     name: 'Maestro Pizzero / Jefe KDS',
     description: 'Gestión de hornos de piedra, pantallas KDS, control de masa madre y registro de mermas.',
     isSystem: false,
+    defaultModule: 'kds',
     permissions: [
       'kds:view', 'kds:edit', 'kds:priority',
       'services:view',
@@ -223,6 +227,7 @@ export const INITIAL_ROLES: Role[] = [
     name: 'Motorizado & Despacho Delivery',
     description: 'Recepción de pedidos listos de cocina, ruta en vivo, contacto WhatsApp/Maps y confirmación de entrega.',
     isSystem: false,
+    defaultModule: 'delivery',
     permissions: [
       'delivery:view', 'delivery:create', 'delivery:edit',
       'workspace:access',
@@ -362,6 +367,73 @@ function loadSavedRBAC(): { roles: Role[]; currentUser: User } {
   }
 }
 
+export const DEFAULT_MODULE_PRIORITY: ErpModuleKey[] = [
+  'dashboard',
+  'pos',
+  'inbox',
+  'delivery',
+  'kds',
+  'orders',
+  'tables',
+  'kiosk',
+  'clients',
+  'inventory',
+  'finances',
+  'billing',
+  'services',
+  'hr',
+  'marketing',
+  'benefits',
+  'whatsapp',
+  'media',
+  'pages',
+  'purchases',
+  'quotes',
+  'workspace',
+  'settings',
+];
+
+export function hasModuleAccess(role: Role | undefined, moduleKey: ErpModuleKey): boolean {
+  if (!role) return false;
+  if (role.id === 'role-admin') return true;
+  const modulePerms = SYSTEM_PERMISSIONS.filter(p => p.module === moduleKey).map(p => p.code);
+  if (modulePerms.length === 0) return false;
+  return modulePerms.some(code => role.permissions.includes(code));
+}
+
+export function resolveUserDefaultModule(user: User, roles: Role[]): ErpModuleKey {
+  const role = roles.find(r => r.id === user.roleId);
+  if (user.defaultModule && hasModuleAccess(role, user.defaultModule)) {
+    return user.defaultModule;
+  }
+  if (role?.defaultModule && hasModuleAccess(role, role.defaultModule)) {
+    return role.defaultModule;
+  }
+  const firstPermitted = DEFAULT_MODULE_PRIORITY.find(mod => hasModuleAccess(role, mod));
+  return firstPermitted || 'dashboard';
+}
+
+export function erpModuleToMainModuleId(moduleKey: ErpModuleKey): string {
+  switch (moduleKey) {
+    case 'kds':
+      return 'kitchen';
+    case 'finances':
+      return 'finance';
+    case 'services':
+      return 'products';
+    case 'tables':
+      return 'pos';
+    case 'purchases':
+      return 'inventory';
+    case 'quotes':
+      return 'orders';
+    case 'workspace':
+      return 'settings';
+    default:
+      return moduleKey;
+  }
+}
+
 interface RBACContextType {
   currentUser: User;
   setCurrentUser: (user: User) => void;
@@ -371,6 +443,7 @@ interface RBACContextType {
   modulesCatalog: ErpModuleMeta[];
   hasPermission: (permissionCode: string) => boolean;
   canEditRole: (targetRoleId: string) => { allowed: boolean; reason?: string };
+  resolvedDefaultModule: ErpModuleKey;
 }
 
 const RBACContext = createContext<RBACContextType | undefined>(undefined);
@@ -401,6 +474,7 @@ export const RBACProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const currentRole = roles.find(r => r.id === currentUser.roleId);
+  const resolvedDefaultModule = resolveUserDefaultModule(currentUser, roles);
 
   const hasPermission = (permissionCode: string): boolean => {
     if (!currentRole) return false;
@@ -429,6 +503,7 @@ export const RBACProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         modulesCatalog: ERP_MODULES_CATALOG,
         hasPermission,
         canEditRole,
+        resolvedDefaultModule,
       }}
     >
       {children}

@@ -362,6 +362,8 @@ export interface Order {
   deliveryAddress?: string;
   deliveryReference?: string;
   deliveryDistanceKm?: number;
+  deliveryLat?: number;
+  deliveryLng?: number;
   tableId?: string;
   tableNumber?: string;
   paymentMethod: PaymentMethod;

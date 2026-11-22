@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { RBACProvider } from './context/RBACContext';
+import { RBACProvider, useRBAC } from './context/RBACContext';
 import { SettingsProvider, useSettings } from './context/SettingsContext';
 import { OrderCatalogProvider } from './context/OrderCatalogContext';
 import { StoreBuilderProvider } from './context/StoreBuilderContext';
@@ -10,6 +10,7 @@ import { MediaGalleryProvider } from './context/MediaGalleryContext';
 import { BrandBootSplash } from './components/common/AppSurfaceSkeleton';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { clearLocalCacheKey } from './utils/diskPersistence';
+import { isInboxAppMode } from './utils/serverUrl';
 
 const loadMainLayout = () =>
   import('./components/MainLayout').then(m => ({ default: m.MainLayout }));
@@ -35,6 +36,8 @@ const loadInstallerWizardView = () =>
   }));
 const loadHRProvider = () =>
   import('./context/HRContext').then(m => ({ default: m.HRProvider }));
+const loadInboxAppView = () =>
+  import('./components/inbox/InboxAppView').then(m => ({ default: m.InboxAppView }));
 
 const MainLayout = lazy(loadMainLayout);
 const LoginScreen = lazy(loadLoginScreen);
@@ -46,6 +49,7 @@ const JobsLandingView = lazy(loadJobsLandingView);
 const ReservationsLandingView = lazy(loadReservationsLandingView);
 const InstallerWizardView = lazy(loadInstallerWizardView);
 const LazyHRProvider = lazy(loadHRProvider);
+const InboxAppView = lazy(loadInboxAppView);
 
 /**
  * Dispara en paralelo la descarga del chunk JS correspondiente a la ruta inicial
@@ -55,6 +59,12 @@ export function preloadInitialRouteChunk(): void {
   if (typeof window === 'undefined') return;
   const path = window.location.pathname || '/';
   const hash = window.location.hash || '';
+
+  if (isInboxAppMode()) {
+    void loadHRProvider();
+    void loadInboxAppView();
+    return;
+  }
 
   if (path.startsWith('/install') || hash.startsWith('#install')) {
     void loadInstallerWizardView();
@@ -117,6 +127,32 @@ const AppGate: React.FC<AppGateProps> = ({ onNavigateToStore, onNavigateToKiosk 
   );
 };
 
+/**
+ * Puerta de entrada unificada para la APK nativa / ruta /inbox-app:
+ * - Si no hay sesión, muestra InboxAppView (que incluye conexión de servidor y login).
+ * - Si el usuario autenticado tiene defaultModule === 'inbox', abre InboxAppView.
+ * - Para cualquier otro rol (Motorizado -> delivery, Caja -> pos, Cocina -> kds, Admin -> dashboard),
+ *   abre MainLayout directamente en su apartado asignado.
+ */
+const NativeAppGate: React.FC<AppGateProps> = ({ onNavigateToStore, onNavigateToKiosk }) => {
+  const { isAuthenticated } = useSettings();
+  const { resolvedDefaultModule } = useRBAC();
+  const openInboxOnly = !isAuthenticated || resolvedDefaultModule === 'inbox';
+
+  return (
+    <LazyHRProvider>
+      {openInboxOnly ? (
+        <InboxAppView />
+      ) : (
+        <MainLayout
+          onNavigateToStore={onNavigateToStore}
+          onNavigateToKiosk={onNavigateToKiosk}
+        />
+      )}
+    </LazyHRProvider>
+  );
+};
+
 export function App() {
   const [currentPath, setCurrentPath] = useState<string>(() => {
     if (typeof window !== 'undefined') {
@@ -141,6 +177,11 @@ export function App() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
+
+  const isInboxRoute =
+    isInboxAppMode() ||
+    currentPath.startsWith('/inbox-app') ||
+    (typeof window !== 'undefined' && window.location.hash.startsWith('#inbox-app'));
 
   const isInstallRoute =
     currentPath.startsWith('/install') ||
@@ -230,7 +271,12 @@ export function App() {
                   <BenefitsProvider>
                     <StoreBuilderProvider>
                       <Suspense fallback={<BrandBootSplash pathname={currentPath} />}>
-                        {isKioskRoute ? (
+                        {isInboxRoute ? (
+                          <NativeAppGate
+                            onNavigateToStore={() => navigate('/')}
+                            onNavigateToKiosk={() => navigate('/kiosco')}
+                          />
+                        ) : isKioskRoute ? (
                           <KioskSelfServiceView
                             embeddedInAdmin={false}
                             onExitToAdmin={() => navigate('/admin')}

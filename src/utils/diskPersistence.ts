@@ -45,6 +45,7 @@ const SERVER_SYNC_KEYS = [
   'kh_customers_crm_v1',
   'kh_store_customer_accounts_v1',
   'gastro_delivery_fuel_v1',
+  'kh_driver_fleet_v1',
   'gastro_erp_finance_expenses_v1',
   'gastro_erp_cash_closings_v1',
   'kh_inv_audits_v1',
@@ -232,7 +233,8 @@ export async function authenticateAndHydrateServer(pin: string): Promise<{
       headers: { 'x-erp-token': body.token },
     });
     if (storageRes.ok && (storageRes.headers.get('content-type') || '').includes('json')) {
-      const records: Record<string, string> = await storageRes.json();
+      const records: Record<string, unknown> = await storageRes.json();
+      recordServerRevs(records.__revs);
       settingsHasUnhydratedSensitiveFields = false;
       for (const [key, rawValue] of Object.entries(records)) {
         if (typeof rawValue === 'string' && isSharedKey(key)) {
@@ -272,10 +274,64 @@ let originalSetItemFn: ((key: string, value: string) => void) | null = null;
 let originalRemoveItemFn: ((key: string) => void) | null = null;
 
 const memoryMirror = new Map<string, string>();
+const serverRevisions = new Map<string, number>();
 const inFlightWrites = new Map<string, number>();
 const lastLocalWriteAt = new Map<string, number>();
 const failedSyncValues = new Map<string, { action: 'set'; value: string } | { action: 'remove' }>();
 const writeChains = new Map<string, Promise<void>>();
+
+export function isInitialReconcileCompleted(): boolean {
+  return initialReconcileCompleted;
+}
+
+function recordServerRevs(rawRevs: unknown): void {
+  if (!rawRevs || typeof rawRevs !== 'object') return;
+  for (const [k, v] of Object.entries(rawRevs as Record<string, unknown>)) {
+    if (typeof v === 'number' && Number.isFinite(v) && v >= 0) {
+      serverRevisions.set(k, v);
+    }
+  }
+}
+
+function mergePublicSettingsValue(remoteJson: string): string {
+  try {
+    const remote = JSON.parse(remoteJson);
+    if (!remote || !remote.__public) {
+      settingsHasUnhydratedSensitiveFields = false;
+      return remoteJson;
+    }
+    delete remote.__public;
+    const local = JSON.parse(memoryMirror.get(SETTINGS_KEY) ?? originalGetItemFn?.(SETTINGS_KEY) ?? '{}');
+    const localHasUsers = Array.isArray(local?.users) && local.users.length > 0 && !settingsHasUnhydratedSensitiveFields;
+    if (!localHasUsers) {
+      settingsHasUnhydratedSensitiveFields = true;
+    }
+    const merged = { ...local, ...remote };
+    for (const k of ['activeTenantId', 'branchScope', 'activeTab']) {
+      if (local[k] !== undefined) merged[k] = local[k];
+    }
+    return JSON.stringify(merged);
+  } catch {
+    return remoteJson;
+  }
+}
+
+const offlineFlushOptions = {
+  getServerRev: (key: string) => serverRevisions.get(key),
+  onSynced: (key: string, newRev?: number) => {
+    if (typeof newRev === 'number' && Number.isFinite(newRev)) {
+      serverRevisions.set(key, newRev);
+    }
+  },
+  onConflict: (key: string, serverData: string, serverRev: number) => {
+    if (Number.isFinite(serverRev) && serverRev > 0) {
+      serverRevisions.set(key, serverRev);
+    }
+    failedSyncValues.delete(key);
+    const nextVal = key === SETTINGS_KEY ? mergePublicSettingsValue(serverData) : serverData;
+    applyRemoteUpdate(key, nextVal, true);
+  },
+};
 
 function cacheBrandSplashAssets(settingsJson: string): void {
   if (!originalSetItemFn) return;
@@ -520,7 +576,12 @@ function enqueueServerSync(
         }
 
         if (op.action === 'set') {
-          const payloadBody = JSON.stringify({ data: op.value });
+          const baseRev = serverRevisions.get(key);
+          const payloadObj: Record<string, unknown> = { data: op.value };
+          if (typeof baseRev === 'number') {
+            payloadObj.baseRev = baseRev;
+          }
+          const payloadBody = JSON.stringify(payloadObj);
           const doPost = (includeAuth: boolean) =>
             fetch(`/api/storage/${encodeURIComponent(key)}`, {
               method: 'POST',
@@ -556,9 +617,27 @@ function enqueueServerSync(
             }
           }
 
+          if (res.status === 409) {
+            // El servidor tiene una revisión más nueva: conservar servidor y actualizar vista local
+            const conflictJson = await res.json().catch(() => null);
+            failedSyncValues.delete(key);
+            if (conflictJson && typeof conflictJson.rev === 'number') {
+              serverRevisions.set(key, conflictJson.rev);
+            }
+            if (conflictJson && typeof conflictJson.data === 'string') {
+              const nextVal = key === SETTINGS_KEY ? mergePublicSettingsValue(conflictJson.data) : conflictJson.data;
+              applyRemoteUpdate(key, nextVal, true);
+            }
+            console.warn(`[Storage] Conflict (409) on "${key}": preserved newer server data.`);
+            return;
+          }
+
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
           const resJson = await res.json().catch(() => null);
+          if (typeof resJson?.rev === 'number' && Number.isFinite(resJson.rev)) {
+            serverRevisions.set(key, resJson.rev);
+          }
           if (memoryMirror.get(key) === op.value) {
             failedSyncValues.delete(key);
           }
@@ -573,6 +652,9 @@ function enqueueServerSync(
                 const retry = await doPost(true);
                 const retryJson = retry.ok ? await retry.json().catch(() => null) : null;
                 if (retry.ok && !retryJson?.ignored) {
+                  if (typeof retryJson?.rev === 'number' && Number.isFinite(retryJson.rev)) {
+                    serverRevisions.set(key, retryJson.rev);
+                  }
                   if (memoryMirror.get(key) === op.value) failedSyncValues.delete(key);
                   return;
                 }
@@ -599,6 +681,7 @@ function enqueueServerSync(
             keepalive: true,
           });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          serverRevisions.delete(key);
           if (!memoryMirror.has(key)) {
             failedSyncValues.delete(key);
           }
@@ -612,6 +695,7 @@ function enqueueServerSync(
             type: 'storage_put',
             key,
             payload: op.value,
+            baseRev: serverRevisions.get(key),
           });
         }
       } finally {
@@ -667,9 +751,6 @@ export function installStorageInterceptor(): void {
     const prev = memoryMirror.get(key);
     if (prev === value) return;
 
-    const hadPriorValue =
-      memoryMirror.has(key) || (originalGetItemFn ? originalGetItemFn(key) !== null : false);
-
     memoryMirror.set(key, value);
     if (key === SETTINGS_KEY) {
       cacheBrandSplashAssets(value);
@@ -678,9 +759,9 @@ export function installStorageInterceptor(): void {
     writeLocalWithQuotaFallback(key, value, true);
 
     if (isSharedKey(key)) {
-      // Nunca sobreescribir el servidor con defaults de montaje antes de hidratar,
-      // ni con usuarios/credenciales de respaldo cuando settings solo se hidrató en modo público fuera del panel admin.
-      if (!initialReconcileCompleted && !hadPriorValue && !PUBLIC_WRITABLE_KEYS.has(key)) {
+      // NUNCA sobreescribir el servidor antes de completar la hidratación inicial desde MySQL,
+      // incluso si el navegador ya tenía datos viejos en localStorage (evita pérdida de datos al actualizar).
+      if (!initialReconcileCompleted) {
         return;
       }
       const isAuthenticatedAdmin =
@@ -702,13 +783,16 @@ export function installStorageInterceptor(): void {
     }
 
     if (isSharedKey(key)) {
+      if (!initialReconcileCompleted) {
+        return;
+      }
       enqueueServerSync(key, { action: 'remove' });
     }
   };
 }
 
 export function syncPendingOfflineQueue(): Promise<number> {
-  return flushOfflineQueue(getAuthHeaders, CLIENT_ID);
+  return flushOfflineQueue(getAuthHeaders, CLIENT_ID, offlineFlushOptions);
 }
 
 /** Limpia únicamente la caché local del navegador sin enviar DELETE al servidor. */
@@ -773,7 +857,12 @@ export async function forcePersistKeyToServer(
           await authenticateServer(cleanPin);
         }
 
-        const payloadBody = JSON.stringify({ data: value });
+        const baseRev = serverRevisions.get(key);
+        const payloadObj: Record<string, unknown> = { data: value, force: true };
+        if (typeof baseRev === 'number') {
+          payloadObj.baseRev = baseRev;
+        }
+        const payloadBody = JSON.stringify(payloadObj);
         const doPost = (includeAuth: boolean) =>
           fetch(`/api/storage/${encodeURIComponent(key)}`, {
             method: 'POST',
@@ -829,6 +918,9 @@ export async function forcePersistKeyToServer(
           return;
         }
 
+        if (typeof resJson?.rev === 'number' && Number.isFinite(resJson.rev)) {
+          serverRevisions.set(key, resJson.rev);
+        }
         if (memoryMirror.get(key) === value) {
           failedSyncValues.delete(key);
         }
@@ -842,6 +934,7 @@ export async function forcePersistKeyToServer(
           type: 'storage_put',
           key,
           payload: value,
+          baseRev: serverRevisions.get(key),
         });
         result = {
           ok: true,
@@ -867,13 +960,14 @@ export async function initDiskPersistence(): Promise<void> {
   if (typeof window === 'undefined' || persistenceStarted) return;
   persistenceStarted = true;
   installStorageInterceptor();
-  initOfflineQueueListeners(getAuthHeaders, CLIENT_ID);
+  initOfflineQueueListeners(getAuthHeaders, CLIENT_ID, offlineFlushOptions);
 
-  // Hydrate any overflow/IDB-preferred keys persisted in IndexedDB
+  // Hydrate any overflow/IDB-preferred keys persisted in IndexedDB (solo lectura local, sin subir al servidor)
   try {
     const snapshots = await getAllOfflineSnapshots();
     for (const snap of snapshots) {
       if (!snap.key || typeof snap.value !== 'string') continue;
+      if (!IDB_PREFERRED_KEYS.has(snap.key) && memoryMirror.has(snap.key)) continue;
       const prev = memoryMirror.get(snap.key) ?? null;
       if (prev !== snap.value) {
         memoryMirror.set(snap.key, snap.value);
@@ -895,31 +989,8 @@ export async function initDiskPersistence(): Promise<void> {
 
   let lastHash = '';
 
-  const mergePublicSettings = (remoteJson: string): string => {
-    try {
-      const remote = JSON.parse(remoteJson);
-      if (!remote || !remote.__public) {
-        settingsHasUnhydratedSensitiveFields = false;
-        return remoteJson;
-      }
-      delete remote.__public;
-      const local = JSON.parse(memoryMirror.get(SETTINGS_KEY) ?? originalGetItemFn?.(SETTINGS_KEY) ?? '{}');
-      const localHasUsers = Array.isArray(local?.users) && local.users.length > 0 && !settingsHasUnhydratedSensitiveFields;
-      if (!localHasUsers) {
-        settingsHasUnhydratedSensitiveFields = true;
-      }
-      const merged = { ...local, ...remote };
-      for (const k of ['activeTenantId', 'branchScope', 'activeTab']) {
-        if (local[k] !== undefined) merged[k] = local[k];
-      }
-      return JSON.stringify(merged);
-    } catch {
-      return remoteJson;
-    }
-  };
-
   const reconcileFromServer = async (emitEvents: boolean, forceKeys?: Set<string>) => {
-    if (failedSyncValues.size > 0) {
+    if (initialReconcileCompleted && failedSyncValues.size > 0) {
       for (const [key, pendingOp] of Array.from(failedSyncValues.entries())) {
         if (key === SETTINGS_KEY && settingsHasUnhydratedSensitiveFields) continue;
         if ((inFlightWrites.get(key) || 0) === 0) {
@@ -934,13 +1005,14 @@ export async function initDiskPersistence(): Promise<void> {
       const res = await fetch(url, { cache: 'no-store', headers: getAuthHeaders() });
       if (!res.ok) return;
       if (!(res.headers.get('content-type') || '').includes('json')) return;
-      const records: Record<string, string | boolean> = await res.json();
+      const records: Record<string, unknown> = await res.json();
       if (records.unchanged === true) return;
       lastHash = res.headers.get('x-content-hash') || '';
+      recordServerRevs(records.__revs);
 
       for (const [key, rawValue] of Object.entries(records)) {
         if (typeof rawValue !== 'string' || !isSharedKey(key)) continue;
-        const value = key === SETTINGS_KEY ? mergePublicSettings(rawValue) : rawValue;
+        const value = key === SETTINGS_KEY ? mergePublicSettingsValue(rawValue) : rawValue;
 
         if ((inFlightWrites.get(key) || 0) > 0) continue;
         if (failedSyncValues.has(key)) continue;
@@ -992,8 +1064,11 @@ export async function initDiskPersistence(): Promise<void> {
         return;
       }
       const body = await res.json();
+      if (typeof body?.rev === 'number' && Number.isFinite(body.rev)) {
+        serverRevisions.set(key, body.rev);
+      }
       if (body && typeof body.data === 'string') {
-        const nextVal = key === SETTINGS_KEY ? mergePublicSettings(body.data) : body.data;
+        const nextVal = key === SETTINGS_KEY ? mergePublicSettingsValue(body.data) : body.data;
         applyRemoteUpdate(key, nextVal, true);
       }
     } catch {
@@ -1050,6 +1125,11 @@ export async function initDiskPersistence(): Promise<void> {
 
   // 1. Reconciliar inmediatamente con emitEvents = true para hidratar todos los módulos montados
   await reconcileFromServer(true);
+
+  // 1b. Vaciar cola offline solo DESPUÉS de tener las revisiones vigentes del servidor (descarta mutaciones obsoletas)
+  if (typeof navigator === 'undefined' || navigator.onLine) {
+    void flushOfflineQueue(getAuthHeaders, CLIENT_ID, offlineFlushOptions);
+  }
 
   // 2. Autenticar silenciosamente SOLO si estamos dentro del panel ERP y aún no hay token
   if (

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   InventoryItem,
   StockLevel,
@@ -441,18 +441,97 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return raw ? JSON.parse(raw) : DEFAULT_LABEL_CONFIG;
   });
 
-  // Sync state to localStorage
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.items, JSON.stringify(items)); }, [items]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.stock, JSON.stringify(stockLevels)); }, [stockLevels]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.lots, JSON.stringify(lots)); }, [lots]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.movements, JSON.stringify(movements)); }, [movements]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.recipes, JSON.stringify(recipes)); }, [recipes]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.suppliers, JSON.stringify(suppliers)); }, [suppliers]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.purchases, JSON.stringify(purchases)); }, [purchases]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.transfers, JSON.stringify(transfers)); }, [transfers]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.audits, JSON.stringify(audits)); }, [audits]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(settings)); }, [settings]);
-  useEffect(() => { localStorage.setItem(STORAGE_KEYS.labels, JSON.stringify(labelConfig)); }, [labelConfig]);
+  const lastSerializedRef = useRef<Record<string, string>>({});
+  const mountedKeysRef = useRef<Set<string>>(new Set());
+
+  const persistInventoryKey = useCallback((storageKey: string, value: unknown) => {
+    try {
+      const json = JSON.stringify(value);
+      if (!mountedKeysRef.current.has(storageKey)) {
+        mountedKeysRef.current.add(storageKey);
+        lastSerializedRef.current[storageKey] = json;
+        return;
+      }
+      if (lastSerializedRef.current[storageKey] === json) return;
+      lastSerializedRef.current[storageKey] = json;
+      localStorage.setItem(storageKey, json);
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, []);
+
+  // Sync state to localStorage (omite montaje inicial y ecos de hidratación remota)
+  useEffect(() => { persistInventoryKey(STORAGE_KEYS.items, items); }, [items, persistInventoryKey]);
+  useEffect(() => { persistInventoryKey(STORAGE_KEYS.stock, stockLevels); }, [stockLevels, persistInventoryKey]);
+  useEffect(() => { persistInventoryKey(STORAGE_KEYS.lots, lots); }, [lots, persistInventoryKey]);
+  useEffect(() => { persistInventoryKey(STORAGE_KEYS.movements, movements); }, [movements, persistInventoryKey]);
+  useEffect(() => { persistInventoryKey(STORAGE_KEYS.recipes, recipes); }, [recipes, persistInventoryKey]);
+  useEffect(() => { persistInventoryKey(STORAGE_KEYS.suppliers, suppliers); }, [suppliers, persistInventoryKey]);
+  useEffect(() => { persistInventoryKey(STORAGE_KEYS.purchases, purchases); }, [purchases, persistInventoryKey]);
+  useEffect(() => { persistInventoryKey(STORAGE_KEYS.transfers, transfers); }, [transfers, persistInventoryKey]);
+  useEffect(() => { persistInventoryKey(STORAGE_KEYS.audits, audits); }, [audits, persistInventoryKey]);
+  useEffect(() => { persistInventoryKey(STORAGE_KEYS.settings, settings); }, [settings, persistInventoryKey]);
+  useEffect(() => { persistInventoryKey(STORAGE_KEYS.labels, labelConfig); }, [labelConfig, persistInventoryKey]);
+
+  // Hidratación en tiempo real desde servidor (reconcileFromServer / SSE) y otras pestañas
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (!e.key || !e.newValue) return;
+      if (lastSerializedRef.current[e.key] === e.newValue) return;
+      try {
+        switch (e.key) {
+          case STORAGE_KEYS.items:
+            lastSerializedRef.current[e.key] = e.newValue;
+            setItems(JSON.parse(e.newValue));
+            break;
+          case STORAGE_KEYS.stock:
+            lastSerializedRef.current[e.key] = e.newValue;
+            setStockLevels(JSON.parse(e.newValue));
+            break;
+          case STORAGE_KEYS.lots:
+            lastSerializedRef.current[e.key] = e.newValue;
+            setLots(JSON.parse(e.newValue));
+            break;
+          case STORAGE_KEYS.movements:
+            lastSerializedRef.current[e.key] = e.newValue;
+            setMovements(JSON.parse(e.newValue));
+            break;
+          case STORAGE_KEYS.recipes:
+            lastSerializedRef.current[e.key] = e.newValue;
+            setRecipes(JSON.parse(e.newValue));
+            break;
+          case STORAGE_KEYS.suppliers:
+            lastSerializedRef.current[e.key] = e.newValue;
+            setSuppliers(JSON.parse(e.newValue));
+            break;
+          case STORAGE_KEYS.purchases:
+            lastSerializedRef.current[e.key] = e.newValue;
+            setPurchases(JSON.parse(e.newValue));
+            break;
+          case STORAGE_KEYS.transfers:
+            lastSerializedRef.current[e.key] = e.newValue;
+            setTransfers(JSON.parse(e.newValue));
+            break;
+          case STORAGE_KEYS.audits:
+            lastSerializedRef.current[e.key] = e.newValue;
+            setAudits(JSON.parse(e.newValue));
+            break;
+          case STORAGE_KEYS.settings:
+            lastSerializedRef.current[e.key] = e.newValue;
+            setSettings(JSON.parse(e.newValue));
+            break;
+          case STORAGE_KEYS.labels:
+            lastSerializedRef.current[e.key] = e.newValue;
+            setLabelConfig(JSON.parse(e.newValue));
+            break;
+        }
+      } catch {
+        // Ignore malformed remote JSON
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   // Broadcast sync & storage events across tabs
   useEffect(() => {

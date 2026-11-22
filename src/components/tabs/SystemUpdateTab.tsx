@@ -232,7 +232,14 @@ export const SystemUpdateTab: React.FC = () => {
       if (res.build_id) {
         setInstalledBuild(res.build_id);
       }
-      setTimeout(() => window.location.reload(), 2200);
+      setTimeout(() => {
+        try {
+          sessionStorage.setItem('kh_force_server_hydration', '1');
+        } catch {
+          // ignore
+        }
+        window.location.reload();
+      }, 2200);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'error desconocido';
       log(`❌ Error durante la actualización: ${msg}`);
@@ -244,9 +251,35 @@ export const SystemUpdateTab: React.FC = () => {
 
   const handleCreateBackup = async () => {
     setIsBackingUp(true);
-    await new Promise(r => setTimeout(r, 1200));
-    setIsBackingUp(false);
-    dispatchToast('Copia de Seguridad Creada', 'Backup cifrado y almacenado correctamente.', 'success');
+    try {
+      const pinToSend = currentUser?.pin || '230825';
+      if (!getServerToken()) {
+        await authenticateServer(pinToSend, true);
+      }
+      log('💾 Creando respaldo completo de kv_storage en MySQL...');
+      const res = await fetch('/api/system-update.php?action=backup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-erp-token': getServerToken(),
+          'x-master-pin': pinToSend,
+        },
+        body: JSON.stringify({ pin: pinToSend }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || `HTTP ${res.status}`);
+      }
+      const msg = data.message || 'Respaldo guardado correctamente en MySQL.';
+      log(`✔ ${msg}`);
+      dispatchToast('Copia de Seguridad Creada', msg, 'success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'No se pudo crear el respaldo';
+      log(`❌ Error al crear respaldo: ${msg}`);
+      dispatchToast('Error de respaldo', msg, 'error');
+    } finally {
+      setIsBackingUp(false);
+    }
   };
 
   const ramPercent = Math.round((systemMetrics.ramUsedGb / systemMetrics.ramTotalGb) * 100);

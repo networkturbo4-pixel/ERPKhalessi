@@ -437,6 +437,34 @@ switch ($action) {
         ]);
         break;
 
+    case 'backup':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            sendResponse(['success' => false, 'error' => 'Método POST requerido'], 405);
+        }
+        if (!isAuthorizedForDeploy()) {
+            sendResponse([
+                'success' => false,
+                'error' => 'Autorización denegada: inicia sesión como Administrador o verifica tu PIN maestro.'
+            ], 403);
+        }
+        try {
+            $pdo = getSafeDbConnection();
+            if (!$pdo) {
+                sendResponse(['success' => false, 'error' => 'Conexión MySQL no disponible para crear respaldo.'], 503);
+            }
+            $installed = readLocalVersion($rootTarget);
+            $installedBuildId = is_array($installed) && isset($installed['buildId']) ? (string)$installed['buildId'] : '';
+            $backup = kvCreateBackup($pdo, 'manual', $installedBuildId);
+            sendResponse([
+                'success' => true,
+                'backup' => $backup,
+                'message' => "Respaldo #{$backup['id']} guardado en MySQL ({$backup['keys_count']} claves protegidas).",
+            ]);
+        } catch (Throwable $e) {
+            sendResponse(['success' => false, 'error' => 'Error creando respaldo: ' . $e->getMessage()], 500);
+        }
+        break;
+
     case 'deploy':
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             sendResponse(['success' => false, 'error' => 'Método POST requerido'], 405);
@@ -488,6 +516,17 @@ switch ($action) {
             $targetBuildId = (string)($manifest['buildId'] ?? 'latest');
             $manifestFiles = $manifest['files'];
             $steps[] = "Manifiesto remoto verificado: build {$targetBuildId} (" . count($manifestFiles) . " archivos indexados).";
+
+            // 0. Crear respaldo automático de seguridad de kv_storage antes de aplicar la actualización
+            try {
+                $backupPdo = getSafeDbConnection();
+                if ($backupPdo) {
+                    $preBackup = kvCreateBackup($backupPdo, 'pre-update', $targetBuildId);
+                    $steps[] = "Respaldo automático pre-actualización #{$preBackup['id']} creado en MySQL ({$preBackup['keys_count']} claves protegidas).";
+                }
+            } catch (Throwable $backupErr) {
+                $steps[] = "Aviso respaldo pre-update: " . $backupErr->getMessage();
+            }
 
             // 1. Determinar qué archivos cambiaron comparando SHA-256 local vs remoto
             $toDownload = [];

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { useRBAC } from '../context/RBACContext';
+import { useRBAC, erpModuleToMainModuleId } from '../context/RBACContext';
 import { useHR } from '../context/HRContext';
 import { useOrderCatalog } from '../context/OrderCatalogContext';
 import { ToastContainer } from './common/ToastContainer';
@@ -231,7 +231,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
 
   const [isProfileMediaPickerOpen, setIsProfileMediaPickerOpen] = useState(false);
 
-  const { currentUser, setCurrentUser, roles, hasPermission } = useRBAC();
+  const { currentUser, setCurrentUser, roles, hasPermission, resolvedDefaultModule } = useRBAC();
   const canAccessModule = React.useCallback(
     (mod: MainModuleId): boolean => {
       if (currentUser.roleId === 'role-admin') return true;
@@ -350,8 +350,19 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
     } catch {
       // fallback
     }
-    return 'dashboard';
+    return erpModuleToMainModuleId(resolvedDefaultModule) as MainModuleId;
   });
+
+  const prevUserIdRef = useRef(currentUser.id);
+  useEffect(() => {
+    if (prevUserIdRef.current !== currentUser.id) {
+      prevUserIdRef.current = currentUser.id;
+      const target = erpModuleToMainModuleId(resolvedDefaultModule) as MainModuleId;
+      if (canAccessModule(target)) {
+        setActiveMainModule(target);
+      }
+    }
+  }, [currentUser.id, resolvedDefaultModule, canAccessModule]);
 
   useEffect(() => {
     try {
@@ -361,15 +372,20 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
     }
   }, [activeMainModule]);
 
-  // Auto-redirect to first permitted module when current role lacks access to activeMainModule
+  // Auto-redirect to user's default module (or first permitted module) when current role lacks access to activeMainModule
   useEffect(() => {
     if (!canAccessModule(activeMainModule)) {
+      const preferred = erpModuleToMainModuleId(resolvedDefaultModule) as MainModuleId;
+      if (canAccessModule(preferred) && preferred !== activeMainModule) {
+        setActiveMainModule(preferred);
+        return;
+      }
       const firstAllowed = ALL_MAIN_MODULES_ORDER.find((m) => canAccessModule(m));
       if (firstAllowed && firstAllowed !== activeMainModule) {
         setActiveMainModule(firstAllowed);
       }
     }
-  }, [activeMainModule, canAccessModule]);
+  }, [activeMainModule, canAccessModule, resolvedDefaultModule]);
 
   // Silent idle prefetch of core operational POS/Orders/Kitchen views after active view paints
   useEffect(() => {
@@ -388,6 +404,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
     return false;
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [inboxMobilePane, setInboxMobilePane] = useState<'list' | 'chat'>('list');
   const [tenantMenuOpen, setTenantMenuOpen] = useState(false);
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [isPersonalVoucherOpen, setIsPersonalVoucherOpen] = useState(false);
@@ -776,9 +793,15 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
           </div>
         </header>
 
-        {/* Operational Workspace Body (1600px max width) */}
-        <main className="flex-1 overflow-y-auto p-3 sm:p-5 erp-canvas-surface custom-scrollbar">
-          <div className="max-w-[1600px] mx-auto w-full">
+        {/* Operational Workspace Body */}
+        <main
+          className={
+            isDeliveryRole
+              ? 'flex-1 min-h-0 overflow-hidden p-0 erp-canvas-surface'
+              : 'flex-1 overflow-y-auto p-3 sm:p-5 erp-canvas-surface custom-scrollbar'
+          }
+        >
+          <div className={isDeliveryRole ? 'w-full h-full' : 'max-w-[1600px] mx-auto w-full'}>
             <Suspense fallback={<ModuleWorkspaceSkeleton />}>
               {isCashierRole ? (
                 <POSView
@@ -840,7 +863,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
 
   return (
     <div
-      className="w-full h-dvh flex erp-shell-surface text-zinc-900 dark:text-zinc-100 antialiased overflow-hidden select-none sm:select-auto"
+      className="w-full h-dvh flex erp-shell-surface text-zinc-900 dark:text-zinc-100 antialiased overflow-hidden"
       style={{ fontFamily: customization.fontFamily }}
     >
       {/* MOBILE OVERLAY BACKDROP */}
@@ -1898,8 +1921,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
       </aside>
 
       {/* 2. HEADERLESS PC INSET WORKSPACE CANVAS */}
-      <div className="flex-1 flex flex-col min-w-0 h-full lg:pr-2">
-        {/* MOBILE-ONLY APP TOP BAR (HIDDEN ON PC / DESKTOP!) */}
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden lg:pr-2">
+        {/* MOBILE-ONLY APP TOP BAR (HIDDEN ON PC / DESKTOP & IN ACTIVE INBOX CHAT) */}
+        {!(activeMainModule === 'inbox' && inboxMobilePane === 'chat') && (
         <header className="lg:hidden sticky top-0 z-30 erp-mobile-safe-top erp-canvas-surface/95 backdrop-blur-md border-b border-zinc-200/90 dark:border-zinc-800 shrink-0">
           <div className="flex items-center justify-between h-14 px-3.5 gap-2">
             <div className="flex items-center gap-2 min-w-0">
@@ -1943,16 +1967,19 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
             </button>
           </div>
         </header>
+        )}
 
         {/* ELEVATED SAAS MAIN SURFACE (1600PX WORKSPACE) */}
         <main
-          className={`flex-1 w-full min-w-0 erp-canvas-surface lg:rounded-2xl lg:border lg:border-zinc-200/90 dark:lg:border-zinc-800 lg:shadow-sm ${
-            activeMainModule === 'inbox' ? 'overflow-hidden' : 'saas-scroll'
+          className={`flex-1 min-h-0 w-full min-w-0 erp-canvas-surface lg:rounded-2xl lg:border lg:border-zinc-200/90 dark:lg:border-zinc-800 lg:shadow-sm ${
+            activeMainModule === 'inbox' || activeMainModule === 'delivery'
+              ? 'overflow-hidden'
+              : 'saas-scroll'
           }`}
         >
           <div
             className={
-              activeMainModule === 'inbox'
+              activeMainModule === 'inbox' || activeMainModule === 'delivery'
                 ? 'w-full h-full p-0 lg:p-3'
                 : `max-w-[1600px] mx-auto w-full px-3 pt-4 sm:px-5 sm:pt-5 lg:px-5 lg:py-5 xl:px-8 xl:py-7 ${
                     activeMainModule !== 'pos'
@@ -2000,6 +2027,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
               ) : activeMainModule === 'inbox' ? (
                 <OmnichannelInboxView
                   onOpenWhatsAppBot={() => setActiveMainModule('whatsapp')}
+                  onMobilePaneChange={setInboxMobilePane}
                 />
               ) : activeMainModule === 'whatsapp' ? (
                 <WhatsAppModuleView
