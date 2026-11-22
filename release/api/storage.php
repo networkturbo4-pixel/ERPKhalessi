@@ -214,6 +214,10 @@ if ($method === 'GET') {
             if ($v === null) continue;
             $out[$k] = valueFor($k, $v, $admin !== null);
         }
+        $revs = kvGetAllRevs($pdo, array_keys($out));
+        if (!empty($revs)) {
+            $out['__revs'] = $revs;
+        }
         $body = json_encode($out === [] ? new stdClass() : $out, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if (isset($_GET['h']) && hash_equals($hash, (string)$_GET['h'])) {
             echo json_encode(['unchanged' => true]);
@@ -227,8 +231,9 @@ if ($method === 'GET') {
         sendResponse(['error' => 'Not found'], 404);
     }
     $v = kvGetClean($pdo, $key);
-    if ($v === null) sendResponse(['data' => null]);
-    sendResponse(['data' => valueFor($key, $v, $admin !== null)]);
+    if ($v === null) sendResponse(['data' => null, 'rev' => 0]);
+    $meta = kvGetMeta($pdo, $key);
+    sendResponse(['data' => valueFor($key, $v, $admin !== null), 'rev' => (int)($meta['rev'] ?? 1)]);
 }
 
 if ($method === 'POST' || $method === 'DELETE') {
@@ -265,6 +270,28 @@ if ($method === 'POST' || $method === 'DELETE') {
         sendResponse(['error' => 'Cuerpo JSON inválido'], 400);
     }
     $data = is_string($input['data']) ? $input['data'] : json_encode($input['data'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $hasBaseRev = isset($input['baseRev']) && is_numeric($input['baseRev']);
+    $baseRev = $hasBaseRev ? (int)$input['baseRev'] : null;
+    $forceWrite = !empty($input['force']);
+
+    // Control de concurrencia optimista: impedir que una caché local vieja pise datos más nuevos del servidor
+    $serverMergedKeys = ['kh_orders_list', 'kh_whatsapp_conversations_v1'];
+    if ($hasBaseRev && !$forceWrite && !in_array($key, $serverMergedKeys, true)) {
+        $currentMeta = kvGetMeta($pdo, $key);
+        if ($currentMeta !== null && $currentMeta['rev'] > $baseRev) {
+            $currentValue = $currentMeta['v'];
+            if ($currentValue !== $data) {
+                sendResponse([
+                    'success'  => false,
+                    'conflict' => true,
+                    'rev'      => $currentMeta['rev'],
+                    'data'     => valueFor($key, $currentValue, $admin !== null),
+                    'error'    => 'Versión local desactualizada; se conservan los datos vigentes del servidor.',
+                ], 409);
+            }
+            sendResponse(['success' => true, 'rev' => $currentMeta['rev'], 'unchanged' => true]);
+        }
+    }
 
     // Fusión inteligente por ID y marca de tiempo (`updatedAt`) para `kh_orders_list`
     if ($key === 'kh_orders_list') {
@@ -452,14 +479,14 @@ if ($method === 'POST' || $method === 'DELETE') {
     }
 
     $data = ($key === 'kh_orders_list') ? sanitizeOrdersJson($data) : externalizeJson($data);
-    kvSet($pdo, $key, $data);
+    $newRev = kvSet($pdo, $key, $data);
 
     broadcastRealtimeEvent($key, $key === 'kh_orders_list' ? 'new_order' : 'generic');
 
     if ($key === 'kh_orders_list') {
-        sendResponse(['success' => true, 'data' => $data]);
+        sendResponse(['success' => true, 'data' => $data, 'rev' => $newRev]);
     }
-    sendResponse(['success' => true]);
+    sendResponse(['success' => true, 'rev' => $newRev]);
 }
 
 sendResponse(['error' => 'Método no permitido'], 405);

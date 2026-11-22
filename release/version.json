@@ -1,8 +1,8 @@
 {
-  "buildId": "20261122041004",
-  "builtAt": "2026-11-22T04:10:04.009Z",
-  "commitSha": "e03e890",
-  "message": "fix(inbox): sync incoming WhatsApp webhook messages from server state",
-  "totalFiles": 122,
-  "manifestSha256": "b0fde53a2736d43cd52840a29705c5575c1d548576624b5c75228839ee228552"
+  "buildId": "20261122220044",
+  "builtAt": "2026-11-22T22:00:44.453Z",
+  "commitSha": "29999b5",
+  "message": "fix(sync): prevent stale localStorage/IndexedDB cache from overwriting MySQL on system updates",
+  "totalFiles": 124,
+  "manifestSha256": "6910387860b2bb21dd882fe426d6778c3ecef213c6c450dc72d3b8a371ec24c0"
 }

@@ -17,9 +17,13 @@ const KH_SYNC_KEYS = [
     'kh_erp_benefits_v1',
     'kh_floor_tables_v1',
     'kh_orders_list',
+    'kh_pos_held_orders_v1',
+    'kh_public_reservations_v1',
+    'kh_sunat_invoices_v1',
     'kh_customers_crm_v1',
     'kh_store_customer_accounts_v1',
     'gastro_delivery_fuel_v1',
+    'kh_driver_fleet_v1',
     'gastro_erp_finance_expenses_v1',
     'gastro_erp_cash_closings_v1',
     'kh_inv_audits_v1',
@@ -79,11 +83,39 @@ const KH_RBAC_KEY = 'gastro_erp_rbac_v3';
 const KH_TOKEN_TTL = 60 * 60 * 24 * 7; // 7 días
 
 function kvInit(PDO $pdo): void {
+    static $initialized = false;
+    if ($initialized) return;
+    $initialized = true;
+
     $pdo->exec("CREATE TABLE IF NOT EXISTS kv_storage (
         k VARCHAR(190) NOT NULL,
         v LONGTEXT NOT NULL,
+        rev BIGINT UNSIGNED NOT NULL DEFAULT 1,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY (k)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    // Migración no destructiva: agregar columna rev si la tabla ya existía sin ella
+    try {
+        $colCheck = $pdo->query("SHOW COLUMNS FROM kv_storage LIKE 'rev'");
+        if (!$colCheck || $colCheck->fetch() === false) {
+            $pdo->exec("ALTER TABLE kv_storage ADD COLUMN rev BIGINT UNSIGNED NOT NULL DEFAULT 1 AFTER v");
+        }
+    } catch (Throwable $e) {
+        // Ignorar si ya existe o sin permisos de ALTER
+    }
+}
+
+function kvInitBackups(PDO $pdo): void {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS kv_storage_backups (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        label VARCHAR(120) NOT NULL,
+        build_id VARCHAR(64) DEFAULT '',
+        keys_count INT UNSIGNED NOT NULL DEFAULT 0,
+        payload LONGTEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_kv_backups_created (created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 }
 
@@ -94,9 +126,77 @@ function kvGet(PDO $pdo, string $key): ?string {
     return $v === false ? null : (string)$v;
 }
 
-function kvSet(PDO $pdo, string $key, string $value): void {
-    $st = $pdo->prepare("INSERT INTO kv_storage (k, v) VALUES (:k, :v) ON DUPLICATE KEY UPDATE v = VALUES(v)");
-    $st->execute([':k' => $key, ':v' => $value]);
+function kvGetMeta(PDO $pdo, string $key): ?array {
+    try {
+        $st = $pdo->prepare("SELECT v, rev, updated_at FROM kv_storage WHERE k = :k");
+        $st->execute([':k' => $key]);
+        $row = $st->fetch();
+        if (!$row) return null;
+        return [
+            'v'          => (string)$row['v'],
+            'rev'        => (int)($row['rev'] ?? 1),
+            'updated_at' => (string)($row['updated_at'] ?? ''),
+        ];
+    } catch (Throwable $e) {
+        $v = kvGet($pdo, $key);
+        return $v === null ? null : ['v' => $v, 'rev' => 1, 'updated_at' => ''];
+    }
+}
+
+function kvSet(PDO $pdo, string $key, string $value): int {
+    try {
+        $st = $pdo->prepare("INSERT INTO kv_storage (k, v, rev) VALUES (:k, :v, 1) ON DUPLICATE KEY UPDATE v = VALUES(v), rev = rev + 1");
+        $st->execute([':k' => $key, ':v' => $value]);
+        $revSt = $pdo->prepare("SELECT rev FROM kv_storage WHERE k = :k");
+        $revSt->execute([':k' => $key]);
+        $rev = $revSt->fetchColumn();
+        return $rev === false ? 1 : (int)$rev;
+    } catch (Throwable $e) {
+        $st = $pdo->prepare("INSERT INTO kv_storage (k, v) VALUES (:k, :v) ON DUPLICATE KEY UPDATE v = VALUES(v)");
+        $st->execute([':k' => $key, ':v' => $value]);
+        return 1;
+    }
+}
+
+function kvCreateBackup(PDO $pdo, string $label, string $buildId = ''): array {
+    kvInit($pdo);
+    kvInitBackups($pdo);
+
+    $rows = $pdo->query("SELECT k, v, rev, updated_at FROM kv_storage ORDER BY k")->fetchAll();
+    $snapshot = [];
+    foreach ($rows as $r) {
+        $snapshot[(string)$r['k']] = [
+            'v'          => (string)$r['v'],
+            'rev'        => (int)($r['rev'] ?? 1),
+            'updated_at' => (string)($r['updated_at'] ?? ''),
+        ];
+    }
+
+    $payload = json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
+    $keysCount = count($snapshot);
+    $st = $pdo->prepare("INSERT INTO kv_storage_backups (label, build_id, keys_count, payload) VALUES (:label, :build_id, :keys_count, :payload)");
+    $st->execute([
+        ':label'      => substr($label, 0, 120),
+        ':build_id'   => substr($buildId, 0, 64),
+        ':keys_count' => $keysCount,
+        ':payload'    => $payload,
+    ]);
+    $backupId = (int)$pdo->lastInsertId();
+
+    // Conservar los últimos 15 respaldos para no inflar la base de datos
+    try {
+        $pdo->exec("DELETE FROM kv_storage_backups WHERE id NOT IN (SELECT id FROM (SELECT id FROM kv_storage_backups ORDER BY id DESC LIMIT 15) t)");
+    } catch (Throwable $e) {
+        // Ignorar si la limpieza falla
+    }
+
+    return [
+        'id'         => $backupId,
+        'label'      => $label,
+        'build_id'   => $buildId,
+        'keys_count' => $keysCount,
+        'created_at' => gmdate('c'),
+    ];
 }
 
 function kvDelete(PDO $pdo, string $key): void {
@@ -224,17 +324,44 @@ function sanitizeOrdersJson(string $json): string {
     return json_encode(stripHeavyDataUris($arr), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 }
 
+/** Devuelve mapa [clave => rev] para control optimista de versiones en el cliente. */
+function kvGetAllRevs(PDO $pdo, array $keys): array {
+    if (!$keys) return [];
+    $in = implode(',', array_fill(0, count($keys), '?'));
+    try {
+        $st = $pdo->prepare("SELECT k, rev FROM kv_storage WHERE k IN ($in)");
+        $st->execute(array_values($keys));
+        $revs = [];
+        foreach ($st->fetchAll() as $r) {
+            $revs[(string)$r['k']] = (int)($r['rev'] ?? 1);
+        }
+        return $revs;
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
 /** Huella barata (sin leer los valores) de las claves compartidas, para el latido de sincronizacion. */
 function kvFingerprint(PDO $pdo, array $keys, bool $isAuth): string {
     if (!$keys) return md5('empty');
     $in = implode(',', array_fill(0, count($keys), '?'));
-    $st = $pdo->prepare("SELECT k, updated_at, LENGTH(v) AS n FROM kv_storage WHERE k IN ($in) ORDER BY k");
-    $st->execute(array_values($keys));
-    $acc = $isAuth ? 'a' : 'p';
-    foreach ($st->fetchAll() as $r) {
-        $acc .= '|' . $r['k'] . ':' . $r['updated_at'] . ':' . $r['n'];
+    try {
+        $st = $pdo->prepare("SELECT k, rev, updated_at, LENGTH(v) AS n FROM kv_storage WHERE k IN ($in) ORDER BY k");
+        $st->execute(array_values($keys));
+        $acc = $isAuth ? 'a' : 'p';
+        foreach ($st->fetchAll() as $r) {
+            $acc .= '|' . $r['k'] . ':' . ($r['rev'] ?? 1) . ':' . $r['updated_at'] . ':' . $r['n'];
+        }
+        return md5($acc);
+    } catch (Throwable $e) {
+        $st = $pdo->prepare("SELECT k, updated_at, LENGTH(v) AS n FROM kv_storage WHERE k IN ($in) ORDER BY k");
+        $st->execute(array_values($keys));
+        $acc = $isAuth ? 'a' : 'p';
+        foreach ($st->fetchAll() as $r) {
+            $acc .= '|' . $r['k'] . ':' . $r['updated_at'] . ':' . $r['n'];
+        }
+        return md5($acc);
     }
-    return md5($acc);
 }
 
 /** Lee pedidos; si el valor guardado aun trae base64 pesado lo limpia y lo persiste (autocuracion unica). */

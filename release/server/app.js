@@ -40,6 +40,8 @@ const ALLOWED_ORIGINS = RAW_ALLOWED_ORIGIN
   : [];
 const clients = new Map(); // clientId -> { res, branchId, ip, connectedAt }
 const ipRateWindows = new Map(); // ip -> { count, resetAt }
+const driverFleetMap = new Map(); // driverId -> { driverId, driverName, tenantId, lat, lng, heading, speedKmh, accuracyM, batteryPct, status, activeOrderId, timestamp }
+const driverTrailsMap = new Map(); // driverId -> Array<{ lat, lng, speedKmh, heading, status, orderId, timestamp }>
 
 function getClientIp(req) {
   const fwd = req.headers['x-forwarded-for'];
@@ -508,6 +510,102 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ ok: false, error: err?.message || 'WhatsApp route error' }));
       }
     });
+    return;
+  }
+
+  // 2E. DELIVERY REAL-TIME GPS TRACKING & FLEET
+  if (apiPathname === '/api/delivery/location' && req.method === 'POST') {
+    let rawBody = '';
+    req.on('data', chunk => {
+      rawBody += chunk;
+      if (rawBody.length > MAX_BODY_BYTES) req.destroy();
+    });
+    req.on('end', () => {
+      try {
+        const data = JSON.parse(rawBody || '{}');
+        if (!data.driverId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: 'driverId required' }));
+          return;
+        }
+        const nowIso = data.timestamp || new Date().toISOString();
+        const ping = {
+          driverId: String(data.driverId),
+          driverName: String(data.driverName || 'Motorizado'),
+          tenantId: String(data.tenantId || 'tenant-1'),
+          lat: Number(data.lat),
+          lng: Number(data.lng),
+          heading: data.heading !== undefined ? Number(data.heading) : undefined,
+          speedKmh: data.speedKmh !== undefined ? Number(data.speedKmh) : undefined,
+          accuracyM: data.accuracyM !== undefined ? Number(data.accuracyM) : undefined,
+          batteryPct: data.batteryPct !== undefined ? Number(data.batteryPct) : undefined,
+          status: String(data.status || 'disponible'),
+          activeOrderId: data.activeOrderId ? String(data.activeOrderId) : undefined,
+          timestamp: nowIso,
+        };
+        driverFleetMap.set(ping.driverId, ping);
+        if (Number.isFinite(ping.lat) && Number.isFinite(ping.lng)) {
+          const prevTrail = driverTrailsMap.get(ping.driverId) || [];
+          const nextTrail = [
+            ...prevTrail.slice(-499),
+            {
+              lat: ping.lat,
+              lng: ping.lng,
+              speedKmh: ping.speedKmh,
+              heading: ping.heading,
+              status: ping.status,
+              orderId: ping.activeOrderId,
+              timestamp: nowIso,
+            },
+          ];
+          driverTrailsMap.set(ping.driverId, nextTrail);
+        }
+
+        const ssePayload = `data: ${JSON.stringify({
+          type: 'driver_location_update',
+          branchId: ping.tenantId,
+          ping,
+        })}\n\n`;
+        for (const [clientId, client] of clients.entries()) {
+          if (client.branchId !== 'all' && ping.tenantId !== 'all' && client.branchId !== ping.tenantId) {
+            continue;
+          }
+          try {
+            client.res.write(ssePayload);
+          } catch {
+            clients.delete(clientId);
+          }
+        }
+
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ ok: true, ping }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: err?.message || 'Invalid JSON' }));
+      }
+    });
+    return;
+  }
+
+  if (apiPathname === '/api/delivery/fleet' && req.method === 'GET') {
+    const branchFilter = parsedUrl.query?.branchId || 'all';
+    const driverFilter = parsedUrl.query?.driverId || '';
+    const drivers = [];
+    for (const d of driverFleetMap.values()) {
+      if (branchFilter !== 'all' && d.tenantId !== branchFilter && d.tenantId !== 'all') continue;
+      if (driverFilter && d.driverId !== driverFilter) continue;
+      drivers.push(d);
+    }
+    const trails = {};
+    if (driverFilter) {
+      trails[driverFilter] = driverTrailsMap.get(driverFilter) || [];
+    } else {
+      for (const d of drivers) {
+        trails[d.driverId] = driverTrailsMap.get(d.driverId) || [];
+      }
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ ok: true, drivers, trails, timestamp: new Date().toISOString() }));
     return;
   }
 
