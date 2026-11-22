@@ -1,8 +1,8 @@
 {
-  "buildId": "20261121234423",
-  "builtAt": "2026-11-21T23:44:23.471Z",
-  "commitSha": "e9e38eb",
-  "message": "fix(whatsapp): support /realtime prefix and harden Meta test connection",
-  "totalFiles": 120,
-  "manifestSha256": "ff8616bd179e3a3c7d5fa31c46da2dc355c6deca971fae42a2751f40f0197146"
+  "buildId": "20261122031932",
+  "builtAt": "2026-11-22T03:19:32.329Z",
+  "commitSha": "4d3d100",
+  "message": "feat(whatsapp): support incoming and outgoing images, stickers, videos, audio, and documents",
+  "totalFiles": 122,
+  "manifestSha256": "ce9dd930849d997c75458b833f7a69c823f6dae1d056e341cf8e0b5170f6aa16"
 }
