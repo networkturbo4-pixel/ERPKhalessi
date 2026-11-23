@@ -18,14 +18,14 @@ $token = requestToken();
 $admin = $token !== '' ? verifyToken($token) : null;
 
 const VALID_ORDER_STATUSES = ['recibido', 'en_cocina', 'en_horno', 'listo', 'en_ruta', 'entregado', 'cancelado'];
-const VALID_ORDER_CHANNELS = ['online', 'pos-salon', 'pos-mostrador', 'pos-delivery'];
+const VALID_ORDER_CHANNELS = ['online', 'pos-salon', 'pos-mostrador', 'pos-takeaway', 'pos-delivery', 'kiosco-salon', 'kiosco-takeaway'];
 const VALID_ORDER_TRANSITIONS = [
-    'recibido'  => ['en_cocina', 'en_horno', 'listo', 'cancelado'],
-    'en_cocina' => ['en_horno', 'listo', 'cancelado'],
-    'en_horno'  => ['listo', 'cancelado'],
-    'listo'     => ['en_ruta', 'entregado', 'cancelado'],
-    'en_ruta'   => ['entregado', 'cancelado'],
-    'entregado' => [],
+    'recibido'  => ['en_cocina', 'en_horno', 'listo', 'en_ruta', 'entregado', 'cancelado'],
+    'en_cocina' => ['recibido', 'en_horno', 'listo', 'en_ruta', 'entregado', 'cancelado'],
+    'en_horno'  => ['en_cocina', 'listo', 'en_ruta', 'entregado', 'cancelado'],
+    'listo'     => ['en_cocina', 'en_horno', 'en_ruta', 'entregado', 'cancelado'],
+    'en_ruta'   => ['listo', 'entregado', 'cancelado'],
+    'entregado' => ['cancelado'],
     'cancelado' => [],
 ];
 
@@ -250,7 +250,7 @@ switch ($method) {
                 }
 
                 if ($newStatus === 'en_ruta') {
-                    if ($currentDriver !== '' && ($driverId === '' || $currentDriver !== $driverId)) {
+                    if ($currentDriver !== '' && $driverId !== '' && $currentDriver !== $driverId) {
                         $pdo->rollBack();
                         sendResponse([
                             'success'            => false,
@@ -267,23 +267,13 @@ switch ($method) {
                             dispatched_at = COALESCE(dispatched_at, NOW()),
                             updated_at = NOW()
                         WHERE id = :id
-                          AND (assigned_driver_id IS NULL OR assigned_driver_id = '' OR assigned_driver_id = :driver_id_check)
                     ");
                     $upd->execute([
                         ':status'          => $newStatus,
                         ':driver_id'       => $driverId,
                         ':driver_name'     => $driverName,
                         ':id'              => $id,
-                        ':driver_id_check' => $driverId,
                     ]);
-
-                    if ($upd->rowCount() === 0) {
-                        $pdo->rollBack();
-                        sendResponse([
-                            'success' => false,
-                            'error'   => 'No se pudo asignar: el pedido ya fue tomado concurrentemente',
-                        ], 409);
-                    }
                 } elseif ($newStatus === 'entregado') {
                     $upd = $pdo->prepare("
                         UPDATE orders

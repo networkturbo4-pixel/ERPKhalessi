@@ -16,7 +16,9 @@ import {
   ApplicantStatus,
 } from '../types/hr';
 import { useSettings } from './SettingsContext';
+import { useRBAC } from './RBACContext';
 import { generateTotpSecret, verifyTotpCode } from '../utils/totp';
+import { forcePersistKeyToServer } from '../utils/diskPersistence';
 
 const HR_STORAGE_KEY = 'gastro_erp_hr_v1';
 
@@ -505,7 +507,7 @@ function loadPersistedHR(): PersistedHRData | null {
         ...DEFAULT_SECURITY_POLICY,
         ...(parsed.securityPolicy || {}),
       },
-      jobPostings: Array.isArray(parsed.jobPostings) && parsed.jobPostings.length > 0 ? parsed.jobPostings : undefined,
+      jobPostings: Array.isArray(parsed.jobPostings) ? parsed.jobPostings : undefined,
       jobApplications: Array.isArray(parsed.jobApplications) ? parsed.jobApplications : undefined,
     };
   } catch {
@@ -514,6 +516,7 @@ function loadPersistedHR(): PersistedHRData | null {
 }
 
 export const HRProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { currentUser } = useRBAC();
   const {
     users,
     tenants,
@@ -1193,10 +1196,20 @@ export const HRProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const saveJobPosting = (posting: JobPostingFormConfig) => {
     setJobPostings(prev => {
       const exists = prev.some(p => p.id === posting.id);
-      if (exists) {
-        return prev.map(p => (p.id === posting.id ? posting : p));
-      }
-      return [...prev, posting];
+      const nextPostings = exists
+        ? prev.map(p => (p.id === posting.id ? posting : p))
+        : [...prev, posting];
+      const payload: PersistedHRData = {
+        profiles,
+        attendanceRecords,
+        weeklyShifts,
+        payrollMovements,
+        securityPolicy,
+        jobPostings: nextPostings,
+        jobApplications,
+      };
+      void forcePersistKeyToServer(HR_STORAGE_KEY, JSON.stringify(payload), currentUser?.pin);
+      return nextPostings;
     });
     logAuditEvent(
       'hr',
@@ -1214,7 +1227,20 @@ export const HRProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const deleteJobPosting = (postingId: string) => {
     const target = jobPostings.find(p => p.id === postingId);
     if (!target) return;
-    setJobPostings(prev => prev.filter(p => p.id !== postingId));
+    setJobPostings(prev => {
+      const nextPostings = prev.filter(p => p.id !== postingId);
+      const payload: PersistedHRData = {
+        profiles,
+        attendanceRecords,
+        weeklyShifts,
+        payrollMovements,
+        securityPolicy,
+        jobPostings: nextPostings,
+        jobApplications,
+      };
+      void forcePersistKeyToServer(HR_STORAGE_KEY, JSON.stringify(payload), currentUser?.pin);
+      return nextPostings;
+    });
     logAuditEvent(
       'hr',
       'warning',

@@ -118,17 +118,25 @@ export const ApplicantsTabView: React.FC = () => {
     jobPostings[0] ? structuredClone(jobPostings[0]) : null
   );
 
+  const lastLoadedPostingIdRef = useRef<string>(jobPostings[0]?.id || '');
+
   useEffect(() => {
     const found = jobPostings.find(p => p.id === selectedPostingId);
     if (found) {
-      setDraftPosting(structuredClone(found));
+      // Solo clonar al cambiar de puesto seleccionado o si no hay borrador activo (evita borrar ediciones en curso por sync SSE)
+      if (!draftPosting || lastLoadedPostingIdRef.current !== found.id) {
+        lastLoadedPostingIdRef.current = found.id;
+        setDraftPosting(structuredClone(found));
+      }
     } else if (jobPostings[0]) {
+      lastLoadedPostingIdRef.current = jobPostings[0].id;
       setSelectedPostingId(jobPostings[0].id);
       setDraftPosting(structuredClone(jobPostings[0]));
     } else {
+      lastLoadedPostingIdRef.current = '';
       setDraftPosting(null);
     }
-  }, [selectedPostingId, jobPostings]);
+  }, [selectedPostingId, jobPostings, draftPosting]);
 
   useEffect(() => {
     const dialog = appDialogRef.current;

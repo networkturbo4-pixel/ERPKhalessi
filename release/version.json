@@ -1,8 +1,8 @@
 {
-  "buildId": "20261123201057",
-  "builtAt": "2026-11-23T20:10:57.328Z",
-  "commitSha": "5bc0474",
-  "message": "fix(erp): release 20261123200435 — seguridad API/Culqi, SUNAT IGV, inventario, POS/Finanzas y multisucursal",
+  "buildId": "20261123202451",
+  "builtAt": "2026-11-23T20:24:51.251Z",
+  "commitSha": "bf2bdb8",
+  "message": "fix(auth): hidratar perfil real (foto, nombre, PIN) desde MySQL en incógnito y sincronizar currentUser",
   "totalFiles": 124,
-  "manifestSha256": "36fdd3934fadc30f5c1e4dbb23e8c3d445b3eeed432b464201df835982e75153"
+  "manifestSha256": "09ae70f6a666261eb278a69a6a55da80ccc850cc3ca4e5149cd5ed2fc2f46f6d"
 }
