@@ -11,7 +11,13 @@ import {
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
 import { OfflineStatusBadge } from '../common/OfflineStatusBadge';
 import { useSettings } from '../../context/SettingsContext';
-import { resolveProductBasePrice, resolveSizePrice } from '../../utils/productPricing';
+import {
+  resolveExtraPrice,
+  resolveProductAvailability,
+  resolveProductBasePrice,
+  resolveSizePrice,
+  resolveSubOptionPriceDelta,
+} from '../../utils/productPricing';
 import { isRealCulqiPublicKey, openOfficialCulqiCheckout } from '../../utils/culqiCheckout';
 import { StoreCulqiSandboxDialog } from '../store/StoreCulqiSandboxDialog';
 import { getStoreCategories } from '../store/StorefrontWidgets';
@@ -153,10 +159,10 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
   const customizerDialogRef = useRef<HTMLDialogElement>(null);
   const customizerTitleId = useId();
 
-  // Available products
+  // Available products (respecting branch availability overrides)
   const availableProducts = useMemo(
-    () => products.filter((p) => p.isAvailable),
-    [products]
+    () => products.filter((p) => resolveProductAvailability(p, activeTenant.id)),
+    [products, activeTenant.id]
   );
 
   // Standard pizzas for Half & Half selector
@@ -317,18 +323,26 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
       ? customizingProduct.sizes.find((s) => s.id === selectedSizeId)
       : undefined;
 
-    let base = sizeObj ? sizeObj.price : customizingProduct.basePrice;
+    let base = sizeObj
+      ? resolveSizePrice(customizingProduct, sizeObj, activeTenant.id)
+      : resolveProductBasePrice(customizingProduct, activeTenant.id);
 
     // If Half & Half, take the higher price of the two chosen flavours for that size
     if (customizingProduct.productType === 'half_and_half' && firstHalfId && secondHalfId) {
       const p1 = standardPizzas.find((p) => p.id === firstHalfId);
       const p2 = standardPizzas.find((p) => p.id === secondHalfId);
-      const p1Price = p1?.hasSizes
-        ? p1.sizes.find((s) => s.id === selectedSizeId)?.price ?? p1.basePrice
-        : p1?.basePrice ?? base;
-      const p2Price = p2?.hasSizes
-        ? p2.sizes.find((s) => s.id === selectedSizeId)?.price ?? p2.basePrice
-        : p2?.basePrice ?? base;
+      const p1Size = p1?.hasSizes ? p1.sizes.find((s) => s.id === selectedSizeId) : undefined;
+      const p2Size = p2?.hasSizes ? p2.sizes.find((s) => s.id === selectedSizeId) : undefined;
+      const p1Price = p1
+        ? p1Size
+          ? resolveSizePrice(p1, p1Size, activeTenant.id)
+          : resolveProductBasePrice(p1, activeTenant.id)
+        : base;
+      const p2Price = p2
+        ? p2Size
+          ? resolveSizePrice(p2, p2Size, activeTenant.id)
+          : resolveProductBasePrice(p2, activeTenant.id)
+        : base;
       base = Math.max(base, p1Price, p2Price);
     }
 
@@ -339,7 +353,7 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
         const chosenId = selectedSubChoices[group.id];
         const found = group.choices.find((c) => c.id === chosenId);
         if (found && !found.isIncluded) {
-          subOptionsDelta += found.priceDelta;
+          subOptionsDelta += resolveSubOptionPriceDelta(found, activeTenant.id);
         }
       });
 
@@ -349,7 +363,7 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
       .forEach((ext) => {
         const qty = selectedExtras[ext.id] || 0;
         if (qty > 0 && !ext.isIncluded) {
-          extrasTotal += ext.price * qty;
+          extrasTotal += resolveExtraPrice(customizingProduct, ext, qty, activeTenant.id) * qty;
         }
       });
 
@@ -365,6 +379,7 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
     secondHalfId,
     customQty,
     standardPizzas,
+    activeTenant.id,
   ]);
 
   const handleConfirmAddProduct = () => {
@@ -387,7 +402,7 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
             groupName: group.name,
             choiceId: found.id,
             choiceName: found.name,
-            priceDelta: found.isIncluded ? 0 : found.priceDelta,
+            priceDelta: found.isIncluded ? 0 : resolveSubOptionPriceDelta(found, activeTenant.id),
           });
         }
       });
@@ -401,7 +416,7 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
           cartExtras.push({
             id: ext.id,
             name: ext.name,
-            price: ext.isIncluded ? 0 : ext.price,
+            price: ext.isIncluded ? 0 : resolveExtraPrice(customizingProduct, ext, qty, activeTenant.id),
             quantity: qty,
           });
         }
@@ -489,7 +504,9 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
     const defSize = product.hasSizes
       ? product.sizes.find((s) => s.isDefault && s.enabled) || product.sizes.find((s) => s.enabled)
       : undefined;
-    const unitPrice = defSize ? defSize.price : product.basePrice;
+    const unitPrice = defSize
+      ? resolveSizePrice(product, defSize, activeTenant.id)
+      : resolveProductBasePrice(product, activeTenant.id);
     const quickItem: OrderItem = {
       itemId: `kiosk-upsell-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       productId: product.id,
@@ -500,7 +517,7 @@ export const KioskSelfServiceView: React.FC<KioskSelfServiceViewProps> = ({
             id: defSize.id,
             name: defSize.name,
             slices: defSize.slices,
-            price: defSize.price,
+            price: unitPrice,
           }
         : undefined,
       subOptions: [],

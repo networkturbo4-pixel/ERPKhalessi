@@ -19,6 +19,7 @@ const KH_SYNC_KEYS = [
     'kh_orders_list',
     'kh_pos_held_orders_v1',
     'kh_public_reservations_v1',
+    'kh_reservation_settings_v1',
     'kh_sunat_invoices_v1',
     'kh_customers_crm_v1',
     'kh_store_customer_accounts_v1',
@@ -64,16 +65,19 @@ const KH_PUBLIC_READ_KEYS = [
     'kh_customers_crm_v1',
     'kh_store_customer_accounts_v1',
     'kh_floor_tables_v1',
+    'kh_public_reservations_v1',
+    'kh_reservation_settings_v1',
     'gastro_erp_complaints_v1',
     'gastro_erp_hr_v1',
 ];
 
-// Claves operativas que tienda, KDS, Delivery y Libro de Reclamaciones pueden actualizar sin bloqueo 401
+// Claves operativas que tienda, KDS, Delivery, Reservas y Libro de Reclamaciones pueden actualizar sin bloqueo 401
 const KH_PUBLIC_WRITE_KEYS = [
     'kh_orders_list',
     'kh_customers_crm_v1',
     'kh_store_customer_accounts_v1',
     'kh_floor_tables_v1',
+    'kh_public_reservations_v1',
     'gastro_erp_complaints_v1',
     'gastro_erp_hr_v1',
 ];
@@ -213,6 +217,26 @@ function sanitizeSettingsForPublic(string $json): string {
     $data = json_decode($json, true);
     if (!is_array($data)) return $json;
     unset($data['users'], $data['driveConfig'], $data['geminiConfig']);
+    if (isset($data['companyInfo']) && is_array($data['companyInfo'])) {
+        if (isset($data['companyInfo']['culqiConfig']) && is_array($data['companyInfo']['culqiConfig'])) {
+            unset(
+                $data['companyInfo']['culqiConfig']['secretKey'],
+                $data['companyInfo']['culqiConfig']['testSecretKey'],
+                $data['companyInfo']['culqiConfig']['liveSecretKey'],
+                $data['companyInfo']['culqiConfig']['webhookSecret']
+            );
+        }
+        if (isset($data['companyInfo']['facturaloConfig']) && is_array($data['companyInfo']['facturaloConfig'])) {
+            unset(
+                $data['companyInfo']['facturaloConfig']['apiToken'],
+                $data['companyInfo']['facturaloConfig']['secretKey'],
+                $data['companyInfo']['facturaloConfig']['testSecretKey'],
+                $data['companyInfo']['facturaloConfig']['liveSecretKey'],
+                $data['companyInfo']['facturaloConfig']['multiCompanyToken'],
+                $data['companyInfo']['facturaloConfig']['token']
+            );
+        }
+    }
     $data['__public'] = true;
     return json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 }

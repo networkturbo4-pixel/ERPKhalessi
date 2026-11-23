@@ -48,6 +48,7 @@ fs.rmSync(path.join(release, 'api', '.token_secret.php'), { force: true });
 fs.rmSync(path.join(release, 'api', '.rate_limit'), { recursive: true, force: true });
 fs.rmSync(path.join(release, 'server', 'config.json'), { force: true });
 fs.rmSync(path.join(release, 'server', '.env'), { force: true });
+fs.rmSync(path.join(release, 'server', 'node_modules'), { recursive: true, force: true });
 fs.rmSync(path.join(release, 'server', 'whatsapp_state.json'), { force: true });
 fs.rmSync(path.join(release, 'uploads', 'branding'), { recursive: true, force: true });
 fs.rmSync(path.join(release, 'api', 'storage', 'google-wallet-sa.json'), { force: true });
@@ -55,6 +56,7 @@ fs.rmSync(path.join(release, 'api', 'storage', 'marketing-vapid.json'), { force:
 fs.rmSync(path.join(release, 'api', 'storage', 'marketing-cron-key.txt'), { force: true });
 fs.rmSync(path.join(release, 'api', 'storage', 'marketing_push_subscriptions.json'), { force: true });
 fs.rmSync(path.join(release, 'api', 'storage', 'marketing_scheduled_campaigns.json'), { force: true });
+fs.rmSync(path.join(release, 'api', 'storage', 'bot_preferences.json'), { force: true });
 
 // Normalizar fin de línea LF en /release para que SHA-256 coincida byte-a-byte con GitHub raw
 const TEXT_EXTS = new Set([

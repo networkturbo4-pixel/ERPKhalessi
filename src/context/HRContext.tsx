@@ -703,6 +703,20 @@ export const HRProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key !== HR_STORAGE_KEY) return;
+      try {
+        const raw = localStorage.getItem(HR_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as Record<string, unknown>;
+          if (parsed && parsed.__public === true) {
+            if (Array.isArray(parsed.jobPostings)) {
+              setJobPostings(parsed.jobPostings as JobPostingFormConfig[]);
+            }
+            return;
+          }
+        }
+      } catch {
+        // fallback to loadPersistedHR
+      }
       const fresh = loadPersistedHR();
       if (!fresh) return;
       setProfiles(fresh.profiles);
@@ -1222,7 +1236,27 @@ export const HRProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       createdAt: new Date().toISOString(),
       status: 'nuevo',
     };
-    setJobApplications(prev => [created, ...prev]);
+    setJobApplications(prev => {
+      const next = [created, ...prev];
+      if (!isAuthenticated) {
+        try {
+          const existingRaw = localStorage.getItem(HR_STORAGE_KEY);
+          const existingObj = existingRaw ? (JSON.parse(existingRaw) as Record<string, unknown>) : {};
+          localStorage.setItem(
+            HR_STORAGE_KEY,
+            JSON.stringify({
+              ...existingObj,
+              jobPostings,
+              jobApplications: next,
+              __public: true,
+            })
+          );
+        } catch {
+          // ignore storage quota errors
+        }
+      }
+      return next;
+    });
     logAuditEvent(
       'hr',
       'info',

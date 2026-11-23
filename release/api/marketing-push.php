@@ -12,6 +12,17 @@ $configLocalPath = __DIR__ . '/config.local.php';
 if (is_file($configLocalPath)) {
     require_once $configLocalPath;
 }
+require_once __DIR__ . '/storage-lib.php';
+
+function mkt_require_admin(): array
+{
+    $token = requestToken();
+    $admin = $token !== '' ? verifyToken($token) : null;
+    if ($admin === null) {
+        mkt_json(401, ['success' => false, 'error' => 'Autenticación de administrador requerida.']);
+    }
+    return $admin;
+}
 
 function mkt_json(int $status, array $payload): void
 {
@@ -429,6 +440,7 @@ if ($method === 'GET') {
     }
 
     if ($action === 'stats') {
+        mkt_require_admin();
         $subs = mkt_read_json_file($subsFile);
         $byPlatform = ['android' => 0, 'ios' => 0, 'windows' => 0, 'macos' => 0, 'other' => 0];
         foreach ($subs as $s) {
@@ -456,6 +468,7 @@ if ($method === 'GET') {
     }
 
     if ($action === 'campaigns') {
+        mkt_require_admin();
         $campaigns = mkt_read_json_file($campaignsFile);
         mkt_json(200, ['success' => true, 'campaigns' => $campaigns]);
     }
@@ -463,8 +476,10 @@ if ($method === 'GET') {
     if ($action === 'run-scheduled') {
         $expected = mkt_get_or_create_cron_key();
         $provided = (string) ($_GET['cron_key'] ?? '');
-        if ($provided !== '' && !hash_equals($expected, $provided)) {
-            mkt_json(401, ['success' => false, 'error' => 'cron_key inválido.']);
+        $token = requestToken();
+        $isAdmin = $token !== '' && verifyToken($token) !== null;
+        if (!$isAdmin && ($expected === '' || $provided === '' || !hash_equals($expected, $provided))) {
+            mkt_json(401, ['success' => false, 'error' => 'cron_key o token de administrador requerido.']);
         }
         $summary = mkt_run_due_campaigns();
         mkt_json(200, ['success' => true] + $summary);
@@ -526,6 +541,7 @@ if ($action === 'subscribe') {
 }
 
 if ($action === 'send-push') {
+    mkt_require_admin();
     $vapid = mkt_get_or_create_vapid();
     $res = mkt_dispatch_campaign_push($body, $vapid);
     $campaigns = mkt_read_json_file($campaignsFile);
@@ -552,6 +568,7 @@ if ($action === 'send-push') {
 }
 
 if ($action === 'schedule') {
+    mkt_require_admin();
     $campaign = $body['campaign'] ?? null;
     if (!is_array($campaign) || empty($campaign['id']) || empty($campaign['title'])) {
         mkt_json(400, ['success' => false, 'error' => 'Datos de campaña inválidos.']);
@@ -564,6 +581,7 @@ if ($action === 'schedule') {
 }
 
 if ($action === 'cancel' || $action === 'delete') {
+    mkt_require_admin();
     $id = (string) ($body['id'] ?? '');
     $campaigns = mkt_read_json_file($campaignsFile);
     if ($action === 'delete') {
@@ -581,6 +599,7 @@ if ($action === 'cancel' || $action === 'delete') {
 }
 
 if ($action === 'run-scheduled') {
+    mkt_require_admin();
     $summary = mkt_run_due_campaigns();
     mkt_json(200, ['success' => true] + $summary);
 }

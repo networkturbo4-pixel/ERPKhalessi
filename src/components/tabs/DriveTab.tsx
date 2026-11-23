@@ -273,7 +273,7 @@ export const DriveTab: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowFolderModal(false)}
-                  className="px-3.5 py-1.5 text-xs font-medium rounded-lg saas-btn-secondary"
+                  className="px-3.5 py-1.5 text-xs font-medium rounded-lg saas-btn-secondary whitespace-nowrap shrink-0"
                 >
                   Cerrar
                 </button>

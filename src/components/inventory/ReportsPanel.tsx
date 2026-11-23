@@ -5,10 +5,14 @@ import { BarChart3, TrendingDown, AlertTriangle, Layers, DollarSign } from 'luci
 
 export const ReportsPanel: React.FC = () => {
   const { movements, items, stockLevels, lots } = useInventory();
-  const { activeTenant } = useSettings();
+  const { activeTenant, branchScope } = useSettings();
+  const activeTenantId = activeTenant?.id || 'tenant-1';
+  const isConsolidated = branchScope === 'consolidated';
 
-  // 1. Mermas por causa
-  const wasteMovements = movements.filter(m => m.type === 'merma');
+  // 1. Mermas por causa (filtradas por sucursal salvo modo consolidado)
+  const wasteMovements = movements.filter(
+    m => m.type === 'merma' && (isConsolidated || m.tenantId === activeTenantId)
+  );
   const wasteByReason: Record<string, { count: number; totalCost: number }> = {};
 
   wasteMovements.forEach(m => {
@@ -20,15 +24,22 @@ export const ReportsPanel: React.FC = () => {
     wasteByReason[reason].totalCost += Math.abs(m.quantity * m.unitCost);
   });
 
-  // 2. Top insumos valorizados en inventario
-  const activeTenantId = activeTenant?.id || 'tenant-1';
+  // 2. Top insumos valorizados en inventario (usando costo promedio ponderado avgCost)
   const inventoryValuation = items.map(item => {
-    const qty = stockLevels
-      .filter(s => s.itemId === item.id && s.tenantId === activeTenantId)
-      .reduce((acc, s) => acc + s.quantity, 0);
-    const value = qty * item.costPerUnit;
+    const scopedStocks = stockLevels.filter(
+      s => s.itemId === item.id && (isConsolidated || s.tenantId === activeTenantId)
+    );
+    const qty = scopedStocks.reduce((acc, s) => acc + s.quantity, 0);
+    const value = scopedStocks.reduce(
+      (acc, s) => acc + s.quantity * (s.avgCost > 0 ? s.avgCost : item.costPerUnit),
+      0
+    );
     return { item, qty, value };
   }).sort((a, b) => b.value - a.value);
+
+  const scopedActiveLotsCount = lots.filter(
+    l => l.quantity > 0 && (isConsolidated || l.tenantId === activeTenantId)
+  ).length;
 
   const totalWarehouseValuation = inventoryValuation.reduce((acc, i) => acc + i.value, 0);
 
@@ -74,7 +85,7 @@ export const ReportsPanel: React.FC = () => {
             <Layers className="w-5 h-5 text-emerald-500" />
           </div>
           <div className="text-3xl font-black font-mono text-emerald-600 dark:text-emerald-400">
-            {lots.filter(l => l.quantity > 0).length}
+            {scopedActiveLotsCount}
           </div>
           <p className="text-xs text-zinc-500 mt-1">
             Lotes en almacén con control de rotación y fecha de vencimiento.

@@ -738,13 +738,13 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     const unitCost = params.producedQty > 0 ? Math.round((totalBatchCost / params.producedQty) * 100) / 100 : (preparedItem?.costPerUnit || 1);
 
-    // 2. Create newly produced lot
+    // 2. Create newly produced lot (quantity starts at 0 because registerMovement below adds producedQty)
     const newLot: InventoryLot = {
       id: `lot-prod-${Date.now()}`,
       code: generateLotCode(preparedItem?.sku || 'PREP', now),
       itemId: params.preparedItemId,
       tenantId: tid,
-      quantity: params.producedQty,
+      quantity: 0,
       initialQuantity: params.producedQty,
       unitCost,
       producedAt: now.toISOString(),
@@ -755,7 +755,7 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     setLots(prev => [newLot, ...prev]);
 
-    // 3. Register production_in movement
+    // 3. Register production_in movement (updates both stockLevels and newLot.quantity to producedQty)
     registerMovement({
       itemId: params.preparedItemId,
       type: 'produccion_in',
@@ -772,7 +772,7 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       'success'
     );
 
-    return newLot;
+    return { ...newLot, quantity: params.producedQty };
   }, [activeTenantId, items, lots, registerMovement, getItemAvgCost, dispatchToast]);
 
   // Recipes
@@ -844,14 +844,14 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       let createdLotId: string | undefined;
 
-      // If item tracks lots or has shelf life, create lot
+      // If item tracks lots or has shelf life, create lot with quantity 0 (registerMovement adds receivedQty once)
       if (item?.trackLots || line.expiresAt) {
         const lot: InventoryLot = {
           id: `lot-compra-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
           code: generateLotCode(item?.sku || 'LOT', now),
           itemId: line.itemId,
           tenantId: tid,
-          quantity: line.receivedQty,
+          quantity: 0,
           initialQuantity: line.receivedQty,
           unitCost: line.unitCost,
           producedAt: now.toISOString(),
@@ -1108,26 +1108,65 @@ export const InventoryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return true;
   }, [activeTenantId, recipes, registerMovement]);
 
+  // Persistent set of order IDs whose stock has already been deducted (survives re-renders & reloads)
+  const CONSUMED_ORDERS_KEY = 'kh_inventory_consumed_orders_v1';
+  const consumedOrdersRef = useRef<Set<string> | null>(null);
+  if (consumedOrdersRef.current === null) {
+    let initialIds: string[] = [];
+    try {
+      const raw = localStorage.getItem(CONSUMED_ORDERS_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          initialIds = parsed.filter((x): x is string => typeof x === 'string');
+        }
+      }
+    } catch {
+      // ignore storage errors
+    }
+    consumedOrdersRef.current = new Set(initialIds);
+  }
+
+  const persistConsumedOrders = useCallback(() => {
+    try {
+      const arr = Array.from(consumedOrdersRef.current || []).slice(-500);
+      localStorage.setItem(CONSUMED_ORDERS_KEY, JSON.stringify(arr));
+    } catch {
+      // ignore storage quota errors
+    }
+  }, []);
+
+  const consumeStockRef = useRef(consumeStockForOrder);
+  const restockOrderRef = useRef(restockCancelledOrder);
+  useEffect(() => {
+    consumeStockRef.current = consumeStockForOrder;
+    restockOrderRef.current = restockCancelledOrder;
+  }, [consumeStockForOrder, restockCancelledOrder]);
+
   // Hook up OrderCatalog lifecycle listener for auto deduction & restocking
   useEffect(() => {
-    const consumedOrders = new Set<string>();
-
-    const unsubscribe = registerOrderLifecycleListener((order, prevStatus, newStatus) => {
-      // 1. When advancing to en_cocina or beyond, deduct inventory if not deducted yet
-      if ((newStatus === 'en_cocina' || newStatus === 'en_horno') && !consumedOrders.has(order.id)) {
-        consumeStockForOrder(order);
-        consumedOrders.add(order.id);
+    const unsubscribe = registerOrderLifecycleListener((order, _prevStatus, newStatus) => {
+      const consumedSet = consumedOrdersRef.current!;
+      // 1. When advancing to en_cocina or beyond (including direct entregado), deduct inventory once
+      if (
+        (newStatus === 'en_cocina' || newStatus === 'en_horno' || newStatus === 'en_ruta' || newStatus === 'entregado') &&
+        !consumedSet.has(order.id)
+      ) {
+        consumedSet.add(order.id);
+        persistConsumedOrders();
+        consumeStockRef.current(order);
       }
 
-      // 2. When cancelling an order that was already deducted in kitchen, restock it
-      if (newStatus === 'cancelado' && consumedOrders.has(order.id)) {
-        restockCancelledOrder(order);
-        consumedOrders.delete(order.id);
+      // 2. When cancelling an order that was already deducted, restock it
+      if (newStatus === 'cancelado' && consumedSet.has(order.id)) {
+        consumedSet.delete(order.id);
+        persistConsumedOrders();
+        restockOrderRef.current(order);
       }
     });
 
     return () => unsubscribe();
-  }, [consumeStockForOrder, restockCancelledOrder]);
+  }, [persistConsumedOrders]);
 
   const updateSettings = useCallback((patch: Partial<InventorySettings>) => {
     setSettings(prev => ({ ...prev, ...patch }));

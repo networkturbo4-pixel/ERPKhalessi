@@ -30,16 +30,24 @@ if (!is_array($payload)) {
  * Difunde el cambio de clave al bus SSE local/Node.
  */
 function notifyRealtimeBus(string $key, string $type = 'new_order'): void {
+    $secret = defined('ERP_REALTIME_SECRET')
+        ? (string)ERP_REALTIME_SECRET
+        : (string)(getenv('ERP_REALTIME_SECRET') ?: '');
     $targets = [
-        'http://127.0.0.1:3001/api/realtime/broadcast',
-        'http://127.0.0.1:3000/api/realtime/broadcast',
+        'http://127.0.0.1:3000/broadcast',
+        'http://127.0.0.1:3000/realtime/broadcast',
+        'http://127.0.0.1:3001/broadcast',
     ];
-    $body = json_encode(['key' => $key, 'type' => $type, 'ts' => time()], JSON_UNESCAPED_UNICODE);
+    $body = json_encode(['key' => $key, 'action' => 'set', 'type' => $type, 'ts' => time()], JSON_UNESCAPED_UNICODE);
+    $headers = "Content-Type: application/json\r\n";
+    if ($secret !== '') {
+        $headers .= "X-ERP-Token: {$secret}\r\n";
+    }
     foreach ($targets as $url) {
         $ctx = stream_context_create([
             'http' => [
                 'method'  => 'POST',
-                'header'  => "Content-Type: application/json\r\n",
+                'header'  => $headers,
                 'content' => $body,
                 'timeout' => 0.7,
             ],
@@ -107,10 +115,12 @@ function notifyWhatsAppOrderPaid(PDO $pdo, array $order, string $ref): void {
 
     $tenantId = (string)($order['tenantId'] ?? '');
     $creds = null;
-    if (($waCfg['routingMode'] ?? 'centralized') === 'per_branch' && !empty($waCfg['branchCredentials'][$tenantId]['enabled'])) {
+    $mode = (string)($waCfg['numberMode'] ?? $waCfg['routingMode'] ?? 'centralized');
+    $central = $waCfg['centralizedCredentials'] ?? $waCfg['centralCredentials'] ?? null;
+    if ($mode === 'per_branch' && !empty($waCfg['branchCredentials'][$tenantId]['enabled'])) {
         $creds = $waCfg['branchCredentials'][$tenantId];
-    } elseif (!empty($waCfg['centralCredentials']['enabled'])) {
-        $creds = $waCfg['centralCredentials'];
+    } elseif (is_array($central) && !empty($central['enabled'])) {
+        $creds = $central;
     }
     if (!is_array($creds)) return;
 
@@ -193,6 +203,23 @@ function markOrderPaidInStorage(PDO $pdo, string $orderId, string $orderNumber, 
 // MODO 1: WEBHOOK OFICIAL DE CULQI (?webhook=1)
 // =========================================================================
 if (isset($_GET['webhook']) && $_GET['webhook'] === '1') {
+    $whSettingsRaw = kvGet($pdo, KH_SETTINGS_KEY);
+    $whSettings = $whSettingsRaw ? json_decode($whSettingsRaw, true) : [];
+    $whCulqiCfg = $whSettings['companyInfo']['culqiConfig'] ?? [];
+    $expectedWhSecret = trim((string)($whCulqiCfg['webhookSecret'] ?? getenv('CULQI_WEBHOOK_SECRET') ?: ''));
+    if ($expectedWhSecret === '') {
+        sendResponse(['ok' => false, 'error' => 'Webhook Culqi no configurado (falta webhookSecret)'], 403);
+    }
+    $providedWhSecret = trim((string)(
+        $_SERVER['HTTP_X_CULQI_WEBHOOK_SECRET']
+        ?? $_SERVER['HTTP_X_WEBHOOK_SECRET']
+        ?? $_GET['secret']
+        ?? ''
+    ));
+    if ($providedWhSecret === '' || !hash_equals($expectedWhSecret, $providedWhSecret)) {
+        sendResponse(['ok' => false, 'error' => 'Firma o secreto de webhook inválido'], 401);
+    }
+
     $eventType = (string)($payload['type'] ?? '');
     $eventData = $payload['data'] ?? [];
     if (is_string($eventData)) {
@@ -271,7 +298,16 @@ $secretKey = $env === 'live'
 $hasRealSecret = preg_match('/^sk_(test|live)_[A-Za-z0-9]{12,}$/', $secretKey) === 1;
 $chargeReference = '';
 
-if ($hasRealSecret && !$isSandbox && strpos($tokenId, 'tkn_') === 0) {
+if ($env === 'live' || $hasRealSecret) {
+    if ($isSandbox) {
+        sendResponse(['ok' => false, 'error' => 'El modo sandbox está deshabilitado cuando existe una llave secreta de Culqi configurada.'], 400);
+    }
+    if ($tokenId === '' || strpos($tokenId, 'tkn_') !== 0) {
+        sendResponse(['ok' => false, 'error' => 'Token de pago Culqi inválido o ausente.'], 400);
+    }
+    if (!$hasRealSecret) {
+        sendResponse(['ok' => false, 'error' => 'Falta configurar la llave secreta de producción de Culqi.'], 500);
+    }
     // Cobro real contra Culqi Charges API v2 usando el monto autoritativo del pedido
     $amountCents = max(100, (int)round(((float)($targetOrder['total'] ?? 0)) * 100));
     $chargePayload = json_encode([
@@ -321,7 +357,7 @@ if ($hasRealSecret && !$isSandbox && strpos($tokenId, 'tkn_') === 0) {
 
     $chargeReference = (string)$respJson['id'];
 } else {
-    // Modo Sandbox / Yape Order / Prueba sin Secret Key real
+    // Modo Sandbox puro (solo permitido cuando env !== 'live' y no hay Secret Key real configurada)
     $chargeReference = $tokenId !== '' ? $tokenId : ('CULQI-LINK-' . strtoupper(substr(md5($orderId . microtime()), 0, 8)));
 }
 

@@ -101,6 +101,13 @@ export const calculateDriverDailyMetrics = (
   const targetDriverId = options?.driverId || 'all';
   const targetTenantId = options?.tenantId || 'consolidated';
 
+  const toLocalDateStr = (iso?: string): string => {
+    if (!iso) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? iso.slice(0, 10) : getLocalIsoDate(d);
+  };
+
   const matchingOrders = orders.filter((order) => {
     const isDelivery =
       (order.channel === 'online' && order.deliveryAddress !== 'Recojo en Sucursal') ||
@@ -111,13 +118,13 @@ export const calculateDriverDailyMetrics = (
 
     const refIso = order.deliveredAt || order.updatedAt || order.createdAt;
     if (!refIso) return false;
-    return refIso.slice(0, 10) === targetDate;
+    return toLocalDateStr(refIso) === targetDate;
   });
 
   const matchingExpenses = expenses.filter((exp) => {
     if (targetTenantId !== 'consolidated' && exp.tenantId !== targetTenantId) return false;
     if (targetDriverId !== 'all' && exp.driverId !== targetDriverId) return false;
-    return exp.createdAt.slice(0, 10) === targetDate;
+    return toLocalDateStr(exp.createdAt) === targetDate;
   });
 
   let totalOrderRevenue = 0;

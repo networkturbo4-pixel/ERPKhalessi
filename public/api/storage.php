@@ -451,6 +451,59 @@ if ($method === 'POST' || $method === 'DELETE') {
         }
     }
 
+    // Fusión segura para reservas públicas (`kh_public_reservations_v1`) cuando escribe un visitante anónimo:
+    // Jamás permitir eliminar ni modificar reservas existentes de otros clientes; solo anexar nuevas por ID.
+    if ($key === 'kh_public_reservations_v1' && $admin === null) {
+        $existingResRaw = kvGet($pdo, 'kh_public_reservations_v1');
+        $existingRes = $existingResRaw ? json_decode($existingResRaw, true) : [];
+        if (!is_array($existingRes)) $existingRes = [];
+        $incomingRes = is_array($input['data']) ? $input['data'] : json_decode($data, true);
+        if (is_array($incomingRes)) {
+            $resMap = [];
+            foreach ($existingRes as $r) {
+                if (is_array($r) && isset($r['id'])) $resMap[(string)$r['id']] = $r;
+            }
+            foreach ($incomingRes as $r) {
+                if (is_array($r) && isset($r['id']) && !isset($resMap[(string)$r['id']])) {
+                    $resMap[(string)$r['id']] = $r;
+                }
+            }
+            $data = json_encode(array_values($resMap), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+    }
+
+    // Protección de RRHH (`gastro_erp_hr_v1`) cuando escribe un visitante público (/trabaja):
+    // Jamás permitir sobrescribir perfiles, asistencia, planilla, TOTP ni vacantes; solo anexar postulaciones nuevas.
+    if ($key === 'gastro_erp_hr_v1' && $admin === null) {
+        $existingHrRaw = kvGet($pdo, 'gastro_erp_hr_v1');
+        $existingHr = $existingHrRaw ? json_decode($existingHrRaw, true) : [];
+        if (!is_array($existingHr)) $existingHr = [];
+        $incomingHr = is_array($input['data']) ? $input['data'] : json_decode($data, true);
+        if (!is_array($incomingHr)) {
+            sendResponse(['error' => 'Payload HR inválido'], 400);
+        }
+        $existingApps = isset($existingHr['jobApplications']) && is_array($existingHr['jobApplications'])
+            ? $existingHr['jobApplications']
+            : [];
+        $incomingApps = isset($incomingHr['jobApplications']) && is_array($incomingHr['jobApplications'])
+            ? $incomingHr['jobApplications']
+            : [];
+        $appMap = [];
+        foreach ($existingApps as $app) {
+            if (is_array($app) && isset($app['id'])) {
+                $appMap[(string)$app['id']] = $app;
+            }
+        }
+        foreach ($incomingApps as $app) {
+            if (is_array($app) && isset($app['id']) && !isset($appMap[(string)$app['id']])) {
+                $appMap[(string)$app['id']] = $app;
+            }
+        }
+        $existingHr['jobApplications'] = array_values($appMap);
+        unset($existingHr['__public']);
+        $data = json_encode($existingHr, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
     // Protección de ajustes sensibles: jamás sobreescribir usuarios/credenciales existentes con un payload público o vacío
     if ($key === KH_SETTINGS_KEY) {
         $existingSettingsRaw = kvGet($pdo, KH_SETTINGS_KEY);
@@ -472,6 +525,21 @@ if ($method === 'POST' || $method === 'DELETE') {
             if ($isPublicPayload || !isset($incomingSettings['geminiConfig'])) {
                 if (isset($existingSettings['geminiConfig'])) {
                     $incomingSettings['geminiConfig'] = $existingSettings['geminiConfig'];
+                }
+            }
+            // Preservar llaves secretas de Culqi y Factúralo si el payload es público o no las incluye
+            if ($isPublicPayload && isset($existingSettings['companyInfo']) && is_array($existingSettings['companyInfo'])) {
+                if (!isset($incomingSettings['companyInfo']) || !is_array($incomingSettings['companyInfo'])) {
+                    $incomingSettings['companyInfo'] = $existingSettings['companyInfo'];
+                } else {
+                    foreach (['culqiConfig', 'facturaloConfig'] as $secCfg) {
+                        if (isset($existingSettings['companyInfo'][$secCfg]) && is_array($existingSettings['companyInfo'][$secCfg])) {
+                            $incomingSettings['companyInfo'][$secCfg] = array_merge(
+                                $existingSettings['companyInfo'][$secCfg],
+                                is_array($incomingSettings['companyInfo'][$secCfg] ?? null) ? $incomingSettings['companyInfo'][$secCfg] : []
+                            );
+                        }
+                    }
                 }
             }
             $data = json_encode($incomingSettings, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

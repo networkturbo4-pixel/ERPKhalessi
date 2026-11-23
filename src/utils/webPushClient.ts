@@ -1,4 +1,5 @@
 import { MarketingCampaign, MarketingPlatform, WebPushStatsResponse } from '../types/marketing';
+import { getAuthHeaders } from './diskPersistence';
 
 export function detectClientPlatform(): MarketingPlatform {
   if (typeof navigator === 'undefined') return 'other';
@@ -103,7 +104,10 @@ export async function subscribeToWebPush(params?: {
 
 export async function fetchMarketingPushStats(): Promise<WebPushStatsResponse> {
   try {
-    const res = await fetch('/api/marketing-push.php?action=stats', { cache: 'no-store' });
+    const res = await fetch('/api/marketing-push.php?action=stats', {
+      cache: 'no-store',
+      headers: { ...getAuthHeaders() },
+    });
     if (!res.ok) {
       return {
         success: false,
@@ -125,7 +129,10 @@ export async function fetchMarketingPushStats(): Promise<WebPushStatsResponse> {
 
 export async function fetchMarketingCampaigns(): Promise<MarketingCampaign[]> {
   try {
-    const res = await fetch('/api/marketing-push.php?action=campaigns', { cache: 'no-store' });
+    const res = await fetch('/api/marketing-push.php?action=campaigns', {
+      cache: 'no-store',
+      headers: { ...getAuthHeaders() },
+    });
     const data = (await res.json()) as { success?: boolean; campaigns?: MarketingCampaign[] };
     return Array.isArray(data?.campaigns) ? data.campaigns : [];
   } catch {
@@ -145,7 +152,7 @@ export async function sendMarketingWebPush(payload: {
   try {
     const res = await fetch('/api/marketing-push.php', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ action: 'send-push', ...payload }),
     });
     return (await res.json()) as { success: boolean; sent?: number; failed?: number; total?: number; error?: string };
@@ -160,7 +167,7 @@ export async function scheduleMarketingCampaign(
   try {
     const res = await fetch('/api/marketing-push.php', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ action: 'schedule', campaign }),
     });
     return (await res.json()) as { success: boolean; error?: string };
@@ -176,7 +183,7 @@ export async function updateMarketingCampaignStatus(
   try {
     const res = await fetch('/api/marketing-push.php', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ action, id }),
     });
     const data = (await res.json()) as { campaigns?: MarketingCampaign[] };
@@ -194,7 +201,7 @@ export async function runScheduledMarketingCampaignsNow(): Promise<{
   try {
     const res = await fetch('/api/marketing-push.php', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ action: 'run-scheduled' }),
     });
     return (await res.json()) as { success: boolean; processed?: number; sent?: number };

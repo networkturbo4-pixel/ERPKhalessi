@@ -817,10 +817,53 @@ async function handleWhatsAppRoute(req, res, parsedUrl, pathname, maxBodyBytes, 
             })
           : await sendInteractiveOrText(creds, cleanTo, text || '', 'text', []);
 
+      // Sincronizar respuesta del asesor en state.conversations y pausar bot (controlMode = 'human')
+      const nowIso = new Date().toISOString();
+      const targetBranch = branchId || 'central';
+      let matchedConv = null;
+      for (const conv of Object.values(state.conversations)) {
+        if (!conv) continue;
+        const convPhone = normalizePhone(conv.customerPhone);
+        if (convPhone && cleanTo && convPhone.slice(-9) === cleanTo.slice(-9)) {
+          if (!branchId || conv.branchId === branchId || targetBranch === 'central') {
+            matchedConv = conv;
+            break;
+          }
+        }
+      }
+      if (matchedConv) {
+        matchedConv.controlMode = 'human';
+        matchedConv.lastMessageAt = nowIso;
+        if (!Array.isArray(matchedConv.messages)) matchedConv.messages = [];
+        matchedConv.messages.push({
+          id: `wa_agent_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          sender: 'agent',
+          senderName: 'Asesor',
+          text: String(text || mediaFilename || mediaType || ''),
+          timestamp: nowIso,
+          status: result.ok ? 'sent' : 'failed',
+          ...(mediaType ? { mediaType } : {}),
+          ...(mediaUrl ? { mediaUrl } : {}),
+          ...(mediaFilename ? { mediaFilename } : {}),
+        });
+        if (matchedConv.messages.length > 200) {
+          matchedConv.messages = matchedConv.messages.slice(-200);
+        }
+        if (typeof broadcastSseEvent === 'function') {
+          broadcastSseEvent({
+            type: 'whatsapp_message',
+            branchId: matchedConv.branchId || targetBranch,
+            conversationId: matchedConv.id,
+            phone: cleanTo,
+            timestamp: nowIso,
+          });
+        }
+      }
+
       appendLog({
         direction: 'outbound',
         channelType: 'agent_reply',
-        branchId: branchId || 'central',
+        branchId: targetBranch,
         toPhone: cleanTo,
         summary: String(text || mediaFilename || mediaType || '').slice(0, 120),
         status: result.ok ? 'sent' : result.simulated ? 'simulated' : 'failed',

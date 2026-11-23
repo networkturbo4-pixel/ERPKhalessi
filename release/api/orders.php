@@ -217,8 +217,8 @@ switch ($method) {
         $driverId = '';
         if (isset($input['assignedDriverId']) && is_string($input['assignedDriverId'])) {
             $driverId = substr(trim($input['assignedDriverId']), 0, 64);
-        } elseif (isset($admin['id']) || isset($admin['sub']) || isset($admin['username'])) {
-            $driverId = substr(trim((string)($admin['id'] ?? $admin['sub'] ?? $admin['username'])), 0, 64);
+        } elseif (isset($admin['uid']) || isset($admin['id']) || isset($admin['sub']) || isset($admin['username'])) {
+            $driverId = substr(trim((string)($admin['uid'] ?? $admin['id'] ?? $admin['sub'] ?? $admin['username'])), 0, 64);
         }
 
         $driverName = '';

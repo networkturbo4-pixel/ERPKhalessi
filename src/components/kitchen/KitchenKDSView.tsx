@@ -82,9 +82,17 @@ export const KitchenKDSView: React.FC = () => {
     return Math.max(1, Math.floor(elapsedMs / (1000 * 60)));
   };
 
-  const isDeliveryChannel = (order: Order) =>
-    (order.channel === 'online' && !order.tableNumber && !order.tableId) ||
-    order.channel === 'pos-delivery';
+  const isDeliveryChannel = (order: Order) => {
+    const addr = (order.deliveryAddress || '').toLowerCase();
+    const isPickup =
+      addr === 'recojo en sucursal' ||
+      addr.startsWith('para llevar') ||
+      addr.startsWith('consumo en mesa');
+    return (
+      (order.channel === 'online' && !order.tableNumber && !order.tableId && !isPickup) ||
+      order.channel === 'pos-delivery'
+    );
+  };
 
   const renderOrderCard = (order: Order) => {
     const elapsed = getElapsedMinutes(order.createdAt);

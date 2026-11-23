@@ -523,7 +523,7 @@ export const POSView: React.FC<POSViewProps> = ({
         p.description.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     });
-  }, [products, activeCategory, searchQuery]);
+  }, [products, activeCategory, searchQuery, activeTenant.id]);
 
   const subtotal = ticketItems.reduce((acc, item) => acc + item.totalPrice, 0);
   const activeBranchTariff = activeTenant.operations?.deliveryTariff || companyInfo.deliveryTariff;
@@ -1069,21 +1069,8 @@ export const POSView: React.FC<POSViewProps> = ({
       voidedBy: currentUser.name,
       ...(voidTargetOrder.sunatSerieNumero ? { sunatStatus: 'anulado' } : {}),
     });
-    // Registrar egreso de devolución si el pedido ya había sido pagado
-    if (voidTargetOrder.paymentStatus === 'pagado') {
-      const currentExp = loadFinanceExpenses();
-      const refundEntry: FinanceExpense = {
-        id: `exp-void-${Date.now()}`,
-        tenantId: activeTenant.id,
-        category: 'otros',
-        source: voidTargetOrder.paymentMethod === 'efectivo' ? 'caja_chica' : 'transferencia',
-        amount: voidTargetOrder.total,
-        description: `Anulación/Devolución ${voidTargetOrder.orderNumber}: ${reason}`,
-        createdBy: currentUser.name,
-        createdAt: nowIso,
-      };
-      saveFinanceExpenses([refundEntry, ...currentExp]);
-    }
+    // Nota: computeFinanceDaySummary ya excluye los pedidos con status === 'cancelado' de ingresos y caja.
+    // No se inserta un FinanceExpense adicional para evitar descontar 2× el monto anulado.
     dispatchToast(
       'Pedido Anulado',
       `${voidTargetOrder.orderNumber} fue anulado y registrado en auditoría.`,
@@ -1157,7 +1144,12 @@ export const POSView: React.FC<POSViewProps> = ({
       paymentSplits: payOutcome.validSplits,
       cashReceived: payOutcome.covered,
       changeAmount: payOutcome.change,
-      paymentStatus: channel === 'pos-delivery' && payOutcome.primaryMethod !== 'yape_plin' ? 'pendiente' : 'pagado',
+      paymentStatus:
+        channel === 'pos-salon'
+          ? 'pendiente'
+          : channel === 'pos-delivery' && payOutcome.primaryMethod === 'efectivo'
+          ? 'pendiente'
+          : 'pagado',
       invoiceType: invoiceDocType,
       invoiceDocument: resolvedDoc,
       invoiceBusinessName: invoiceDocType === 'factura_ruc' ? invoiceBusinessName.trim() : displayCustomerName,
@@ -1242,7 +1234,17 @@ export const POSView: React.FC<POSViewProps> = ({
     };
 
     markOrderPaid(activeOrder.id);
-    updateOrderStatus(activeOrder.id, 'entregado', { paymentStatus: 'pagado' });
+    updateOrderStatus(activeOrder.id, 'entregado', {
+      paymentStatus: 'pagado',
+      paymentMethod: enrichedOrder.paymentMethod,
+      paymentSplits: enrichedOrder.paymentSplits,
+      cashReceived: enrichedOrder.cashReceived,
+      changeAmount: enrichedOrder.changeAmount,
+      invoiceType: enrichedOrder.invoiceType,
+      invoiceDocument: enrichedOrder.invoiceDocument,
+      invoiceBusinessName: enrichedOrder.invoiceBusinessName,
+      invoiceFiscalAddress: enrichedOrder.invoiceFiscalAddress,
+    });
     if (invoiceDocType !== 'boleta_simple') {
       void triggerSunatEmission(enrichedOrder, invoiceDocType);
     }

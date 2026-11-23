@@ -43,7 +43,7 @@ export const PurchasesPanel: React.FC = () => {
     const leadDays = sup?.leadDays || 3;
 
     const { dailyConsumption, suggestedQty } = calculateReplenishmentSuggestion(
-      movements.filter(m => m.itemId === item.id),
+      movements.filter(m => m.itemId === item.id && m.tenantId === activeTenantId),
       curStock,
       item.minStock,
       leadDays,

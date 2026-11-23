@@ -30,6 +30,7 @@ import {
   chargeSavedCulqiCard,
   isRealCulqiPublicKey,
   openOfficialCulqiCheckout,
+  resolveCulqiPublicKey,
 } from '../../utils/culqiCheckout';
 import {
   getNotificationPermissionState,
@@ -1186,11 +1187,8 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     const chosenRecurring = currentCustomer?.paymentMethods.find(
       pm => pm.id === selectedRecurringId
     );
-    const isAutoPaid =
-      Boolean(opts?.forcePaid) ||
-      paymentMethod === 'culqi' ||
-      paymentMethod === 'yape_plin' ||
-      Boolean(chosenRecurring && chosenRecurring.type === 'tarjeta');
+    // Solo marcar pagado cuando la pasarela confirmó el cargo explícitamente (forcePaid)
+    const isAutoPaid = Boolean(opts?.forcePaid);
 
     const willEarnPoints =
       Boolean(currentCustomer) &&
@@ -1403,7 +1401,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     // Culqi Checkout v4 Flow (Official SDK when real pk_ key, Sandbox Dialog when demo key)
     if (paymentMethod === 'culqi' && resolvedPayableTotal > 0) {
       const culqiCfg = companyInfo.culqiConfig;
-      if (culqiCfg && isRealCulqiPublicKey(culqiCfg.publicKey)) {
+      if (culqiCfg && isRealCulqiPublicKey(resolveCulqiPublicKey(culqiCfg))) {
         const res = await openOfficialCulqiCheckout({
           config: culqiCfg,
           storeTitle: companyInfo.commercialName || customization.appName,
@@ -4817,10 +4815,8 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                     : `Para Llevar — Recojo en ${activeTenant.name}`,
                   deliveryReference: isDelivery ? payload.deliveryReference : undefined,
                   paymentMethod: payload.paymentMethod,
-                  paymentStatus:
-                    payload.paymentMethod === 'yape_plin' || payload.paymentMethod === 'culqi'
-                      ? 'pagado'
-                      : 'pendiente',
+                  // OrderBot no ejecuta cobro Culqi ni valida comprobante Yape/Plin: siempre inicia pendiente
+                  paymentStatus: 'pendiente',
                   invoiceType: payload.customerDni?.length === 8 ? 'boleta_dni' : 'boleta_simple',
                   invoiceDocument: payload.customerDni,
                   couponCode: couponEval?.valid ? couponEval.coupon?.code : undefined,

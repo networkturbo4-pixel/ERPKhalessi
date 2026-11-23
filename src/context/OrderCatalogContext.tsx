@@ -53,6 +53,14 @@ interface OrderStatusPatch {
   sunatXmlUrl?: string;
   sunatCdrUrl?: string;
   sunatQrCode?: string;
+  paymentMethod?: PaymentMethod;
+  paymentSplits?: Order['paymentSplits'];
+  cashReceived?: number;
+  changeAmount?: number;
+  invoiceType?: Order['invoiceType'];
+  invoiceDocument?: string;
+  invoiceBusinessName?: string;
+  invoiceFiscalAddress?: string;
 }
 
 interface OrderCatalogContextType {
@@ -1134,7 +1142,27 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
       prev.map((c) => {
         if (c.id !== customerId) return c;
         const nextPoints = Math.max(0, (c.loyaltyPoints || 0) + delta);
-        syncGoogleWalletPointsInBackground({ customerId: c.id, points: nextPoints });
+        let walletCustomerId = c.id;
+        try {
+          const accRaw = localStorage.getItem('kh_store_customer_accounts_v1');
+          if (accRaw) {
+            const accs = JSON.parse(accRaw) as Array<{ id?: string; crmCustomerId?: string; phone?: string }>;
+            const cleanCrmPhone = (c.whatsapp || '').replace(/\D+/g, '').slice(-9);
+            const matchedAcc = Array.isArray(accs)
+              ? accs.find(
+                  (a) =>
+                    a?.crmCustomerId === c.id ||
+                    (cleanCrmPhone.length >= 9 && (a?.phone || '').replace(/\D+/g, '').slice(-9) === cleanCrmPhone)
+                )
+              : undefined;
+            if (matchedAcc?.id) {
+              walletCustomerId = matchedAcc.id;
+            }
+          }
+        } catch {
+          // fallback to CRM customer id
+        }
+        syncGoogleWalletPointsInBackground({ customerId: walletCustomerId, points: nextPoints });
         return {
           ...c,
           loyaltyPoints: nextPoints,
@@ -1521,6 +1549,14 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
             ...(patch?.sunatXmlUrl ? { sunatXmlUrl: patch.sunatXmlUrl } : {}),
             ...(patch?.sunatCdrUrl ? { sunatCdrUrl: patch.sunatCdrUrl } : {}),
             ...(patch?.sunatQrCode ? { sunatQrCode: patch.sunatQrCode } : {}),
+            ...(patch?.paymentMethod ? { paymentMethod: patch.paymentMethod } : {}),
+            ...(patch?.paymentSplits ? { paymentSplits: patch.paymentSplits } : {}),
+            ...(patch?.cashReceived !== undefined ? { cashReceived: patch.cashReceived } : {}),
+            ...(patch?.changeAmount !== undefined ? { changeAmount: patch.changeAmount } : {}),
+            ...(patch?.invoiceType ? { invoiceType: patch.invoiceType } : {}),
+            ...(patch?.invoiceDocument !== undefined ? { invoiceDocument: patch.invoiceDocument } : {}),
+            ...(patch?.invoiceBusinessName !== undefined ? { invoiceBusinessName: patch.invoiceBusinessName } : {}),
+            ...(patch?.invoiceFiscalAddress !== undefined ? { invoiceFiscalAddress: patch.invoiceFiscalAddress } : {}),
             ...(status === 'en_ruta' ? { dispatchedAt: nowIso } : {}),
             ...(status === 'entregado' ? { deliveredAt: nowIso, paymentStatus: 'pagado' } : {}),
           };
@@ -1708,7 +1744,7 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   useEffect(() => {
     const authHeaders = getAuthHeaders();
-    if (!authHeaders.Authorization) return;
+    if (!authHeaders['x-erp-token']) return;
     void fetch('/api/driver-expenses.php', { headers: { ...authHeaders } })
       .then(async (res) => {
         if (!res.ok) return;
@@ -1744,7 +1780,7 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
       });
 
       const authHeaders = getAuthHeaders();
-      if (authHeaders.Authorization) {
+      if (authHeaders['x-erp-token']) {
         void fetch('/api/driver-expenses.php', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...authHeaders },

@@ -175,7 +175,7 @@ function getPlatformBadge(platform?: MarketingPlatform) {
 export const MarketingModuleView: React.FC = () => {
   const { orders, products, customers } = useOrderCatalog();
   const { allCustomerAccounts } = useStoreCustomer();
-  const { activeTenant, customization, dispatchToast, openNoticeModal } = useSettings();
+  const { activeTenant, branchScope, customization, dispatchToast, openNoticeModal } = useSettings();
   const { pointsConfig } = useBenefits();
 
   const [activeTab, setActiveTab] = useState<MarketingTab>('clients');
@@ -271,7 +271,7 @@ export const MarketingModuleView: React.FC = () => {
 
     const scopedOrders = orders.filter(o => {
       if (o.status === 'cancelado') return false;
-      if (activeTenant.id !== 'consolidated' && o.tenantId !== activeTenant.id) return false;
+      if (branchScope !== 'consolidated' && o.tenantId !== activeTenant.id) return false;
       return true;
     });
 

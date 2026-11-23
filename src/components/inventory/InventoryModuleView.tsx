@@ -46,7 +46,14 @@ export const InventoryModuleView: React.FC = () => {
     getExpiringLotsSummary,
   } = useInventory();
 
-  const { activeTenant, tenants, customization, dispatchToast, openNoticeModal } = useSettings();
+  const { activeTenant, branchScope, tenants, customization, dispatchToast, openNoticeModal } = useSettings();
+  const activeTenantId = activeTenant?.id || 'tenant-1';
+  const scopedLots = branchScope === 'consolidated'
+    ? lots
+    : lots.filter(l => l.tenantId === activeTenantId);
+  const scopedMovements = branchScope === 'consolidated'
+    ? movements
+    : movements.filter(m => m.tenantId === activeTenantId);
   const { hasPermission } = useRBAC();
 
   const [inventoryNowMs] = useState(() => Date.now());
@@ -444,7 +451,7 @@ export const InventoryModuleView: React.FC = () => {
             <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50">
               <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block mb-1">Lotes Óptimos</span>
               <span className="text-2xl font-black font-mono text-emerald-700 dark:text-emerald-300">
-                {lots.filter(l => l.quantity > 0).length} en total
+                {scopedLots.filter(l => l.quantity > 0).length} en total
               </span>
             </div>
           </div>
@@ -463,7 +470,7 @@ export const InventoryModuleView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                {lots.filter(l => l.quantity > 0).map(lot => {
+                {scopedLots.filter(l => l.quantity > 0).map(lot => {
                   const itm = items.find(i => i.id === lot.itemId);
                   const isExp = lot.expiresAt && new Date(lot.expiresAt).getTime() < inventoryNowMs;
 
@@ -526,14 +533,14 @@ export const InventoryModuleView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-              {movements.length === 0 ? (
+              {scopedMovements.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-12 text-center text-xs text-zinc-400">
                     No hay movimientos registrados en el kardex.
                   </td>
                 </tr>
               ) : (
-                movements.map(m => {
+                scopedMovements.map(m => {
                   const itm = items.find(i => i.id === m.itemId);
                   const isPositive = m.quantity > 0;
 

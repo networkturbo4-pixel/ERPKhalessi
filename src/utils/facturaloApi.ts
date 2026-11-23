@@ -520,18 +520,83 @@ export async function emitInvoiceFacturalo(params: {
       ? `${baseUrl}/documentos/enviar`
       : `${baseUrl}/api/v3/documentos/enviar`;
 
-    const subtotal = params.order.subtotal || params.order.total / 1.18;
-    const igv = params.order.total - subtotal;
+    const nowLocal = new Date();
+    const localDateStr = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, '0')}-${String(nowLocal.getDate()).padStart(2, '0')}`;
+    const localTimeStr = `${String(nowLocal.getHours()).padStart(2, '0')}:${String(nowLocal.getMinutes()).padStart(2, '0')}:${String(nowLocal.getSeconds()).padStart(2, '0')}`;
+
+    // Construir ítems con precios IGV incluido, incorporando delivery y prorrateando descuentos
+    // para garantizar sum(items.total_item) === totales.total_venta y total_igv exacto ante SUNAT.
+    const rawLines: Array<{
+      codigo_interno: string;
+      descripcion: string;
+      cantidad: number;
+      grossTotal: number;
+    }> = params.order.items.map(item => ({
+      codigo_interno: item.productId,
+      descripcion: item.productName,
+      cantidad: Math.max(1, item.quantity),
+      grossTotal: Math.max(0, Number((item.unitPrice * item.quantity).toFixed(2))),
+    }));
+
+    const deliveryFee = Math.max(0, Number((params.order.deliveryFee || 0).toFixed(2)));
+    if (deliveryFee > 0) {
+      rawLines.push({
+        codigo_interno: 'SERV-DELIVERY',
+        descripcion: 'Servicio de Delivery',
+        cantidad: 1,
+        grossTotal: deliveryFee,
+      });
+    }
+
+    const totalVenta = Math.max(0, Number(params.order.total.toFixed(2)));
+    const grossSum = rawLines.reduce((acc, l) => acc + l.grossTotal, 0);
+    const scale = grossSum > 0 ? totalVenta / grossSum : 1;
+
+    let allocatedVenta = 0;
+    const itemsPayload = rawLines.map((line, idx) => {
+      const isLast = idx === rawLines.length - 1;
+      const lineTotal = isLast
+        ? Math.max(0, Number((totalVenta - allocatedVenta).toFixed(2)))
+        : Math.max(0, Number((line.grossTotal * scale).toFixed(2)));
+      allocatedVenta = Number((allocatedVenta + lineTotal).toFixed(2));
+
+      const unitPriceWithIgv = Number((lineTotal / line.cantidad).toFixed(2));
+      const lineBase = Number((lineTotal / 1.18).toFixed(2));
+      const lineIgv = Number((lineTotal - lineBase).toFixed(2));
+      const unitValueWithoutIgv = Number((lineBase / line.cantidad).toFixed(4));
+
+      return {
+        codigo_interno: line.codigo_interno,
+        descripcion: line.descripcion,
+        codigo_tipo_unidad_medida: 'NIU',
+        cantidad: line.cantidad,
+        valor_unitario: unitValueWithoutIgv,
+        codigo_tipo_precio: '01',
+        precio_unitario: unitPriceWithIgv,
+        codigo_tipo_afectacion_igv: '10',
+        total_base_igv: lineBase,
+        porcentaje_igv: 18,
+        total_igv: lineIgv,
+        total_impuestos: lineIgv,
+        total_valor_item: lineBase,
+        total_item: lineTotal,
+      };
+    });
+
+    const totalOperacionesGravadas = Number(
+      itemsPayload.reduce((acc, it) => acc + it.total_valor_item, 0).toFixed(2)
+    );
+    const totalIgv = Number((totalVenta - totalOperacionesGravadas).toFixed(2));
 
     const payload = {
       serie_documento: series,
       numero_documento: correlative,
-      fecha_de_emision: new Date().toISOString().split('T')[0],
-      hora_de_emision: new Date().toTimeString().split(' ')[0],
+      fecha_de_emision: localDateStr,
+      hora_de_emision: localTimeStr,
       codigo_tipo_operacion: '0101',
       codigo_tipo_documento: isFactura ? '01' : '03',
       codigo_tipo_moneda: 'PEN',
-      fecha_de_vencimiento: new Date().toISOString().split('T')[0],
+      fecha_de_vencimiento: localDateStr,
       datos_del_emisor: {
         codigo_pais: 'PE',
         ubigeo: '150140',
@@ -552,34 +617,16 @@ export async function emitInvoiceFacturalo(params: {
       },
       totales: {
         total_exportacion: 0,
-        total_operaciones_gravadas: Number(subtotal.toFixed(2)),
+        total_operaciones_gravadas: totalOperacionesGravadas,
         total_operaciones_inafectas: 0,
         total_operaciones_exoneradas: 0,
         total_operaciones_gratuitas: 0,
-        total_igv: Number(igv.toFixed(2)),
-        total_impuestos: Number(igv.toFixed(2)),
-        total_valor: Number(subtotal.toFixed(2)),
-        total_venta: Number(params.order.total.toFixed(2)),
+        total_igv: totalIgv,
+        total_impuestos: totalIgv,
+        total_valor: totalOperacionesGravadas,
+        total_venta: totalVenta,
       },
-      items: params.order.items.map(item => {
-        const itemVal = item.unitPrice / 1.18;
-        return {
-          codigo_interno: item.productId,
-          descripcion: item.productName,
-          codigo_tipo_unidad_medida: 'NIU',
-          cantidad: item.quantity,
-          valor_unitario: Number(itemVal.toFixed(2)),
-          codigo_tipo_precio: '01',
-          precio_unitario: Number(item.unitPrice.toFixed(2)),
-          codigo_tipo_afectacion_igv: '10',
-          total_base_igv: Number((itemVal * item.quantity).toFixed(2)),
-          porcentaje_igv: 18,
-          total_igv: Number(((item.unitPrice - itemVal) * item.quantity).toFixed(2)),
-          total_impuestos: Number(((item.unitPrice - itemVal) * item.quantity).toFixed(2)),
-          total_valor_item: Number((itemVal * item.quantity).toFixed(2)),
-          total_item: Number((item.unitPrice * item.quantity).toFixed(2)),
-        };
-      }),
+      items: itemsPayload,
     };
 
     const response = await callFacturaloApi({

@@ -102,7 +102,7 @@ switch ($method) {
 
         $driverId = isset($input['driverId']) && is_string($input['driverId'])
             ? substr(trim($input['driverId']), 0, 64)
-            : substr(trim((string)($admin['id'] ?? $admin['sub'] ?? $admin['username'] ?? '')), 0, 64);
+            : substr(trim((string)($admin['uid'] ?? $admin['id'] ?? $admin['sub'] ?? $admin['username'] ?? '')), 0, 64);
 
         if ($driverId === '') {
             sendResponse(['success' => false, 'error' => 'Falta driverId del motorizado'], 400);

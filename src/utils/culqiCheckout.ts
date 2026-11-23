@@ -87,6 +87,7 @@ export interface CulqiCheckoutResult {
   referenceId?: string;
   methodUsed?: 'tarjeta' | 'yape';
   errorMessage?: string;
+  alreadyCharged?: boolean;
 }
 
 export async function openOfficialCulqiCheckout(params: {
@@ -95,6 +96,7 @@ export async function openOfficialCulqiCheckout(params: {
   amountSoles: number;
   accentColor: string;
   logoUrl?: string;
+  skipBackendCharge?: boolean;
 }): Promise<CulqiCheckoutResult> {
   const loaded = await ensureCulqiScriptLoaded();
   if (!loaded || !window.Culqi) {
@@ -107,10 +109,29 @@ export async function openOfficialCulqiCheckout(params: {
   const amountCents = Math.max(100, Math.round(params.amountSoles * 100));
 
   return new Promise(resolve => {
+    let settled = false;
+    let frameSeen = false;
+    let closeWatcher: number | null = null;
+    const finish = (result: {
+      ok: boolean;
+      referenceId?: string;
+      methodUsed?: 'tarjeta' | 'yape';
+      errorMessage?: string;
+      alreadyCharged?: boolean;
+    }) => {
+      if (settled) return;
+      settled = true;
+      if (closeWatcher !== null) {
+        window.clearInterval(closeWatcher);
+        closeWatcher = null;
+      }
+      resolve(result);
+    };
+
     window.culqi = async () => {
       const culqi = window.Culqi;
       if (!culqi) {
-        resolve({ ok: false, errorMessage: 'Instancia de Culqi no disponible.' });
+        finish({ ok: false, errorMessage: 'Instancia de Culqi no disponible.' });
         return;
       }
 
@@ -118,8 +139,9 @@ export async function openOfficialCulqiCheckout(params: {
         const tokenId = culqi.token.id;
         culqi.close();
 
-        // Optional backend charge endpoint if configured by merchant
-        if (params.config.backendChargeEndpoint?.trim()) {
+        // Optional backend charge endpoint if configured by merchant (skipped when caller charges via /api/culqi-pay.php)
+        let alreadyCharged = false;
+        if (!params.skipBackendCharge && params.config.backendChargeEndpoint?.trim()) {
           try {
             const resp = await fetch(params.config.backendChargeEndpoint.trim(), {
               method: 'POST',
@@ -132,14 +154,15 @@ export async function openOfficialCulqiCheckout(params: {
               }),
             });
             if (!resp.ok) {
-              resolve({
+              finish({
                 ok: false,
                 errorMessage: 'El servidor de cargos rechazó el pago en Culqi.',
               });
               return;
             }
+            alreadyCharged = true;
           } catch {
-            resolve({
+            finish({
               ok: false,
               errorMessage: 'Error de red al confirmar el cargo con el servidor.',
             });
@@ -147,10 +170,11 @@ export async function openOfficialCulqiCheckout(params: {
           }
         }
 
-        resolve({
+        finish({
           ok: true,
           referenceId: tokenId,
           methodUsed: 'tarjeta',
+          alreadyCharged,
         });
         return;
       }
@@ -158,7 +182,7 @@ export async function openOfficialCulqiCheckout(params: {
       if (culqi.order) {
         const orderId = culqi.order.id;
         culqi.close();
-        resolve({
+        finish({
           ok: true,
           referenceId: orderId,
           methodUsed: 'yape',
@@ -167,7 +191,7 @@ export async function openOfficialCulqiCheckout(params: {
       }
 
       if (culqi.error) {
-        resolve({
+        finish({
           ok: false,
           errorMessage:
             culqi.error.user_message ||
@@ -205,6 +229,23 @@ export async function openOfficialCulqiCheckout(params: {
       },
     });
     window.Culqi!.open();
+
+    // Detect when the user dismisses Culqi modal without completing payment so caller UI doesn't hang
+    const openedAt = Date.now();
+    closeWatcher = window.setInterval(() => {
+      if (settled) return;
+      const frame = document.querySelector<HTMLElement>(
+        '#culqi_checkout_frame, iframe[src*="culqi.com"], iframe[id*="culqi"]'
+      );
+      const isVisible = Boolean(
+        frame && frame.offsetParent !== null && window.getComputedStyle(frame).display !== 'none'
+      );
+      if (isVisible) {
+        frameSeen = true;
+      } else if (frameSeen && Date.now() - openedAt > 1200) {
+        finish({ ok: false, errorMessage: 'Ventana de pago cerrada por el usuario.' });
+      }
+    }, 600);
   });
 }
 

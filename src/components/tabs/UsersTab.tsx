@@ -3,6 +3,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { useRBAC } from '../../context/RBACContext';
 import { PermissionGate } from '../common/PermissionGate';
 import { User, ErpModuleKey } from '../../types/settings';
+import { hashPassword } from '../../utils/passwordHash';
 import {
   Users,
   Search,
@@ -184,7 +185,7 @@ export const UsersTab: React.FC = () => {
     updateUser({ ...u, status: nextStatus });
   };
 
-  const handleConfirmPasswordReset = (e: React.FormEvent) => {
+  const handleConfirmPasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resettingUser) return;
     if (newPassword.length < 6) {
@@ -198,6 +199,30 @@ export const UsersTab: React.FC = () => {
       return;
     }
 
+    const cleanDigits = newPassword.replace(/\D/g, '');
+    const isNumericPin =
+      cleanDigits === newPassword.trim() &&
+      (cleanDigits.length === 6 || cleanDigits.length === 8);
+    if (isNumericPin && !validatePinOrNotify(cleanDigits, resettingUser.id)) {
+      return;
+    }
+
+    const hashed = await hashPassword(newPassword);
+    const updatedUser: User = {
+      ...resettingUser,
+      passwordHash: hashed,
+      ...(isNumericPin
+        ? {
+            pin: cleanDigits,
+            documentType: cleanDigits.length === 8 ? 'DNI (8d)' : 'Código (6d)',
+          }
+        : {}),
+    };
+    updateUser(updatedUser);
+    if (updatedUser.id === currentUser.id) {
+      setCurrentUser(updatedUser);
+    }
+
     const targetName = resettingUser.name;
     const targetMail = resettingUser.email;
     setResettingUser(null);
@@ -205,7 +230,7 @@ export const UsersTab: React.FC = () => {
 
     dispatchToast(
       'Credencial Actualizada',
-      `Se actualizó la clave de ${targetName} y se notificó a ${targetMail}.`,
+      `Se actualizó y guardó la clave de ${targetName} (${targetMail}).`,
       'success'
     );
   };

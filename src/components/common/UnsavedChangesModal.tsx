@@ -114,7 +114,7 @@ export const UnsavedChangesModal: React.FC = () => {
               disabled={isSaving}
               onClick={async () => {
                 await saveAllSettings();
-                setShowUnsavedModalAndContinue(confirmDiscardAndNavigate);
+                cancelNavigation();
               }}
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-semibold text-white rounded-xl shadow-sm transition-all hover:opacity-95 whitespace-nowrap shrink-0"
               style={{ backgroundColor: customization.primaryColor }}
@@ -128,7 +128,3 @@ export const UnsavedChangesModal: React.FC = () => {
     </dialog>
   );
 };
-
-function setShowUnsavedModalAndContinue(cb: () => void) {
-  cb();
-}

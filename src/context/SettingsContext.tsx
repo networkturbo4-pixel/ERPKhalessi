@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
-import { authenticateServer, forcePersistKeyToServer, getServerToken } from '../utils/diskPersistence';
+import { authenticateServer, clearServerToken, forcePersistKeyToServer, getServerToken } from '../utils/diskPersistence';
 import {
   TenantCustomization,
   CompanyInfo,
@@ -1427,6 +1427,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       'Bloqueo / Cierre de Turno',
       `Sesión cerrada manualmente por ${currentUser.name}.`
     );
+    clearServerToken();
     setIsAuthenticated(false);
   };
 

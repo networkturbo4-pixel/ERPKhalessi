@@ -128,13 +128,13 @@ export const OrdersManagementView: React.FC = () => {
     if (selectedBranch !== 'all' && o.tenantId !== selectedBranch) return false;
     if (channelFilter !== 'all' && o.channel !== channelFilter) return false;
     if (statusFilter !== 'all' && o.status !== statusFilter) return false;
-    if (startDate) {
-      const orderDate = o.createdAt.slice(0, 10);
-      if (orderDate < startDate) return false;
-    }
-    if (endDate) {
-      const orderDate = o.createdAt.slice(0, 10);
-      if (orderDate > endDate) return false;
+    if (startDate || endDate) {
+      const parsed = new Date(o.createdAt);
+      const orderDate = Number.isNaN(parsed.getTime())
+        ? o.createdAt.slice(0, 10)
+        : `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+      if (startDate && orderDate < startDate) return false;
+      if (endDate && orderDate > endDate) return false;
     }
     if (driverFilter !== 'all') {
       const match =

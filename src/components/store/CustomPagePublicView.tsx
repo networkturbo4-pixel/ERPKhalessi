@@ -219,7 +219,7 @@ export const CustomPagePublicView: React.FC<{
                     },
                     true
                   );
-                  dispatchToast('¡Gracias! Recibimos tus datos correctamente.', 'success');
+                  dispatchToast('¡Gracias!', 'Recibimos tus datos correctamente.', 'success');
                 }}
               />
             </div>

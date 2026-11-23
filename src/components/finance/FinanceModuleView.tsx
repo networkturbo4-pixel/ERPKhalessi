@@ -84,7 +84,7 @@ export const FinanceModuleView: React.FC = () => {
         .map((p) => p.userId)
     );
     const list = users
-      .filter((u) => driverIds.has(u.id) || u.roleId === 'role-driver')
+      .filter((u) => driverIds.has(u.id) || u.roleId === 'role-delivery')
       .map((u) => ({ userId: u.id, fullName: u.name }));
     return list;
   }, [profiles, users]);
@@ -227,7 +227,15 @@ export const FinanceModuleView: React.FC = () => {
   };
 
   const handleCloseDailyCash = () => {
-    const targetTenantId = scopeTenantId === 'consolidated' ? activeTenant.id : scopeTenantId;
+    if (scopeTenantId === 'consolidated') {
+      dispatchToast(
+        'Selecciona una Sucursal',
+        'El cierre de caja diario debe realizarse por sucursal individual y no en vista consolidada.',
+        'warning'
+      );
+      return;
+    }
+    const targetTenantId = scopeTenantId;
     const targetTenantName = branchNameById(targetTenantId);
 
     openNoticeModal({

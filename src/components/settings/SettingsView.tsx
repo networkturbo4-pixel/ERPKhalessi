@@ -3,6 +3,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { useRBAC } from '../../context/RBACContext';
 import { TabId } from '../../types/settings';
 import { ModuleWorkspaceSkeleton } from '../common/AppSurfaceSkeleton';
+import { PermissionGate } from '../common/PermissionGate';
 
 // Lazy-loaded Settings Tabs (splits heavy Company, Tenants, Users & RBAC tabs)
 const IdentityTab = lazy(() =>
@@ -90,7 +91,7 @@ export const SETTINGS_TABS: TabItem[] = [
   { id: 'login', label: 'Pantalla de Login', category: 'Experiencia', icon: LogIn, requiredPermission: 'settings:manage' },
   { id: 'company', label: 'Datos Fiscales y QR', category: 'Empresa, Sedes y RBAC', icon: Building2, requiredPermission: 'settings:manage' },
   { id: 'users', label: 'Usuarios y PIN POS', category: 'Empresa, Sedes y RBAC', icon: Users, requiredPermission: 'settings:users' },
-  { id: 'roles', label: 'Matriz RBAC', category: 'Empresa, Sedes y RBAC', icon: ShieldCheck, badge: '13 Mód', requiredPermission: 'settings:roles' },
+  { id: 'roles', label: 'Matriz RBAC', category: 'Empresa, Sedes y RBAC', icon: ShieldCheck, badge: '23 Mód', requiredPermission: 'settings:roles' },
   { id: 'tenants', label: 'Sucursales y Locales', category: 'Empresa, Sedes y RBAC', icon: Network, requiredPermission: 'settings:manage' },
   { id: 'audit', label: 'Auditoría y Salud', category: 'Empresa, Sedes y RBAC', icon: Activity, badge: 'Live', requiredPermission: 'settings:view' },
   { id: 'drive', label: 'Google Drive Cloud', category: 'Cloud y DevOps', icon: Cloud, requiredPermission: 'settings:manage' },
@@ -246,7 +247,17 @@ export const SettingsView: React.FC = () => {
       {/* Active Tab Content Area */}
       <div className="flex-1 w-full min-w-0">
         <Suspense fallback={<ModuleWorkspaceSkeleton compact />}>
-          {renderActiveTabContent()}
+          {(() => {
+            const activeTabMeta = SETTINGS_TABS.find(t => t.id === activeTab);
+            if (activeTabMeta?.requiredPermission) {
+              return (
+                <PermissionGate permission={activeTabMeta.requiredPermission}>
+                  {renderActiveTabContent()}
+                </PermissionGate>
+              );
+            }
+            return renderActiveTabContent();
+          })()}
         </Suspense>
       </div>
     </div>

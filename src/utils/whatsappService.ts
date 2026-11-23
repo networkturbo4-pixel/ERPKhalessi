@@ -1,4 +1,5 @@
 import { Order, OrderStatus, Product } from '../types/catalog';
+import { getAuthHeaders } from './diskPersistence';
 import {
   InboxNoteItem,
   InboxQuickReply,
@@ -460,7 +461,7 @@ export async function syncWhatsAppConfigToServer(params: {
   try {
     const resp = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       signal: AbortSignal.timeout(15000),
       body: JSON.stringify({
         config: params.config,
@@ -504,6 +505,7 @@ export async function fetchWhatsAppServerState(
   try {
     const resp = await fetch(endpoint, {
       method: 'GET',
+      headers: { ...getAuthHeaders() },
       signal: AbortSignal.timeout(10000),
     });
     const data = await resp.json().catch(() => ({}));
@@ -539,7 +541,7 @@ export async function testMetaConnection(
   try {
     const resp = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       signal: AbortSignal.timeout(15000),
       body: JSON.stringify({
         phoneNumberId: creds.phoneNumberId,
@@ -562,6 +564,66 @@ export async function testMetaConnection(
       ok: false,
       error: err instanceof Error ? err.message : 'Error de red al probar conexión con Meta',
     };
+  }
+}
+
+export async function sendMetaTemplateReply(params: {
+  config: WhatsAppModuleConfig;
+  branchId: string;
+  toPhone: string;
+  templateName: string;
+  templateLanguage?: string;
+  bodyText: string;
+  variables?: string[];
+}): Promise<{ ok: boolean; simulated?: boolean; error?: string }> {
+  const creds = resolveActiveCredentials(params.config, params.branchId);
+  const cleanPhone = normalizeWhatsAppPhone(params.toPhone);
+  const endpoint = buildWhatsAppEndpoint(params.config.realtimeServerUrl, '/api/whatsapp/send-template');
+
+  if (!creds.enabled || !creds.phoneNumberId || !creds.accessToken) {
+    appendWhatsAppLog({
+      direction: 'outbound',
+      channelType: 'order_status',
+      branchId: params.branchId,
+      toPhone: cleanPhone || params.toPhone,
+      summary: `[Plantilla ${params.templateName}] ${params.bodyText}`.slice(0, 120),
+      templateName: params.templateName,
+      status: 'simulated',
+      errorMessage: 'Modo simulación (credenciales Meta inactivas)',
+    });
+    return { ok: true, simulated: true };
+  }
+
+  try {
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      body: JSON.stringify({
+        branchId: params.branchId,
+        toPhone: cleanPhone,
+        useMetaTemplate: true,
+        templateName: params.templateName,
+        templateLanguage: params.templateLanguage || 'es',
+        bodyText: params.bodyText,
+        variables: params.variables || [],
+        credentialsOverride: creds,
+      }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    appendWhatsAppLog({
+      direction: 'outbound',
+      channelType: 'order_status',
+      branchId: params.branchId,
+      toPhone: cleanPhone,
+      summary: `[Plantilla ${params.templateName}] ${params.bodyText}`.slice(0, 120),
+      templateName: params.templateName,
+      status: data?.ok ? 'sent' : data?.simulated ? 'simulated' : 'failed',
+      errorMessage: data?.ok ? undefined : data?.error,
+    });
+    return { ok: Boolean(data?.ok), simulated: Boolean(data?.simulated), error: data?.error };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Error al enviar plantilla Meta';
+    return { ok: false, error: msg };
   }
 }
 
@@ -594,7 +656,7 @@ export async function sendAgentWhatsAppReply(params: {
   try {
     const resp = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({
         branchId: params.branchId,
         toPhone: cleanPhone,
@@ -680,7 +742,7 @@ export async function notifyOrderStatusViaWhatsApp(params: {
   try {
     const resp = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({
         branchId: params.order.tenantId,
         toPhone: cleanPhone,

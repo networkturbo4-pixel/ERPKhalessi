@@ -126,7 +126,7 @@ if ($matched === null) {
                 'gerente'    => 'role-manager',
                 'cajero'     => 'role-cashier',
                 'cocina'     => 'role-kitchen',
-                'repartidor' => 'role-driver',
+                'repartidor' => 'role-delivery',
             ];
             $rKey = strtolower((string)($dbUser['role'] ?? 'admin'));
             $matched = [

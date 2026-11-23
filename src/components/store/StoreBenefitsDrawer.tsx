@@ -41,7 +41,8 @@ export const StoreBenefitsDrawer: React.FC<StoreBenefitsDrawerProps> = ({
 
   const { pointsConfig, rewards, coupons, gameSettings } = useBenefits();
   const { currentCustomer } = useStoreCustomer();
-  const { dispatchToast } = useSettings();
+  const { activeTenant, dispatchToast } = useSettings();
+  const activeRewards = useMemo(() => rewards.filter(r => r.isActive !== false), [rewards]);
 
   const isCardActive = pointsConfig.enabled && pointsConfig.status !== 'paused';
   const isGamesActive = gameSettings.enabled;
@@ -207,6 +208,7 @@ export const StoreBenefitsDrawer: React.FC<StoreBenefitsDrawerProps> = ({
                       customerId={currentCustomer?.id}
                       customerName={currentCustomer?.fullName}
                       customerPhone={currentCustomer?.phone}
+                      tenantId={activeTenant.id}
                       isLightTheme={isLightTheme}
                     />
 
@@ -244,11 +246,11 @@ export const StoreBenefitsDrawer: React.FC<StoreBenefitsDrawerProps> = ({
                       isLightTheme ? 'text-zinc-500' : 'text-neutral-400'
                     }`}
                   >
-                    Catálogo de Premios Disponibles ({rewards.length})
+                    Catálogo de Premios Disponibles ({activeRewards.length})
                   </span>
 
                   <div className="grid grid-cols-1 gap-2.5">
-                    {rewards.map(reward => {
+                    {activeRewards.map(reward => {
                       const canRedeem = (currentCustomer?.points || 0) >= reward.pointsCost;
                       return (
                         <div

@@ -8,7 +8,7 @@ import { PointReward } from '../../types/benefits';
 import { useSettings } from '../../context/SettingsContext';
 import { lookupPersonByDni } from '../../utils/dniLookup';
 import { lookupRucFacturalo, emitInvoiceFacturalo } from '../../utils/facturaloApi';
-import { isRealCulqiPublicKey, openOfficialCulqiCheckout } from '../../utils/culqiCheckout';
+import { isRealCulqiPublicKey, openOfficialCulqiCheckout, resolveCulqiPublicKey } from '../../utils/culqiCheckout';
 import {
   ArrowLeft,
   ShieldCheck,
@@ -455,7 +455,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
     // Culqi Checkout Integration
     if (paymentMethod === 'culqi' && payableTotal > 0) {
       const culqiCfg = companyInfo.culqiConfig;
-      if (culqiCfg && isRealCulqiPublicKey(culqiCfg.publicKey)) {
+      if (culqiCfg && isRealCulqiPublicKey(resolveCulqiPublicKey(culqiCfg))) {
         const res = await openOfficialCulqiCheckout({
           config: culqiCfg,
           storeTitle: companyInfo.commercialName || customization.appName,
@@ -485,7 +485,8 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
       return;
     }
 
-    finalizeOrder({ isPaid: paymentMethod === 'yape_plin' });
+    // Yape/Plin y Transferencia manuales quedan pendientes hasta verificación en caja
+    finalizeOrder({ isPaid: false });
   };
 
   const finalizeOrder = (opts?: { culqiReference?: string; isPaid?: boolean }) => {
@@ -544,6 +545,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
       deliveryFee: effectiveDeliveryFee,
       discount: discountSoles,
       total: payableTotal,
+      notes: finalNotes || undefined,
       estimatedMinutes: isTableQrMode ? 18 : deliveryType === 'delivery' ? 35 : 20,
     });
 

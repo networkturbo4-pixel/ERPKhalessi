@@ -14,7 +14,9 @@ import {
   recordDriverLocationPing,
 } from '../../utils/driverTracking';
 import { calculateDriverDailyMetrics, loadFuelExpenses } from '../../utils/deliveryOperations';
+import { toLocalIsoDate } from '../../utils/financeOperations';
 import { getConfiguredServerUrl } from '../../utils/serverUrl';
+import { getAuthHeaders } from '../../utils/diskPersistence';
 import {
   Bike,
   Clock,
@@ -93,7 +95,9 @@ export const DeliveryControlTowerView: React.FC = () => {
       const endpoint = base
         ? `${base.replace(/\/+$/, '')}/api/delivery/fleet?branchId=${encodeURIComponent(branchParam)}`
         : `/api/delivery/fleet?branchId=${encodeURIComponent(branchParam)}`;
-      const res = await fetch(endpoint);
+      const res = await fetch(endpoint, {
+        headers: { ...getAuthHeaders() },
+      });
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data?.drivers)) {
@@ -214,7 +218,7 @@ export const DeliveryControlTowerView: React.FC = () => {
       deliveryOrders.filter((o) => {
         if (o.status !== 'entregado') return false;
         const ref = o.deliveredAt || o.updatedAt || o.createdAt;
-        if (!ref || ref.slice(0, 10) !== selectedDate) return false;
+        if (!ref || toLocalIsoDate(ref) !== selectedDate) return false;
         if (selectedDriverId !== 'all' && o.assignedDriverId !== selectedDriverId) return false;
         return true;
       }),
@@ -274,7 +278,7 @@ export const DeliveryControlTowerView: React.FC = () => {
   const driverBreaksForDate = useMemo(
     () =>
       fleetSnapshot.breaks.filter((b) => {
-        if (b.startedAt.slice(0, 10) !== selectedDate) return false;
+        if (toLocalIsoDate(b.startedAt) !== selectedDate) return false;
         if (selectedDriverId !== 'all' && b.driverId !== selectedDriverId) return false;
         return true;
       }),

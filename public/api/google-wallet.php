@@ -12,6 +12,17 @@ $configLocalPath = __DIR__ . '/config.local.php';
 if (is_file($configLocalPath)) {
     require_once $configLocalPath;
 }
+require_once __DIR__ . '/storage-lib.php';
+
+function gw_require_admin(): array
+{
+    $token = requestToken();
+    $admin = $token !== '' ? verifyToken($token) : null;
+    if ($admin === null) {
+        gw_json_response(401, ['success' => false, 'error' => 'Autenticación de administrador requerida.']);
+    }
+    return $admin;
+}
 
 function gw_json_response(int $status, array $payload): void
 {
@@ -419,6 +430,7 @@ if ($action === 'create-save-link') {
 }
 
 if ($action === 'sync-points') {
+    gw_require_admin();
     try {
         $accessToken = gw_get_access_token($sa);
         $patchUrl = 'https://walletobjects.googleapis.com/walletobjects/v1/loyaltyObject/' . rawurlencode($objectId);
@@ -439,13 +451,15 @@ if ($action === 'sync-points') {
                 ],
             ],
         ];
-        if ($barcodeType !== 'NONE') {
-        $loyaltyObject['barcode'] = [
-            'type' => $barcodeType,
-            'value' => "GASTRO:LOYALTY:{$customerId}",
-            'alternateText' => $accountId,
-        ];
-    }
+        $syncBarcodeType = strtoupper(trim((string) ($body['barcodeType'] ?? 'NONE')));
+        if ($syncBarcodeType !== '' && $syncBarcodeType !== 'NONE') {
+            $syncAccountId = trim((string) ($body['customerPhone'] ?? '')) ?: strtoupper(substr(gw_sanitize_id($customerId), -8));
+            $patchPayload['barcode'] = [
+                'type' => $syncBarcodeType,
+                'value' => "GASTRO:LOYALTY:{$customerId}",
+                'alternateText' => $syncAccountId,
+            ];
+        }
 
     if ($dynamicHeroUrl !== '') {
             $patchPayload['heroImage'] = [
@@ -499,6 +513,7 @@ if ($action === 'sync-points') {
 }
 
 if ($action === 'send-promo') {
+    gw_require_admin();
     $header = substr(trim((string) ($body['header'] ?? '')), 0, 80);
     $rawBodyText = substr(trim((string) ($body['body'] ?? '')), 0, 400);
     $promoUrl = trim((string) ($body['promoUrl'] ?? ''));

@@ -136,19 +136,20 @@ export const DriverModeView: React.FC = () => {
     [orders, branchScope, activeTenant.id]
   );
 
-  // Active order assigned to this driver (or in route)
+  // Active order explicitly assigned to this driver (unassigned orders stay in ready/available pool)
   const myActiveOrder = useMemo(
     () =>
       deliveryOrders.find(
-        (o) =>
-          o.status === 'en_ruta' &&
-          (!o.assignedDriverId || o.assignedDriverId === currentUser.id)
+        (o) => o.status === 'en_ruta' && o.assignedDriverId === currentUser.id
       ) || null,
     [deliveryOrders, currentUser.id]
   );
 
   const readyOrders = useMemo(
-    () => deliveryOrders.filter((o) => o.status === 'listo'),
+    () =>
+      deliveryOrders.filter(
+        (o) => o.status === 'listo' || (o.status === 'en_ruta' && !o.assignedDriverId)
+      ),
     [deliveryOrders]
   );
   const kitchenOrders = useMemo(

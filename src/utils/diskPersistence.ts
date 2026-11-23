@@ -41,6 +41,7 @@ const SERVER_SYNC_KEYS = [
   'kh_orders_list',
   'kh_pos_held_orders_v1',
   'kh_public_reservations_v1',
+  'kh_reservation_settings_v1',
   'kh_sunat_invoices_v1',
   'kh_customers_crm_v1',
   'kh_store_customer_accounts_v1',
@@ -76,13 +77,15 @@ const SERVER_SYNC_KEYS = [
 
 const SERVER_SYNC_SET = new Set<string>(SERVER_SYNC_KEYS);
 
-// Claves operativas de escritura libre (pedidos, clientes CRM, cuentas de tienda, salón y libro de reclamaciones)
+// Claves operativas de escritura libre (pedidos, clientes CRM, cuentas de tienda, salón, reservas públicas, postulaciones y libro de reclamaciones)
 const PUBLIC_WRITABLE_KEYS = new Set<string>([
   'kh_orders_list',
   'kh_customers_crm_v1',
   'kh_store_customer_accounts_v1',
   'kh_floor_tables_v1',
+  'kh_public_reservations_v1',
   'gastro_erp_complaints_v1',
+  'gastro_erp_hr_v1',
 ]);
 
 // Claves legibles sin sesión ERP (espejo de KH_PUBLIC_READ_KEYS en storage-lib.php)
@@ -97,7 +100,10 @@ const PUBLIC_READ_KEYS = new Set<string>([
   'kh_customers_crm_v1',
   'kh_store_customer_accounts_v1',
   'kh_floor_tables_v1',
+  'kh_public_reservations_v1',
+  'kh_reservation_settings_v1',
   'gastro_erp_complaints_v1',
+  'gastro_erp_hr_v1',
 ]);
 
 const SETTINGS_KEY = 'gastro_erp_settings_v3';
@@ -123,6 +129,14 @@ export function getServerToken(): string {
 export function getAuthHeaders(): Record<string, string> {
   const token = getServerToken();
   return token ? { 'x-erp-token': token } : {};
+}
+
+export function clearServerToken(): void {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // ignore storage errors
+  }
 }
 
 let onServerAuthenticated: (() => void) | null = null;

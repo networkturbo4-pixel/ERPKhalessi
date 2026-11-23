@@ -232,7 +232,19 @@ export const computeFinanceDaySummary = (
       posOrdersCount += 1;
     }
 
-    if (order.paymentMethod === 'efectivo') {
+    if (Array.isArray(order.paymentSplits) && order.paymentSplits.length > 0) {
+      for (const split of order.paymentSplits) {
+        const sAmt = Number(split.amount) || 0;
+        if (sAmt <= 0) continue;
+        if (split.method === 'efectivo') {
+          cashRevenue += sAmt;
+        } else if (split.method === 'tarjeta') {
+          cardRevenue += sAmt;
+        } else {
+          yapePlinRevenue += sAmt;
+        }
+      }
+    } else if (order.paymentMethod === 'efectivo') {
       cashRevenue += amt;
     } else if (order.paymentMethod === 'tarjeta') {
       cardRevenue += amt;
@@ -252,7 +264,17 @@ export const computeFinanceDaySummary = (
       const dName = order.assignedDriverName || 'Sin asignar';
       const row = ensureDriverRow(dId, dName);
       row.deliveredCount += 1;
-      if (order.paymentMethod === 'efectivo') {
+      if (Array.isArray(order.paymentSplits) && order.paymentSplits.length > 0) {
+        for (const split of order.paymentSplits) {
+          const sAmt = Number(split.amount) || 0;
+          if (sAmt <= 0) continue;
+          if (split.method === 'efectivo') {
+            row.cashCollected += sAmt;
+          } else {
+            row.digitalCollected += sAmt;
+          }
+        }
+      } else if (order.paymentMethod === 'efectivo') {
         row.cashCollected += amt;
       } else {
         row.digitalCollected += amt;

@@ -1,4 +1,5 @@
 import { PointsProgramConfig } from '../types/benefits';
+import { getAuthHeaders } from './diskPersistence';
 
 export interface GoogleWalletServerStatus {
   success: boolean;
@@ -142,7 +143,7 @@ export async function sendGoogleWalletPromo(
   try {
     const res = await fetch('/api/google-wallet.php', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({
         action: 'send-promo',
         issuerId: params.issuerId.trim(),
@@ -179,7 +180,7 @@ export function syncGoogleWalletPointsInBackground(params: {
 
     void fetch('/api/google-wallet.php', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({
         action: 'sync-points',
         issuerId: gw.issuerId.trim(),

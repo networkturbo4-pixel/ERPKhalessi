@@ -113,6 +113,7 @@ import {
   saveInboxTags,
   saveWhatsAppConversations,
   sendAgentWhatsAppReply,
+  sendMetaTemplateReply,
 } from '../../utils/whatsappService';
 
 type ChannelFilter = 'all' | OmnichannelType;
@@ -155,7 +156,7 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
   onMobilePaneChange,
   onLogout,
 }) => {
-  const { activeTenant, tenants, branchScope, customization, users, openNoticeModal } = useSettings();
+  const { activeTenant, tenants, branchScope, customization, users, openNoticeModal, dispatchToast } = useSettings();
   const { currentUser } = useRBAC();
   const { products, orders, customers, createOrder, upsertCustomer, markOrderPaid } =
     useOrderCatalog();
@@ -2866,12 +2867,48 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
                             <button
                               key={rule.status}
                               type="button"
-                              onClick={() => {
-                                void sendDirectAgentMessage(
-                                  activeConversation,
-                                  `[Plantilla Meta: ${rule.templateName}] ${rule.bodyText.replace(/\{\{cliente\}\}/g, activeConversation.customerName).replace(/\{\{sucursal\}\}/g, activeTenant.name)}`
-                                );
+                              onClick={async () => {
+                                const rendered = rule.bodyText
+                                  .replace(/\{\{cliente\}\}/g, activeConversation.customerName)
+                                  .replace(/\{\{sucursal\}\}/g, activeTenant.name);
                                 setMetaTemplatePickerOpen(false);
+                                const res = await sendMetaTemplateReply({
+                                  config,
+                                  branchId: activeConversation.branchId || activeTenant.id,
+                                  toPhone: activeConversation.customerPhone,
+                                  templateName: rule.templateName,
+                                  templateLanguage: rule.templateLanguage || 'es',
+                                  bodyText: rendered,
+                                  variables: [activeConversation.customerName, activeTenant.name],
+                                });
+                                const nowIso = new Date().toISOString();
+                                setConversations((prev) =>
+                                  prev.map((c) =>
+                                    c.id !== activeConversation.id
+                                      ? c
+                                      : {
+                                          ...c,
+                                          controlMode: 'human',
+                                          lastMessageAt: nowIso,
+                                          messages: [
+                                            ...c.messages,
+                                            {
+                                              id: `tpl_${Date.now()}`,
+                                              sender: 'agent',
+                                              senderName: currentUser.name,
+                                              text: `[Plantilla Meta: ${rule.templateName}] ${rendered}`,
+                                              timestamp: nowIso,
+                                              status: res.ok ? 'sent' : 'failed',
+                                            },
+                                          ],
+                                        }
+                                  )
+                                );
+                                if (!res.ok) {
+                                  dispatchToast('Error enviando plantilla Meta', res.error || 'Verifica la plantilla aprobada en Meta.', 'warning');
+                                } else {
+                                  dispatchToast('Plantilla Meta enviada', `Se envió "${rule.templateName}" a ${activeConversation.customerName}.`, 'success');
+                                }
                               }}
                               className="px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-amber-500/30 text-[11px] font-semibold text-zinc-800 dark:text-zinc-200"
                             >

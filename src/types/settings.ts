@@ -257,6 +257,7 @@ export interface User {
   roleName: string;
   status: 'active' | 'suspended';
   pin: string; // 8 digits (DNI / CE primary), 6 digits, or 4 digits
+  passwordHash?: string;
   documentType?: 'DNI (8d)' | 'CE (8d)' | 'Código (6d)' | 'PIN (4d)';
   branchIds?: string[]; // ['all'] or specific tenant IDs
   defaultModule?: ErpModuleKey;

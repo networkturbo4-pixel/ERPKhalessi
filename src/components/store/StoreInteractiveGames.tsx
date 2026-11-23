@@ -10,6 +10,12 @@ import {
 } from 'lucide-react';
 import { useStoreCustomer } from '../../context/StoreCustomerContext';
 import { useSettings } from '../../context/SettingsContext';
+import { useBenefits } from '../../context/BenefitsContext';
+
+function getTodayDateKey(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
 
 interface StoreInteractiveGamesProps {
   isLightTheme: boolean;
@@ -121,6 +127,8 @@ export const StoreInteractiveGames: React.FC<StoreInteractiveGamesProps> = ({
 }) => {
   const { currentCustomer, awardCustomerPoints } = useStoreCustomer();
   const { dispatchToast } = useSettings();
+  const { gameSettings } = useBenefits();
+  const dailySpinsLimit = Math.max(1, gameSettings.maxAttempts || 3);
 
   const [activeGame, setActiveGame] = useState<'roulette' | 'puzzle'>('roulette');
 
@@ -131,9 +139,19 @@ export const StoreInteractiveGames: React.FC<StoreInteractiveGamesProps> = ({
   const [rotationDegrees, setRotationDegrees] = useState(0);
   const [wonPrize, setWonPrize] = useState<RoulettePrize | null>(null);
   const [spinsLeft, setSpinsLeft] = useState(() => {
-    if (typeof window === 'undefined') return 3;
-    const saved = localStorage.getItem('kh_game_spins_today');
-    return saved !== null ? parseInt(saved, 10) : 3;
+    if (typeof window === 'undefined') return dailySpinsLimit;
+    const today = getTodayDateKey();
+    try {
+      const saved = localStorage.getItem('kh_game_spins_today');
+      if (!saved) return dailySpinsLimit;
+      const parsed = JSON.parse(saved) as { date?: string; spins?: number };
+      if (parsed && typeof parsed === 'object' && parsed.date === today && typeof parsed.spins === 'number') {
+        return Math.min(dailySpinsLimit, Math.max(0, parsed.spins));
+      }
+    } catch {
+      // Legacy bare integer format -> reset for today
+    }
+    return dailySpinsLimit;
   });
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -231,7 +249,10 @@ export const StoreInteractiveGames: React.FC<StoreInteractiveGamesProps> = ({
       setWonPrize(selected);
       const nextSpins = Math.max(0, spinsLeft - 1);
       setSpinsLeft(nextSpins);
-      localStorage.setItem('kh_game_spins_today', String(nextSpins));
+      localStorage.setItem(
+        'kh_game_spins_today',
+        JSON.stringify({ date: getTodayDateKey(), spins: nextSpins })
+      );
 
       // Award points if logged in
       if (selected.type === 'points' && currentCustomer) {

@@ -1,8 +1,8 @@
 {
-  "buildId": "20261122221434",
-  "builtAt": "2026-11-22T22:14:34.179Z",
-  "commitSha": "88a7b23",
-  "message": "chore(release): release 20261122220044",
+  "buildId": "20261123200435",
+  "builtAt": "2026-11-23T20:04:35.859Z",
+  "commitSha": "e9dd057",
+  "message": "chore(release): release 20261122221434",
   "totalFiles": 124,
-  "manifestSha256": "262a75b749fcf6ab5e0466ea8e7e3fbc20aeb928cc0700464fe7f2e24e4d2c5c"
+  "manifestSha256": "2d88cc5120590727fb66e843fda8a2afe6ec269f6edbb4e4757c97f70f6ae26f"
 }

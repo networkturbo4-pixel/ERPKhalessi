@@ -114,6 +114,73 @@ function safeTokenEquals(a, b) {
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
+let cachedPhpTokenSecret = null;
+function resolvePhpTokenSecret() {
+  if (process.env.TOKEN_SECRET && String(process.env.TOKEN_SECRET).trim()) {
+    return String(process.env.TOKEN_SECRET).trim();
+  }
+  if (cachedPhpTokenSecret !== null) return cachedPhpTokenSecret;
+  const candidates = [
+    path.join(__dirname, '..', 'public', 'api', '.token_secret.php'),
+    path.join(__dirname, '..', 'api', '.token_secret.php'),
+  ];
+  for (const file of candidates) {
+    try {
+      if (fs.existsSync(file)) {
+        const content = fs.readFileSync(file, 'utf8');
+        const m = content.match(/return\s+['"]([A-Za-z0-9_=-]{32,})['"]\s*;/);
+        if (m && m[1]) {
+          cachedPhpTokenSecret = m[1];
+          return cachedPhpTokenSecret;
+        }
+      }
+    } catch {
+      // ignore unreadable candidate
+    }
+  }
+  cachedPhpTokenSecret = '';
+  return '';
+}
+
+function verifyErpStaffToken(req) {
+  const providedToken = String(req.headers['x-erp-token'] || req.headers['authorization'] || '')
+    .replace(/^Bearer\s+/i, '')
+    .trim();
+  if (!providedToken) return false;
+
+  const sharedSecret = String(process.env.ERP_REALTIME_SECRET || '').trim();
+  if (sharedSecret && safeTokenEquals(providedToken, sharedSecret)) {
+    return true;
+  }
+
+  const secret = resolvePhpTokenSecret();
+  if (!secret || !providedToken.includes('.')) return false;
+  const dotIdx = providedToken.indexOf('.');
+  const payloadB64 = providedToken.slice(0, dotIdx);
+  const sigB64 = providedToken.slice(dotIdx + 1);
+  if (!payloadB64 || !sigB64) return false;
+
+  const expectedSig = crypto
+    .createHmac('sha256', secret)
+    .update(payloadB64)
+    .digest('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+  if (!safeTokenEquals(sigB64, expectedSig)) return false;
+
+  try {
+    const padded = payloadB64.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (payloadB64.length % 4)) % 4);
+    const decoded = JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
+    if (!decoded || typeof decoded.exp !== 'number' || decoded.exp * 1000 < Date.now()) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // Heartbeat cada 20 segundos y limpieza de ventanas de rate limit expiradas
 const heartbeatTimer = setInterval(() => {
   const now = Date.now();
@@ -490,6 +557,12 @@ const server = http.createServer((req, res) => {
 
   // 2D. WHATSAPP CLOUD API (Meta Webhook, Chatbot Engine & Tracking)
   if (apiPathname.startsWith('/api/whatsapp/')) {
+    const isMetaWebhook = apiPathname === '/api/whatsapp/webhook';
+    if (!isMetaWebhook && !verifyErpStaffToken(req)) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: 'Unauthorized: ERP staff token required' }));
+      return;
+    }
     const broadcastSseEvent = (payload) => {
       const rawMessage = `data: ${JSON.stringify(payload)}\n\n`;
       const targetBranch = payload.branchId;
@@ -515,6 +588,11 @@ const server = http.createServer((req, res) => {
 
   // 2E. DELIVERY REAL-TIME GPS TRACKING & FLEET
   if (apiPathname === '/api/delivery/location' && req.method === 'POST') {
+    if (!verifyErpStaffToken(req)) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: 'Unauthorized: ERP staff token required' }));
+      return;
+    }
     let rawBody = '';
     req.on('data', chunk => {
       rawBody += chunk;
@@ -588,6 +666,11 @@ const server = http.createServer((req, res) => {
   }
 
   if (apiPathname === '/api/delivery/fleet' && req.method === 'GET') {
+    if (!verifyErpStaffToken(req)) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: 'Unauthorized: ERP staff token required' }));
+      return;
+    }
     const branchFilter = parsedUrl.query?.branchId || 'all';
     const driverFilter = parsedUrl.query?.driverId || '';
     const drivers = [];

@@ -182,7 +182,7 @@ if ($driverId === '' && $telegramDriverId !== '') {
 }
 
 if ($driverId === '' && $admin !== null) {
-    $driverId = (string)($admin['id'] ?? $admin['sub'] ?? $admin['username'] ?? '');
+    $driverId = (string)($admin['uid'] ?? $admin['id'] ?? $admin['sub'] ?? $admin['username'] ?? '');
     if ($driverName === '') {
         $driverName = (string)($admin['name'] ?? $admin['username'] ?? 'Motorizado');
     }

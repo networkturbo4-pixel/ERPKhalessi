@@ -1414,11 +1414,17 @@ export const HRModuleView: React.FC = () => {
             <h3 className="text-sm font-bold text-zinc-950 dark:text-white">
               Bitácora Reciente de Movimientos de Planilla
             </h3>
-            {payrollMovements.length === 0 ? (
-              <p className="text-xs text-zinc-500">Sin movimientos adicionales registrados en el periodo.</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                {payrollMovements.map(mov => {
+            {(() => {
+              const visibleUserIds = new Set(scopedUsers.map(u => u.id));
+              const scopedPayrollMovements = payrollMovements.filter(mov =>
+                visibleUserIds.has(mov.userId)
+              );
+              if (scopedPayrollMovements.length === 0) {
+                return <p className="text-xs text-zinc-500">Sin movimientos adicionales registrados en el periodo.</p>;
+              }
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  {scopedPayrollMovements.map(mov => {
                   const usr = users.find(u => u.id === mov.userId);
                   const isPositive =
                     mov.type === 'hora_extra' || mov.type === 'bono_puntualidad';
@@ -1460,8 +1466,9 @@ export const HRModuleView: React.FC = () => {
                     </div>
                   );
                 })}
-              </div>
-            )}
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>

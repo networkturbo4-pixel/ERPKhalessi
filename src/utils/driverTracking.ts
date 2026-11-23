@@ -257,7 +257,7 @@ export async function pushDriverLocationToServer(ping: DriverLocationPing): Prom
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(token ? { 'x-erp-token': token, Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(ping),
     });

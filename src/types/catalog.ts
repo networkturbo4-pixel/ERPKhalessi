@@ -389,6 +389,7 @@ export interface Order {
   rewardRedeemedTitle?: string;
   pointsEarned?: number;
   scheduledFor?: string;
+  notes?: string;
   items: OrderItem[];
   subtotal: number;
   deliveryFee: number;

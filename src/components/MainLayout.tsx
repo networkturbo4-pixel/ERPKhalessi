@@ -225,6 +225,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
     saveAllSettings,
     isDarkResolved,
     logoutSession,
+    users,
     updateUser,
     dispatchToast,
   } = useSettings();
@@ -340,11 +341,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
   const [activeMainModule, setActiveMainModule] = useState<MainModuleId>(() => {
     try {
       const saved = localStorage.getItem('kh_active_main_module') as MainModuleId;
-      if (saved && [
-        'pos', 'kitchen', 'delivery', 'orders', 'catalog', 'tables',
-        'kiosk', 'benefits', 'marketing', 'inbox', 'whatsapp', 'hr', 'crm', 'store_builder', 'settings', 'dashboard', 'inventory',
-        'products', 'clients', 'media', 'pages', 'finance', 'billing'
-      ].includes(saved)) {
+      if (saved && ALL_MAIN_MODULES_ORDER.includes(saved)) {
         return saved;
       }
     } catch {
@@ -973,7 +970,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                   Selector Multisucursal en Vivo
                 </div>
 
-                {/* Consolidated Option */}
+                {/* Consolidated Option (only for admins or roles with workspace:consolidated) */}
+                {(currentUser.roleId === 'role-admin' || hasPermission('workspace:consolidated')) && (
                 <button
                   type="button"
                   onClick={() => {
@@ -999,6 +997,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                     <Check className="h-3.5 w-3.5 shrink-0" style={{ color: customization.primaryColor }} />
                   )}
                 </button>
+                )}
 
                 <div className="border-t border-zinc-200 dark:border-zinc-800 my-1" />
 
@@ -1540,7 +1539,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                       />
                     )}
                     <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-zinc-200/80 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
-                      12
+                      15
                     </span>
                   </div>
                 </div>
@@ -1819,27 +1818,40 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 <div className="flex items-center justify-between gap-1.5">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <ShieldCheck className="h-3.5 w-3.5 shrink-0" style={{ color: customization.primaryColor }} />
-                    <select
-                      aria-label="Simular rol RBAC"
-                      value={currentUser.roleId}
-                      onChange={e => {
-                        const target = roles.find(r => r.id === e.target.value);
-                        if (target) {
-                          setCurrentUser({
-                            ...currentUser,
-                            roleId: target.id,
-                            roleName: target.name,
-                          });
-                        }
-                      }}
-                      className="w-full text-[11px] font-semibold bg-transparent text-zinc-800 dark:text-zinc-100 focus:outline-none cursor-pointer truncate"
-                    >
-                      {roles.map(r => (
-                        <option key={r.id} value={r.id} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
-                          {r.name}
-                        </option>
-                      ))}
-                    </select>
+                    {(() => {
+                      const realUser = users.find(u => u.id === currentUser.id);
+                      const canSimulateRoles = realUser?.roleId === 'role-admin';
+                      if (!canSimulateRoles) {
+                        return (
+                          <span className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-200 truncate">
+                            {currentUser.roleName}
+                          </span>
+                        );
+                      }
+                      return (
+                        <select
+                          aria-label="Simular rol RBAC"
+                          value={currentUser.roleId}
+                          onChange={e => {
+                            const target = roles.find(r => r.id === e.target.value);
+                            if (target) {
+                              setCurrentUser({
+                                ...currentUser,
+                                roleId: target.id,
+                                roleName: target.name,
+                              });
+                            }
+                          }}
+                          className="w-full text-[11px] font-semibold bg-transparent text-zinc-800 dark:text-zinc-100 focus:outline-none cursor-pointer truncate"
+                        >
+                          {roles.map(r => (
+                            <option key={r.id} value={r.id} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                              {r.name}
+                            </option>
+                          ))}
+                        </select>
+                      );
+                    })()}
                   </div>
 
                   <div className="flex items-center bg-zinc-100 dark:bg-zinc-800/90 p-0.5 rounded-lg shrink-0">

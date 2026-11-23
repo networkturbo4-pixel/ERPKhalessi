@@ -11,6 +11,7 @@ import {
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
 import { useSettings } from '../../context/SettingsContext';
 import {
+  resolveExtraPrice,
   resolveProductBasePrice,
   resolveSizePrice,
   resolveSubOptionPriceDelta,
@@ -391,7 +392,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
   let selectedExtrasCount = 0;
   enabledExtras.forEach(extra => {
     if (selectedExtras[extra.id]) {
-      const cost = extra.isIncluded ? 0 : extra.price;
+      const cost = resolveExtraPrice(product, extra, 1, activeTenantId);
       extrasTotal += cost;
       selectedExtrasCount += 1;
     }
@@ -550,7 +551,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
         extrasList.push({
           id: extra.id,
           name: extra.name,
-          price: extra.isIncluded ? 0 : extra.price,
+          price: resolveExtraPrice(product, extra, 1, activeTenantId),
           quantity: 1,
         });
       }

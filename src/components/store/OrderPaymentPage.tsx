@@ -144,6 +144,7 @@ export const OrderPaymentPage: React.FC<OrderPaymentPageProps> = ({
           amountSoles: liveOrder.total,
           accentColor: customization.primaryColor,
           logoUrl: customization.logoLight || undefined,
+          skipBackendCharge: true,
         });
         if (!res.ok || !res.referenceId) {
           setErrorMsg(res.errorMessage || 'El pago fue cancelado o rechazado.');

@@ -86,6 +86,17 @@ export function preloadInitialRouteChunk(): void {
     return;
   }
 
+  if (path.startsWith('/reservas') || hash.startsWith('#reservas')) {
+    void loadReservationsLandingView();
+    return;
+  }
+
+  if (path.startsWith('/inbox-app') || hash.startsWith('#inbox-app')) {
+    void loadHRProvider();
+    void loadInboxAppView();
+    return;
+  }
+
   if (path.startsWith('/trabaja')) {
     void loadHRProvider();
     void loadJobsLandingView();

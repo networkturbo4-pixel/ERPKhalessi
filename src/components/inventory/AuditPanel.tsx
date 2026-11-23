@@ -6,10 +6,14 @@ import { ClipboardCheck, Lock, Plus, X } from 'lucide-react';
 
 export const AuditPanel: React.FC = () => {
   const { audits, openStockAudit, recordAuditCount, closeStockAudit, items } = useInventory();
-  const { openNoticeModal, dispatchToast } = useSettings();
+  const { activeTenant, branchScope, openNoticeModal, dispatchToast } = useSettings();
   const { hasPermission } = useRBAC();
+  const activeTenantId = activeTenant?.id || 'tenant-1';
+  const scopedAudits = branchScope === 'consolidated'
+    ? audits
+    : audits.filter(a => a.tenantId === activeTenantId);
 
-  const [selectedAuditId, setSelectedAuditId] = useState<string>(audits[0]?.id || '');
+  const [selectedAuditId, setSelectedAuditId] = useState<string>(scopedAudits[0]?.id || '');
   const [isNewAuditModalOpen, setIsNewAuditModalOpen] = useState<boolean>(false);
   const [newAuditPeriod, setNewAuditPeriod] = useState<string>(() => {
     const now = new Date();
@@ -17,7 +21,7 @@ export const AuditPanel: React.FC = () => {
   });
   const [newAuditNotes, setNewAuditNotes] = useState<string>('Conteo físico mensual');
 
-  const activeAudit = audits.find(a => a.id === selectedAuditId);
+  const activeAudit = scopedAudits.find(a => a.id === selectedAuditId) || scopedAudits[0];
 
   const canAudit = hasPermission('inventory:audit');
 
@@ -73,9 +77,9 @@ export const AuditPanel: React.FC = () => {
         )}
       </div>
 
-      {audits.length === 0 ? (
+      {scopedAudits.length === 0 ? (
         <div className="p-12 text-center text-xs text-zinc-400 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl">
-          No hay auditorías activas. Haz clic en "Abrir Auditoría Mensual".
+          No hay auditorías activas para esta sucursal. Haz clic en "Abrir Auditoría Mensual".
         </div>
       ) : (
         <div className="space-y-6">
@@ -83,11 +87,11 @@ export const AuditPanel: React.FC = () => {
           <div className="flex items-center gap-3">
             <span className="text-xs font-bold text-zinc-500">Período:</span>
             <select
-              value={selectedAuditId}
+              value={activeAudit?.id || ''}
               onChange={(e) => setSelectedAuditId(e.target.value)}
               className="px-4 py-2 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-bold"
             >
-              {audits.map(a => (
+              {scopedAudits.map(a => (
                 <option key={a.id} value={a.id}>
                   {a.period} • {a.status.toUpperCase()} ({new Date(a.createdAt).toLocaleDateString()})
                 </option>
