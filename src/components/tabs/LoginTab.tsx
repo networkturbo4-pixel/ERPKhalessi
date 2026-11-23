@@ -1,12 +1,49 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { PermissionGate } from '../common/PermissionGate';
 import { WelcomeSlide } from '../../types/settings';
-import { LogIn, SplitSquareVertical, MoveUp, MoveDown, Plus, Trash2, Eye, Check, Layers, ExternalLink } from 'lucide-react';
+import { MediaGalleryModal } from '../media/MediaGalleryModal';
+import { compressImageFile } from '../../utils/imageCompressor';
+import {
+  LogIn,
+  SplitSquareVertical,
+  MoveUp,
+  MoveDown,
+  Plus,
+  Trash2,
+  Eye,
+  Check,
+  Layers,
+  ExternalLink,
+  Upload,
+  Image as ImageIcon,
+  Link2,
+} from 'lucide-react';
+
+const isImageFile = (file: File): boolean =>
+  file.type.startsWith('image/') || /\.(png|jpe?g|webp|svg|gif|avif)$/i.test(file.name);
+
+const readFileAsDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result);
+      } else {
+        reject(new Error('Archivo vacío'));
+      }
+    };
+    reader.onerror = () => reject(new Error('Error al leer el archivo'));
+    reader.readAsDataURL(file);
+  });
 
 export const LoginTab: React.FC = () => {
-  const { customization, updateCustomization, saveAllSettings, isSaving, logoutSession } = useSettings();
+  const { customization, updateCustomization, saveAllSettings, isSaving, logoutSession, dispatchToast } = useSettings();
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
+  const [uploadingSlideId, setUploadingSlideId] = useState<string | null>(null);
+  const [dragSlideId, setDragSlideId] = useState<string | null>(null);
+  const [gallerySlideIndex, setGallerySlideIndex] = useState<number | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const { loginConfig } = customization;
 
@@ -54,6 +91,51 @@ export const LoginTab: React.FC = () => {
     const slides = [...loginConfig.slides];
     slides[index] = { ...slides[index], ...partial };
     updateLogin({ slides });
+  };
+
+  const processSlideImageFile = async (file: File, index: number, slideId: string) => {
+    if (!isImageFile(file)) {
+      dispatchToast('Formato no soportado', 'Selecciona una imagen PNG, JPG, WebP, SVG o GIF.', 'error');
+      return;
+    }
+
+    setUploadingSlideId(slideId);
+    try {
+      const isSvg = file.type === 'image/svg+xml' || file.name.toLowerCase().endsWith('.svg');
+      const dataUrl = isSvg
+        ? await readFileAsDataUrl(file)
+        : (
+            await compressImageFile(file, {
+              maxWidth: 1600,
+              maxHeight: 1200,
+              quality: 0.85,
+              outputFormat: 'image/jpeg',
+            })
+          ).dataUrl;
+
+      handleUpdateSlide(index, { imageUrl: dataUrl });
+      setActiveSlideIndex(index);
+      dispatchToast(
+        'Imagen cargada',
+        'La imagen de la diapositiva se actualizó. Recuerda guardar los cambios.',
+        'success'
+      );
+    } catch {
+      dispatchToast('Error al cargar imagen', 'No se pudo procesar el archivo seleccionado.', 'error');
+    } finally {
+      setUploadingSlideId(null);
+    }
+  };
+
+  const handleSlideFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    index: number,
+    slideId: string
+  ) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    await processSlideImageFile(file, index, slideId);
   };
 
   const currentPreviewSlide = loginConfig.slides[activeSlideIndex] || loginConfig.slides[0];
@@ -248,23 +330,15 @@ export const LoginTab: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div className="mt-3 space-y-2.5">
                         <input
                           type="text"
                           placeholder="Título de la diapositiva"
                           value={slide.title}
                           onChange={e => handleUpdateSlide(idx, { title: e.target.value })}
-                          className="px-2.5 py-1.5 text-xs rounded-lg saas-input"
+                          className="w-full px-2.5 py-1.5 text-xs rounded-lg saas-input"
                         />
-                        <input
-                          type="text"
-                          placeholder="URL de imagen de fondo"
-                          value={slide.imageUrl}
-                          onChange={e => handleUpdateSlide(idx, { imageUrl: e.target.value })}
-                          className="px-2.5 py-1.5 text-xs rounded-lg saas-input"
-                        />
-                      </div>
-                      <div className="mt-2.5">
+
                         <input
                           type="text"
                           placeholder="Subtítulo o frase inspiradora"
@@ -272,6 +346,86 @@ export const LoginTab: React.FC = () => {
                           onChange={e => handleUpdateSlide(idx, { subtitle: e.target.value })}
                           className="w-full px-2.5 py-1.5 text-xs rounded-lg saas-input"
                         />
+
+                        {/* Image URL + File Upload + Media Gallery */}
+                        <div
+                          onDragOver={e => {
+                            e.preventDefault();
+                            setDragSlideId(slide.id);
+                          }}
+                          onDragLeave={() => setDragSlideId(prev => (prev === slide.id ? null : prev))}
+                          onDrop={e => {
+                            e.preventDefault();
+                            setDragSlideId(null);
+                            const file = e.dataTransfer.files?.[0];
+                            if (file) {
+                              void processSlideImageFile(file, idx, slide.id);
+                            }
+                          }}
+                          className={`flex flex-col sm:flex-row sm:items-center gap-2.5 p-2 rounded-lg border transition-colors ${
+                            dragSlideId === slide.id
+                              ? 'border-dashed border-brand-500 bg-brand-500/10'
+                              : 'border-zinc-200/80 dark:border-zinc-700/70 bg-zinc-50/70 dark:bg-zinc-900/40'
+                          }`}
+                        >
+                          <div className="h-11 w-16 rounded-md overflow-hidden bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 shrink-0 flex items-center justify-center">
+                            {slide.imageUrl ? (
+                              <img
+                                src={slide.imageUrl}
+                                alt={slide.title || `Diapositiva ${idx + 1}`}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <ImageIcon className="h-4 w-4 text-zinc-400" />
+                            )}
+                          </div>
+
+                          <div className="flex-1 min-w-0 relative">
+                            <Link2 className="h-3.5 w-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            <input
+                              type="text"
+                              placeholder={
+                                slide.imageUrl.startsWith('data:')
+                                  ? 'Imagen local cargada (pega una URL para reemplazar)'
+                                  : 'URL de imagen o arrastra un archivo aquí'
+                              }
+                              value={slide.imageUrl.startsWith('data:') ? '' : slide.imageUrl}
+                              onChange={e => handleUpdateSlide(idx, { imageUrl: e.target.value })}
+                              className="w-full pl-8 pr-2.5 py-1.5 text-xs rounded-lg saas-input"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <input
+                              ref={el => {
+                                fileInputRefs.current[slide.id] = el;
+                              }}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={e => void handleSlideFileChange(e, idx, slide.id)}
+                            />
+                            <button
+                              type="button"
+                              disabled={uploadingSlideId === slide.id}
+                              onClick={() => fileInputRefs.current[slide.id]?.click()}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg saas-btn-secondary whitespace-nowrap shrink-0 disabled:opacity-50"
+                              title="Subir imagen desde tu dispositivo"
+                            >
+                              <Upload className="h-3.5 w-3.5" />
+                              {uploadingSlideId === slide.id ? 'Subiendo...' : 'Subir'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setGallerySlideIndex(idx)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg saas-btn-secondary whitespace-nowrap shrink-0"
+                              title="Elegir de la Galería de Medios"
+                            >
+                              <ImageIcon className="h-3.5 w-3.5" />
+                              Galería
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   );
@@ -390,6 +544,25 @@ export const LoginTab: React.FC = () => {
           </div>
         </div>
       </PermissionGate>
+
+      <MediaGalleryModal
+        isOpen={gallerySlideIndex !== null}
+        title="Seleccionar Imagen de Diapositiva"
+        subtitle="Elige una imagen de tu galería, sube un archivo o pega una captura con Ctrl+V."
+        onClose={() => setGallerySlideIndex(null)}
+        onSelect={selectedUrl => {
+          if (gallerySlideIndex !== null) {
+            handleUpdateSlide(gallerySlideIndex, { imageUrl: selectedUrl });
+            setActiveSlideIndex(gallerySlideIndex);
+            dispatchToast(
+              'Imagen seleccionada',
+              'La imagen de la diapositiva se actualizó. Recuerda guardar los cambios.',
+              'success'
+            );
+          }
+          setGallerySlideIndex(null);
+        }}
+      />
     </div>
   );
 };
