@@ -1,8 +1,8 @@
 {
-  "buildId": "20261123202451",
-  "builtAt": "2026-11-23T20:24:51.251Z",
-  "commitSha": "bf2bdb8",
-  "message": "fix(auth): hidratar perfil real (foto, nombre, PIN) desde MySQL en incógnito y sincronizar currentUser",
+  "buildId": "20261123203510",
+  "builtAt": "2026-11-23T20:35:10.081Z",
+  "commitSha": "541abe1",
+  "message": "fix(kds,hr): evitar HTTP 409 en orders.php y forzar guardado inmediato del constructor de postulantes",
   "totalFiles": 124,
-  "manifestSha256": "09ae70f6a666261eb278a69a6a55da80ccc850cc3ca4e5149cd5ed2fc2f46f6d"
+  "manifestSha256": "68f810b61a79bbec5409af6de37f83cee78d57ae972177b2e1a2f51837c92f9c"
 }

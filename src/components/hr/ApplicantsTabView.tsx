@@ -30,9 +30,13 @@ import {
   Mail,
   ExternalLink,
   Copy,
+  ClipboardCopy,
+  ClipboardPaste,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
+
+const COPIED_FIELD_SESSION_KEY = 'kh_hr_copied_field_v1';
 
 const FIELD_TYPES: Array<{ value: CustomFieldType; label: string }> = [
   { value: 'text', label: 'Texto Corto' },
@@ -117,6 +121,14 @@ export const ApplicantsTabView: React.FC = () => {
   const [draftPosting, setDraftPosting] = useState<JobPostingFormConfig | null>(
     jobPostings[0] ? structuredClone(jobPostings[0]) : null
   );
+  const [copiedField, setCopiedField] = useState<JobFormField | null>(() => {
+    try {
+      const raw = sessionStorage.getItem(COPIED_FIELD_SESSION_KEY);
+      return raw ? (JSON.parse(raw) as JobFormField) : null;
+    } catch {
+      return null;
+    }
+  });
 
   const lastLoadedPostingIdRef = useRef<string>(jobPostings[0]?.id || '');
 
@@ -244,6 +256,38 @@ export const ApplicantsTabView: React.FC = () => {
       label: `${field.label} (copia)`,
     });
     setDraftPosting({ ...draftPosting, fields: copy });
+  };
+
+  const handleCopyFieldToClipboard = (field: JobFormField) => {
+    const cloned = structuredClone(field);
+    setCopiedField(cloned);
+    try {
+      sessionStorage.setItem(COPIED_FIELD_SESSION_KEY, JSON.stringify(cloned));
+    } catch {
+      // ignore storage errors
+    }
+    dispatchToast(
+      'Campo Copiado',
+      `"${field.label}" listo. Selecciona otro puesto y presiona "Pegar Campo".`,
+      'success'
+    );
+  };
+
+  const handlePasteCopiedField = () => {
+    if (!draftPosting || !copiedField) return;
+    const pasted: JobFormField = {
+      ...structuredClone(copiedField),
+      id: `fld-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    };
+    setDraftPosting({
+      ...draftPosting,
+      fields: [...draftPosting.fields, pasted],
+    });
+    dispatchToast(
+      'Campo Pegado',
+      `Se agregó "${pasted.label}" a este formulario. Recuerda presionar "Guardar Formulario".`,
+      'success'
+    );
   };
 
   const handleSaveCurrentPosting = (e: React.FormEvent) => {
@@ -769,13 +813,25 @@ export const ApplicantsTabView: React.FC = () => {
                       </p>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={handleAddField}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:opacity-90 whitespace-nowrap shrink-0"
-                    >
-                      <Plus className="h-3.5 w-3.5" /> Añadir Pregunta
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {copiedField && (
+                        <button
+                          type="button"
+                          onClick={handlePasteCopiedField}
+                          title={`Pegar campo copiado: "${copiedField.label}"`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white whitespace-nowrap shrink-0 transition-colors"
+                        >
+                          <ClipboardPaste className="h-3.5 w-3.5" /> Pegar Campo
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleAddField}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:opacity-90 whitespace-nowrap shrink-0"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Añadir Pregunta
+                      </button>
+                    </div>
                   </div>
 
                   {draftPosting.fields.length === 0 ? (
@@ -793,9 +849,21 @@ export const ApplicantsTabView: React.FC = () => {
                             <div className="flex items-center gap-1">
                               <button
                                 type="button"
+                                onClick={() => handleCopyFieldToClipboard(field)}
+                                className={`p-1 rounded transition-colors ${
+                                  copiedField?.id === field.id
+                                    ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
+                                    : 'text-zinc-400 hover:text-emerald-600 dark:hover:text-emerald-400'
+                                }`}
+                                title="Copiar campo para pegar en otro formulario"
+                              >
+                                <ClipboardCopy className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => handleDuplicateField(field, index)}
                                 className="p-1 rounded text-zinc-400 hover:text-zinc-800 dark:hover:text-white"
-                                title="Duplicar pregunta"
+                                title="Duplicar pregunta en este formulario"
                               >
                                 <Copy className="h-3.5 w-3.5" />
                               </button>
