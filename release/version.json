@@ -1,8 +1,8 @@
 {
-  "buildId": "20261123200435",
-  "builtAt": "2026-11-23T20:04:35.859Z",
-  "commitSha": "e9dd057",
-  "message": "chore(release): release 20261122221434",
+  "buildId": "20261123201057",
+  "builtAt": "2026-11-23T20:10:57.328Z",
+  "commitSha": "5bc0474",
+  "message": "fix(erp): release 20261123200435 — seguridad API/Culqi, SUNAT IGV, inventario, POS/Finanzas y multisucursal",
   "totalFiles": 124,
-  "manifestSha256": "2d88cc5120590727fb66e843fda8a2afe6ec269f6edbb4e4757c97f70f6ae26f"
+  "manifestSha256": "36fdd3934fadc30f5c1e4dbb23e8c3d445b3eeed432b464201df835982e75153"
 }

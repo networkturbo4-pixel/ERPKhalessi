@@ -1068,6 +1068,11 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     };
   }, []);
 
+  const currentUserRef = useRef<User>(currentUser);
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
+
   // Real-time cross-tab & cross-device sync via SSE StorageEvents
   useEffect(() => {
     const handleStorageSync = (e: StorageEvent) => {
@@ -1092,6 +1097,27 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         setUsers(prev =>
           JSON.stringify(prev) === JSON.stringify(loaded.users) ? prev : loaded.users
         );
+        // Sincronizar también el perfil del usuario activo (foto, nombre, PIN, sede) cuando llegan datos reales del servidor
+        const activeUsr = currentUserRef.current;
+        if (activeUsr && Array.isArray(loaded.users) && loaded.users.length > 0) {
+          const freshUser = loaded.users.find(u => u.id === activeUsr.id);
+          if (
+            freshUser &&
+            (freshUser.name !== activeUsr.name ||
+              freshUser.avatarUrl !== activeUsr.avatarUrl ||
+              freshUser.pin !== activeUsr.pin ||
+              freshUser.email !== activeUsr.email ||
+              freshUser.phone !== activeUsr.phone ||
+              freshUser.status !== activeUsr.status ||
+              JSON.stringify(freshUser.branchIds) !== JSON.stringify(activeUsr.branchIds))
+          ) {
+            setCurrentUser({
+              ...freshUser,
+              roleId: activeUsr.roleId,
+              roleName: activeUsr.roleName,
+            });
+          }
+        }
         setDriveConfig(prev =>
           JSON.stringify(prev) === JSON.stringify(loaded.driveConfig) ? prev : loaded.driveConfig
         );

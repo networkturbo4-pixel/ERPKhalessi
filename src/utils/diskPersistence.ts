@@ -139,6 +139,10 @@ export function clearServerToken(): void {
   }
 }
 
+export function hasUnhydratedSettingsUsers(): boolean {
+  return settingsHasUnhydratedSensitiveFields;
+}
+
 let onServerAuthenticated: (() => void) | null = null;
 
 function isErpAdminSurface(): boolean {
@@ -778,9 +782,8 @@ export function installStorageInterceptor(): void {
       if (!initialReconcileCompleted) {
         return;
       }
-      const isAuthenticatedAdmin =
-        originalGetItemFn?.('gastro_erp_auth_v1') === 'authenticated' && isErpAdminSurface();
-      if (key === SETTINGS_KEY && settingsHasUnhydratedSensitiveFields && !isAuthenticatedAdmin) {
+      // Jamás sobrescribir gastro_erp_settings_v3 en el servidor mientras falten los campos sensibles (users) por hidratar
+      if (key === SETTINGS_KEY && settingsHasUnhydratedSensitiveFields) {
         return;
       }
       enqueueServerSync(key, { action: 'set', value });

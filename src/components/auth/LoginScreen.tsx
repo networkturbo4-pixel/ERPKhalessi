@@ -4,7 +4,12 @@ import { useHR } from '../../context/HRContext';
 import { User } from '../../types/settings';
 import { AttendanceEventType } from '../../types/hr';
 import { soundSynth } from '../../utils/audio';
-import { authenticateAndHydrateServer, authenticateServer } from '../../utils/diskPersistence';
+import {
+  authenticateAndHydrateServer,
+  authenticateServer,
+  getServerToken,
+  hasUnhydratedSettingsUsers,
+} from '../../utils/diskPersistence';
 import { ToastContainer } from '../common/ToastContainer';
 import { SystemNoticeModal } from '../common/SystemNoticeModal';
 import {
@@ -132,13 +137,12 @@ export const LoginScreen: React.FC<{ onNavigateToStore?: () => void }> = ({ onNa
 
     setIsSubmitting(true);
     let matchedUser: User | undefined;
+    const needsServerHydration = hasUnhydratedSettingsUsers() || !getServerToken();
     const credResult = verifyLoginCredentials(clean);
 
-    if (credResult.ok && credResult.user) {
-      matchedUser = credResult.user;
-    } else {
-      // Si el dispositivo aún no tenía usuarios reales (p. ej. nueva PC/celular tras modo público),
-      // validar contra /api/auth.php e hidratar inmediatamente los usuarios reales desde MySQL.
+    // En modo incógnito / dispositivo nuevo (o sin token/usuarios reales hidratados),
+    // autenticar e hidratar primero desde MySQL para obtener el perfil real (foto, nombre, PIN, rol).
+    if (needsServerHydration || !credResult.ok || !credResult.user) {
       const serverAuth = await authenticateAndHydrateServer(clean);
       if (serverAuth.ok) {
         try {
@@ -146,6 +150,9 @@ export const LoginScreen: React.FC<{ onNavigateToStore?: () => void }> = ({ onNa
           const parsed = raw ? JSON.parse(raw) : null;
           const hydratedUsers: User[] = Array.isArray(parsed?.users) ? parsed.users : [];
           matchedUser = hydratedUsers.find(u => String(u.pin || '').replace(/\D/g, '') === clean);
+          if (!matchedUser && serverAuth.user?.id) {
+            matchedUser = hydratedUsers.find(u => u.id === serverAuth.user?.id);
+          }
           if (!matchedUser && serverAuth.user) {
             matchedUser = {
               id: serverAuth.user.id || 'bootstrap',
@@ -165,7 +172,12 @@ export const LoginScreen: React.FC<{ onNavigateToStore?: () => void }> = ({ onNa
         } catch {
           // ignore parse error
         }
+      } else if (credResult.ok && credResult.user) {
+        // Fallback offline / desarrollo local sin backend PHP
+        matchedUser = credResult.user;
       }
+    } else {
+      matchedUser = credResult.user;
     }
 
     if (!matchedUser) {
@@ -175,8 +187,8 @@ export const LoginScreen: React.FC<{ onNavigateToStore?: () => void }> = ({ onNa
       return;
     }
 
-    // Validación local correcta: igualmente pedir token al servidor para que los cambios se sincronicen.
-    if (credResult.ok && credResult.user) {
+    // Validación local correcta con usuarios ya hidratados: asegurar token vigente en el servidor.
+    if (!needsServerHydration && credResult.ok && credResult.user && !getServerToken()) {
       const serverOk = await authenticateServer(clean, true);
       if (!serverOk) {
         dispatchToast(
