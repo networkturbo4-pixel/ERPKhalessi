@@ -1212,9 +1212,6 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
   };
 
   const finalizeOrderCreation = (opts?: { culqiReference?: string; forcePaid?: boolean }) => {
-    const chosenRecurring = currentCustomer?.paymentMethods.find(
-      pm => pm.id === selectedRecurringId
-    );
     // Solo marcar pagado cuando la pasarela confirmó el cargo explícitamente (forcePaid)
     const isAutoPaid = Boolean(opts?.forcePaid);
 

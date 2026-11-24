@@ -14,7 +14,25 @@ import { syncGoogleWalletPointsInBackground } from '../utils/googleWallet';
 
 const ACCOUNTS_KEY = 'kh_store_customer_accounts_v1';
 const ACTIVE_ACCOUNT_ID_KEY = 'kh_store_active_customer_id_v1';
+const CUSTOMER_TOKEN_KEY = 'kh_store_customer_token_v1';
 const GUEST_ORDER_IDS_KEY = 'kh_store_device_order_ids_v1';
+
+function getCustomerToken(): string {
+  try {
+    return localStorage.getItem(CUSTOMER_TOKEN_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function setCustomerToken(token: string): void {
+  try {
+    if (token) localStorage.setItem(CUSTOMER_TOKEN_KEY, token);
+    else localStorage.removeItem(CUSTOMER_TOKEN_KEY);
+  } catch {
+    // ignore
+  }
+}
 
 function normalizeDigits(value: string): string {
   return value.replace(/\D/g, '').slice(-9);
@@ -172,6 +190,96 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
     [accounts, activeCustomerId]
   );
 
+  // Hidratar perfil del cliente autenticado desde /api/customer-auth.php (sin exponer otras cuentas)
+  const lastServerAccountJsonRef = useRef<string>('');
+  useEffect(() => {
+    const token = getCustomerToken();
+    if (!token) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch('/api/customer-auth.php', {
+          cache: 'no-store',
+          headers: { 'X-Customer-Token': token },
+        });
+        if (cancelled) return;
+        if (!(res.headers.get('content-type') || '').includes('json')) return;
+        const body = await res.json().catch(() => null);
+        if (cancelled || !body) return;
+        if (body.deleted) {
+          setCustomerToken('');
+          setAccounts(prev => prev.filter(a => a.id !== activeCustomerId));
+          setActiveCustomerId(null);
+          return;
+        }
+        if (res.status === 401) {
+          setCustomerToken('');
+          return;
+        }
+        if (res.ok && body.ok && body.account && typeof body.account.id === 'string') {
+          const srvAcc = body.account as StoreCustomerAccount;
+          lastServerAccountJsonRef.current = JSON.stringify(srvAcc);
+          setAccounts(prev => {
+            const idx = prev.findIndex(a => a.id === srvAcc.id);
+            if (idx === -1) return [srvAcc, ...prev];
+            const next = [...prev];
+            next[idx] = srvAcc;
+            return next;
+          });
+          setActiveCustomerId(srvAcc.id);
+        }
+      } catch {
+        // Fallback silencioso en modo local/offline
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Sincronizar cambios del perfil del cliente autenticado hacia /api/customer-auth.php
+  useEffect(() => {
+    if (!currentCustomer) return;
+    const token = getCustomerToken();
+    if (!token) return;
+    const serialized = JSON.stringify(currentCustomer);
+    if (serialized === lastServerAccountJsonRef.current) return;
+
+    const timer = window.setTimeout(() => {
+      lastServerAccountJsonRef.current = serialized;
+      void fetch('/api/customer-auth.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Customer-Token': token,
+        },
+        body: JSON.stringify({
+          action: 'sync_profile',
+          account: currentCustomer,
+          tenantId: activeTenant.id,
+        }),
+      })
+        .then(async res => {
+          if (!(res.headers.get('content-type') || '').includes('json')) return;
+          const body = await res.json().catch(() => null);
+          if (body?.deleted) {
+            setCustomerToken('');
+            setAccounts(prev => prev.filter(a => a.id !== currentCustomer.id));
+            setActiveCustomerId(null);
+            return;
+          }
+          if (res.ok && body?.ok && body.account && typeof body.account.id === 'string') {
+            lastServerAccountJsonRef.current = JSON.stringify(body.account);
+          }
+        })
+        .catch(() => {
+          // Fallback offline
+        });
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [currentCustomer, activeTenant.id]);
+
   // Si el administrador eliminó la cuenta activa, cerrar la sesión al instante y notificar al usuario
   useEffect(() => {
     if (!activeCustomerId) return;
@@ -214,13 +322,11 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
     [activeTenant.id, upsertCustomer]
   );
 
-  // Sincronización bidireccional segura entre cuentas de Tienda Virtual y CRM/MySQL (sin pisar puntos más recientes)
+  // Sincronización segura de puntos entre cuentas de Tienda Virtual y CRM/MySQL (sin depurar cuentas por falta de CRM público)
   const hasSyncedAccountsRef = useRef(false);
-  const recentlyCreatedAccountsRef = useRef<Map<string, number>>(new Map());
   useEffect(() => {
     if (accounts.length === 0) return;
 
-    const nowMs = Date.now();
     let changed = false;
     const nextAccounts = accounts.map(acc => {
       const emailClean = (acc.email || '').trim().toLowerCase();
@@ -249,27 +355,21 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
 
-      // Ventana de gracia (20s) para cuentas recién registradas mientras CRM/MySQL termina de sincronizar
-      const localCreatedAt = recentlyCreatedAccountsRef.current.get(acc.id) || 0;
-      const accCreatedAt = new Date(acc.createdAt || 0).getTime();
-      const isRecentlyCreated =
-        (localCreatedAt > 0 && nowMs - localCreatedAt < 20_000) ||
-        (Number.isFinite(accCreatedAt) && accCreatedAt > 0 && nowMs - accCreatedAt < 20_000);
-
-      // Si ya estaba vinculado a un cliente CRM y fue eliminado en CRM, no resucitarlo; depurar cuenta local
-      if (acc.crmCustomerId && !crmMatch && !isRecentlyCreated && (hasSyncedAccountsRef.current || customers.length > 0)) {
-        changed = true;
-        return null;
-      }
-
-      if (!hasSyncedAccountsRef.current && !acc.crmCustomerId && !crmMatch) {
+      // Nunca eliminar cuentas locales por ausencia en `customers`: en dispositivos públicos
+      // (Apple/Android sin sesión ERP) `kh_customers_crm_v1` no se expone públicamente.
+      // La baja oficial se gestiona exclusivamente desde `deleteCustomer()` en ERP y `/api/customer-auth.php`.
+      if (!hasSyncedAccountsRef.current && !acc.crmCustomerId && !crmMatch && !getCustomerToken()) {
         syncAccountToErpCrm(acc);
-      } else if (!hasSyncedAccountsRef.current && crmMatch && new Date(acc.updatedAt || 0).getTime() > new Date(crmMatch.updatedAt || 0).getTime()) {
+      } else if (
+        !hasSyncedAccountsRef.current &&
+        crmMatch &&
+        new Date(acc.updatedAt || 0).getTime() > new Date(crmMatch.updatedAt || 0).getTime()
+      ) {
         syncAccountToErpCrm(acc);
       }
 
       return acc;
-    }).filter((a): a is StoreCustomerAccount => a !== null);
+    });
 
     hasSyncedAccountsRef.current = true;
     if (changed) {
@@ -285,6 +385,50 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (!data.fullName.trim() || !emailClean || !phoneClean || !data.password) {
         return { ok: false, error: 'Completa todos los campos obligatorios.' };
+      }
+
+      // Intentar registro autenticado en servidor (/api/customer-auth.php) sin exponer otras cuentas
+      try {
+        const res = await fetch('/api/customer-auth.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'register',
+            fullName: data.fullName.trim(),
+            email: emailClean,
+            phone: phoneClean,
+            dni: (data.dni || '').trim(),
+            password: data.password,
+            tenantId: activeTenant.id,
+          }),
+        });
+        if ((res.headers.get('content-type') || '').includes('json')) {
+          const body = await res.json().catch(() => null);
+          if (!res.ok || !body?.ok) {
+            return {
+              ok: false,
+              error: body?.error || 'No se pudo crear la cuenta. Verifica tus datos.',
+            };
+          }
+          if (body.account) {
+            const srvAcc = body.account as StoreCustomerAccount;
+            if (typeof body.token === 'string' && body.token) {
+              setCustomerToken(body.token);
+            }
+            lastServerAccountJsonRef.current = JSON.stringify(srvAcc);
+            setAccounts(prev => [srvAcc, ...prev.filter(a => a.id !== srvAcc.id)]);
+            setActiveCustomerId(srvAcc.id);
+            setGuestOrderIds([]);
+            dispatchToast(
+              '¡Bienvenido a Gastro!',
+              `Tu cuenta de cliente ha sido creada, ${srvAcc.fullName.split(' ')[0]}.`,
+              'success'
+            );
+            return { ok: true };
+          }
+        }
+      } catch {
+        // Fallback local si no hay backend PHP (ej. Vite dev local)
       }
 
       const duplicate = accounts.find(
@@ -352,7 +496,6 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
 
       const crmId = syncAccountToErpCrm(newAccount);
       newAccount.crmCustomerId = crmId;
-      recentlyCreatedAccountsRef.current.set(newAccount.id, Date.now());
 
       setAccounts(prev => [newAccount, ...prev]);
       setActiveCustomerId(newAccount.id);
@@ -364,13 +507,52 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
       );
       return { ok: true };
     },
-    [accounts, dispatchToast, syncAccountToErpCrm]
+    [accounts, activeTenant.id, dispatchToast, syncAccountToErpCrm]
   );
 
   const loginCustomer = useCallback(
     async (identifier: string, password: string): Promise<{ ok: boolean; error?: string }> => {
       const cleanId = identifier.trim().toLowerCase();
       const idDigits = normalizeDigits(cleanId);
+
+      // Intentar login seguro en servidor (/api/customer-auth.php)
+      try {
+        const res = await fetch('/api/customer-auth.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'login',
+            identifier: cleanId,
+            password,
+          }),
+        });
+        if ((res.headers.get('content-type') || '').includes('json')) {
+          const body = await res.json().catch(() => null);
+          if (!res.ok || !body?.ok) {
+            return {
+              ok: false,
+              error: body?.error || 'Correo/celular o contraseña incorrectos. Verifica tus datos.',
+            };
+          }
+          if (body.account) {
+            const srvAcc = body.account as StoreCustomerAccount;
+            if (typeof body.token === 'string' && body.token) {
+              setCustomerToken(body.token);
+            }
+            lastServerAccountJsonRef.current = JSON.stringify(srvAcc);
+            setAccounts(prev => [srvAcc, ...prev.filter(a => a.id !== srvAcc.id)]);
+            setActiveCustomerId(srvAcc.id);
+            dispatchToast(
+              'Sesión Iniciada',
+              `Hola de nuevo, ${srvAcc.fullName.split(' ')[0]}.`,
+              'success'
+            );
+            return { ok: true };
+          }
+        }
+      } catch {
+        // Fallback local si no hay backend PHP
+      }
 
       const candidate = accounts.find(a => {
         const emailMatch = a.email.toLowerCase() === cleanId;
@@ -416,6 +598,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 
   const logoutCustomer = useCallback(() => {
+    setCustomerToken('');
     setActiveCustomerId(null);
     dispatchToast('Sesión Cerrada', 'Has cerrado sesión en tu perfil de cliente.', 'info');
   }, [dispatchToast]);

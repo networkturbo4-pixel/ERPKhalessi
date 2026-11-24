@@ -1,8 +1,8 @@
 {
-  "buildId": "20261124184844",
-  "builtAt": "2026-11-24T18:48:44.190Z",
-  "commitSha": "cb78de5",
-  "message": "chore(release): merge origin/main y generar release 20261124150326 para producción",
-  "totalFiles": 125,
-  "manifestSha256": "3c061224ef88221d6b75d7961cf28489909710a3cfea7318ae5a348524d5f4d8"
+  "buildId": "20261124220029",
+  "builtAt": "2026-11-24T22:00:29.169Z",
+  "commitSha": "7c5d8b0",
+  "message": "fix: resolver conflictos 409 en cuentas/CRM, carrera de registro y sincronizacion de pedidos — release 20261124184844",
+  "totalFiles": 126,
+  "manifestSha256": "d4fa188b46c4b9ebb0ea7401d0ac601a5ac3378fe08c3b28ffd9168211293b97"
 }

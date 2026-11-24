@@ -15,6 +15,7 @@ const DEVICE_LOCAL_KEYS = new Set<string>([
   'kh_store_device_order_ids_v1',
   'kh_store_device_orders_v1',
   'kh_store_active_customer_id_v1',
+  'kh_store_customer_token_v1',
   'kh_store_order_prefs_v1',
   'kh_active_main_module',
   'gastro_erp_auth_v1',
@@ -77,11 +78,10 @@ const SERVER_SYNC_KEYS = [
 
 const SERVER_SYNC_SET = new Set<string>(SERVER_SYNC_KEYS);
 
-// Claves operativas de escritura libre (pedidos, clientes CRM, cuentas de tienda, salón, reservas públicas, postulaciones y libro de reclamaciones)
+// Claves operativas de escritura libre (pedidos, clientes CRM en checkout, salón, reservas públicas, postulaciones y libro de reclamaciones)
 const PUBLIC_WRITABLE_KEYS = new Set<string>([
   'kh_orders_list',
   'kh_customers_crm_v1',
-  'kh_store_customer_accounts_v1',
   'kh_floor_tables_v1',
   'kh_public_reservations_v1',
   'gastro_erp_complaints_v1',
@@ -97,8 +97,6 @@ const PUBLIC_READ_KEYS = new Set<string>([
   'kh_product_option_templates_v1',
   'kh_erp_benefits_v1',
   'kh_orders_list',
-  'kh_customers_crm_v1',
-  'kh_store_customer_accounts_v1',
   'kh_floor_tables_v1',
   'kh_public_reservations_v1',
   'kh_reservation_settings_v1',
@@ -609,7 +607,6 @@ function enqueueServerSync(
                 ...(includeAuth ? getAuthHeaders() : {}),
               },
               body: payloadBody,
-              ...(payloadBody.length < 48_000 ? { keepalive: true } : {}),
             });
 
           let res = await doPost(true);
@@ -893,7 +890,6 @@ export async function forcePersistKeyToServer(
               ...(includeAuth ? getAuthHeaders() : {}),
             },
             body: payloadBody,
-            ...(payloadBody.length < 48_000 ? { keepalive: true } : {}),
           });
 
         let res = await doPost(true);

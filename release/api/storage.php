@@ -579,7 +579,7 @@ if ($method === 'POST' || $method === 'DELETE') {
 
     broadcastRealtimeEvent($key, $key === 'kh_orders_list' ? 'new_order' : 'generic');
 
-    if ($isServerMerged) {
+    if ($isServerMerged && readableFor($key, $admin !== null)) {
         sendResponse(['success' => true, 'data' => valueFor($key, $data, $admin !== null), 'rev' => $newRev]);
     }
     sendResponse(['success' => true, 'rev' => $newRev]);
