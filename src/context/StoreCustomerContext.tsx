@@ -216,9 +216,11 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Sincronización bidireccional segura entre cuentas de Tienda Virtual y CRM/MySQL (sin pisar puntos más recientes)
   const hasSyncedAccountsRef = useRef(false);
+  const recentlyCreatedAccountsRef = useRef<Map<string, number>>(new Map());
   useEffect(() => {
     if (accounts.length === 0) return;
 
+    const nowMs = Date.now();
     let changed = false;
     const nextAccounts = accounts.map(acc => {
       const emailClean = (acc.email || '').trim().toLowerCase();
@@ -247,8 +249,15 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
 
+      // Ventana de gracia (20s) para cuentas recién registradas mientras CRM/MySQL termina de sincronizar
+      const localCreatedAt = recentlyCreatedAccountsRef.current.get(acc.id) || 0;
+      const accCreatedAt = new Date(acc.createdAt || 0).getTime();
+      const isRecentlyCreated =
+        (localCreatedAt > 0 && nowMs - localCreatedAt < 20_000) ||
+        (Number.isFinite(accCreatedAt) && accCreatedAt > 0 && nowMs - accCreatedAt < 20_000);
+
       // Si ya estaba vinculado a un cliente CRM y fue eliminado en CRM, no resucitarlo; depurar cuenta local
-      if (acc.crmCustomerId && !crmMatch && (hasSyncedAccountsRef.current || customers.length > 0)) {
+      if (acc.crmCustomerId && !crmMatch && !isRecentlyCreated && (hasSyncedAccountsRef.current || customers.length > 0)) {
         changed = true;
         return null;
       }
@@ -343,6 +352,7 @@ export const StoreCustomerProvider: React.FC<{ children: React.ReactNode }> = ({
 
       const crmId = syncAccountToErpCrm(newAccount);
       newAccount.crmCustomerId = crmId;
+      recentlyCreatedAccountsRef.current.set(newAccount.id, Date.now());
 
       setAccounts(prev => [newAccount, ...prev]);
       setActiveCustomerId(newAccount.id);

@@ -684,9 +684,13 @@ function enqueueServerSync(
             return;
           }
 
-          // Si el servidor fusionó pedidos concurrentes, actualizar espejo local al instante
-          if (key === 'kh_orders_list' && resJson && typeof resJson.data === 'string') {
-            applyRemoteUpdate('kh_orders_list', resJson.data, true);
+          // Si el servidor fusionó datos concurrentes (pedidos, cuentas, CRM, conversaciones), actualizar espejo local al instante
+          if (
+            resJson &&
+            typeof resJson.data === 'string' &&
+            memoryMirror.get(key) === op.value
+          ) {
+            applyRemoteUpdate(key, resJson.data, true);
           }
           // La difusión SSE ocurre desde storage.php tras confirmar escritura en MySQL
         } else {
@@ -778,8 +782,8 @@ export function installStorageInterceptor(): void {
 
     if (isSharedKey(key)) {
       // NUNCA sobreescribir el servidor antes de completar la hidratación inicial desde MySQL,
-      // incluso si el navegador ya tenía datos viejos en localStorage (evita pérdida de datos al actualizar).
-      if (!initialReconcileCompleted) {
+      // salvo claves públicas fusionables en servidor (pedidos, cuentas de cliente, CRM) para no perder registros rápidos.
+      if (!initialReconcileCompleted && !PUBLIC_WRITABLE_KEYS.has(key)) {
         return;
       }
       // Jamás sobrescribir gastro_erp_settings_v3 en el servidor mientras falten los campos sensibles (users) por hidratar
@@ -1034,11 +1038,13 @@ export async function initDiskPersistence(): Promise<void> {
         if ((inFlightWrites.get(key) || 0) > 0) continue;
         if (failedSyncValues.has(key)) continue;
         const isForced = forceKeys?.has(key) ?? false;
+        const lastWriteTs = lastLocalWriteAt.get(key) || 0;
         if (
           initialReconcileCompleted &&
           !isForced &&
-          key !== 'kh_orders_list' &&
-          (lastLocalWriteAt.get(key) || 0) >= fetchStartedAt - 2500
+          (key === 'kh_orders_list'
+            ? lastWriteTs >= fetchStartedAt
+            : lastWriteTs >= fetchStartedAt - 2500)
         ) {
           continue;
         }

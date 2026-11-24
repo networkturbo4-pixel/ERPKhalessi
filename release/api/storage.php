@@ -276,7 +276,15 @@ if ($method === 'POST' || $method === 'DELETE') {
 
     // Control de concurrencia optimista: impedir que una caché local vieja pise datos más nuevos del servidor
     $serverMergedKeys = ['kh_orders_list', 'kh_whatsapp_conversations_v1'];
-    if ($hasBaseRev && !$forceWrite && !in_array($key, $serverMergedKeys, true)) {
+    $publicMergedKeys = [
+        'kh_customers_crm_v1',
+        'kh_store_customer_accounts_v1',
+        'kh_public_reservations_v1',
+        'gastro_erp_hr_v1',
+    ];
+    $isServerMerged = in_array($key, $serverMergedKeys, true)
+        || ($admin === null && in_array($key, $publicMergedKeys, true));
+    if ($hasBaseRev && !$forceWrite && !$isServerMerged) {
         $currentMeta = kvGetMeta($pdo, $key);
         if ($currentMeta !== null && $currentMeta['rev'] > $baseRev) {
             $currentValue = $currentMeta['v'];
@@ -303,9 +311,18 @@ if ($method === 'POST' || $method === 'DELETE') {
         $incoming = is_array($input['data']) ? $input['data'] : json_decode($data, true);
         if (is_array($incoming)) {
             $orderMap = [];
+            $usedOrderNumbers = [];
+            $maxOrderNum = 1020;
             foreach ($existing as $ord) {
                 if (is_array($ord) && isset($ord['id'])) {
-                    $orderMap[(string)$ord['id']] = $ord;
+                    $oid = (string)$ord['id'];
+                    $orderMap[$oid] = $ord;
+                    $numStr = (string)($ord['orderNumber'] ?? '');
+                    if ($numStr !== '') {
+                        $usedOrderNumbers[$numStr] = $oid;
+                        $digits = (int)preg_replace('/\D+/', '', $numStr);
+                        if ($digits > $maxOrderNum) $maxOrderNum = $digits;
+                    }
                 }
             }
 
@@ -324,6 +341,17 @@ if ($method === 'POST' || $method === 'DELETE') {
                 $id = (string)$ord['id'];
 
                 if (!isset($orderMap[$id])) {
+                    $numStr = (string)($ord['orderNumber'] ?? '');
+                    if ($numStr !== '' && isset($usedOrderNumbers[$numStr]) && $usedOrderNumbers[$numStr] !== $id) {
+                        $maxOrderNum++;
+                        $ord['orderNumber'] = '#KH-' . $maxOrderNum;
+                    } else {
+                        $digits = (int)preg_replace('/\D+/', '', $numStr);
+                        if ($digits > $maxOrderNum) $maxOrderNum = $digits;
+                    }
+                    if (!empty($ord['orderNumber'])) {
+                        $usedOrderNumbers[(string)$ord['orderNumber']] = $id;
+                    }
                     $orderMap[$id] = $ord;
                     continue;
                 }
@@ -551,8 +579,8 @@ if ($method === 'POST' || $method === 'DELETE') {
 
     broadcastRealtimeEvent($key, $key === 'kh_orders_list' ? 'new_order' : 'generic');
 
-    if ($key === 'kh_orders_list') {
-        sendResponse(['success' => true, 'data' => $data, 'rev' => $newRev]);
+    if ($isServerMerged) {
+        sendResponse(['success' => true, 'data' => valueFor($key, $data, $admin !== null), 'rev' => $newRev]);
     }
     sendResponse(['success' => true, 'rev' => $newRev]);
 }
