@@ -1,8 +1,8 @@
 {
-  "buildId": "20261124150019",
-  "builtAt": "2026-11-24T15:00:19.725Z",
-  "commitSha": "93288ea",
-  "message": "feat(hr): copiar y pegar campos entre formularios en el constructor de puestos",
+  "buildId": "20261124150326",
+  "builtAt": "2026-11-24T15:03:26.661Z",
+  "commitSha": "a74dda4",
+  "message": "feat(store): constructor visual de cabecera y footer con personalización total de colores y sincronización en vivo — release 20261124150019",
   "totalFiles": 125,
-  "manifestSha256": "5bd1d723779faaa7dca0d39d6c98688358b6c68c44aa327b77fe491aa998ec31"
+  "manifestSha256": "f0bcc54abb6fe018ef778653b0cc12dfb5e2af4500720b260d90d04b2b2be0ae"
 }
