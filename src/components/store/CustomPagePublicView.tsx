@@ -4,6 +4,8 @@ import { useSettings } from '../../context/SettingsContext';
 import { useOrderCatalog } from '../../context/OrderCatalogContext';
 import { BuilderViewport, isBlockVisibleOnViewport } from '../../types/storeBuilder';
 import { StoreBlockRenderer } from './StorefrontWidgets';
+import { DynamicStorefrontHeader } from './DynamicStorefrontHeader';
+import { DynamicStorefrontFooter } from './DynamicStorefrontFooter';
 import { ArrowLeft, Globe, Shield } from 'lucide-react';
 
 const StorefrontFooter = lazy(() =>
@@ -34,7 +36,7 @@ export const CustomPagePublicView: React.FC<{
   onNavigateHome: () => void;
   onNavigateToAdmin: () => void;
 }> = ({ slug, onNavigateHome, onNavigateToAdmin }) => {
-  const { customPages, trackPageView, trackPageCtaClick } = useStoreBuilder();
+  const { customPages, trackPageView, trackPageCtaClick, resolveEffectiveHeader, resolveEffectiveFooter } = useStoreBuilder();
   const { customization, companyInfo, isAuthenticated, dispatchToast, activeTenant } = useSettings();
   const { products, upsertCustomer } = useOrderCatalog();
 
@@ -104,6 +106,12 @@ export const CustomPagePublicView: React.FC<{
 
   const isLight = page.themeMode === 'light';
   const accent = page.accentColor || customization.primaryColor || '#e11d48';
+  const resolvedHeader = page.showStoreHeader
+    ? resolveEffectiveHeader(page.headerSource || 'global', page.customHeaderId)
+    : null;
+  const resolvedFooter = page.showStoreFooter
+    ? resolveEffectiveFooter(page.footerSource || 'global', page.customFooterId)
+    : null;
 
   return (
     <div
@@ -117,7 +125,35 @@ export const CustomPagePublicView: React.FC<{
         </div>
       )}
 
-      {page.showStoreHeader && (
+      {page.showStoreHeader && resolvedHeader ? (
+        <DynamicStorefrontHeader
+          header={resolvedHeader}
+          viewport={viewport}
+          accentColor={accent}
+          logoUrl={customization.storeHeaderLogo}
+          collapsedLogo={customization.collapsedLogo}
+          brandName={companyInfo.commercialName || customization.appName || 'Tienda Oficial'}
+          phone={activeTenant.operations?.phone || companyInfo.phone}
+          whatsapp={activeTenant.operations?.whatsappNumber || activeTenant.operations?.phone || companyInfo.phone}
+          branchName={activeTenant.name.replace('Gastro - ', '')}
+          deliveryAddress={activeTenant.operations?.address}
+          scheduleLabel={activeTenant.operations?.schedule}
+          isStoreOpen={true}
+          cartTotal={0}
+          cartUnits={0}
+          showCartButton={page.showHeaderCartButton !== false}
+          publishedNavPages={customPages}
+          canEditBuilder={isAuthenticated}
+          onGoHome={onNavigateHome}
+          onOpenSearch={onNavigateHome}
+          onOpenLocation={onNavigateHome}
+          onOpenAccount={onNavigateHome}
+          onOpenCart={onNavigateHome}
+          onOpenOrders={onNavigateHome}
+          onOpenBenefits={onNavigateHome}
+          onToggleBuilder={onNavigateToAdmin}
+        />
+      ) : page.showStoreHeader && (
         <header
           className={`sticky top-0 z-40 border-b ${
             isLight
@@ -227,7 +263,15 @@ export const CustomPagePublicView: React.FC<{
         })}
       </main>
 
-      {page.showStoreFooter && (
+      {page.showStoreFooter && resolvedFooter ? (
+        <DynamicStorefrontFooter
+          footer={resolvedFooter}
+          viewport={viewport}
+          accentColor={accent}
+          publishedFooterPages={customPages}
+          onGoHome={onNavigateHome}
+        />
+      ) : page.showStoreFooter && (
         <Suspense fallback={<div className="h-32" />}>
           <StorefrontFooter footerTheme={page.footerTheme} />
         </Suspense>

@@ -43,6 +43,8 @@ import { SystemNoticeModal } from '../common/SystemNoticeModal';
 import { StorefrontSkeleton } from '../common/AppSurfaceSkeleton';
 import { StoreBlockRenderer, getStoreCategories } from './StorefrontWidgets';
 import { StorefrontThemeHeader } from './StorefrontThemeHeader';
+import { DynamicStorefrontHeader } from './DynamicStorefrontHeader';
+import { DynamicStorefrontFooter } from './DynamicStorefrontFooter';
 import { StoreAccountMenu } from './StoreAccountMenu';
 
 const loadStoreProductDetailPage = () =>
@@ -239,7 +241,33 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     moveBlock,
     duplicateBlock,
     removeBlock,
+    activeEditingHeader,
+    selectedHeaderWidgetId,
+    setSelectedHeaderWidgetId,
+    selectedHeaderRow,
+    setSelectedHeaderRow,
+    selectedHeaderZone,
+    setSelectedHeaderZone,
+    resolveEffectiveHeader,
+    activeEditingFooter,
+    selectedFooterWidgetId,
+    setSelectedFooterWidgetId,
+    selectedFooterBand,
+    setSelectedFooterBand,
+    selectedFooterColumn,
+    setSelectedFooterColumn,
+    resolveEffectiveFooter,
   } = useStoreBuilder();
+
+  const effectiveDynamicHeader =
+    isBuilderOpen && activeEditingHeader
+      ? activeEditingHeader
+      : resolveEffectiveHeader(activeTemplate.headerSource, activeTemplate.customHeaderId);
+
+  const effectiveDynamicFooter =
+    isBuilderOpen && activeEditingFooter
+      ? activeEditingFooter
+      : resolveEffectiveFooter(activeTemplate.footerSource, activeTemplate.customFooterId);
 
   const {
     currentCustomer,
@@ -1585,8 +1613,50 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
           </div>
         )}
 
-        {/* 1. Responsive App Header (Theme-Specific Structural Layout or Default) */}
-        {headerVariant !== 'default' ? (
+        {/* 1. Responsive App Header (Dynamic Header Builder, Theme-Specific Preset, or Default) */}
+        {effectiveDynamicHeader ? (
+          <DynamicStorefrontHeader
+            header={effectiveDynamicHeader}
+            viewport={effectiveViewport}
+            accentColor={accentColor}
+            logoUrl={headerLogoUrl}
+            collapsedLogo={customization.collapsedLogo}
+            brandName={companyInfo.commercialName || customization.appName || 'Gastro Restaurante'}
+            phone={activeTenant.operations?.phone || companyInfo.phone}
+            whatsapp={activeTenant.operations?.whatsappNumber || activeTenant.operations?.phone || companyInfo.phone}
+            branchName={activeTenant.name.replace('Gastro - ', '')}
+            deliveryAddress={deliveryAddress || activeTenant.operations?.address}
+            etaLabel={deliveryType === 'pickup' ? '15-20 min' : '25-40 min'}
+            scheduleLabel={activeTenant.operations?.schedule}
+            isStoreOpen={true}
+            qrTableName={qrTableContext?.tableName}
+            cartTotal={cartSubtotal}
+            cartUnits={totalCartUnits}
+            customerName={currentCustomer?.fullName}
+            showCartButton={activeTemplate.showHeaderCartButton !== false}
+            publishedNavPages={customPages}
+            canEditBuilder={Boolean(isAuthenticated && onNavigateToAdmin)}
+            isBuilderEditing={Boolean(isBuilderOpen && activeEditingHeader)}
+            selectedWidgetId={selectedHeaderWidgetId}
+            selectedRow={selectedHeaderRow}
+            selectedZone={selectedHeaderZone}
+            onSelectWidget={id => setSelectedHeaderWidgetId(id)}
+            onSelectZone={(row, zone) => {
+              setSelectedHeaderRow(row);
+              setSelectedHeaderZone(zone);
+              setSelectedHeaderWidgetId(null);
+            }}
+            onGoHome={() => navigateToCategory('todos')}
+            onSelectCategory={cat => navigateToCategory(cat)}
+            onOpenSearch={() => setIsSearchOpen(true)}
+            onOpenLocation={() => setIsLocationModalOpen(true)}
+            onOpenAccount={() => setIsProfileOpen(true)}
+            onOpenCart={() => setIsCartOpen(true)}
+            onOpenOrders={() => setIsOrdersOpen(true)}
+            onOpenBenefits={() => setIsBenefitsOpen(true)}
+            onToggleBuilder={() => setIsBuilderOpen(!isBuilderOpen)}
+          />
+        ) : headerVariant !== 'default' ? (
           <StorefrontThemeHeader
             variant={headerVariant}
             config={activeTemplate.headerConfig}
@@ -2265,12 +2335,35 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
         {/* 3. Solid Corporate & Fiscal Footer (deferred below the fold) */}
         <div className="store-below-fold-footer">
           <Suspense fallback={<div className="h-48" />}>
+          {effectiveDynamicFooter ? (
+            <DynamicStorefrontFooter
+              footer={effectiveDynamicFooter}
+              viewport={effectiveViewport}
+              accentColor={accentColor}
+              publishedFooterPages={customPages}
+              isBuilderEditing={Boolean(isBuilderOpen && activeEditingFooter)}
+              selectedWidgetId={selectedFooterWidgetId}
+              selectedBand={selectedFooterBand}
+              selectedColumn={selectedFooterColumn}
+              onSelectWidget={id => setSelectedFooterWidgetId(id)}
+              onSelectSlot={(band, col) => {
+                setSelectedFooterBand(band);
+                setSelectedFooterColumn(col);
+                setSelectedFooterWidgetId(null);
+              }}
+              onGoHome={() => navigateToCategory('todos')}
+              onSelectCategory={cat => navigateToCategory(cat)}
+              onOpenOrders={() => setIsOrdersOpen(true)}
+              onOpenBenefits={() => setIsBenefitsOpen(true)}
+            />
+          ) : (
             <StorefrontFooter
               footerTheme={activeTemplate.footerTheme}
               footerVariant={footerVariant}
               footerConfig={activeTemplate.footerConfig}
               accentColor={accentColor}
             />
+          )}
           </Suspense>
         </div>
       </div>

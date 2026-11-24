@@ -20,6 +20,8 @@ import {
 } from '../../types/storeBuilder';
 import { ElementorBasicWidgetsInspector } from './ElementorBasicWidgetsInspector';
 import { ElementorAdvancedWidgetsInspector } from './ElementorAdvancedWidgetsInspector';
+import { ElementorHeaderBuilderPanel } from './ElementorHeaderBuilderPanel';
+import { ElementorFooterBuilderPanel } from './ElementorFooterBuilderPanel';
 import { HeaderFooterCustomizerPanel } from './HeaderFooterCustomizerPanel';
 import { MediaGalleryModal } from '../media/MediaGalleryModal';
 import {
@@ -69,6 +71,8 @@ import {
   Clock,
   Mail,
   GripVertical,
+  PanelTop,
+  PanelBottom,
 } from 'lucide-react';
 
 const AdvancedOptionsAccordion: React.FC<{
@@ -707,6 +711,16 @@ export const ElementorBuilderSidebar: React.FC = () => {
     copiedStyleType,
     copyBlockStyles,
     pasteBlockStyles,
+    headerTemplates,
+    globalHeaderId,
+    activeEditingHeaderId,
+    setActiveEditingHeaderId,
+    resolveEffectiveHeader,
+    footerTemplates,
+    globalFooterId,
+    activeEditingFooterId,
+    setActiveEditingFooterId,
+    resolveEffectiveFooter,
   } = useStoreBuilder();
 
   const { products } = useOrderCatalog();
@@ -855,6 +869,134 @@ export const ElementorBuilderSidebar: React.FC = () => {
         };
     }
   };
+
+  /* ==========================================================================
+     MODO CONSTRUCTOR DE CABECERAS (HEADER BUILDER)
+     ========================================================================== */
+  if (activeEditingHeaderId) {
+    return (
+      <aside className="w-full lg:w-[360px] xl:w-[380px] shrink-0 bg-[#101117] border-r border-[#242735] text-zinc-100 flex flex-col h-full select-none">
+        <div className="px-4 py-3 border-b border-[#232634] flex items-center justify-between gap-2 bg-[#12141c]">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              type="button"
+              onClick={() => setActiveEditingHeaderId(null)}
+              title="Volver al cuerpo de la página"
+              className="w-8 h-8 rounded-lg bg-[#1b1e2b] hover:bg-[#25293a] border border-[#2c3042] flex items-center justify-center text-zinc-300 hover:text-white transition-colors shrink-0"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <div className="min-w-0">
+              <span className="block text-[10px] font-black uppercase tracking-wider text-amber-400 leading-none mb-0.5">
+                HEADER BUILDER
+              </span>
+              <h3 className="text-xs font-black text-white truncate">Constructor de Cabeceras</h3>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              disabled={!canUndo}
+              onClick={undo}
+              title="Deshacer (Ctrl+Z)"
+              className="p-1.5 rounded-lg bg-[#181b26] hover:bg-[#232738] text-zinc-300 disabled:opacity-30"
+            >
+              <Undo2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              disabled={!canRedo}
+              onClick={redo}
+              title="Rehacer (Ctrl+Y)"
+              className="p-1.5 rounded-lg bg-[#181b26] hover:bg-[#232738] text-zinc-300 disabled:opacity-30"
+            >
+              <Redo2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveEditingHeaderId(null);
+                setIsBuilderOpen(false);
+              }}
+              title="Salir del Constructor"
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#1d2030] transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <ElementorHeaderBuilderPanel />
+        </div>
+      </aside>
+    );
+  }
+
+  /* ==========================================================================
+     MODO CONSTRUCTOR DE FOOTERS (FOOTER BUILDER)
+     ========================================================================== */
+  if (activeEditingFooterId) {
+    return (
+      <aside className="w-full lg:w-[360px] xl:w-[380px] shrink-0 bg-[#101117] border-r border-[#242735] text-zinc-100 flex flex-col h-full select-none">
+        <div className="px-4 py-3 border-b border-[#232634] flex items-center justify-between gap-2 bg-[#12141c]">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              type="button"
+              onClick={() => setActiveEditingFooterId(null)}
+              title="Volver al cuerpo de la página"
+              className="w-8 h-8 rounded-lg bg-[#1b1e2b] hover:bg-[#25293a] border border-[#2c3042] flex items-center justify-center text-zinc-300 hover:text-white transition-colors shrink-0"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <div className="min-w-0">
+              <span className="block text-[10px] font-black uppercase tracking-wider text-amber-400 leading-none mb-0.5">
+                FOOTER BUILDER
+              </span>
+              <h3 className="text-xs font-black text-white truncate">Constructor de Footers</h3>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              disabled={!canUndo}
+              onClick={undo}
+              title="Deshacer (Ctrl+Z)"
+              className="p-1.5 rounded-lg bg-[#181b26] hover:bg-[#232738] text-zinc-300 disabled:opacity-30"
+            >
+              <Undo2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              disabled={!canRedo}
+              onClick={redo}
+              title="Rehacer (Ctrl+Y)"
+              className="p-1.5 rounded-lg bg-[#181b26] hover:bg-[#232738] text-zinc-300 disabled:opacity-30"
+            >
+              <Redo2 className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveEditingFooterId(null);
+                setIsBuilderOpen(false);
+              }}
+              title="Salir del Constructor"
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-[#1d2030] transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <ElementorFooterBuilderPanel />
+        </div>
+      </aside>
+    );
+  }
 
   /* ==========================================================================
      INSPECTOR DE BLOQUE SELECCIONADO (Estilo exacto Imágenes 2 y 3)
@@ -2602,31 +2744,65 @@ export const ElementorBuilderSidebar: React.FC = () => {
       </div>
 
       {/* Mode Switcher Tabs */}
-      <div className="grid grid-cols-2 p-2 gap-1.5 bg-[#0d0e14] border-b border-[#232634]">
+      <div className="grid grid-cols-4 p-2 gap-1 bg-[#0d0e14] border-b border-[#232634]">
         <button
           type="button"
           onClick={() => setRootTab('widgets')}
-          className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+          className={`py-2 px-1.5 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-all whitespace-nowrap ${
             rootTab === 'widgets'
               ? 'bg-[#1d2130] text-white shadow border border-[#2f354d]'
               : 'text-zinc-400 hover:text-white'
           }`}
         >
-          <Layers className="w-3.5 h-3.5 text-amber-400" />
-          <span>Widgets ({activeTemplate.blocks.length})</span>
+          <Layers className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          <span>Cuerpo</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            const effective =
+              resolveEffectiveHeader(activeTemplate.headerSource, activeTemplate.customHeaderId) ||
+              headerTemplates.find(h => h.id === globalHeaderId) ||
+              headerTemplates[0];
+            if (effective) {
+              setActiveEditingHeaderId(effective.id);
+            }
+          }}
+          className="py-2 px-1.5 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-all whitespace-nowrap text-zinc-400 hover:text-amber-300 hover:bg-[#181b28]"
+        >
+          <PanelTop className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <span>Header</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            const effective =
+              resolveEffectiveFooter(activeTemplate.footerSource, activeTemplate.customFooterId) ||
+              footerTemplates.find(f => f.id === globalFooterId) ||
+              footerTemplates[0];
+            if (effective) {
+              setActiveEditingFooterId(effective.id);
+            }
+          }}
+          className="py-2 px-1.5 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-all whitespace-nowrap text-zinc-400 hover:text-amber-300 hover:bg-[#181b28]"
+        >
+          <PanelBottom className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+          <span>Footer</span>
         </button>
 
         <button
           type="button"
           onClick={() => setRootTab('templates')}
-          className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+          className={`py-2 px-1.5 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 transition-all whitespace-nowrap ${
             rootTab === 'templates'
               ? 'bg-[#1d2130] text-white shadow border border-[#2f354d]'
               : 'text-zinc-400 hover:text-white'
           }`}
         >
-          <Palette className="w-3.5 h-3.5 text-rose-400" />
-          <span>Plantillas ({templates.length})</span>
+          <Palette className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+          <span>Themes</span>
         </button>
       </div>
 

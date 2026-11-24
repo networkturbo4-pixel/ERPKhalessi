@@ -20,10 +20,40 @@ import {
   CountdownBlockConfig,
   LeadFormBlockConfig,
   CustomPage,
+  StoreHeaderTemplate,
+  StoreHeaderSource,
+  StoreHeaderVariant,
+  StoreHeaderConfig,
+  HeaderRowId,
+  HeaderZoneId,
+  HeaderRowConfig,
+  HeaderMobileDrawerConfig,
+  HeaderWidget,
+  HeaderWidgetType,
+  StoreFooterTemplate,
+  StoreFooterSource,
+  StoreFooterVariant,
+  StoreFooterConfig,
+  FooterBandId,
+  FooterColumnId,
+  FooterBandConfig,
+  FooterWidget,
+  FooterWidgetType,
   getOptimalContrastHex,
   toProductSlug,
 } from '../types/storeBuilder';
+import {
+  FACTORY_HEADER_TEMPLATES,
+  createDefaultHeaderWidget,
+  convertPresetToHeaderTemplate,
+} from '../utils/headerBuilderDefaults';
+import {
+  FACTORY_FOOTER_TEMPLATES,
+  createDefaultFooterWidget,
+  convertPresetToFooterTemplate,
+} from '../utils/footerBuilderDefaults';
 import { useSettings } from './SettingsContext';
+import { forcePersistKeyToServer } from '../utils/diskPersistence';
 
 const BUILDER_STORAGE_KEY = 'kh_store_builder_v2';
 
@@ -1748,6 +1778,10 @@ interface PersistedBuilderState {
   activeTemplateId: string;
   templates: StoreTemplate[];
   customPages?: CustomPage[];
+  headerTemplates?: StoreHeaderTemplate[];
+  globalHeaderId?: string | null;
+  footerTemplates?: StoreFooterTemplate[];
+  globalFooterId?: string | null;
 }
 
 interface StoreBuilderContextType {
@@ -1764,6 +1798,10 @@ interface StoreBuilderContextType {
         | 'footerTheme'
         | 'pageBgColor'
         | 'contrastLevel'
+        | 'headerSource'
+        | 'customHeaderId'
+        | 'footerSource'
+        | 'customFooterId'
         | 'headerVariant'
         | 'footerVariant'
         | 'headerConfig'
@@ -1777,6 +1815,104 @@ interface StoreBuilderContextType {
     >
   ) => void;
   resetActiveTemplateToFactory: () => void;
+
+  // Header Builder Library (Global + Per-Theme/Page Override)
+  headerTemplates: StoreHeaderTemplate[];
+  globalHeaderId: string | null;
+  setGlobalHeaderId: (headerId: string | null) => void;
+  activeEditingHeaderId: string | null;
+  setActiveEditingHeaderId: (headerId: string | null) => void;
+  activeEditingHeader: StoreHeaderTemplate | null;
+  selectedHeaderWidgetId: string | null;
+  setSelectedHeaderWidgetId: (widgetId: string | null) => void;
+  selectedHeaderRow: HeaderRowId;
+  setSelectedHeaderRow: (row: HeaderRowId) => void;
+  selectedHeaderZone: HeaderZoneId;
+  setSelectedHeaderZone: (zone: HeaderZoneId) => void;
+  createHeaderTemplate: (input?: {
+    name?: string;
+    starterId?: string;
+    assignAsGlobal?: boolean;
+  }) => StoreHeaderTemplate;
+  convertPresetHeaderToEditable: (
+    variant: StoreHeaderVariant,
+    config?: StoreHeaderConfig,
+    name?: string,
+    assignToActiveTemplate?: boolean
+  ) => StoreHeaderTemplate;
+  duplicateHeaderTemplate: (headerId: string) => StoreHeaderTemplate | null;
+  deleteHeaderTemplate: (headerId: string) => void;
+  updateHeaderTemplateMeta: (
+    headerId: string,
+    partial: Partial<Pick<StoreHeaderTemplate, 'name' | 'description'>>
+  ) => void;
+  updateHeaderRow: (rowId: HeaderRowId, partial: Partial<Omit<HeaderRowConfig, 'zones'>>) => void;
+  updateHeaderMobileDrawer: (partial: Partial<HeaderMobileDrawerConfig>) => void;
+  addHeaderWidget: (type: HeaderWidgetType, rowId?: HeaderRowId, zoneId?: HeaderZoneId) => HeaderWidget | null;
+  updateHeaderWidget: (widgetId: string, updater: (prev: HeaderWidget) => HeaderWidget) => void;
+  moveHeaderWidget: (widgetId: string, direction: -1 | 1) => void;
+  moveHeaderWidgetToZone: (widgetId: string, targetRow: HeaderRowId, targetZone: HeaderZoneId) => void;
+  duplicateHeaderWidget: (widgetId: string) => void;
+  removeHeaderWidget: (widgetId: string) => void;
+  toggleHeaderWidgetVisibility: (widgetId: string) => void;
+  resolveEffectiveHeader: (
+    source?: StoreHeaderSource,
+    customHeaderId?: string
+  ) => StoreHeaderTemplate | null;
+
+  // Footer Builder Library (Global + Per-Theme/Page Override)
+  footerTemplates: StoreFooterTemplate[];
+  globalFooterId: string | null;
+  setGlobalFooterId: (footerId: string | null) => void;
+  activeEditingFooterId: string | null;
+  setActiveEditingFooterId: (footerId: string | null) => void;
+  activeEditingFooter: StoreFooterTemplate | null;
+  selectedFooterWidgetId: string | null;
+  setSelectedFooterWidgetId: (widgetId: string | null) => void;
+  selectedFooterBand: FooterBandId;
+  setSelectedFooterBand: (band: FooterBandId) => void;
+  selectedFooterColumn: FooterColumnId;
+  setSelectedFooterColumn: (col: FooterColumnId) => void;
+  createFooterTemplate: (input?: {
+    name?: string;
+    starterId?: string;
+    assignAsGlobal?: boolean;
+  }) => StoreFooterTemplate;
+  convertPresetFooterToEditable: (
+    variant: StoreFooterVariant,
+    config?: StoreFooterConfig,
+    name?: string,
+    assignToActiveTemplate?: boolean
+  ) => StoreFooterTemplate;
+  duplicateFooterTemplate: (footerId: string) => StoreFooterTemplate | null;
+  deleteFooterTemplate: (footerId: string) => void;
+  updateFooterTemplateMeta: (
+    footerId: string,
+    partial: Partial<Pick<StoreFooterTemplate, 'name' | 'description'>>
+  ) => void;
+  updateFooterBand: (bandId: FooterBandId, partial: Partial<Omit<FooterBandConfig, 'columns'>>) => void;
+  addFooterWidget: (
+    type: FooterWidgetType,
+    bandId?: FooterBandId,
+    colId?: FooterColumnId
+  ) => FooterWidget | null;
+  updateFooterWidget: (widgetId: string, updater: (prev: FooterWidget) => FooterWidget) => void;
+  moveFooterWidget: (widgetId: string, direction: -1 | 1) => void;
+  moveFooterWidgetToSlot: (
+    widgetId: string,
+    targetBand: FooterBandId,
+    targetCol: FooterColumnId
+  ) => void;
+  duplicateFooterWidget: (widgetId: string) => void;
+  removeFooterWidget: (widgetId: string) => void;
+  toggleFooterWidgetVisibility: (widgetId: string) => void;
+  resolveEffectiveFooter: (
+    source?: StoreFooterSource,
+    customFooterId?: string
+  ) => StoreFooterTemplate | null;
+  applyHeaderToActiveTemplate: (headerId: string) => void;
+  applyFooterToActiveTemplate: (footerId: string) => void;
+  saveBuilderNow: () => Promise<{ ok: boolean; syncedToServer: boolean; reason?: string }>;
 
   // Custom Pages (Páginas module + Short URLs + Open Graph)
   customPages: CustomPage[];
@@ -1850,10 +1986,41 @@ function loadPersistedBuilder(): PersistedBuilderState | null {
     const missingFactory = FACTORY_TEMPLATES.filter((ft) => !existingIds.has(ft.id)).map((ft) =>
       structuredClone(ft)
     );
+    const savedHeaders: StoreHeaderTemplate[] = Array.isArray(parsed.headerTemplates) && parsed.headerTemplates.length > 0
+      ? parsed.headerTemplates
+      : structuredClone(FACTORY_HEADER_TEMPLATES);
+    const existingHeaderIds = new Set(savedHeaders.map((h) => h.id));
+    const missingFactoryHeaders = FACTORY_HEADER_TEMPLATES.filter((fh) => !existingHeaderIds.has(fh.id)).map((fh) =>
+      structuredClone(fh)
+    );
+    const mergedHeaders = [...savedHeaders, ...missingFactoryHeaders];
+    const resolvedGlobalHeaderId =
+      typeof parsed.globalHeaderId === 'string' && mergedHeaders.some((h) => h.id === parsed.globalHeaderId)
+        ? parsed.globalHeaderId
+        : mergedHeaders[0]?.id || null;
+
+    const savedFooters: StoreFooterTemplate[] =
+      Array.isArray(parsed.footerTemplates) && parsed.footerTemplates.length > 0
+        ? parsed.footerTemplates
+        : structuredClone(FACTORY_FOOTER_TEMPLATES);
+    const existingFooterIds = new Set(savedFooters.map((f) => f.id));
+    const missingFactoryFooters = FACTORY_FOOTER_TEMPLATES.filter((ff) => !existingFooterIds.has(ff.id)).map((ff) =>
+      structuredClone(ff)
+    );
+    const mergedFooters = [...savedFooters, ...missingFactoryFooters];
+    const resolvedGlobalFooterId =
+      typeof parsed.globalFooterId === 'string' && mergedFooters.some((f) => f.id === parsed.globalFooterId)
+        ? parsed.globalFooterId
+        : mergedFooters[0]?.id || null;
+
     return {
       activeTemplateId: parsed.activeTemplateId || hydratedSaved[0].id,
       templates: [...hydratedSaved, ...missingFactory],
       customPages: Array.isArray(parsed.customPages) ? parsed.customPages : [],
+      headerTemplates: mergedHeaders,
+      globalHeaderId: resolvedGlobalHeaderId,
+      footerTemplates: mergedFooters,
+      globalFooterId: resolvedGlobalFooterId,
     };
   } catch {
     return null;
@@ -1873,12 +2040,39 @@ export const StoreBuilderProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [customPages, setCustomPages] = useState<CustomPage[]>(() => saved?.customPages || []);
   const [activeEditingPageId, setActiveEditingPageId] = useState<string | null>(null);
 
+  const [headerTemplates, setHeaderTemplates] = useState<StoreHeaderTemplate[]>(
+    () => saved?.headerTemplates || structuredClone(FACTORY_HEADER_TEMPLATES)
+  );
+  const [globalHeaderId, setGlobalHeaderIdState] = useState<string | null>(
+    () => saved?.globalHeaderId ?? FACTORY_HEADER_TEMPLATES[0]?.id ?? null
+  );
+  const [activeEditingHeaderId, setActiveEditingHeaderIdState] = useState<string | null>(null);
+  const [selectedHeaderWidgetId, setSelectedHeaderWidgetId] = useState<string | null>(null);
+  const [selectedHeaderRow, setSelectedHeaderRow] = useState<HeaderRowId>('main');
+  const [selectedHeaderZone, setSelectedHeaderZone] = useState<HeaderZoneId>('left');
+
+  const [footerTemplates, setFooterTemplates] = useState<StoreFooterTemplate[]>(
+    () => saved?.footerTemplates || structuredClone(FACTORY_FOOTER_TEMPLATES)
+  );
+  const [globalFooterId, setGlobalFooterIdState] = useState<string | null>(
+    () => saved?.globalFooterId ?? FACTORY_FOOTER_TEMPLATES[0]?.id ?? null
+  );
+  const [activeEditingFooterId, setActiveEditingFooterIdState] = useState<string | null>(null);
+  const [selectedFooterWidgetId, setSelectedFooterWidgetId] = useState<string | null>(null);
+  const [selectedFooterBand, setSelectedFooterBand] = useState<FooterBandId>('main');
+  const [selectedFooterColumn, setSelectedFooterColumn] = useState<FooterColumnId>('col1');
+
   const [isBuilderOpen, setIsBuilderOpen] = useState(false);
   const [previewViewport, setPreviewViewport] = useState<BuilderViewport>('desktop');
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
 
   // Undo / Redo history stacks
-  type HistorySnapshot = { templates: StoreTemplate[]; customPages: CustomPage[] };
+  type HistorySnapshot = {
+    templates: StoreTemplate[];
+    customPages: CustomPage[];
+    headerTemplates: StoreHeaderTemplate[];
+    footerTemplates: StoreFooterTemplate[];
+  };
   const [historyPast, setHistoryPast] = useState<HistorySnapshot[]>([]);
   const [historyFuture, setHistoryFuture] = useState<HistorySnapshot[]>([]);
   const [copiedStyles, setCopiedStyles] = useState<{
@@ -1889,7 +2083,12 @@ export const StoreBuilderProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const pushHistorySnapshot = () => {
     setHistoryPast(prev => [
       ...prev.slice(-29),
-      { templates: structuredClone(templates), customPages: structuredClone(customPages) },
+      {
+        templates: structuredClone(templates),
+        customPages: structuredClone(customPages),
+        headerTemplates: structuredClone(headerTemplates),
+        footerTemplates: structuredClone(footerTemplates),
+      },
     ]);
     setHistoryFuture([]);
   };
@@ -1898,12 +2097,19 @@ export const StoreBuilderProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (historyPast.length === 0) return;
     const previous = historyPast[historyPast.length - 1];
     setHistoryFuture(prev => [
-      { templates: structuredClone(templates), customPages: structuredClone(customPages) },
+      {
+        templates: structuredClone(templates),
+        customPages: structuredClone(customPages),
+        headerTemplates: structuredClone(headerTemplates),
+        footerTemplates: structuredClone(footerTemplates),
+      },
       ...prev.slice(0, 29),
     ]);
     setHistoryPast(prev => prev.slice(0, -1));
     setTemplates(previous.templates);
     setCustomPages(previous.customPages);
+    setHeaderTemplates(previous.headerTemplates);
+    setFooterTemplates(previous.footerTemplates);
     dispatchToast('Deshecho', 'Se revirtió el último cambio en el editor.', 'info');
   };
 
@@ -1912,11 +2118,19 @@ export const StoreBuilderProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const next = historyFuture[0];
     setHistoryPast(prev => [
       ...prev.slice(-29),
-      { templates: structuredClone(templates), customPages: structuredClone(customPages) },
+      {
+        templates: structuredClone(templates),
+        customPages: structuredClone(customPages),
+        headerTemplates: structuredClone(headerTemplates),
+        footerTemplates: structuredClone(footerTemplates),
+      },
+      ...prev.slice(0, 0),
     ]);
     setHistoryFuture(prev => prev.slice(1));
     setTemplates(next.templates);
     setCustomPages(next.customPages);
+    setHeaderTemplates(next.headerTemplates);
+    setFooterTemplates(next.footerTemplates);
     dispatchToast('Rehecho', 'Se reaplicó el cambio revertido.', 'info');
   };
 
@@ -1980,14 +2194,787 @@ export const StoreBuilderProvider: React.FC<{ children: React.ReactNode }> = ({ 
           getOptimalContrastHex(activeEditingPage.buttonColor || activeEditingPage.accentColor),
         autoButtonContrast: Boolean(activeEditingPage.autoButtonContrast),
         showHeaderCartButton: activeEditingPage.showHeaderCartButton,
+        headerSource: activeEditingPage.headerSource || 'global',
+        customHeaderId: activeEditingPage.customHeaderId,
+        footerSource: activeEditingPage.footerSource || 'global',
+        customFooterId: activeEditingPage.customFooterId,
         blocks: activeEditingPage.blocks,
       };
     }
     return storeTemplate;
   }, [activeEditingPage, storeTemplate]);
 
+  const activeEditingHeader = useMemo(
+    () =>
+      activeEditingHeaderId
+        ? headerTemplates.find(h => h.id === activeEditingHeaderId) || null
+        : null,
+    [headerTemplates, activeEditingHeaderId]
+  );
+
+  const setActiveEditingHeaderId = (headerId: string | null) => {
+    setActiveEditingHeaderIdState(headerId);
+    setSelectedHeaderWidgetId(null);
+    if (headerId) {
+      setActiveEditingFooterIdState(null);
+      setSelectedFooterWidgetId(null);
+      setSelectedBlockId(null);
+    }
+  };
+
+  const ensureHeaderBoundToActiveTemplate = (headerId: string, force = false) => {
+    const useGlobal = headerId === globalHeaderId;
+    if (activeEditingPageId) {
+      setCustomPages(prev =>
+        prev.map(p => {
+          if (p.id !== activeEditingPageId) return p;
+          const isUnbound = !p.headerSource || p.headerSource === 'preset';
+          if (!force && !isUnbound) return p;
+          return {
+            ...p,
+            headerSource: useGlobal ? 'global' : 'custom',
+            customHeaderId: useGlobal ? undefined : headerId,
+            updatedAt: new Date().toISOString(),
+          };
+        })
+      );
+      return;
+    }
+    setTemplates(prev =>
+      prev.map(t => {
+        if (t.id !== activeTemplateId) return t;
+        const isUnbound = !t.headerSource || t.headerSource === 'preset';
+        if (!force && !isUnbound) return t;
+        return {
+          ...t,
+          headerSource: useGlobal ? 'global' : 'custom',
+          customHeaderId: useGlobal ? undefined : headerId,
+        };
+      })
+    );
+  };
+
+  const applyHeaderToActiveTemplate = (headerId: string) => {
+    ensureHeaderBoundToActiveTemplate(headerId, true);
+    const target = headerTemplates.find(h => h.id === headerId);
+    dispatchToast(
+      'Cabecera Aplicada en Tienda',
+      target
+        ? `"${target.name}" ya está activa y visible en el front-end de la tienda.`
+        : 'Cabecera aplicada a la tienda.',
+      'success'
+    );
+  };
+
+  const setGlobalHeaderId = (headerId: string | null) => {
+    setGlobalHeaderIdState(headerId);
+    if (headerId) {
+      setTemplates(prev =>
+        prev.map(t =>
+          t.id === activeTemplateId && (!t.headerSource || t.headerSource === 'preset')
+            ? { ...t, headerSource: 'global', customHeaderId: undefined }
+            : t
+        )
+      );
+    }
+    const target = headerTemplates.find(h => h.id === headerId);
+    dispatchToast(
+      'Cabecera Global Actualizada',
+      target
+        ? `"${target.name}" ahora es la cabecera global por defecto.`
+        : 'Se desactivó la cabecera global por defecto.',
+      'success'
+    );
+  };
+
+  const resolveEffectiveHeader = (
+    source?: StoreHeaderSource,
+    customHeaderId?: string
+  ): StoreHeaderTemplate | null => {
+    if (source === 'custom' && customHeaderId) {
+      return (
+        headerTemplates.find(h => h.id === customHeaderId) ||
+        (globalHeaderId ? headerTemplates.find(h => h.id === globalHeaderId) || null : null)
+      );
+    }
+    if (source === 'global') {
+      if (!globalHeaderId) return headerTemplates[0] || null;
+      return headerTemplates.find(h => h.id === globalHeaderId) || headerTemplates[0] || null;
+    }
+    return null;
+  };
+
+  const mutateEditingHeader = (
+    mutator: (header: StoreHeaderTemplate) => StoreHeaderTemplate
+  ) => {
+    if (!activeEditingHeaderId) return;
+    pushHistorySnapshot();
+    const now = new Date().toISOString();
+    setHeaderTemplates(prev =>
+      prev.map(h =>
+        h.id === activeEditingHeaderId ? { ...mutator(h), updatedAt: now } : h
+      )
+    );
+    ensureHeaderBoundToActiveTemplate(activeEditingHeaderId, false);
+  };
+
+  const createHeaderTemplate: StoreBuilderContextType['createHeaderTemplate'] = (input) => {
+    const now = new Date().toISOString();
+    const starter =
+      (input?.starterId && headerTemplates.find(h => h.id === input.starterId)) ||
+      FACTORY_HEADER_TEMPLATES[0];
+    const cloned = structuredClone(starter);
+    cloned.id = `hdr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    cloned.name = input?.name?.trim() || `Nueva Cabecera ${headerTemplates.length + 1}`;
+    cloned.createdAt = now;
+    cloned.updatedAt = now;
+    setHeaderTemplates(prev => [cloned, ...prev]);
+    if (input?.assignAsGlobal) {
+      setGlobalHeaderIdState(cloned.id);
+    }
+    dispatchToast('Cabecera Creada', `"${cloned.name}" lista para editar.`, 'success');
+    return cloned;
+  };
+
+  const convertPresetHeaderToEditable: StoreBuilderContextType['convertPresetHeaderToEditable'] = (
+    variant,
+    config,
+    name,
+    assignToActiveTemplate = true
+  ) => {
+    const created = convertPresetToHeaderTemplate(variant, config, name);
+    setHeaderTemplates(prev => [created, ...prev]);
+    if (assignToActiveTemplate) {
+      updateActiveTemplateMeta({
+        headerSource: 'custom',
+        customHeaderId: created.id,
+      });
+    }
+    setActiveEditingHeaderId(created.id);
+    dispatchToast(
+      'Cabecera Convertida',
+      `Se creó "${created.name}" en el constructor visual.`,
+      'success'
+    );
+    return created;
+  };
+
+  const duplicateHeaderTemplate = (headerId: string): StoreHeaderTemplate | null => {
+    const source = headerTemplates.find(h => h.id === headerId);
+    if (!source) return null;
+    const now = new Date().toISOString();
+    const cloned = structuredClone(source);
+    cloned.id = `hdr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    cloned.name = `${source.name} (Copia)`;
+    cloned.createdAt = now;
+    cloned.updatedAt = now;
+    setHeaderTemplates(prev => [cloned, ...prev]);
+    dispatchToast('Cabecera Duplicada', `Se creó "${cloned.name}".`, 'info');
+    return cloned;
+  };
+
+  const deleteHeaderTemplate = (headerId: string) => {
+    setHeaderTemplates(prev => {
+      const next = prev.filter(h => h.id !== headerId);
+      if (globalHeaderId === headerId) {
+        setGlobalHeaderIdState(next[0]?.id || null);
+      }
+      return next;
+    });
+    if (activeEditingHeaderId === headerId) {
+      setActiveEditingHeaderId(null);
+    }
+    setTemplates(prev =>
+      prev.map(t =>
+        t.customHeaderId === headerId
+          ? { ...t, headerSource: 'preset', customHeaderId: undefined }
+          : t
+      )
+    );
+    dispatchToast('Cabecera Eliminada', 'La cabecera fue eliminada de la biblioteca.', 'info');
+  };
+
+  const updateHeaderTemplateMeta: StoreBuilderContextType['updateHeaderTemplateMeta'] = (
+    headerId,
+    partial
+  ) => {
+    const now = new Date().toISOString();
+    setHeaderTemplates(prev =>
+      prev.map(h => (h.id === headerId ? { ...h, ...partial, updatedAt: now } : h))
+    );
+  };
+
+  const updateHeaderRow: StoreBuilderContextType['updateHeaderRow'] = (rowId, partial) => {
+    mutateEditingHeader(h => ({
+      ...h,
+      rows: {
+        ...h.rows,
+        [rowId]: {
+          ...h.rows[rowId],
+          ...partial,
+        },
+      },
+    }));
+  };
+
+  const updateHeaderMobileDrawer: StoreBuilderContextType['updateHeaderMobileDrawer'] = (
+    partial
+  ) => {
+    mutateEditingHeader(h => ({
+      ...h,
+      mobileDrawer: {
+        ...h.mobileDrawer,
+        ...partial,
+      },
+    }));
+  };
+
+  const addHeaderWidget: StoreBuilderContextType['addHeaderWidget'] = (
+    type,
+    rowId = selectedHeaderRow,
+    zoneId = selectedHeaderZone
+  ) => {
+    if (!activeEditingHeaderId) return null;
+    const created = createDefaultHeaderWidget(type);
+    mutateEditingHeader(h => {
+      const row = h.rows[rowId];
+      return {
+        ...h,
+        rows: {
+          ...h.rows,
+          [rowId]: {
+            ...row,
+            enabled: true,
+            zones: {
+              ...row.zones,
+              [zoneId]: [...row.zones[zoneId], created],
+            },
+          },
+        },
+      };
+    });
+    setSelectedHeaderRow(rowId);
+    setSelectedHeaderZone(zoneId);
+    setSelectedHeaderWidgetId(created.id);
+    return created;
+  };
+
+  const updateHeaderWidget: StoreBuilderContextType['updateHeaderWidget'] = (
+    widgetId,
+    updater
+  ) => {
+    mutateEditingHeader(h => {
+      const rows = { ...h.rows };
+      (['top', 'main', 'sub'] as HeaderRowId[]).forEach(rId => {
+        const row = rows[rId];
+        let changed = false;
+        const nextZones = { ...row.zones };
+        (['left', 'center', 'right'] as HeaderZoneId[]).forEach(zId => {
+          const list = row.zones[zId];
+          if (list.some(w => w.id === widgetId)) {
+            changed = true;
+            nextZones[zId] = list.map(w => (w.id === widgetId ? updater(w) : w));
+          }
+        });
+        if (changed) {
+          rows[rId] = { ...row, zones: nextZones };
+        }
+      });
+      return { ...h, rows };
+    });
+  };
+
+  const moveHeaderWidget: StoreBuilderContextType['moveHeaderWidget'] = (widgetId, direction) => {
+    mutateEditingHeader(h => {
+      const rows = { ...h.rows };
+      (['top', 'main', 'sub'] as HeaderRowId[]).forEach(rId => {
+        const row = rows[rId];
+        (['left', 'center', 'right'] as HeaderZoneId[]).forEach(zId => {
+          const list = row.zones[zId];
+          const idx = list.findIndex(w => w.id === widgetId);
+          if (idx >= 0) {
+            const nextIdx = idx + direction;
+            if (nextIdx >= 0 && nextIdx < list.length) {
+              const copy = [...list];
+              const [moved] = copy.splice(idx, 1);
+              copy.splice(nextIdx, 0, moved);
+              rows[rId] = {
+                ...row,
+                zones: { ...row.zones, [zId]: copy },
+              };
+            }
+          }
+        });
+      });
+      return { ...h, rows };
+    });
+  };
+
+  const moveHeaderWidgetToZone: StoreBuilderContextType['moveHeaderWidgetToZone'] = (
+    widgetId,
+    targetRow,
+    targetZone
+  ) => {
+    mutateEditingHeader(h => {
+      let extracted: HeaderWidget | null = null;
+      const rows = structuredClone(h.rows);
+      (['top', 'main', 'sub'] as HeaderRowId[]).forEach(rId => {
+        (['left', 'center', 'right'] as HeaderZoneId[]).forEach(zId => {
+          const idx = rows[rId].zones[zId].findIndex(w => w.id === widgetId);
+          if (idx >= 0) {
+            const [item] = rows[rId].zones[zId].splice(idx, 1);
+            extracted = item;
+          }
+        });
+      });
+      if (!extracted) return h;
+      rows[targetRow].enabled = true;
+      rows[targetRow].zones[targetZone].push(extracted);
+      return { ...h, rows };
+    });
+    setSelectedHeaderRow(targetRow);
+    setSelectedHeaderZone(targetZone);
+  };
+
+  const duplicateHeaderWidget: StoreBuilderContextType['duplicateHeaderWidget'] = (widgetId) => {
+    let newId: string | null = null;
+    mutateEditingHeader(h => {
+      const rows = structuredClone(h.rows);
+      (['top', 'main', 'sub'] as HeaderRowId[]).forEach(rId => {
+        (['left', 'center', 'right'] as HeaderZoneId[]).forEach(zId => {
+          const idx = rows[rId].zones[zId].findIndex(w => w.id === widgetId);
+          if (idx >= 0) {
+            const cloned = structuredClone(rows[rId].zones[zId][idx]);
+            cloned.id = `${cloned.type}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
+            newId = cloned.id;
+            rows[rId].zones[zId].splice(idx + 1, 0, cloned);
+          }
+        });
+      });
+      return { ...h, rows };
+    });
+    if (newId) setSelectedHeaderWidgetId(newId);
+    dispatchToast('Widget Duplicado', 'Se creó una copia exacta en la misma zona.', 'info');
+  };
+
+  const removeHeaderWidget: StoreBuilderContextType['removeHeaderWidget'] = (widgetId) => {
+    mutateEditingHeader(h => {
+      const rows = structuredClone(h.rows);
+      (['top', 'main', 'sub'] as HeaderRowId[]).forEach(rId => {
+        (['left', 'center', 'right'] as HeaderZoneId[]).forEach(zId => {
+          rows[rId].zones[zId] = rows[rId].zones[zId].filter(w => w.id !== widgetId);
+        });
+      });
+      return { ...h, rows };
+    });
+    if (selectedHeaderWidgetId === widgetId) {
+      setSelectedHeaderWidgetId(null);
+    }
+  };
+
+  const toggleHeaderWidgetVisibility: StoreBuilderContextType['toggleHeaderWidgetVisibility'] = (
+    widgetId
+  ) => {
+    updateHeaderWidget(widgetId, w => ({ ...w, isHidden: !w.isHidden }));
+  };
+
+  // =========================================================================
+  // FOOTER BUILDER ACTIONS
+  // =========================================================================
+  const activeEditingFooter = useMemo(
+    () =>
+      activeEditingFooterId
+        ? footerTemplates.find(f => f.id === activeEditingFooterId) || null
+        : null,
+    [footerTemplates, activeEditingFooterId]
+  );
+
+  const setActiveEditingFooterId = (footerId: string | null) => {
+    setActiveEditingFooterIdState(footerId);
+    setSelectedFooterWidgetId(null);
+    if (footerId) {
+      setActiveEditingHeaderIdState(null);
+      setSelectedHeaderWidgetId(null);
+      setSelectedBlockId(null);
+    }
+  };
+
+  const ensureFooterBoundToActiveTemplate = (footerId: string, force = false) => {
+    const useGlobal = footerId === globalFooterId;
+    if (activeEditingPageId) {
+      setCustomPages(prev =>
+        prev.map(p => {
+          if (p.id !== activeEditingPageId) return p;
+          const isUnbound = !p.footerSource || p.footerSource === 'preset';
+          if (!force && !isUnbound) return p;
+          return {
+            ...p,
+            footerSource: useGlobal ? 'global' : 'custom',
+            customFooterId: useGlobal ? undefined : footerId,
+            updatedAt: new Date().toISOString(),
+          };
+        })
+      );
+      return;
+    }
+    setTemplates(prev =>
+      prev.map(t => {
+        if (t.id !== activeTemplateId) return t;
+        const isUnbound = !t.footerSource || t.footerSource === 'preset';
+        if (!force && !isUnbound) return t;
+        return {
+          ...t,
+          footerSource: useGlobal ? 'global' : 'custom',
+          customFooterId: useGlobal ? undefined : footerId,
+        };
+      })
+    );
+  };
+
+  const applyFooterToActiveTemplate = (footerId: string) => {
+    ensureFooterBoundToActiveTemplate(footerId, true);
+    const target = footerTemplates.find(f => f.id === footerId);
+    dispatchToast(
+      'Footer Aplicado en Tienda',
+      target
+        ? `"${target.name}" ya está activo y visible en el front-end de la tienda.`
+        : 'Footer aplicado a la tienda.',
+      'success'
+    );
+  };
+
+  const setGlobalFooterId = (footerId: string | null) => {
+    setGlobalFooterIdState(footerId);
+    if (footerId) {
+      setTemplates(prev =>
+        prev.map(t =>
+          t.id === activeTemplateId && (!t.footerSource || t.footerSource === 'preset')
+            ? { ...t, footerSource: 'global', customFooterId: undefined }
+            : t
+        )
+      );
+    }
+    const target = footerTemplates.find(f => f.id === footerId);
+    dispatchToast(
+      'Footer Global Actualizado',
+      target
+        ? `"${target.name}" ahora es el footer global por defecto.`
+        : 'Se desactivó el footer global por defecto.',
+      'success'
+    );
+  };
+
+  const resolveEffectiveFooter = (
+    source?: StoreFooterSource,
+    customFooterId?: string
+  ): StoreFooterTemplate | null => {
+    if (source === 'custom' && customFooterId) {
+      return (
+        footerTemplates.find(f => f.id === customFooterId) ||
+        (globalFooterId ? footerTemplates.find(f => f.id === globalFooterId) || null : null)
+      );
+    }
+    if (source === 'global') {
+      if (!globalFooterId) return footerTemplates[0] || null;
+      return footerTemplates.find(f => f.id === globalFooterId) || footerTemplates[0] || null;
+    }
+    return null;
+  };
+
+  const mutateEditingFooter = (
+    mutator: (footer: StoreFooterTemplate) => StoreFooterTemplate
+  ) => {
+    if (!activeEditingFooterId) return;
+    pushHistorySnapshot();
+    const now = new Date().toISOString();
+    setFooterTemplates(prev =>
+      prev.map(f =>
+        f.id === activeEditingFooterId ? { ...mutator(f), updatedAt: now } : f
+      )
+    );
+    ensureFooterBoundToActiveTemplate(activeEditingFooterId, false);
+  };
+
+  const createFooterTemplate: StoreBuilderContextType['createFooterTemplate'] = (input) => {
+    const now = new Date().toISOString();
+    const starter =
+      (input?.starterId && footerTemplates.find(f => f.id === input.starterId)) ||
+      FACTORY_FOOTER_TEMPLATES[0];
+    const cloned = structuredClone(starter);
+    cloned.id = `ftr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    cloned.name = input?.name?.trim() || `Nuevo Footer ${footerTemplates.length + 1}`;
+    cloned.createdAt = now;
+    cloned.updatedAt = now;
+    setFooterTemplates(prev => [cloned, ...prev]);
+    if (input?.assignAsGlobal) {
+      setGlobalFooterIdState(cloned.id);
+    }
+    dispatchToast('Footer Creado', `"${cloned.name}" listo para editar.`, 'success');
+    return cloned;
+  };
+
+  const convertPresetFooterToEditable: StoreBuilderContextType['convertPresetFooterToEditable'] = (
+    variant,
+    config,
+    name,
+    assignToActiveTemplate = true
+  ) => {
+    const created = convertPresetToFooterTemplate(variant, config, name);
+    setFooterTemplates(prev => [created, ...prev]);
+    if (assignToActiveTemplate) {
+      updateActiveTemplateMeta({
+        footerSource: 'custom',
+        customFooterId: created.id,
+      });
+    }
+    setActiveEditingFooterId(created.id);
+    dispatchToast(
+      'Footer Convertido',
+      `Se creó "${created.name}" en el constructor visual.`,
+      'success'
+    );
+    return created;
+  };
+
+  const duplicateFooterTemplate = (footerId: string): StoreFooterTemplate | null => {
+    const source = footerTemplates.find(f => f.id === footerId);
+    if (!source) return null;
+    const now = new Date().toISOString();
+    const cloned = structuredClone(source);
+    cloned.id = `ftr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    cloned.name = `${source.name} (Copia)`;
+    cloned.createdAt = now;
+    cloned.updatedAt = now;
+    setFooterTemplates(prev => [cloned, ...prev]);
+    dispatchToast('Footer Duplicado', `Se creó "${cloned.name}".`, 'info');
+    return cloned;
+  };
+
+  const deleteFooterTemplate = (footerId: string) => {
+    setFooterTemplates(prev => {
+      const next = prev.filter(f => f.id !== footerId);
+      if (globalFooterId === footerId) {
+        setGlobalFooterIdState(next[0]?.id || null);
+      }
+      return next;
+    });
+    if (activeEditingFooterId === footerId) {
+      setActiveEditingFooterId(null);
+    }
+    setTemplates(prev =>
+      prev.map(t =>
+        t.customFooterId === footerId
+          ? { ...t, footerSource: 'preset', customFooterId: undefined }
+          : t
+      )
+    );
+    dispatchToast('Footer Eliminado', 'El footer fue eliminado de la biblioteca.', 'info');
+  };
+
+  const updateFooterTemplateMeta: StoreBuilderContextType['updateFooterTemplateMeta'] = (
+    footerId,
+    partial
+  ) => {
+    const now = new Date().toISOString();
+    setFooterTemplates(prev =>
+      prev.map(f => (f.id === footerId ? { ...f, ...partial, updatedAt: now } : f))
+    );
+  };
+
+  const updateFooterBand: StoreBuilderContextType['updateFooterBand'] = (bandId, partial) => {
+    mutateEditingFooter(f => ({
+      ...f,
+      bands: {
+        ...f.bands,
+        [bandId]: {
+          ...f.bands[bandId],
+          ...partial,
+        },
+      },
+    }));
+  };
+
+  const addFooterWidget: StoreBuilderContextType['addFooterWidget'] = (
+    type,
+    bandId = selectedFooterBand,
+    colId = selectedFooterColumn
+  ) => {
+    if (!activeEditingFooterId) return null;
+    const created = createDefaultFooterWidget(type);
+    mutateEditingFooter(f => {
+      const band = f.bands[bandId];
+      return {
+        ...f,
+        bands: {
+          ...f.bands,
+          [bandId]: {
+            ...band,
+            enabled: true,
+            columns: {
+              ...band.columns,
+              [colId]: [...band.columns[colId], created],
+            },
+          },
+        },
+      };
+    });
+    setSelectedFooterBand(bandId);
+    setSelectedFooterColumn(colId);
+    setSelectedFooterWidgetId(created.id);
+    return created;
+  };
+
+  const updateFooterWidget: StoreBuilderContextType['updateFooterWidget'] = (widgetId, updater) => {
+    mutateEditingFooter(f => {
+      const bands = { ...f.bands };
+      (['ribbon', 'main', 'bottom'] as FooterBandId[]).forEach(bId => {
+        const band = bands[bId];
+        let changed = false;
+        const nextCols = { ...band.columns };
+        (['col1', 'col2', 'col3', 'col4'] as FooterColumnId[]).forEach(cId => {
+          const list = band.columns[cId];
+          if (list.some(w => w.id === widgetId)) {
+            changed = true;
+            nextCols[cId] = list.map(w => (w.id === widgetId ? updater(w) : w));
+          }
+        });
+        if (changed) {
+          bands[bId] = { ...band, columns: nextCols };
+        }
+      });
+      return { ...f, bands };
+    });
+  };
+
+  const moveFooterWidget: StoreBuilderContextType['moveFooterWidget'] = (widgetId, direction) => {
+    mutateEditingFooter(f => {
+      const bands = { ...f.bands };
+      (['ribbon', 'main', 'bottom'] as FooterBandId[]).forEach(bId => {
+        const band = bands[bId];
+        (['col1', 'col2', 'col3', 'col4'] as FooterColumnId[]).forEach(cId => {
+          const list = band.columns[cId];
+          const idx = list.findIndex(w => w.id === widgetId);
+          if (idx >= 0) {
+            const nextIdx = idx + direction;
+            if (nextIdx >= 0 && nextIdx < list.length) {
+              const copy = [...list];
+              const [moved] = copy.splice(idx, 1);
+              copy.splice(nextIdx, 0, moved);
+              bands[bId] = {
+                ...band,
+                columns: { ...band.columns, [cId]: copy },
+              };
+            }
+          }
+        });
+      });
+      return { ...f, bands };
+    });
+  };
+
+  const moveFooterWidgetToSlot: StoreBuilderContextType['moveFooterWidgetToSlot'] = (
+    widgetId,
+    targetBand,
+    targetCol
+  ) => {
+    mutateEditingFooter(f => {
+      let extracted: FooterWidget | null = null;
+      const bands = structuredClone(f.bands);
+      (['ribbon', 'main', 'bottom'] as FooterBandId[]).forEach(bId => {
+        (['col1', 'col2', 'col3', 'col4'] as FooterColumnId[]).forEach(cId => {
+          const idx = bands[bId].columns[cId].findIndex(w => w.id === widgetId);
+          if (idx >= 0) {
+            const [item] = bands[bId].columns[cId].splice(idx, 1);
+            extracted = item;
+          }
+        });
+      });
+      if (!extracted) return f;
+      bands[targetBand].enabled = true;
+      bands[targetBand].columns[targetCol].push(extracted);
+      return { ...f, bands };
+    });
+    setSelectedFooterBand(targetBand);
+    setSelectedFooterColumn(targetCol);
+  };
+
+  const duplicateFooterWidget: StoreBuilderContextType['duplicateFooterWidget'] = (widgetId) => {
+    let newId: string | null = null;
+    mutateEditingFooter(f => {
+      const bands = structuredClone(f.bands);
+      (['ribbon', 'main', 'bottom'] as FooterBandId[]).forEach(bId => {
+        (['col1', 'col2', 'col3', 'col4'] as FooterColumnId[]).forEach(cId => {
+          const idx = bands[bId].columns[cId].findIndex(w => w.id === widgetId);
+          if (idx >= 0) {
+            const cloned = structuredClone(bands[bId].columns[cId][idx]);
+            cloned.id = `${cloned.type}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`;
+            newId = cloned.id;
+            bands[bId].columns[cId].splice(idx + 1, 0, cloned);
+          }
+        });
+      });
+      return { ...f, bands };
+    });
+    if (newId) setSelectedFooterWidgetId(newId);
+    dispatchToast('Widget Duplicado', 'Se creó una copia exacta en la misma columna.', 'info');
+  };
+
+  const removeFooterWidget: StoreBuilderContextType['removeFooterWidget'] = (widgetId) => {
+    mutateEditingFooter(f => {
+      const bands = structuredClone(f.bands);
+      (['ribbon', 'main', 'bottom'] as FooterBandId[]).forEach(bId => {
+        (['col1', 'col2', 'col3', 'col4'] as FooterColumnId[]).forEach(cId => {
+          bands[bId].columns[cId] = bands[bId].columns[cId].filter(w => w.id !== widgetId);
+        });
+      });
+      return { ...f, bands };
+    });
+    if (selectedFooterWidgetId === widgetId) {
+      setSelectedFooterWidgetId(null);
+    }
+  };
+
+  const toggleFooterWidgetVisibility: StoreBuilderContextType['toggleFooterWidgetVisibility'] = (
+    widgetId
+  ) => {
+    updateFooterWidget(widgetId, w => ({ ...w, isHidden: !w.isHidden }));
+  };
+
   const lastPersistedJsonRef = useRef<string | null>(null);
   const lastLocalWriteAtRef = useRef<number>(0);
+  const latestStateRef = useRef<PersistedBuilderState>({
+    activeTemplateId,
+    templates,
+    customPages,
+    headerTemplates,
+    globalHeaderId,
+    footerTemplates,
+    globalFooterId,
+  });
+  latestStateRef.current = {
+    activeTemplateId,
+    templates,
+    customPages,
+    headerTemplates,
+    globalHeaderId,
+    footerTemplates,
+    globalFooterId,
+  };
+
+  const saveBuilderNow = async (): Promise<{
+    ok: boolean;
+    syncedToServer: boolean;
+    reason?: string;
+  }> => {
+    try {
+      const serialized = JSON.stringify(latestStateRef.current);
+      lastPersistedJsonRef.current = serialized;
+      lastLocalWriteAtRef.current = Date.now();
+      return await forcePersistKeyToServer(BUILDER_STORAGE_KEY, serialized);
+    } catch {
+      return { ok: false, syncedToServer: false, reason: 'serialize_error' };
+    }
+  };
 
   // Persist immediately on any change
   useEffect(() => {
@@ -1996,6 +2983,10 @@ export const StoreBuilderProvider: React.FC<{ children: React.ReactNode }> = ({ 
         activeTemplateId,
         templates,
         customPages,
+        headerTemplates,
+        globalHeaderId,
+        footerTemplates,
+        globalFooterId,
       };
       const serialized = JSON.stringify(snapshot);
       lastPersistedJsonRef.current = serialized;
@@ -2004,7 +2995,15 @@ export const StoreBuilderProvider: React.FC<{ children: React.ReactNode }> = ({ 
     } catch {
       // Ignore quota errors
     }
-  }, [activeTemplateId, templates, customPages]);
+  }, [
+    activeTemplateId,
+    templates,
+    customPages,
+    headerTemplates,
+    globalHeaderId,
+    footerTemplates,
+    globalFooterId,
+  ]);
 
   // Live sync across devices when admin updates storefront design, active template, or pages
   useEffect(() => {
@@ -2018,6 +3017,18 @@ export const StoreBuilderProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setActiveTemplateId(fresh.activeTemplateId);
       if (Array.isArray(fresh.customPages)) {
         setCustomPages(fresh.customPages);
+      }
+      if (Array.isArray(fresh.headerTemplates)) {
+        setHeaderTemplates(fresh.headerTemplates);
+      }
+      if (fresh.globalHeaderId !== undefined) {
+        setGlobalHeaderIdState(fresh.globalHeaderId);
+      }
+      if (Array.isArray(fresh.footerTemplates)) {
+        setFooterTemplates(fresh.footerTemplates);
+      }
+      if (fresh.globalFooterId !== undefined) {
+        setGlobalFooterIdState(fresh.globalFooterId);
       }
     };
     window.addEventListener('storage', handleStorage);
@@ -2078,6 +3089,8 @@ export const StoreBuilderProvider: React.FC<{ children: React.ReactNode }> = ({ 
       autoButtonContrast: Boolean(storeTemplate.autoButtonContrast),
       showStoreHeader: true,
       showStoreFooter: true,
+      headerSource: 'global',
+      footerSource: 'global',
       blocks: initialBlocks,
       seo: {
         ogTitle: cleanTitle,
@@ -2155,6 +3168,10 @@ export const StoreBuilderProvider: React.FC<{ children: React.ReactNode }> = ({ 
         | 'footerTheme'
         | 'pageBgColor'
         | 'contrastLevel'
+        | 'headerSource'
+        | 'customHeaderId'
+        | 'footerSource'
+        | 'customFooterId'
         | 'headerVariant'
         | 'footerVariant'
         | 'headerConfig'
@@ -2422,6 +3439,62 @@ export const StoreBuilderProvider: React.FC<{ children: React.ReactNode }> = ({ 
         selectTemplate,
         updateActiveTemplateMeta,
         resetActiveTemplateToFactory,
+        headerTemplates,
+        globalHeaderId,
+        setGlobalHeaderId,
+        activeEditingHeaderId,
+        setActiveEditingHeaderId,
+        activeEditingHeader,
+        selectedHeaderWidgetId,
+        setSelectedHeaderWidgetId,
+        selectedHeaderRow,
+        setSelectedHeaderRow,
+        selectedHeaderZone,
+        setSelectedHeaderZone,
+        createHeaderTemplate,
+        convertPresetHeaderToEditable,
+        duplicateHeaderTemplate,
+        deleteHeaderTemplate,
+        updateHeaderTemplateMeta,
+        updateHeaderRow,
+        updateHeaderMobileDrawer,
+        addHeaderWidget,
+        updateHeaderWidget,
+        moveHeaderWidget,
+        moveHeaderWidgetToZone,
+        duplicateHeaderWidget,
+        removeHeaderWidget,
+        toggleHeaderWidgetVisibility,
+        resolveEffectiveHeader,
+        footerTemplates,
+        globalFooterId,
+        setGlobalFooterId,
+        activeEditingFooterId,
+        setActiveEditingFooterId,
+        activeEditingFooter,
+        selectedFooterWidgetId,
+        setSelectedFooterWidgetId,
+        selectedFooterBand,
+        setSelectedFooterBand,
+        selectedFooterColumn,
+        setSelectedFooterColumn,
+        createFooterTemplate,
+        convertPresetFooterToEditable,
+        duplicateFooterTemplate,
+        deleteFooterTemplate,
+        updateFooterTemplateMeta,
+        updateFooterBand,
+        addFooterWidget,
+        updateFooterWidget,
+        moveFooterWidget,
+        moveFooterWidgetToSlot,
+        duplicateFooterWidget,
+        removeFooterWidget,
+        toggleFooterWidgetVisibility,
+        resolveEffectiveFooter,
+        applyHeaderToActiveTemplate,
+        applyFooterToActiveTemplate,
+        saveBuilderNow,
         customPages,
         activeEditingPageId,
         setActiveEditingPageId,

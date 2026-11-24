@@ -244,12 +244,34 @@ export const StoreDesignTab: React.FC = () => {
     resetActiveTemplateToFactory,
     setIsBuilderOpen,
     setActiveEditingPageId,
+    setActiveEditingHeaderId,
+    setActiveEditingFooterId,
   } = useStoreBuilder();
   const { dispatchToast, openNoticeModal } = useSettings();
 
   const handleOpenInBuilder = (tplId: string) => {
     selectTemplate(tplId);
     setActiveEditingPageId(null);
+    setActiveEditingHeaderId(null);
+    setActiveEditingFooterId(null);
+    setIsBuilderOpen(true);
+    window.history.pushState({}, '', '/');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+
+  const handleOpenHeaderInBuilder = (headerId: string) => {
+    setActiveEditingPageId(null);
+    setActiveEditingFooterId(null);
+    setActiveEditingHeaderId(headerId);
+    setIsBuilderOpen(true);
+    window.history.pushState({}, '', '/');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+
+  const handleOpenFooterInBuilder = (footerId: string) => {
+    setActiveEditingPageId(null);
+    setActiveEditingHeaderId(null);
+    setActiveEditingFooterId(footerId);
     setIsBuilderOpen(true);
     window.history.pushState({}, '', '/');
     window.dispatchEvent(new PopStateEvent('popstate'));
@@ -580,6 +602,8 @@ export const StoreDesignTab: React.FC = () => {
           template={activeTemplate}
           surface="settings"
           onUpdateMeta={updateActiveTemplateMeta}
+          onOpenHeaderBuilder={handleOpenHeaderInBuilder}
+          onOpenFooterBuilder={handleOpenFooterInBuilder}
         />
       </div>
 

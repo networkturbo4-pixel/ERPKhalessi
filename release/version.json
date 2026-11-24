@@ -1,8 +1,8 @@
 {
-  "buildId": "20261123203510",
-  "builtAt": "2026-11-23T20:35:10.081Z",
-  "commitSha": "541abe1",
-  "message": "fix(kds,hr): evitar HTTP 409 en orders.php y forzar guardado inmediato del constructor de postulantes",
-  "totalFiles": 124,
-  "manifestSha256": "68f810b61a79bbec5409af6de37f83cee78d57ae972177b2e1a2f51837c92f9c"
+  "buildId": "20261124150019",
+  "builtAt": "2026-11-24T15:00:19.725Z",
+  "commitSha": "93288ea",
+  "message": "feat(hr): copiar y pegar campos entre formularios en el constructor de puestos",
+  "totalFiles": 125,
+  "manifestSha256": "5bd1d723779faaa7dca0d39d6c98688358b6c68c44aa327b77fe491aa998ec31"
 }

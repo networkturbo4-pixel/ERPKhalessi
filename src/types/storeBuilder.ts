@@ -466,6 +466,467 @@ export interface CustomPageAnalytics {
   lastVisitedAt?: string;
 }
 
+export type StoreHeaderSource = 'preset' | 'global' | 'custom';
+
+export type HeaderRowId = 'top' | 'main' | 'sub';
+export type HeaderZoneId = 'left' | 'center' | 'right';
+
+export type HeaderWidgetType =
+  | 'header_logo'
+  | 'header_nav_menu'
+  | 'header_search'
+  | 'header_location'
+  | 'header_cart'
+  | 'header_account'
+  | 'header_announcement'
+  | 'header_mobile_trigger'
+  | 'header_open_status'
+  | 'header_contact'
+  | 'header_quick_actions'
+  | 'header_divider';
+
+export interface HeaderWidgetBase extends BlockDeviceVisibility {
+  id: string;
+  type: HeaderWidgetType;
+  isHidden?: boolean;
+}
+
+export interface HeaderLogoWidgetConfig extends HeaderWidgetBase {
+  type: 'header_logo';
+  customLogoUrl?: string;
+  showBrandText: boolean;
+  customBrandText?: string;
+  showSeasonalBadge: boolean;
+  heightMobile: number;
+  heightTablet: number;
+  heightDesktop: number;
+  bgColor?: string;
+  borderColor?: string;
+  textColor?: string;
+  badgeBgColor?: string;
+}
+
+export type HeaderNavActionType =
+  | 'home'
+  | 'category'
+  | 'promos'
+  | 'reservations'
+  | 'orders'
+  | 'benefits'
+  | 'custom_page'
+  | 'url';
+
+export interface HeaderNavItem {
+  id: string;
+  label: string;
+  actionType: HeaderNavActionType;
+  targetValue?: string; // category id, page slug, or external/internal url
+  openInNewTab?: boolean;
+  highlight?: boolean;
+}
+
+export interface HeaderNavMenuWidgetConfig extends HeaderWidgetBase {
+  type: 'header_nav_menu';
+  style: 'inline' | 'pills' | 'underline';
+  includePublishedPages: boolean;
+  gapPx: number;
+  fontSizePx: number;
+  textColor?: string;
+  activeColor?: string;
+  pillBgColor?: string;
+  activeBgColor?: string;
+  borderColor?: string;
+  items: HeaderNavItem[];
+}
+
+export interface HeaderSearchWidgetConfig extends HeaderWidgetBase {
+  type: 'header_search';
+  style: 'pill_white' | 'glass' | 'outline' | 'icon_only';
+  placeholder: string;
+  maxWidthPx: number;
+  bgColor?: string;
+  textColor?: string;
+  borderColor?: string;
+  iconColor?: string;
+}
+
+export interface HeaderLocationWidgetConfig extends HeaderWidgetBase {
+  type: 'header_location';
+  style: 'pill_compact' | 'card_eta' | 'minimal_icon';
+  labelOverride?: string;
+  showEta: boolean;
+  bgColor?: string;
+  textColor?: string;
+  borderColor?: string;
+  iconColor?: string;
+  badgeBgColor?: string;
+  badgeTextColor?: string;
+}
+
+export interface HeaderCartWidgetConfig extends HeaderWidgetBase {
+  type: 'header_cart';
+  style: 'pill_full' | 'icon_badge' | 'compact';
+  showTotalAmount: boolean;
+  showItemCount: boolean;
+  bgColor?: string;
+  textColor?: string;
+  borderColor?: string;
+  badgeBgColor?: string;
+  badgeTextColor?: string;
+}
+
+export interface HeaderAccountWidgetConfig extends HeaderWidgetBase {
+  type: 'header_account';
+  style: 'pill' | 'minimal' | 'icon_only';
+  loginLabel: string;
+  showCustomerName: boolean;
+  bgColor?: string;
+  textColor?: string;
+  borderColor?: string;
+  iconColor?: string;
+}
+
+export interface HeaderAnnouncementWidgetConfig extends HeaderWidgetBase {
+  type: 'header_announcement';
+  messages: string[];
+  rotateSeconds: number;
+  icon: 'sparkles' | 'flame' | 'truck' | 'tag' | 'none';
+  ctaLabel?: string;
+  ctaUrl?: string;
+  dismissible: boolean;
+  bgColor?: string;
+  borderColor?: string;
+  textColor?: string;
+  accentColor?: string;
+  ctaBgColor?: string;
+  ctaTextColor?: string;
+}
+
+export interface HeaderMobileTriggerWidgetConfig extends HeaderWidgetBase {
+  type: 'header_mobile_trigger';
+  label?: string;
+  style: 'icon' | 'pill';
+  bgColor?: string;
+  borderColor?: string;
+  textColor?: string;
+}
+
+export interface HeaderOpenStatusWidgetConfig extends HeaderWidgetBase {
+  type: 'header_open_status';
+  openLabel: string;
+  closedLabel: string;
+  showHours: boolean;
+  style: 'pill' | 'dot_minimal';
+  openBgColor?: string;
+  openTextColor?: string;
+  closedBgColor?: string;
+  closedTextColor?: string;
+  borderColor?: string;
+}
+
+export interface HeaderContactWidgetConfig extends HeaderWidgetBase {
+  type: 'header_contact';
+  mode: 'phone' | 'whatsapp';
+  topLabel?: string;
+  customNumber?: string;
+  whatsappMessage?: string;
+  style: 'inline' | 'pill';
+  bgColor?: string;
+  textColor?: string;
+  borderColor?: string;
+  iconColor?: string;
+}
+
+export interface HeaderQuickActionsWidgetConfig extends HeaderWidgetBase {
+  type: 'header_quick_actions';
+  showOrders: boolean;
+  showBenefits: boolean;
+  showReservations: boolean;
+  showBuilderShortcut: boolean;
+  style: 'icons' | 'pills';
+  bgColor?: string;
+  borderColor?: string;
+  textColor?: string;
+  iconColor?: string;
+}
+
+export interface HeaderDividerWidgetConfig extends HeaderWidgetBase {
+  type: 'header_divider';
+  mode: 'line' | 'flex_spacer';
+  color?: string;
+  heightPx: number;
+  widthPx: number;
+}
+
+export type HeaderWidget =
+  | HeaderLogoWidgetConfig
+  | HeaderNavMenuWidgetConfig
+  | HeaderSearchWidgetConfig
+  | HeaderLocationWidgetConfig
+  | HeaderCartWidgetConfig
+  | HeaderAccountWidgetConfig
+  | HeaderAnnouncementWidgetConfig
+  | HeaderMobileTriggerWidgetConfig
+  | HeaderOpenStatusWidgetConfig
+  | HeaderContactWidgetConfig
+  | HeaderQuickActionsWidgetConfig
+  | HeaderDividerWidgetConfig;
+
+export interface HeaderRowZones {
+  left: HeaderWidget[];
+  center: HeaderWidget[];
+  right: HeaderWidget[];
+}
+
+export interface HeaderRowConfig {
+  enabled: boolean;
+  sticky?: boolean;
+  bgColor: string;
+  textColor: string;
+  borderColor?: string;
+  showBorderBottom: boolean;
+  blurGlass?: boolean;
+  heightPx: number;
+  paddingX: number;
+  maxWidth: '1280px' | '1440px' | '1600px' | '100%';
+  zones: HeaderRowZones;
+}
+
+export interface HeaderMobileDrawerConfig {
+  bgColor?: string;
+  textColor?: string;
+  showSearch: boolean;
+  showLocation: boolean;
+  showAccount: boolean;
+  showContact: boolean;
+  showPublishedPages: boolean;
+}
+
+export interface StoreHeaderTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  rows: {
+    top: HeaderRowConfig;
+    main: HeaderRowConfig;
+    sub: HeaderRowConfig;
+  };
+  mobileDrawer: HeaderMobileDrawerConfig;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type StoreFooterSource = 'preset' | 'global' | 'custom';
+export type FooterBandId = 'ribbon' | 'main' | 'bottom';
+export type FooterColumnId = 'col1' | 'col2' | 'col3' | 'col4';
+
+export type FooterWidgetType =
+  | 'footer_brand'
+  | 'footer_link_list'
+  | 'footer_contact'
+  | 'footer_newsletter'
+  | 'footer_complaints_book'
+  | 'footer_payment_badges'
+  | 'footer_reservations_cta'
+  | 'footer_social_links'
+  | 'footer_copyright'
+  | 'footer_custom_text';
+
+export interface FooterWidgetBase extends BlockDeviceVisibility {
+  id: string;
+  type: FooterWidgetType;
+  isHidden?: boolean;
+}
+
+export interface FooterBrandWidgetConfig extends FooterWidgetBase {
+  type: 'footer_brand';
+  customLogoUrl?: string;
+  showBrandName: boolean;
+  description: string;
+  showRuc: boolean;
+  logoHeightPx: number;
+  bgColor?: string;
+  borderColor?: string;
+  titleColor?: string;
+  textColor?: string;
+  accentColor?: string;
+}
+
+export interface FooterLinkItem {
+  id: string;
+  label: string;
+  actionType: HeaderNavActionType;
+  targetValue?: string;
+  openInNewTab?: boolean;
+}
+
+export interface FooterLinkListWidgetConfig extends FooterWidgetBase {
+  type: 'footer_link_list';
+  title: string;
+  includePublishedFooterPages: boolean;
+  layout: 'vertical' | 'inline';
+  bgColor?: string;
+  borderColor?: string;
+  titleColor?: string;
+  textColor?: string;
+  items: FooterLinkItem[];
+}
+
+export interface FooterContactWidgetConfig extends FooterWidgetBase {
+  type: 'footer_contact';
+  title: string;
+  showAddress: boolean;
+  showPhone: boolean;
+  showWhatsapp: boolean;
+  showEmail: boolean;
+  showSchedule: boolean;
+  bgColor?: string;
+  borderColor?: string;
+  titleColor?: string;
+  textColor?: string;
+  iconColor?: string;
+}
+
+export interface FooterNewsletterWidgetConfig extends FooterWidgetBase {
+  type: 'footer_newsletter';
+  title: string;
+  description: string;
+  placeholder: string;
+  buttonLabel: string;
+  accentColor?: string;
+  bgColor?: string;
+  borderColor?: string;
+  titleColor?: string;
+  textColor?: string;
+  inputBgColor?: string;
+  inputTextColor?: string;
+  inputBorderColor?: string;
+  buttonTextColor?: string;
+}
+
+export interface FooterComplaintsBookWidgetConfig extends FooterWidgetBase {
+  type: 'footer_complaints_book';
+  title: string;
+  subtitle: string;
+  style: 'card' | 'pill' | 'minimal';
+  bgColor?: string;
+  textColor?: string;
+  borderColor?: string;
+  iconBgColor?: string;
+  iconColor?: string;
+}
+
+export interface FooterPaymentBadgesWidgetConfig extends FooterWidgetBase {
+  type: 'footer_payment_badges';
+  title?: string;
+  methods: Array<'visa' | 'mastercard' | 'yape' | 'plin' | 'efectivo' | 'culqi'>;
+  style: 'pills' | 'outline';
+  bgColor?: string;
+  titleColor?: string;
+  badgeBgColor?: string;
+  badgeTextColor?: string;
+  badgeBorderColor?: string;
+}
+
+export interface FooterReservationsCtaWidgetConfig extends FooterWidgetBase {
+  type: 'footer_reservations_cta';
+  title: string;
+  subtitle: string;
+  buttonLabel: string;
+  showShareButton: boolean;
+  accentColor?: string;
+  bgColor?: string;
+  borderColor?: string;
+  textColor?: string;
+  buttonTextColor?: string;
+  iconBgColor?: string;
+  iconColor?: string;
+}
+
+export interface FooterSocialItem {
+  id: string;
+  network: 'instagram' | 'facebook' | 'tiktok' | 'whatsapp' | 'web';
+  url: string;
+}
+
+export interface FooterSocialLinksWidgetConfig extends FooterWidgetBase {
+  type: 'footer_social_links';
+  title?: string;
+  style: 'circle' | 'pill';
+  titleColor?: string;
+  badgeBgColor?: string;
+  badgeTextColor?: string;
+  badgeBorderColor?: string;
+  items: FooterSocialItem[];
+}
+
+export interface FooterCopyrightWidgetConfig extends FooterWidgetBase {
+  type: 'footer_copyright';
+  text: string; // supports {year} and {brand}
+  align: TextAlignOption;
+  bgColor?: string;
+  textColor?: string;
+}
+
+export interface FooterCustomTextWidgetConfig extends FooterWidgetBase {
+  type: 'footer_custom_text';
+  title?: string;
+  body: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+  align: TextAlignOption;
+  bgColor?: string;
+  borderColor?: string;
+  titleColor?: string;
+  textColor?: string;
+  ctaBgColor?: string;
+  ctaTextColor?: string;
+}
+
+export type FooterWidget =
+  | FooterBrandWidgetConfig
+  | FooterLinkListWidgetConfig
+  | FooterContactWidgetConfig
+  | FooterNewsletterWidgetConfig
+  | FooterComplaintsBookWidgetConfig
+  | FooterPaymentBadgesWidgetConfig
+  | FooterReservationsCtaWidgetConfig
+  | FooterSocialLinksWidgetConfig
+  | FooterCopyrightWidgetConfig
+  | FooterCustomTextWidgetConfig;
+
+export interface FooterBandColumns {
+  col1: FooterWidget[];
+  col2: FooterWidget[];
+  col3: FooterWidget[];
+  col4: FooterWidget[];
+}
+
+export interface FooterBandConfig {
+  enabled: boolean;
+  bgColor: string;
+  textColor: string;
+  borderColor?: string;
+  showBorderTop: boolean;
+  paddingY: number;
+  maxWidth: '1280px' | '1440px' | '1600px' | '100%';
+  columnsDesktop: 1 | 2 | 3 | 4;
+  columns: FooterBandColumns;
+}
+
+export interface StoreFooterTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  bands: {
+    ribbon: FooterBandConfig;
+    main: FooterBandConfig;
+    bottom: FooterBandConfig;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface CustomPage {
   id: string;
   title: string;
@@ -482,6 +943,10 @@ export interface CustomPage {
   showHeaderCartButton?: boolean;
   showStoreHeader: boolean;
   showStoreFooter: boolean;
+  headerSource?: StoreHeaderSource;
+  customHeaderId?: string;
+  footerSource?: StoreFooterSource;
+  customFooterId?: string;
   showInStoreNav?: boolean;
   showInStoreFooter?: boolean;
   navLabel?: string;
@@ -559,6 +1024,10 @@ export interface StoreTemplate {
   footerTheme: 'light' | 'dark';
   pageBgColor?: string;
   contrastLevel?: 'standard' | 'high' | 'ultra';
+  headerSource?: StoreHeaderSource;
+  customHeaderId?: string;
+  footerSource?: StoreFooterSource;
+  customFooterId?: string;
   headerVariant?: StoreHeaderVariant;
   footerVariant?: StoreFooterVariant;
   headerConfig?: StoreHeaderConfig;

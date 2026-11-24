@@ -7,14 +7,21 @@ import {
   EyeOff,
   Palette,
   Type,
+  Globe,
+  SlidersHorizontal,
+  Sparkles,
+  Plus,
 } from 'lucide-react';
 import {
   StoreFooterConfig,
+  StoreFooterSource,
   StoreFooterVariant,
   StoreHeaderConfig,
+  StoreHeaderSource,
   StoreHeaderVariant,
   StoreTemplate,
 } from '../../types/storeBuilder';
+import { useStoreBuilder } from '../../context/StoreBuilderContext';
 
 interface HeaderFooterCustomizerPanelProps {
   template: StoreTemplate;
@@ -23,6 +30,10 @@ interface HeaderFooterCustomizerPanelProps {
     partial: Partial<
       Pick<
         StoreTemplate,
+        | 'headerSource'
+        | 'customHeaderId'
+        | 'footerSource'
+        | 'customFooterId'
         | 'headerVariant'
         | 'footerVariant'
         | 'footerTheme'
@@ -32,6 +43,8 @@ interface HeaderFooterCustomizerPanelProps {
       >
     >
   ) => void;
+  onOpenHeaderBuilder?: (headerId: string) => void;
+  onOpenFooterBuilder?: (footerId: string) => void;
 }
 
 const HEADER_VARIANT_OPTIONS: Array<{ value: StoreHeaderVariant; label: string }> = [
@@ -54,9 +67,46 @@ export const HeaderFooterCustomizerPanel: React.FC<HeaderFooterCustomizerPanelPr
   template,
   surface,
   onUpdateMeta,
+  onOpenHeaderBuilder,
+  onOpenFooterBuilder,
 }) => {
+  const {
+    headerTemplates,
+    globalHeaderId,
+    setGlobalHeaderId,
+    setActiveEditingHeaderId,
+    createHeaderTemplate,
+    convertPresetHeaderToEditable,
+    footerTemplates,
+    globalFooterId,
+    setGlobalFooterId,
+    setActiveEditingFooterId,
+    createFooterTemplate,
+    convertPresetFooterToEditable,
+    setIsBuilderOpen,
+  } = useStoreBuilder();
   const [activeSection, setActiveSection] = useState<'header' | 'footer'>('header');
   const isBuilder = surface === 'builder';
+  const headerSource: StoreHeaderSource = template.headerSource || 'preset';
+  const footerSource: StoreFooterSource = template.footerSource || 'preset';
+
+  const openEditorForHeader = (headerId: string) => {
+    setActiveEditingHeaderId(headerId);
+    if (onOpenHeaderBuilder) {
+      onOpenHeaderBuilder(headerId);
+    } else if (isBuilder) {
+      setIsBuilderOpen(true);
+    }
+  };
+
+  const openEditorForFooter = (footerId: string) => {
+    setActiveEditingFooterId(footerId);
+    if (onOpenFooterBuilder) {
+      onOpenFooterBuilder(footerId);
+    } else if (isBuilder) {
+      setIsBuilderOpen(true);
+    }
+  };
 
   const headerCfg: StoreHeaderConfig = template.headerConfig || {};
   const footerCfg: StoreFooterConfig = template.footerConfig || {};
@@ -188,22 +238,173 @@ export const HeaderFooterCustomizerPanel: React.FC<HeaderFooterCustomizerPanelPr
       {/* ===================================================================== */}
       {activeSection === 'header' && (
         <div className="space-y-3.5">
-          <div>
-            <label className={labelClass}>Diseño Base de Cabecera</label>
-            <select
-              value={template.headerVariant || 'default'}
-              onChange={(e) =>
-                onUpdateMeta({ headerVariant: e.target.value as StoreHeaderVariant })
-              }
-              className={inputClass}
-            >
-              {HEADER_VARIANT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+          {/* Header Mode Selector: Global vs Custom Library vs Legacy Preset */}
+          <div className="space-y-2">
+            <label className={labelClass}>Modo de Cabecera</label>
+            <div className="grid grid-cols-3 gap-1">
+              {(
+                [
+                  { id: 'global', label: 'Global' },
+                  { id: 'custom', label: 'Constructor' },
+                  { id: 'preset', label: 'Preset Base' },
+                ] as const
+              ).map(m => {
+                const active = headerSource === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => {
+                      if (m.id === 'custom') {
+                        const fallbackId =
+                          template.customHeaderId || globalHeaderId || headerTemplates[0]?.id;
+                        onUpdateMeta({ headerSource: 'custom', customHeaderId: fallbackId });
+                      } else {
+                        onUpdateMeta({ headerSource: m.id });
+                      }
+                    }}
+                    className={`py-1.5 px-2 rounded-lg border text-[11px] font-bold whitespace-nowrap transition-colors ${
+                      active
+                        ? 'bg-amber-500/20 border-amber-500 text-amber-600 dark:text-amber-300'
+                        : isBuilder
+                        ? 'bg-[#0f111a] border-[#262938] text-zinc-400 hover:text-white'
+                        : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
+          {headerSource === 'global' && (
+            <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-500 flex items-center gap-1">
+                  <Globe className="w-3.5 h-3.5" /> Cabecera Global Activa
+                </span>
+              </div>
+              <select
+                value={globalHeaderId || ''}
+                onChange={e => setGlobalHeaderId(e.target.value || null)}
+                className={inputClass}
+              >
+                {headerTemplates.map(h => (
+                  <option key={h.id} value={h.id}>
+                    {h.name}
+                  </option>
+                ))}
+              </select>
+              <div className="flex items-center gap-1.5">
+                {globalHeaderId && (
+                  <button
+                    type="button"
+                    onClick={() => openEditorForHeader(globalHeaderId)}
+                    className="flex-1 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-[11px] font-black flex items-center justify-center gap-1.5 whitespace-nowrap"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    <span>Editar Cabecera Global</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const created = createHeaderTemplate({
+                      name: `Global ${headerTemplates.length + 1}`,
+                      assignAsGlobal: true,
+                    });
+                    openEditorForHeader(created.id);
+                  }}
+                  className="py-2 px-2.5 rounded-xl border border-current/20 text-[11px] font-bold flex items-center gap-1 whitespace-nowrap"
+                  title="Crear nueva cabecera global"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Nueva</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {headerSource === 'custom' && (
+            <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-2.5">
+              <label className={labelClass}>Cabecera Asignada a este Theme</label>
+              <select
+                value={template.customHeaderId || ''}
+                onChange={e =>
+                  onUpdateMeta({ headerSource: 'custom', customHeaderId: e.target.value })
+                }
+                className={inputClass}
+              >
+                {headerTemplates.map(h => (
+                  <option key={h.id} value={h.id}>
+                    {h.name} {h.id === globalHeaderId ? '(Global)' : ''}
+                  </option>
+                ))}
+              </select>
+              <div className="flex items-center gap-1.5">
+                {template.customHeaderId && (
+                  <button
+                    type="button"
+                    onClick={() => openEditorForHeader(template.customHeaderId!)}
+                    className="flex-1 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-[11px] font-black flex items-center justify-center gap-1.5 whitespace-nowrap"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    <span>Editar en Constructor</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const created = createHeaderTemplate({
+                      name: `${template.name} — Header`,
+                    });
+                    onUpdateMeta({ headerSource: 'custom', customHeaderId: created.id });
+                    openEditorForHeader(created.id);
+                  }}
+                  className="py-2 px-2.5 rounded-xl border border-current/20 text-[11px] font-bold flex items-center gap-1 whitespace-nowrap"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Nueva</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {headerSource === 'preset' && (
+            <>
+              <div className="space-y-2">
+                <label className={labelClass}>Diseño Base de Cabecera (Preset)</label>
+                <select
+                  value={template.headerVariant || 'default'}
+                  onChange={(e) =>
+                    onUpdateMeta({ headerVariant: e.target.value as StoreHeaderVariant })
+                  }
+                  className={inputClass}
+                >
+                  {HEADER_VARIANT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const created = convertPresetHeaderToEditable(
+                      template.headerVariant || 'default',
+                      template.headerConfig,
+                      `${template.name} — Editable`,
+                      true
+                    );
+                    openEditorForHeader(created.id);
+                  }}
+                  className="w-full py-2 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-600 dark:text-amber-300 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Convertir Preset a Cabecera Editable (Widgets)</span>
+                </button>
+              </div>
 
           {/* Colors */}
           <div className="space-y-2 pt-2 border-t border-zinc-200/60 dark:border-zinc-800/80">
@@ -371,6 +572,8 @@ export const HeaderFooterCustomizerPanel: React.FC<HeaderFooterCustomizerPanelPr
               </button>
             </div>
           </div>
+            </>
+          )}
         </div>
       )}
 
@@ -379,7 +582,155 @@ export const HeaderFooterCustomizerPanel: React.FC<HeaderFooterCustomizerPanelPr
       {/* ===================================================================== */}
       {activeSection === 'footer' && (
         <div className="space-y-3.5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {/* Footer Mode Selector: Global vs Custom Library vs Legacy Preset */}
+          <div className="space-y-2">
+            <label className={labelClass}>Modo de Footer</label>
+            <div className="grid grid-cols-3 gap-1">
+              {(
+                [
+                  { id: 'global', label: 'Global' },
+                  { id: 'custom', label: 'Constructor' },
+                  { id: 'preset', label: 'Preset Base' },
+                ] as const
+              ).map(m => {
+                const active = footerSource === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => {
+                      if (m.id === 'custom') {
+                        const fallbackId =
+                          template.customFooterId || globalFooterId || footerTemplates[0]?.id;
+                        onUpdateMeta({ footerSource: 'custom', customFooterId: fallbackId });
+                      } else {
+                        onUpdateMeta({ footerSource: m.id });
+                      }
+                    }}
+                    className={`py-1.5 px-2 rounded-lg border text-[11px] font-bold whitespace-nowrap transition-colors ${
+                      active
+                        ? 'bg-amber-500/20 border-amber-500 text-amber-600 dark:text-amber-300'
+                        : isBuilder
+                        ? 'bg-[#0f111a] border-[#262938] text-zinc-400 hover:text-white'
+                        : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {footerSource === 'global' && (
+            <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-2.5">
+              <span className="text-[10px] font-black uppercase tracking-wider text-emerald-500 flex items-center gap-1">
+                <Globe className="w-3.5 h-3.5" /> Footer Global Activo
+              </span>
+              <select
+                value={globalFooterId || ''}
+                onChange={e => setGlobalFooterId(e.target.value || null)}
+                className={inputClass}
+              >
+                {footerTemplates.map(f => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+              <div className="flex items-center gap-1.5">
+                {globalFooterId && (
+                  <button
+                    type="button"
+                    onClick={() => openEditorForFooter(globalFooterId)}
+                    className="flex-1 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-[11px] font-black flex items-center justify-center gap-1.5 whitespace-nowrap"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    <span>Editar Footer Global</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const created = createFooterTemplate({
+                      name: `Footer Global ${footerTemplates.length + 1}`,
+                      assignAsGlobal: true,
+                    });
+                    openEditorForFooter(created.id);
+                  }}
+                  className="py-2 px-2.5 rounded-xl border border-current/20 text-[11px] font-bold flex items-center gap-1 whitespace-nowrap"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Nuevo</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {footerSource === 'custom' && (
+            <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/5 space-y-2.5">
+              <label className={labelClass}>Footer Asignado a este Theme</label>
+              <select
+                value={template.customFooterId || ''}
+                onChange={e =>
+                  onUpdateMeta({ footerSource: 'custom', customFooterId: e.target.value })
+                }
+                className={inputClass}
+              >
+                {footerTemplates.map(f => (
+                  <option key={f.id} value={f.id}>
+                    {f.name} {f.id === globalFooterId ? '(Global)' : ''}
+                  </option>
+                ))}
+              </select>
+              <div className="flex items-center gap-1.5">
+                {template.customFooterId && (
+                  <button
+                    type="button"
+                    onClick={() => openEditorForFooter(template.customFooterId!)}
+                    className="flex-1 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-[11px] font-black flex items-center justify-center gap-1.5 whitespace-nowrap"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    <span>Editar en Constructor</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const created = createFooterTemplate({
+                      name: `${template.name} — Footer`,
+                    });
+                    onUpdateMeta({ footerSource: 'custom', customFooterId: created.id });
+                    openEditorForFooter(created.id);
+                  }}
+                  className="py-2 px-2.5 rounded-xl border border-current/20 text-[11px] font-bold flex items-center gap-1 whitespace-nowrap"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Nuevo</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {footerSource === 'preset' && (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  const created = convertPresetFooterToEditable(
+                    template.footerVariant || 'default',
+                    template.footerConfig,
+                    `${template.name} — Footer Editable`,
+                    true
+                  );
+                  openEditorForFooter(created.id);
+                }}
+                className="w-full py-2 px-3 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-600 dark:text-amber-300 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Convertir Preset a Footer Editable (Widgets)</span>
+              </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div>
               <label className={labelClass}>Diseño Base de Footer</label>
               <select
@@ -548,6 +899,8 @@ export const HeaderFooterCustomizerPanel: React.FC<HeaderFooterCustomizerPanelPr
               })}
             </div>
           </div>
+            </>
+          )}
         </div>
       )}
     </div>
