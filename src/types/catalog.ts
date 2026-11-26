@@ -6,6 +6,11 @@ export interface ProductCategoryItem {
   description?: string;
   imageUrl?: string;
   icon?: string;
+  iconType?: 'svg' | 'image' | 'emoji';
+  iconSvg?: string;
+  iconImageUrl?: string;
+  iconColor?: string;
+  iconBgColor?: string;
   enabled?: boolean;
 }
 

@@ -465,6 +465,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
       ? customization.logoDark
       : customization.logoLight;
 
+  const sidebarBrandIcon = customization.favicon || activeLogo;
+
   const activeBranchLabel =
     branchScope === 'consolidated'
       ? `Consolidado (${tenants.length} sedes)`
@@ -893,12 +895,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                 }`}
                 title={`${customization.appName} — ${activeBranchLabel}`}
               >
-                {activeLogo ? (
-                  <img
-                    src={activeLogo}
-                    alt={customization.appName}
-                    className="h-7 w-7 rounded-lg object-cover shrink-0 ring-1 ring-zinc-900/10 dark:ring-white/10 block"
-                  />
+                {sidebarBrandIcon ? (
+                  <div className="h-7 w-7 rounded-lg bg-zinc-100 dark:bg-white/10 ring-1 ring-zinc-900/10 dark:ring-white/10 flex items-center justify-center overflow-hidden shrink-0 p-0.5">
+                    <img
+                      src={sidebarBrandIcon}
+                      alt={customization.appName}
+                      className="h-full w-full object-contain rounded-md block"
+                    />
+                  </div>
                 ) : (
                   <div
                     className="h-7 w-7 rounded-lg flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm"
@@ -934,12 +938,14 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
                   sidebarCollapsed && !mobileMenuOpen ? 'justify-center' : ''
                 }`}
               >
-                {activeLogo ? (
-                  <img
-                    src={activeLogo}
-                    alt={customization.appName}
-                    className="h-7 w-7 rounded-lg object-cover shrink-0 ring-1 ring-zinc-900/10 dark:ring-white/10 block"
-                  />
+                {sidebarBrandIcon ? (
+                  <div className="h-7 w-7 rounded-lg bg-zinc-100 dark:bg-white/10 ring-1 ring-zinc-900/10 dark:ring-white/10 flex items-center justify-center overflow-hidden shrink-0 p-0.5">
+                    <img
+                      src={sidebarBrandIcon}
+                      alt={customization.appName}
+                      className="h-full w-full object-contain rounded-md block"
+                    />
+                  </div>
                 ) : (
                   <div
                     className="h-7 w-7 rounded-lg flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm"

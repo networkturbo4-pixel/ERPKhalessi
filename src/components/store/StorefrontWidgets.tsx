@@ -39,11 +39,17 @@ import {
   Clock,
   Send,
 } from 'lucide-react';
+import { CategoryIconBadge } from '../common/CategoryIconBadge';
 
 export interface StoreCategoryDef {
   id: string;
   label: string;
   icon: string;
+  iconType?: 'svg' | 'image' | 'emoji';
+  iconSvg?: string;
+  iconImageUrl?: string;
+  iconColor?: string;
+  iconBgColor?: string;
   bannerImg: string;
 }
 
@@ -108,7 +114,12 @@ export function getStoreCategories(): StoreCategoryDef[] {
             return {
               id: c.id,
               label: c.name,
-              icon: c.icon || fallback?.icon || '🏷️',
+              icon: c.icon ?? (c.iconType ? '' : fallback?.icon || ''),
+              iconType: c.iconType,
+              iconSvg: c.iconSvg,
+              iconImageUrl: c.iconImageUrl,
+              iconColor: c.iconColor,
+              iconBgColor: c.iconBgColor,
               bannerImg:
                 c.imageUrl ||
                 fallback?.bannerImg ||
@@ -783,12 +794,14 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
                 }`}
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  {cat.bannerImg ? (
+                  {cat.iconType === 'svg' || cat.iconType === 'image' ? (
+                    <CategoryIconBadge category={cat} alt={cat.label} size={isDenseGrid ? 'sm' : 'md'} />
+                  ) : cat.bannerImg ? (
                     <div className={`${isDenseGrid ? 'w-6 h-6' : 'w-8 h-8'} rounded-xl overflow-hidden shrink-0 border border-zinc-200/60 dark:border-zinc-700/60 shadow-xs`}>
                       <img src={cat.bannerImg} alt={cat.label} width={32} height={32} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                     </div>
                   ) : (
-                    <span className={`${isDenseGrid ? 'text-base' : 'text-xl'} shrink-0`}>{cat.icon}</span>
+                    <CategoryIconBadge category={cat} alt={cat.label} size="sm" />
                   )}
                   <span className="text-xs sm:text-sm font-bold truncate">{cat.label}</span>
                 </div>
@@ -945,7 +958,7 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
                 }`}
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-base shrink-0">{cat.icon}</span>
+                  <CategoryIconBadge category={cat} alt={cat.label} size="sm" />
                   <span className="text-xs font-bold truncate">{cat.label}</span>
                 </div>
                 {block.showCount && (
@@ -1269,10 +1282,12 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
                   : 'bg-neutral-900 border border-neutral-800 text-neutral-300 hover:bg-neutral-800 hover:text-white'
               }`}
             >
-              {cat.bannerImg ? (
+              {cat.iconType === 'svg' || cat.iconType === 'image' ? (
+                <CategoryIconBadge category={cat} alt={cat.label} size="xs" />
+              ) : cat.bannerImg ? (
                 <img src={cat.bannerImg} alt={cat.label} width={16} height={16} loading="lazy" decoding="async" className="w-4 h-4 rounded-full object-cover shrink-0" />
               ) : (
-                <span className="shrink-0">{cat.icon}</span>
+                <CategoryIconBadge category={cat} alt={cat.label} size="xs" />
               )}
               <span className="truncate">{cat.label}</span>
               {block.showCount && (

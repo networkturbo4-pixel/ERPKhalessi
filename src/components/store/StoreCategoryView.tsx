@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { OrderItem, Product } from '../../types/catalog';
 import { getStoreCategories, ProgressiveStoreImage } from './StorefrontWidgets';
+import { CategoryIconBadge } from '../common/CategoryIconBadge';
 
 type CategorySortKey = 'featured' | 'price_asc' | 'price_desc';
 type CategoryViewMode = 'grid' | 'list';
@@ -365,9 +366,7 @@ export const StoreCategoryView: React.FC<StoreCategoryViewProps> = ({
                     : 'bg-white/5 border-white/10 text-zinc-300'
                 }`}
               >
-                <span aria-hidden="true" className="text-[13px] leading-none">
-                  {cat.icon}
-                </span>
+                <CategoryIconBadge category={cat} alt={cat.label} size="xs" />
                 <span>{cat.label}</span>
                 {cat.id !== 'todos' && count > 0 && (
                   <span
@@ -456,9 +455,7 @@ export const StoreCategoryView: React.FC<StoreCategoryViewProps> = ({
                             className="w-1.5 h-4 rounded-full shrink-0"
                           />
                         )}
-                        <span aria-hidden="true" className="text-[15px] leading-none shrink-0">
-                          {cat.icon}
-                        </span>
+                        <CategoryIconBadge category={cat} alt={cat.label} size="xs" />
                         <span className="truncate">{cat.label}</span>
                       </span>
                       <span
@@ -523,16 +520,27 @@ export const StoreCategoryView: React.FC<StoreCategoryViewProps> = ({
             }`}
           >
             <div className="flex items-center gap-3 min-w-0">
-              {activeCatMeta?.icon && (
-                <div
-                  className={`h-11 w-11 rounded-2xl flex items-center justify-center text-xl shrink-0 border ${
-                    isLightTheme
-                      ? 'bg-zinc-50 border-zinc-200/80'
-                      : 'bg-white/5 border-white/10'
-                  }`}
-                >
-                  <span aria-hidden="true">{activeCatMeta.icon}</span>
-                </div>
+              {activeCatMeta && (
+                activeCatMeta.iconType === 'svg' || activeCatMeta.iconType === 'image' ? (
+                  <CategoryIconBadge
+                    category={activeCatMeta}
+                    alt={activeCatMeta.label}
+                    size="lg"
+                    className={`border ${
+                      isLightTheme ? 'border-zinc-200/80' : 'border-white/10'
+                    }`}
+                  />
+                ) : (
+                  <div
+                    className={`h-11 w-11 rounded-2xl flex items-center justify-center text-xl shrink-0 border ${
+                      isLightTheme
+                        ? 'bg-zinc-50 border-zinc-200/80'
+                        : 'bg-white/5 border-white/10'
+                    }`}
+                  >
+                    <CategoryIconBadge category={activeCatMeta} alt={activeCatMeta.label} size="md" />
+                  </div>
+                )
               )}
               <div className="min-w-0">
                 <div className="flex items-center gap-2.5">

@@ -46,6 +46,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { MediaGalleryModal } from '../media/MediaGalleryModal';
+import { CategoryIconBadge, sanitizeCategorySvg } from '../common/CategoryIconBadge';
 import { compressImageFile } from '../../utils/imageCompressor';
 import { BranchPricingEditor } from './BranchPricingEditor';
 import { ApparelConfigEditor, DEFAULT_APPAREL_CONFIG } from './ApparelConfigEditor';
@@ -90,7 +91,8 @@ const DEFAULT_CATEGORIES: ProductCategoryItem[] = [
   { id: 'postres', name: 'Postres', icon: '🍰', imageUrl: 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?auto=format&fit=crop&w=400&q=80' },
 ];
 
-const QUICK_CATEGORY_ICONS = ['🍕', '🔥', '🥖', '🥤', '🍰', '🍝', '🥗', '🥩', '🍷', '🍔', '🍟', '☕', '✨', '🏷️'];
+const CATEGORY_ICON_COLOR_PRESETS = ['#ffffff', '#09090b', '#dc2626', '#f97316', '#f59e0b', '#10b981', '#0ea5e9', '#1d4ed8'];
+const CATEGORY_BG_COLOR_PRESETS = ['transparent', '#dc2626', '#f97316', '#f59e0b', '#10b981', '#0ea5e9', '#18181b', '#f4f4f5'];
 
 export const ProductCatalogView: React.FC = () => {
   const { products, createProduct, updateProduct, deleteProduct, toggleProductAvailability } =
@@ -144,7 +146,12 @@ export const ProductCatalogView: React.FC = () => {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [catFormName, setCatFormName] = useState('');
-  const [catFormIcon, setCatFormIcon] = useState('🍕');
+  const [catFormIcon, setCatFormIcon] = useState('');
+  const [catFormIconType, setCatFormIconType] = useState<'svg' | 'image'>('svg');
+  const [catFormIconSvg, setCatFormIconSvg] = useState('');
+  const [catFormIconImageUrl, setCatFormIconImageUrl] = useState('');
+  const [catFormIconColor, setCatFormIconColor] = useState('#ffffff');
+  const [catFormIconBgColor, setCatFormIconBgColor] = useState('#f97316');
   const [catFormImageUrl, setCatFormImageUrl] = useState('');
 
   // Filter products by tab and search query
@@ -731,13 +738,26 @@ export const ProductCatalogView: React.FC = () => {
       return;
     }
 
+    const cleanedSvg = catFormIconType === 'svg' ? sanitizeCategorySvg(catFormIconSvg, true) : null;
+    const cleanedIconImg = catFormIconType === 'image' ? catFormIconImageUrl.trim() : '';
+    const resolvedIconType: ProductCategoryItem['iconType'] = cleanedSvg
+      ? 'svg'
+      : cleanedIconImg
+      ? 'image'
+      : undefined;
+
     if (editingCategoryId) {
       const updated = categories.map((c) => {
         if (c.id === editingCategoryId) {
           return {
             ...c,
             name: cleanName,
-            icon: catFormIcon.trim() || '🏷️',
+            icon: resolvedIconType ? '' : catFormIcon.trim() || undefined,
+            iconType: resolvedIconType,
+            iconSvg: cleanedSvg || undefined,
+            iconImageUrl: cleanedIconImg || undefined,
+            iconColor: resolvedIconType === 'svg' ? catFormIconColor : undefined,
+            iconBgColor: resolvedIconType ? catFormIconBgColor : undefined,
             imageUrl: catFormImageUrl.trim() || undefined,
           };
         }
@@ -750,10 +770,7 @@ export const ProductCatalogView: React.FC = () => {
       } catch {
         // ignore
       }
-      setEditingCategoryId(null);
-      setCatFormName('');
-      setCatFormIcon('🍕');
-      setCatFormImageUrl('');
+      handleCancelEditCategory();
       dispatchToast('Categoría Actualizada', `Categoría "${cleanName}" modificada con éxito.`, 'success');
     } else {
       const cleanId = cleanName
@@ -772,7 +789,12 @@ export const ProductCatalogView: React.FC = () => {
       const newCat: ProductCategoryItem = {
         id: finalId,
         name: cleanName,
-        icon: catFormIcon.trim() || '🏷️',
+        icon: resolvedIconType ? '' : undefined,
+        iconType: resolvedIconType,
+        iconSvg: cleanedSvg || undefined,
+        iconImageUrl: cleanedIconImg || undefined,
+        iconColor: resolvedIconType === 'svg' ? catFormIconColor : undefined,
+        iconBgColor: resolvedIconType ? catFormIconBgColor : undefined,
         imageUrl: catFormImageUrl.trim() || undefined,
       };
       const updated = [...categories, newCat];
@@ -783,25 +805,75 @@ export const ProductCatalogView: React.FC = () => {
       } catch {
         // ignore
       }
-      setCatFormName('');
-      setCatFormIcon('🍕');
-      setCatFormImageUrl('');
+      handleCancelEditCategory();
       setActiveTab(finalId);
       dispatchToast('Categoría Creada', `Categoría "${cleanName}" guardada exitosamente.`, 'success');
     }
   };
 
+  const handleCategorySvgUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.svg') && file.type !== 'image/svg+xml') {
+      dispatchToast('Formato Inválido', 'Selecciona un archivo .svg válido.', 'warning');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const raw = typeof reader.result === 'string' ? reader.result : '';
+      const clean = sanitizeCategorySvg(raw, true);
+      if (!clean) {
+        dispatchToast('SVG Inválido', 'No se pudo leer el código <svg> del archivo.', 'error');
+        return;
+      }
+      setCatFormIconType('svg');
+      setCatFormIconSvg(clean);
+      dispatchToast('SVG Cargado', 'Icono SVG listo. Personaliza su color y fondo.', 'success');
+    };
+    reader.readAsText(file);
+  };
+
+  const handleCategoryPngIconUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 1024 * 1024 * 2) {
+      dispatchToast('Archivo muy grande', 'El icono PNG/imagen debe pesar menos de 2 MB.', 'warning');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setCatFormIconType('image');
+        setCatFormIconImageUrl(reader.result);
+        dispatchToast('Icono Cargado', 'Icono PNG/imagen adjuntado conservando transparencia.', 'success');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleStartEditCategory = (cat: ProductCategoryItem) => {
     setEditingCategoryId(cat.id);
     setCatFormName(cat.name);
-    setCatFormIcon(cat.icon || '🏷️');
+    setCatFormIcon(cat.icon || '');
+    setCatFormIconType(cat.iconType === 'image' ? 'image' : 'svg');
+    setCatFormIconSvg(cat.iconSvg || '');
+    setCatFormIconImageUrl(cat.iconImageUrl || '');
+    setCatFormIconColor(cat.iconColor || '#ffffff');
+    setCatFormIconBgColor(cat.iconBgColor || (cat.iconType === 'image' ? 'transparent' : '#f97316'));
     setCatFormImageUrl(cat.imageUrl || '');
   };
 
   const handleCancelEditCategory = () => {
     setEditingCategoryId(null);
     setCatFormName('');
-    setCatFormIcon('🍕');
+    setCatFormIcon('');
+    setCatFormIconType('svg');
+    setCatFormIconSvg('');
+    setCatFormIconImageUrl('');
+    setCatFormIconColor('#ffffff');
+    setCatFormIconBgColor('#f97316');
     setCatFormImageUrl('');
   };
 
@@ -1274,7 +1346,7 @@ export const ProductCatalogView: React.FC = () => {
               }`}
               style={isSelected ? { backgroundColor: customization.primaryColor } : undefined}
             >
-              <span>{cat.icon || '🏷️'}</span>
+              <CategoryIconBadge category={cat} alt={cat.name} size="xs" />
               <span>{cat.name}</span>
               <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-black/10 dark:bg-white/10">
                 {count}
@@ -3632,40 +3704,219 @@ export const ProductCatalogView: React.FC = () => {
                   />
                 </div>
 
-                {/* 2. Icono (con presets rápidos) */}
-                <div>
-                  <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
-                    Icono de la Categoría (para estilo iconos/pastillas)
-                  </label>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 flex items-center justify-center text-xl shrink-0 shadow-xs">
-                      {catFormIcon || '🏷️'}
-                    </div>
-                    <input
-                      type="text"
-                      value={catFormIcon}
-                      onChange={(e) => setCatFormIcon(e.target.value)}
-                      placeholder="Icono o emoji"
-                      className="flex-1 px-3 py-2 bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-                  {/* Preset quick buttons */}
-                  <div className="flex flex-wrap gap-1">
-                    {QUICK_CATEGORY_ICONS.map((emoji) => (
+                {/* 2. Icono de la Categoría (SVG con color/fondo o PNG/Imagen) */}
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                      Icono de la Categoría (SVG o PNG / Imagen)
+                    </label>
+                    {(catFormIconSvg || catFormIconImageUrl) && (
                       <button
-                        key={emoji}
                         type="button"
-                        onClick={() => setCatFormIcon(emoji)}
-                        className={`w-7 h-7 rounded-lg text-sm flex items-center justify-center transition-all ${
-                          catFormIcon === emoji
-                            ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 scale-110 shadow-xs'
-                            : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-                        }`}
-                        title={`Elegir ${emoji}`}
+                        onClick={() => {
+                          setCatFormIconSvg('');
+                          setCatFormIconImageUrl('');
+                        }}
+                        className="text-[11px] font-bold text-rose-500 hover:text-rose-600 whitespace-nowrap"
                       >
-                        {emoji}
+                        Quitar icono
                       </button>
-                    ))}
+                    )}
+                  </div>
+
+                  {/* Mode Switcher: SVG vs PNG/Imagen */}
+                  <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-zinc-200/70 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                    <button
+                      type="button"
+                      onClick={() => setCatFormIconType('svg')}
+                      className={`py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                        catFormIconType === 'svg'
+                          ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs'
+                          : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                      }`}
+                    >
+                      Icono SVG + Colores
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCatFormIconType('image')}
+                      className={`py-1.5 px-2.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                        catFormIconType === 'image'
+                          ? 'bg-white dark:bg-zinc-800 text-zinc-950 dark:text-white shadow-xs'
+                          : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                      }`}
+                    >
+                      Icono PNG / Imagen
+                    </button>
+                  </div>
+
+                  {/* Live Preview + Upload Controls */}
+                  <div className="flex items-center gap-3 p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                    <CategoryIconBadge
+                      category={{
+                        iconType:
+                          catFormIconType === 'svg' && catFormIconSvg
+                            ? 'svg'
+                            : catFormIconType === 'image' && catFormIconImageUrl
+                            ? 'image'
+                            : undefined,
+                        iconSvg: catFormIconSvg,
+                        iconImageUrl: catFormIconImageUrl,
+                        iconColor: catFormIconColor,
+                        iconBgColor: catFormIconBgColor,
+                        icon: catFormIcon,
+                      }}
+                      alt={catFormName || 'Vista previa'}
+                      size="lg"
+                      className="border border-zinc-200/80 dark:border-zinc-700/80 shadow-xs"
+                    />
+
+                    <div className="flex-1 min-w-0 space-y-2">
+                      {catFormIconType === 'svg' ? (
+                        <>
+                          <label className="w-full py-2 px-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center gap-1.5 cursor-pointer transition-colors">
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>{catFormIconSvg ? 'Cambiar archivo .SVG' : 'Subir icono .SVG'}</span>
+                            <input
+                              type="file"
+                              accept=".svg,image/svg+xml"
+                              className="hidden"
+                              onChange={handleCategorySvgUpload}
+                            />
+                          </label>
+                          <input
+                            type="text"
+                            value={catFormIconSvg}
+                            onChange={(e) => setCatFormIconSvg(e.target.value)}
+                            placeholder="O pega código <svg>...</svg> aquí"
+                            className="w-full px-2.5 py-1.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-[11px] font-mono text-zinc-700 dark:text-zinc-300 focus:outline-none focus:border-amber-500"
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-1.5">
+                            <label className="flex-1 py-2 px-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center gap-1.5 cursor-pointer transition-colors">
+                              <Upload className="w-3.5 h-3.5" />
+                              <span>Subir PNG / Img</span>
+                              <input
+                                type="file"
+                                accept="image/png,image/webp,image/jpeg,image/svg+xml"
+                                className="hidden"
+                                onChange={handleCategoryPngIconUpload}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handlePasteClipboardImage((b64) => {
+                                  setCatFormIconType('image');
+                                  setCatFormIconImageUrl(b64);
+                                })
+                              }
+                              className="py-2 px-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center gap-1.5 transition-colors"
+                            >
+                              <Clipboard className="w-3.5 h-3.5" />
+                              <span>Pegar</span>
+                            </button>
+                          </div>
+                          <input
+                            type="url"
+                            value={catFormIconImageUrl}
+                            onChange={(e) => setCatFormIconImageUrl(e.target.value)}
+                            placeholder="https://... (URL de icono PNG o imagen)"
+                            className="w-full px-2.5 py-1.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-[11px] font-medium text-zinc-700 dark:text-zinc-300 focus:outline-none focus:border-amber-500"
+                          />
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Color Pickers: Icon Color (for SVG) + Background Color (for SVG & PNG) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {catFormIconType === 'svg' && (
+                      <div className="p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400">
+                            Color del icono
+                          </span>
+                          <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                            <input
+                              type="color"
+                              value={catFormIconColor}
+                              onChange={(e) => setCatFormIconColor(e.target.value)}
+                              className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0"
+                            />
+                            <span className="text-[10px] font-mono text-zinc-500 uppercase">
+                              {catFormIconColor}
+                            </span>
+                          </label>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {CATEGORY_ICON_COLOR_PRESETS.map((hex) => (
+                            <button
+                              key={hex}
+                              type="button"
+                              onClick={() => setCatFormIconColor(hex)}
+                              style={{ backgroundColor: hex }}
+                              title={hex}
+                              className={`w-5 h-5 rounded-full border transition-transform ${
+                                catFormIconColor.toLowerCase() === hex.toLowerCase()
+                                  ? 'ring-2 ring-amber-500 ring-offset-1 dark:ring-offset-zinc-900 scale-110'
+                                  : 'border-zinc-300 dark:border-zinc-700'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div
+                      className={`p-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 space-y-1.5 ${
+                        catFormIconType === 'image' ? 'sm:col-span-2' : ''
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400">
+                          Color de fondo
+                        </span>
+                        <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="color"
+                            value={catFormIconBgColor === 'transparent' ? '#f97316' : catFormIconBgColor}
+                            onChange={(e) => setCatFormIconBgColor(e.target.value)}
+                            className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0"
+                          />
+                          <span className="text-[10px] font-mono text-zinc-500 uppercase">
+                            {catFormIconBgColor === 'transparent' ? 'Sin fondo' : catFormIconBgColor}
+                          </span>
+                        </label>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {CATEGORY_BG_COLOR_PRESETS.map((hex) => (
+                          <button
+                            key={hex}
+                            type="button"
+                            onClick={() => setCatFormIconBgColor(hex)}
+                            style={
+                              hex === 'transparent'
+                                ? {
+                                    backgroundImage:
+                                      'linear-gradient(45deg, #d4d4d8 25%, transparent 25%), linear-gradient(-45deg, #d4d4d8 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #d4d4d8 75%), linear-gradient(-45deg, transparent 75%, #d4d4d8 75%)',
+                                    backgroundSize: '8px 8px',
+                                    backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0',
+                                  }
+                                : { backgroundColor: hex }
+                            }
+                            title={hex === 'transparent' ? 'Sin fondo (transparente)' : hex}
+                            className={`w-5 h-5 rounded-full border transition-transform ${
+                              catFormIconBgColor.toLowerCase() === hex.toLowerCase()
+                                ? 'ring-2 ring-amber-500 ring-offset-1 dark:ring-offset-zinc-900 scale-110'
+                                : 'border-zinc-300 dark:border-zinc-700'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -3763,14 +4014,24 @@ export const ProductCatalogView: React.FC = () => {
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          {c.imageUrl ? (
+                          {c.iconType === 'svg' || c.iconType === 'image' ? (
+                            <CategoryIconBadge
+                              category={c}
+                              alt={c.name}
+                              size="md"
+                              className="border border-zinc-200 dark:border-zinc-800"
+                            />
+                          ) : c.imageUrl ? (
                             <div className="w-9 h-9 rounded-xl overflow-hidden shrink-0 border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-900">
                               <img src={c.imageUrl} alt={c.name} className="w-full h-full object-cover" />
                             </div>
                           ) : (
-                            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg shrink-0 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-                              {c.icon || '🏷️'}
-                            </div>
+                            <CategoryIconBadge
+                              category={c}
+                              alt={c.name}
+                              size="md"
+                              className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800"
+                            />
                           )}
 
                           <div className="min-w-0">
@@ -3778,7 +4039,6 @@ export const ProductCatalogView: React.FC = () => {
                               <span className="font-bold text-xs text-zinc-900 dark:text-white capitalize truncate">
                                 {c.name}
                               </span>
-                              <span className="text-xs shrink-0">{c.icon || '🏷️'}</span>
                             </div>
                             <span className="text-[10px] text-zinc-400 font-mono block">
                               {prodCount} {prodCount === 1 ? 'producto' : 'productos'}
