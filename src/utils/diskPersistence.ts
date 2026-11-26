@@ -15,6 +15,7 @@ const DEVICE_LOCAL_KEYS = new Set<string>([
   'kh_store_device_order_ids_v1',
   'kh_store_device_orders_v1',
   'kh_store_active_customer_id_v1',
+  'kh_store_customer_token_v1',
   'kh_store_order_prefs_v1',
   'kh_active_main_module',
   'gastro_erp_auth_v1',
@@ -77,11 +78,10 @@ const SERVER_SYNC_KEYS = [
 
 const SERVER_SYNC_SET = new Set<string>(SERVER_SYNC_KEYS);
 
-// Claves operativas de escritura libre (pedidos, clientes CRM, cuentas de tienda, salón, reservas públicas, postulaciones y libro de reclamaciones)
+// Claves operativas de escritura libre (pedidos, clientes CRM en checkout, salón, reservas públicas, postulaciones y libro de reclamaciones)
 const PUBLIC_WRITABLE_KEYS = new Set<string>([
   'kh_orders_list',
   'kh_customers_crm_v1',
-  'kh_store_customer_accounts_v1',
   'kh_floor_tables_v1',
   'kh_public_reservations_v1',
   'gastro_erp_complaints_v1',
@@ -97,8 +97,6 @@ const PUBLIC_READ_KEYS = new Set<string>([
   'kh_product_option_templates_v1',
   'kh_erp_benefits_v1',
   'kh_orders_list',
-  'kh_customers_crm_v1',
-  'kh_store_customer_accounts_v1',
   'kh_floor_tables_v1',
   'kh_public_reservations_v1',
   'kh_reservation_settings_v1',
@@ -609,7 +607,6 @@ function enqueueServerSync(
                 ...(includeAuth ? getAuthHeaders() : {}),
               },
               body: payloadBody,
-              ...(payloadBody.length < 48_000 ? { keepalive: true } : {}),
             });
 
           let res = await doPost(true);
@@ -684,9 +681,13 @@ function enqueueServerSync(
             return;
           }
 
-          // Si el servidor fusionó pedidos concurrentes, actualizar espejo local al instante
-          if (key === 'kh_orders_list' && resJson && typeof resJson.data === 'string') {
-            applyRemoteUpdate('kh_orders_list', resJson.data, true);
+          // Si el servidor fusionó datos concurrentes (pedidos, cuentas, CRM, conversaciones), actualizar espejo local al instante
+          if (
+            resJson &&
+            typeof resJson.data === 'string' &&
+            memoryMirror.get(key) === op.value
+          ) {
+            applyRemoteUpdate(key, resJson.data, true);
           }
           // La difusión SSE ocurre desde storage.php tras confirmar escritura en MySQL
         } else {
@@ -778,8 +779,8 @@ export function installStorageInterceptor(): void {
 
     if (isSharedKey(key)) {
       // NUNCA sobreescribir el servidor antes de completar la hidratación inicial desde MySQL,
-      // incluso si el navegador ya tenía datos viejos en localStorage (evita pérdida de datos al actualizar).
-      if (!initialReconcileCompleted) {
+      // salvo claves públicas fusionables en servidor (pedidos, cuentas de cliente, CRM) para no perder registros rápidos.
+      if (!initialReconcileCompleted && !PUBLIC_WRITABLE_KEYS.has(key)) {
         return;
       }
       // Jamás sobrescribir gastro_erp_settings_v3 en el servidor mientras falten los campos sensibles (users) por hidratar
@@ -889,7 +890,6 @@ export async function forcePersistKeyToServer(
               ...(includeAuth ? getAuthHeaders() : {}),
             },
             body: payloadBody,
-            ...(payloadBody.length < 48_000 ? { keepalive: true } : {}),
           });
 
         let res = await doPost(true);
@@ -1034,11 +1034,13 @@ export async function initDiskPersistence(): Promise<void> {
         if ((inFlightWrites.get(key) || 0) > 0) continue;
         if (failedSyncValues.has(key)) continue;
         const isForced = forceKeys?.has(key) ?? false;
+        const lastWriteTs = lastLocalWriteAt.get(key) || 0;
         if (
           initialReconcileCompleted &&
           !isForced &&
-          key !== 'kh_orders_list' &&
-          (lastLocalWriteAt.get(key) || 0) >= fetchStartedAt - 2500
+          (key === 'kh_orders_list'
+            ? lastWriteTs >= fetchStartedAt
+            : lastWriteTs >= fetchStartedAt - 2500)
         ) {
           continue;
         }

@@ -33,27 +33,66 @@ function notifyRealtimeBus(string $key, string $type = 'new_order'): void {
     $secret = defined('ERP_REALTIME_SECRET')
         ? (string)ERP_REALTIME_SECRET
         : (string)(getenv('ERP_REALTIME_SECRET') ?: '');
-    $targets = [
-        'http://127.0.0.1:3000/broadcast',
-        'http://127.0.0.1:3000/realtime/broadcast',
-        'http://127.0.0.1:3001/broadcast',
-    ];
-    $body = json_encode(['key' => $key, 'action' => 'set', 'type' => $type, 'ts' => time()], JSON_UNESCAPED_UNICODE);
-    $headers = "Content-Type: application/json\r\n";
-    if ($secret !== '') {
-        $headers .= "X-ERP-Token: {$secret}\r\n";
+    $targets = [];
+    if (!empty($_SERVER['HTTP_HOST'])) {
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $targets[] = $scheme . '://' . $_SERVER['HTTP_HOST'] . '/realtime/broadcast';
     }
+    $targets[] = 'http://127.0.0.1:3000/broadcast';
+    $targets[] = 'http://127.0.0.1:3000/realtime/broadcast';
+    $targets[] = 'http://127.0.0.1:3001/broadcast';
+
+    $body = json_encode([
+        'key'       => $key,
+        'action'    => 'set',
+        'large'     => true,
+        'eventHint' => $type,
+        'type'      => $type,
+        'ts'        => round(microtime(true) * 1000),
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+    $curlHeaders = ['Content-Type: application/json'];
+    $streamHeaders = "Content-Type: application/json\r\n";
+    if ($secret !== '') {
+        $curlHeaders[] = 'X-ERP-Token: ' . $secret;
+        $streamHeaders .= "X-ERP-Token: {$secret}\r\n";
+    }
+
     foreach ($targets as $url) {
-        $ctx = stream_context_create([
-            'http' => [
-                'method'  => 'POST',
-                'header'  => $headers,
-                'content' => $body,
-                'timeout' => 0.7,
-            ],
-        ]);
-        if (@file_get_contents($url, false, $ctx) !== false) {
-            break;
+        if (function_exists('curl_init')) {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_POST              => true,
+                CURLOPT_POSTFIELDS        => $body,
+                CURLOPT_HTTPHEADER        => $curlHeaders,
+                CURLOPT_RETURNTRANSFER    => true,
+                CURLOPT_CONNECTTIMEOUT_MS => 600,
+                CURLOPT_TIMEOUT_MS        => 900,
+                CURLOPT_SSL_VERIFYPEER    => false,
+                CURLOPT_SSL_VERIFYHOST    => 0,
+            ]);
+            $resp = @curl_exec($ch);
+            $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if ($resp !== false && $code >= 200 && $code < 300) {
+                break;
+            }
+        } else {
+            $ctx = stream_context_create([
+                'http' => [
+                    'method'  => 'POST',
+                    'header'  => $streamHeaders,
+                    'content' => $body,
+                    'timeout' => 0.7,
+                ],
+                'ssl' => [
+                    'verify_peer'      => false,
+                    'verify_peer_name' => false,
+                ],
+            ]);
+            if (@file_get_contents($url, false, $ctx) !== false) {
+                break;
+            }
         }
     }
 }

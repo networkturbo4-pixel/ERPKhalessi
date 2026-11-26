@@ -204,13 +204,16 @@ export const DynamicStorefrontHeader: React.FC<DynamicStorefrontHeaderProps> = (
         onGoHome();
         break;
       case 'category':
-        onSelectCategory ? onSelectCategory(item.targetValue || 'todos') : onGoHome();
+        if (onSelectCategory) onSelectCategory(item.targetValue || 'todos');
+        else onGoHome();
         break;
       case 'promos':
-        onSelectCategory ? onSelectCategory('combos') : onGoHome();
+        if (onSelectCategory) onSelectCategory('combos');
+        else onGoHome();
         break;
       case 'reservations':
-        onOpenReservations ? onOpenReservations() : window.location.assign('/reservas');
+        if (onOpenReservations) onOpenReservations();
+        else window.location.assign('/reservas');
         break;
       case 'orders':
         onOpenOrders?.();
@@ -223,9 +226,11 @@ export const DynamicStorefrontHeader: React.FC<DynamicStorefrontHeaderProps> = (
         break;
       case 'url':
         if (item.targetValue) {
-          item.openInNewTab
-            ? window.open(item.targetValue, '_blank', 'noopener,noreferrer')
-            : window.location.assign(item.targetValue);
+          if (item.openInNewTab) {
+            window.open(item.targetValue, '_blank', 'noopener,noreferrer');
+          } else {
+            window.location.assign(item.targetValue);
+          }
         }
         break;
     }

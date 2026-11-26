@@ -1,8 +1,8 @@
 {
-  "buildId": "20261126000826",
-  "builtAt": "2026-11-26T00:08:26.590Z",
-  "commitSha": "cb78de5",
-  "message": "chore(release): merge origin/main y generar release 20261124150326 para producción",
-  "totalFiles": 125,
-  "manifestSha256": "bbcbbbfd78e0b02c5e2075105f5197d02561d2acc389b0689fde1ff4acd6d1a2"
+  "buildId": "20261126000956",
+  "builtAt": "2026-11-26T00:09:56.319Z",
+  "commitSha": "ec36705",
+  "message": "feat(store): experiencia tipo app al ingresar a una categoria en PC y movil — release 20261126000826",
+  "totalFiles": 126,
+  "manifestSha256": "fdf87f519adc812ba1d6c173c74a88a8f050629f93e78c482eee9cabe6d3f0b7"
 }

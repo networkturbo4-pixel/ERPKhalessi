@@ -874,16 +874,15 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
     updater: (prev: Order[]) => Order[],
     hint?: Pick<RealtimeMessage, 'eventHint' | 'orderNumber' | 'orderStatus'>
   ) => {
-    setOrders((prev) => {
-      const next = updater(prev);
-      try {
-        localStorage.setItem(STORAGE_KEYS.orders, JSON.stringify(next));
-      } catch {
-        // ignore
-      }
-      emitRealtimeSync('orders', hint);
-      return next;
-    });
+    const next = updater(ordersRef.current);
+    ordersRef.current = next;
+    try {
+      localStorage.setItem(STORAGE_KEYS.orders, JSON.stringify(next));
+    } catch {
+      // ignore
+    }
+    emitRealtimeSync('orders', hint);
+    setOrders(next);
   };
 
   const persistAndSyncCustomers = (updater: (prev: Customer[]) => Customer[]) => {
@@ -1492,6 +1491,7 @@ export const OrderCatalogProvider: React.FC<{ children: React.ReactNode }> = ({ 
               price: it.unitPrice,
               totalPrice: it.totalPrice,
             })),
+            order: newOrder,
           }),
         });
       } catch {

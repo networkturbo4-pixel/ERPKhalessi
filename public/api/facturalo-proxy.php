@@ -6,7 +6,7 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/storage-lib.php';
 
-header("Access-Control-Allow-Origin: *");
+// Hereda Access-Control-Allow-Origin restringido desde config.php
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With, X-ERP-Token, X-Client-Id");
 header("Content-Type: application/json; charset=UTF-8");

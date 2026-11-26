@@ -53,6 +53,87 @@ function ensureOrderDeliveryColumns(PDO $pdo): void {
     }
 }
 
+/**
+ * Asegura que la tabla orders cuente con columnas de contacto y pago sin requerir migración manual.
+ */
+function ensureOrderExtendedColumns(PDO $pdo): bool {
+    static $hasExtended = null;
+    if ($hasExtended !== null) return $hasExtended;
+    try {
+        $colsStmt = $pdo->query("SHOW COLUMNS FROM orders");
+        $existingCols = $colsStmt ? array_column($colsStmt->fetchAll(), 'Field') : [];
+        $needed = [
+            'customer_phone'   => "ADD COLUMN customer_phone VARCHAR(40) NULL AFTER customer_name",
+            'delivery_address' => "ADD COLUMN delivery_address TEXT NULL AFTER customer_phone",
+            'payment_method'   => "ADD COLUMN payment_method VARCHAR(40) NULL AFTER delivery_address",
+            'payment_status'   => "ADD COLUMN payment_status VARCHAR(30) NULL AFTER payment_method",
+        ];
+        $alters = [];
+        foreach ($needed as $col => $sqlPart) {
+            if (!in_array($col, $existingCols, true)) {
+                $alters[] = $sqlPart;
+            }
+        }
+        if (!empty($alters)) {
+            $pdo->exec("ALTER TABLE orders " . implode(', ', $alters));
+        }
+        $hasExtended = true;
+    } catch (Throwable $e) {
+        error_log('[GastroERP orders.php] ensureOrderExtendedColumns: ' . $e->getMessage());
+        $hasExtended = false;
+    }
+    return $hasExtended;
+}
+
+/**
+ * Fusiona un pedido individual directamente en `kh_orders_list` (kv_storage) para garantizar
+ * visibilidad inmediata en Cocina KDS, Pedidos y Delivery incluso si el cliente móvil cerró la pestaña
+ * antes de completar el guardado masivo en /api/storage/kh_orders_list.
+ */
+function mergeOrderIntoKvStorage(PDO $pdo, array $orderObj): void {
+    try {
+        if (empty($orderObj['id'])) return;
+        $orderId = (string)$orderObj['id'];
+        $existingRaw = kvGet($pdo, 'kh_orders_list');
+        $existing = $existingRaw ? json_decode($existingRaw, true) : [];
+        if (!is_array($existing)) $existing = [];
+
+        $orderMap = [];
+        $usedOrderNumbers = [];
+        $maxOrderNum = 1020;
+        foreach ($existing as $ord) {
+            if (!is_array($ord) || empty($ord['id'])) continue;
+            $oid = (string)$ord['id'];
+            $orderMap[$oid] = $ord;
+            $numStr = (string)($ord['orderNumber'] ?? '');
+            if ($numStr !== '') {
+                $usedOrderNumbers[$numStr] = $oid;
+                $digits = (int)preg_replace('/\D+/', '', $numStr);
+                if ($digits > $maxOrderNum) $maxOrderNum = $digits;
+            }
+        }
+
+        if (!isset($orderMap[$orderId])) {
+            $numStr = (string)($orderObj['orderNumber'] ?? '');
+            if ($numStr !== '' && isset($usedOrderNumbers[$numStr]) && $usedOrderNumbers[$numStr] !== $orderId) {
+                $maxOrderNum++;
+                $orderObj['orderNumber'] = '#KH-' . $maxOrderNum;
+            }
+            $orderMap[$orderId] = stripHeavyDataUris($orderObj);
+            $merged = array_values($orderMap);
+            usort($merged, function ($a, $b) {
+                return strcmp((string)($b['createdAt'] ?? ''), (string)($a['createdAt'] ?? ''));
+            });
+            if (count($merged) > 300) {
+                $merged = array_slice($merged, 0, 300);
+            }
+            kvSet($pdo, 'kh_orders_list', json_encode($merged, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        }
+    } catch (Throwable $e) {
+        error_log('[GastroERP orders.php] mergeOrderIntoKvStorage: ' . $e->getMessage());
+    }
+}
+
 switch ($method) {
     case 'GET':
         if ($admin === null) {
@@ -117,6 +198,10 @@ switch ($method) {
             : ('#' . random_int(1000, 9999));
         $channel = isset($input['channel']) && is_string($input['channel']) ? trim($input['channel']) : 'pos-salon';
         $customerName = isset($input['customer_name']) && is_string($input['customer_name']) ? substr(trim($input['customer_name']), 0, 120) : 'Cliente General';
+        $customerPhone = isset($input['customer_phone']) && is_string($input['customer_phone']) ? substr(trim($input['customer_phone']), 0, 40) : '';
+        $deliveryAddress = isset($input['delivery_address']) && is_string($input['delivery_address']) ? substr(trim($input['delivery_address']), 0, 500) : '';
+        $paymentMethod = isset($input['payment_method']) && is_string($input['payment_method']) ? substr(trim($input['payment_method']), 0, 40) : 'efectivo';
+        $paymentStatus = isset($input['payment_status']) && is_string($input['payment_status']) ? substr(trim($input['payment_status']), 0, 30) : 'pendiente';
         $total = isset($input['total']) ? max(0.0, floatval($input['total'])) : 0.00;
         $status = isset($input['status']) && is_string($input['status']) ? trim($input['status']) : 'recibido';
 
@@ -139,29 +224,58 @@ switch ($method) {
             }
         }
 
+        $hasExtCols = ensureOrderExtendedColumns($pdo);
         $pdo->beginTransaction();
         try {
-            if ($admin !== null) {
-                $stmt = $pdo->prepare("
-                    INSERT INTO orders (id, tenant_id, order_number, channel, status, customer_name, total, created_at)
-                    VALUES (:id, :tenant_id, :order_number, :channel, :status, :customer_name, :total, NOW())
-                    ON DUPLICATE KEY UPDATE status = VALUES(status), total = VALUES(total), updated_at = NOW()
-                ");
+            if ($hasExtCols) {
+                if ($admin !== null) {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO orders (id, tenant_id, order_number, channel, status, customer_name, customer_phone, delivery_address, payment_method, payment_status, total, created_at)
+                        VALUES (:id, :tenant_id, :order_number, :channel, :status, :customer_name, :customer_phone, :delivery_address, :payment_method, :payment_status, :total, NOW())
+                        ON DUPLICATE KEY UPDATE status = VALUES(status), payment_status = VALUES(payment_status), total = VALUES(total), updated_at = NOW()
+                    ");
+                } else {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO orders (id, tenant_id, order_number, channel, status, customer_name, customer_phone, delivery_address, payment_method, payment_status, total, created_at)
+                        VALUES (:id, :tenant_id, :order_number, :channel, :status, :customer_name, :customer_phone, :delivery_address, :payment_method, :payment_status, :total, NOW())
+                    ");
+                }
+                $stmt->execute([
+                    ':id'               => $orderId,
+                    ':tenant_id'        => $tenantId,
+                    ':order_number'     => $orderNumber,
+                    ':channel'          => $channel,
+                    ':status'           => $status,
+                    ':customer_name'    => $customerName,
+                    ':customer_phone'   => $customerPhone,
+                    ':delivery_address' => $deliveryAddress,
+                    ':payment_method'   => $paymentMethod,
+                    ':payment_status'   => $paymentStatus,
+                    ':total'            => $total,
+                ]);
             } else {
-                $stmt = $pdo->prepare("
-                    INSERT INTO orders (id, tenant_id, order_number, channel, status, customer_name, total, created_at)
-                    VALUES (:id, :tenant_id, :order_number, :channel, :status, :customer_name, :total, NOW())
-                ");
+                if ($admin !== null) {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO orders (id, tenant_id, order_number, channel, status, customer_name, total, created_at)
+                        VALUES (:id, :tenant_id, :order_number, :channel, :status, :customer_name, :total, NOW())
+                        ON DUPLICATE KEY UPDATE status = VALUES(status), total = VALUES(total), updated_at = NOW()
+                    ");
+                } else {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO orders (id, tenant_id, order_number, channel, status, customer_name, total, created_at)
+                        VALUES (:id, :tenant_id, :order_number, :channel, :status, :customer_name, :total, NOW())
+                    ");
+                }
+                $stmt->execute([
+                    ':id'            => $orderId,
+                    ':tenant_id'     => $tenantId,
+                    ':order_number'  => $orderNumber,
+                    ':channel'       => $channel,
+                    ':status'        => $status,
+                    ':customer_name' => $customerName,
+                    ':total'         => $total,
+                ]);
             }
-            $stmt->execute([
-                ':id'            => $orderId,
-                ':tenant_id'     => $tenantId,
-                ':order_number'  => $orderNumber,
-                ':channel'       => $channel,
-                ':status'        => $status,
-                ':customer_name' => $customerName,
-                ':total'         => $total,
-            ]);
 
             if (isset($input['items']) && is_array($input['items'])) {
                 $itemStmt = $pdo->prepare("
@@ -185,10 +299,63 @@ switch ($method) {
             }
 
             $pdo->commit();
+
+            // Garantizar presencia inmediata en kh_orders_list (bus en tiempo real del ERP)
+            $kvOrder = (isset($input['order']) && is_array($input['order'])) ? $input['order'] : [
+                'id'              => $orderId,
+                'orderNumber'     => $orderNumber,
+                'tenantId'        => $tenantId,
+                'channel'         => $channel,
+                'status'          => $status,
+                'customerName'    => $customerName,
+                'customerPhone'   => $customerPhone,
+                'deliveryAddress' => $deliveryAddress,
+                'paymentMethod'   => $paymentMethod,
+                'paymentStatus'   => $paymentStatus,
+                'items'           => array_map(function ($it) {
+                    $qty = max(1, intval($it['quantity'] ?? 1));
+                    $unit = max(0.0, floatval($it['price'] ?? 0));
+                    return [
+                        'itemId'       => 'item-' . uniqid(),
+                        'productId'    => (string)($it['id'] ?? 'prod-0'),
+                        'productName'  => (string)($it['name'] ?? 'Producto'),
+                        'productImage' => '',
+                        'quantity'     => $qty,
+                        'unitPrice'    => $unit,
+                        'totalPrice'   => isset($it['totalPrice']) ? max(0.0, floatval($it['totalPrice'])) : ($unit * $qty),
+                    ];
+                }, is_array($input['items'] ?? null) ? array_slice($input['items'], 0, 200) : []),
+                'subtotal'        => $total,
+                'deliveryFee'     => 0,
+                'discount'        => 0,
+                'total'           => $total,
+                'createdAt'       => gmdate('c'),
+                'updatedAt'       => gmdate('c'),
+            ];
+            $kvOrder['id'] = $orderId;
+            if ($admin === null) {
+                $kvOrder['channel'] = 'online';
+                $kvOrder['status'] = 'recibido';
+            }
+            mergeOrderIntoKvStorage($pdo, $kvOrder);
+
             sendResponse(['success' => true, 'order_id' => $orderId, 'message' => 'Orden registrada']);
         } catch (Throwable $e) {
-            $pdo->rollBack();
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
             error_log('[GastroERP orders.php] POST error: ' . $e->getMessage());
+            // Respaldo de emergencia: si falla la tabla relacional, guardar igual en kh_orders_list para no perder el pedido
+            if (isset($input['order']) && is_array($input['order'])) {
+                $kvOrder = $input['order'];
+                $kvOrder['id'] = $orderId;
+                if ($admin === null) {
+                    $kvOrder['channel'] = 'online';
+                    $kvOrder['status'] = 'recibido';
+                }
+                mergeOrderIntoKvStorage($pdo, $kvOrder);
+                sendResponse(['success' => true, 'order_id' => $orderId, 'message' => 'Orden registrada en bus en vivo']);
+            }
             sendResponse(['success' => false, 'error' => 'Error al registrar la orden'], 500);
         }
         break;

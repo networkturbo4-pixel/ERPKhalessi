@@ -170,13 +170,16 @@ export const FooterWidgetRenderer: React.FC<{
     if (ctx.isBuilderEditing) return;
     switch (item.actionType) {
       case 'home':
-        ctx.onGoHome ? ctx.onGoHome() : window.location.assign('/');
+        if (ctx.onGoHome) ctx.onGoHome();
+        else window.location.assign('/');
         break;
       case 'category':
-        ctx.onSelectCategory ? ctx.onSelectCategory(item.targetValue || 'todos') : window.location.assign('/');
+        if (ctx.onSelectCategory) ctx.onSelectCategory(item.targetValue || 'todos');
+        else window.location.assign('/');
         break;
       case 'promos':
-        ctx.onSelectCategory ? ctx.onSelectCategory('combos') : window.location.assign('/');
+        if (ctx.onSelectCategory) ctx.onSelectCategory('combos');
+        else window.location.assign('/');
         break;
       case 'reservations':
         window.location.assign('/reservas');
@@ -194,9 +197,11 @@ export const FooterWidgetRenderer: React.FC<{
         break;
       case 'url':
         if (item.targetValue) {
-          item.openInNewTab
-            ? window.open(item.targetValue, '_blank', 'noopener,noreferrer')
-            : window.location.assign(item.targetValue);
+          if (item.openInNewTab) {
+            window.open(item.targetValue, '_blank', 'noopener,noreferrer');
+          } else {
+            window.location.assign(item.targetValue);
+          }
         }
         break;
     }
