@@ -1,8 +1,8 @@
 {
-  "buildId": "20261124150326",
-  "builtAt": "2026-11-24T15:03:26.661Z",
-  "commitSha": "a74dda4",
-  "message": "feat(store): constructor visual de cabecera y footer con personalización total de colores y sincronización en vivo — release 20261124150019",
+  "buildId": "20261126000826",
+  "builtAt": "2026-11-26T00:08:26.590Z",
+  "commitSha": "cb78de5",
+  "message": "chore(release): merge origin/main y generar release 20261124150326 para producción",
   "totalFiles": 125,
-  "manifestSha256": "f0bcc54abb6fe018ef778653b0cc12dfb5e2af4500720b260d90d04b2b2be0ae"
+  "manifestSha256": "bbcbbbfd78e0b02c5e2075105f5197d02561d2acc389b0689fde1ff4acd6d1a2"
 }

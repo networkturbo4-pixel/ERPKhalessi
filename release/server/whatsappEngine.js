@@ -132,7 +132,7 @@ async function sendMetaGraphPayload(creds, payload) {
   if (!creds || !creds.enabled || !creds.phoneNumberId || !creds.accessToken) {
     return { ok: false, simulated: true, error: 'Credenciales de Meta Cloud API no configuradas o desactivadas' };
   }
-  const version = creds.apiVersion || 'v21.0';
+  const version = creds.apiVersion || 'v25.0';
   const endpoint = `https://graph.facebook.com/${version}/${creds.phoneNumberId}/messages`;
   const resp = await fetch(endpoint, {
     method: 'POST',
@@ -220,7 +220,7 @@ async function uploadMediaToMeta(creds, dataUrl, filename) {
   }
   const mimeType = match[1] || 'application/octet-stream';
   const buffer = Buffer.from(match[2], 'base64');
-  const version = creds.apiVersion || 'v21.0';
+  const version = creds.apiVersion || 'v25.0';
   const endpoint = `https://graph.facebook.com/${version}/${creds.phoneNumberId}/media`;
   const form = new FormData();
   form.append('messaging_product', 'whatsapp');
@@ -523,6 +523,201 @@ function readBodyBuffer(req, maxBytes) {
   });
 }
 
+async function processWebhookEntries(entries, broadcastSseEvent) {
+  for (const entry of entries) {
+    const changes = Array.isArray(entry.changes) ? entry.changes : [];
+    for (const change of changes) {
+      const val = change.value || {};
+      const incomingPhoneNumberId = val?.metadata?.phone_number_id || '';
+      const resolved = resolveCredentials(null, incomingPhoneNumberId);
+      const creds = resolved ? resolved.creds : null;
+
+      const contacts = Array.isArray(val.contacts) ? val.contacts : [];
+      const messages = Array.isArray(val.messages) ? val.messages : [];
+      const statuses = Array.isArray(val.statuses) ? val.statuses : [];
+
+      for (const st of statuses) {
+        const statusVal = ['sent', 'delivered', 'read', 'failed'].includes(st.status) ? st.status : null;
+        if (!statusVal || !st.id) continue;
+        const recipientPhone = normalizePhone(st.recipient_id);
+        let updatedConv = null;
+        const candidates = recipientPhone
+          ? Object.values(state.conversations).filter((c) => c && normalizePhone(c.customerPhone) === recipientPhone)
+          : Object.values(state.conversations);
+
+        for (const conv of candidates) {
+          if (!conv || !Array.isArray(conv.messages)) continue;
+          const targetMsg = conv.messages.find((m) => m.id === st.id);
+          if (targetMsg) {
+            targetMsg.status = statusVal;
+            if (statusVal === 'failed' && Array.isArray(st.errors) && st.errors[0]) {
+              targetMsg.errorMessage = st.errors[0].title || st.errors[0].message || 'Error de entrega Meta';
+            }
+            updatedConv = conv;
+            break;
+          }
+        }
+
+        if (statusVal === 'failed') {
+          appendLog({
+            direction: 'outbound',
+            channelType: 'webhook',
+            branchId: updatedConv?.branchId || resolved?.branchId || 'central',
+            toPhone: recipientPhone || st.id,
+            summary: `Entrega fallida (${st.id})`,
+            status: 'failed',
+            errorMessage: st.errors?.[0]?.title || st.errors?.[0]?.message || 'Meta delivery failed',
+          });
+        }
+
+        if (updatedConv) {
+          persistState();
+          if (typeof broadcastSseEvent === 'function') {
+            broadcastSseEvent({
+              action: 'whatsapp_status',
+              branchId: updatedConv.branchId || 'all',
+              conversation: updatedConv,
+            });
+          }
+        }
+      }
+
+      for (const msg of messages) {
+        const fromPhone = normalizePhone(msg.from);
+        if (!fromPhone) continue;
+        const profileName =
+          (contacts.find((c) => normalizePhone(c.wa_id) === fromPhone)?.profile?.name) || `Cliente ${fromPhone.slice(-4)}`;
+
+        let userText = '';
+        let buttonId = '';
+        let mediaType;
+        let mediaUrl;
+        let mediaFilename;
+        if (msg.type === 'text') {
+          userText = msg.text?.body || '';
+        } else if (msg.type === 'interactive') {
+          if (msg.interactive?.type === 'button_reply') {
+            buttonId = msg.interactive.button_reply.id || '';
+            userText = msg.interactive.button_reply.title || buttonId;
+          } else if (msg.interactive?.type === 'list_reply') {
+            buttonId = msg.interactive.list_reply.id || '';
+            userText = msg.interactive.list_reply.title || buttonId;
+          }
+        } else if (msg.type === 'image' && msg.image?.id) {
+          mediaType = 'image';
+          mediaUrl = buildMediaProxyUrl(msg.image.id, resolved?.branchId);
+          userText = msg.image.caption || '';
+        } else if (msg.type === 'sticker' && msg.sticker?.id) {
+          mediaType = 'image';
+          mediaUrl = buildMediaProxyUrl(msg.sticker.id, resolved?.branchId);
+          mediaFilename = 'sticker.webp';
+          userText = '';
+        } else if (msg.type === 'video' && msg.video?.id) {
+          mediaType = 'video';
+          mediaUrl = buildMediaProxyUrl(msg.video.id, resolved?.branchId);
+          userText = msg.video.caption || '';
+        } else if (msg.type === 'audio' && msg.audio?.id) {
+          mediaType = 'audio';
+          mediaUrl = buildMediaProxyUrl(msg.audio.id, resolved?.branchId);
+          userText = '';
+        } else if (msg.type === 'document' && msg.document?.id) {
+          mediaType = 'document';
+          mediaUrl = buildMediaProxyUrl(msg.document.id, resolved?.branchId);
+          mediaFilename = msg.document.filename || 'documento';
+          userText = msg.document.caption || '';
+        } else {
+          userText = `[${msg.type || 'mensaje'}]`;
+        }
+
+        const nowIso = new Date().toISOString();
+        const convKey = `${resolved?.branchId || 'central'}:${fromPhone}`;
+        let conv = state.conversations[convKey];
+        if (!conv) {
+          conv = {
+            id: convKey,
+            customerPhone: fromPhone,
+            customerName: profileName,
+            branchId: resolved?.branchId || '',
+            controlMode: 'bot',
+            currentNodeId: 'welcome',
+            pendingStep: null,
+            cart: [],
+            unreadCount: 0,
+            lastMessageAt: nowIso,
+            lastCustomerMessageAt: nowIso,
+            messages: [],
+          };
+          state.conversations[convKey] = conv;
+        }
+
+        conv.customerName = profileName;
+        conv.lastMessageAt = nowIso;
+        conv.lastCustomerMessageAt = nowIso;
+        conv.unreadCount = (conv.unreadCount || 0) + 1;
+        conv.messages.push({
+          id: msg.id || `in_${Date.now()}`,
+          sender: 'customer',
+          text: userText,
+          timestamp: nowIso,
+          ...(mediaType ? { mediaType } : {}),
+          ...(mediaUrl ? { mediaUrl } : {}),
+          ...(mediaFilename ? { mediaFilename } : {}),
+        });
+        if (conv.messages.length > MAX_MESSAGES_PER_CHAT) {
+          conv.messages = conv.messages.slice(-MAX_MESSAGES_PER_CHAT);
+        }
+
+        // Verificar si la pausa humana expiró
+        if (conv.controlMode === 'human' && conv.pausedUntil && Date.now() >= Date.parse(conv.pausedUntil)) {
+          conv.controlMode = 'bot';
+          conv.pausedUntil = undefined;
+        }
+
+        // Auto-respuesta del chatbot
+        if (state.config?.autoReplyEnabled !== false && conv.controlMode === 'bot') {
+          const reply = buildBotReply(conv, userText, buttonId);
+          const sendRes = await sendInteractiveOrText(
+            creds,
+            fromPhone,
+            reply.text,
+            reply.interactiveType,
+            reply.options
+          );
+
+          conv.messages.push({
+            id: sendRes.messageId || `bot_${Date.now()}`,
+            sender: 'bot',
+            text: reply.text,
+            timestamp: new Date().toISOString(),
+            status: sendRes.ok ? 'sent' : 'failed',
+            interactiveType: reply.interactiveType,
+            buttons: reply.options,
+          });
+
+          appendLog({
+            direction: 'outbound',
+            channelType: 'chatbot_flow',
+            branchId: conv.branchId || 'central',
+            toPhone: fromPhone,
+            summary: reply.text.slice(0, 120),
+            status: sendRes.ok ? 'sent' : sendRes.simulated ? 'simulated' : 'failed',
+            errorMessage: sendRes.ok ? undefined : sendRes.error,
+          });
+        }
+
+        persistState();
+        if (typeof broadcastSseEvent === 'function') {
+          broadcastSseEvent({
+            action: 'whatsapp_message',
+            branchId: conv.branchId || 'all',
+            conversation: conv,
+          });
+        }
+      }
+    }
+  }
+}
+
 async function handleWhatsAppRoute(req, res, parsedUrl, pathname, maxBodyBytes, broadcastSseEvent) {
   // 1. Verificación oficial de Webhook Meta (GET)
   if (pathname === '/api/whatsapp/webhook' && req.method === 'GET') {
@@ -574,144 +769,16 @@ async function handleWhatsAppRoute(req, res, parsedUrl, pathname, maxBodyBytes, 
               return true;
             }
           }
-
-          const contacts = Array.isArray(val.contacts) ? val.contacts : [];
-          const messages = Array.isArray(val.messages) ? val.messages : [];
-
-          for (const msg of messages) {
-            const fromPhone = normalizePhone(msg.from);
-            if (!fromPhone) continue;
-            const profileName =
-              (contacts.find((c) => normalizePhone(c.wa_id) === fromPhone)?.profile?.name) || `Cliente ${fromPhone.slice(-4)}`;
-
-            let userText = '';
-            let buttonId = '';
-            let mediaType;
-            let mediaUrl;
-            let mediaFilename;
-            if (msg.type === 'text') {
-              userText = msg.text?.body || '';
-            } else if (msg.type === 'interactive') {
-              if (msg.interactive?.type === 'button_reply') {
-                buttonId = msg.interactive.button_reply.id || '';
-                userText = msg.interactive.button_reply.title || buttonId;
-              } else if (msg.interactive?.type === 'list_reply') {
-                buttonId = msg.interactive.list_reply.id || '';
-                userText = msg.interactive.list_reply.title || buttonId;
-              }
-            } else if (msg.type === 'image' && msg.image?.id) {
-              mediaType = 'image';
-              mediaUrl = buildMediaProxyUrl(msg.image.id, resolved?.branchId);
-              userText = msg.image.caption || '';
-            } else if (msg.type === 'sticker' && msg.sticker?.id) {
-              mediaType = 'image';
-              mediaUrl = buildMediaProxyUrl(msg.sticker.id, resolved?.branchId);
-              mediaFilename = 'sticker.webp';
-              userText = '';
-            } else if (msg.type === 'video' && msg.video?.id) {
-              mediaType = 'video';
-              mediaUrl = buildMediaProxyUrl(msg.video.id, resolved?.branchId);
-              userText = msg.video.caption || '';
-            } else if (msg.type === 'audio' && msg.audio?.id) {
-              mediaType = 'audio';
-              mediaUrl = buildMediaProxyUrl(msg.audio.id, resolved?.branchId);
-              userText = '';
-            } else if (msg.type === 'document' && msg.document?.id) {
-              mediaType = 'document';
-              mediaUrl = buildMediaProxyUrl(msg.document.id, resolved?.branchId);
-              mediaFilename = msg.document.filename || 'documento';
-              userText = msg.document.caption || '';
-            } else {
-              userText = `[${msg.type || 'mensaje'}]`;
-            }
-
-            const convKey = `${resolved?.branchId || 'central'}:${fromPhone}`;
-            let conv = state.conversations[convKey];
-            if (!conv) {
-              conv = {
-                id: convKey,
-                customerPhone: fromPhone,
-                customerName: profileName,
-                branchId: resolved?.branchId || '',
-                controlMode: 'bot',
-                currentNodeId: 'welcome',
-                pendingStep: null,
-                cart: [],
-                unreadCount: 0,
-                lastMessageAt: new Date().toISOString(),
-                messages: [],
-              };
-              state.conversations[convKey] = conv;
-            }
-
-            conv.customerName = profileName;
-            conv.lastMessageAt = new Date().toISOString();
-            conv.unreadCount = (conv.unreadCount || 0) + 1;
-            conv.messages.push({
-              id: msg.id || `in_${Date.now()}`,
-              sender: 'customer',
-              text: userText,
-              timestamp: new Date().toISOString(),
-              ...(mediaType ? { mediaType } : {}),
-              ...(mediaUrl ? { mediaUrl } : {}),
-              ...(mediaFilename ? { mediaFilename } : {}),
-            });
-            if (conv.messages.length > MAX_MESSAGES_PER_CHAT) {
-              conv.messages = conv.messages.slice(-MAX_MESSAGES_PER_CHAT);
-            }
-
-            // Verificar si la pausa humana expiró
-            if (conv.controlMode === 'human' && conv.pausedUntil && Date.now() >= Date.parse(conv.pausedUntil)) {
-              conv.controlMode = 'bot';
-              conv.pausedUntil = undefined;
-            }
-
-            // Auto-respuesta del chatbot
-            if (state.config?.autoReplyEnabled !== false && conv.controlMode === 'bot') {
-              const reply = buildBotReply(conv, userText, buttonId);
-              const sendRes = await sendInteractiveOrText(
-                creds,
-                fromPhone,
-                reply.text,
-                reply.interactiveType,
-                reply.options
-              );
-
-              conv.messages.push({
-                id: sendRes.messageId || `bot_${Date.now()}`,
-                sender: 'bot',
-                text: reply.text,
-                timestamp: new Date().toISOString(),
-                status: sendRes.ok ? 'sent' : 'failed',
-                interactiveType: reply.interactiveType,
-                buttons: reply.options,
-              });
-
-              appendLog({
-                direction: 'outbound',
-                channelType: 'chatbot_flow',
-                branchId: conv.branchId || 'central',
-                toPhone: fromPhone,
-                summary: reply.text.slice(0, 120),
-                status: sendRes.ok ? 'sent' : sendRes.simulated ? 'simulated' : 'failed',
-                errorMessage: sendRes.ok ? undefined : sendRes.error,
-              });
-            }
-
-            persistState();
-            if (typeof broadcastSseEvent === 'function') {
-              broadcastSseEvent({
-                action: 'whatsapp_message',
-                branchId: conv.branchId || 'all',
-                conversation: conv,
-              });
-            }
-          }
         }
       }
 
+      // Responder 200 OK de inmediato a Meta y procesar en segundo plano
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));
+
+      void processWebhookEntries(entries, broadcastSseEvent).catch((err) => {
+        console.warn('[WhatsAppEngine] Error procesando webhook en segundo plano:', err.message);
+      });
     } catch (err) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: false, error: err.message }));
@@ -836,7 +903,7 @@ async function handleWhatsAppRoute(req, res, parsedUrl, pathname, maxBodyBytes, 
         matchedConv.lastMessageAt = nowIso;
         if (!Array.isArray(matchedConv.messages)) matchedConv.messages = [];
         matchedConv.messages.push({
-          id: `wa_agent_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          id: result.messageId || `wa_agent_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
           sender: 'agent',
           senderName: 'Asesor',
           text: String(text || mediaFilename || mediaType || ''),
@@ -894,7 +961,7 @@ async function handleWhatsAppRoute(req, res, parsedUrl, pathname, maxBodyBytes, 
         return true;
       }
 
-      const version = creds.apiVersion || 'v21.0';
+      const version = creds.apiVersion || 'v25.0';
       const metaResp = await fetch(`https://graph.facebook.com/${version}/${mediaId}`, {
         headers: { Authorization: `Bearer ${creds.accessToken}` },
       });
@@ -934,7 +1001,7 @@ async function handleWhatsAppRoute(req, res, parsedUrl, pathname, maxBodyBytes, 
   if (pathname === '/api/whatsapp/test-connection' && req.method === 'POST') {
     try {
       const rawBuf = await readBodyBuffer(req, maxBodyBytes);
-      const { phoneNumberId, accessToken, apiVersion = 'v21.0' } = JSON.parse(rawBuf.toString('utf8') || '{}');
+      const { phoneNumberId, accessToken, apiVersion = 'v25.0' } = JSON.parse(rawBuf.toString('utf8') || '{}');
       if (!phoneNumberId || !accessToken) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: false, error: 'Phone Number ID y Access Token son obligatorios' }));

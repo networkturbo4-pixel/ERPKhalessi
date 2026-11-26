@@ -1321,3 +1321,129 @@ dialog.store-responsive-drawer[open]::backdrop {
     opacity: 0.35;
   }
 }
+
+/* ==========================================================================
+   APP-GRADE CATEGORY VIEW (Apple Design + Emil Design Eng + Mobile-Native)
+   ========================================================================== */
+:root {
+  --kh-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --kh-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Translucent floating app chrome with reduced-transparency fallback */
+.kh-app-glass-light {
+  background-color: rgba(255, 255, 255, 0.78);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+.kh-app-glass-dark {
+  background-color: rgba(11, 12, 16, 0.8);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .kh-app-glass-light {
+    background-color: #ffffff;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .kh-app-glass-dark {
+    background-color: #0b0c10;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Tactile press feedback on pointer-down (100-160ms ease-out) */
+.kh-tactile {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 140ms var(--kh-ease-out), background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+.kh-tactile:active {
+  transform: scale(0.97);
+}
+
+/* Category product card: hover lift & image zoom strictly gated to fine pointer devices */
+.kh-cat-card {
+  transition: transform 180ms var(--kh-ease-out), box-shadow 180ms ease, border-color 160ms ease;
+  touch-action: manipulation;
+}
+.kh-cat-card:active {
+  transform: scale(0.985);
+}
+.kh-cat-card-img {
+  transition: transform 320ms var(--kh-ease-out);
+}
+.kh-cat-card-quick {
+  opacity: 0;
+  transition: opacity 150ms ease, transform 150ms var(--kh-ease-out);
+}
+.kh-cat-card:focus-within .kh-cat-card-quick {
+  opacity: 1;
+}
+@media (hover: hover) and (pointer: fine) {
+  .kh-cat-card:hover {
+    transform: translateY(-2px);
+  }
+  .kh-cat-card:hover:active {
+    transform: scale(0.985);
+  }
+  .kh-cat-card:hover .kh-cat-card-img {
+    transform: scale(1.03);
+  }
+  .kh-cat-card:hover .kh-cat-card-quick {
+    opacity: 1;
+  }
+}
+@media (hover: none) {
+  .kh-cat-card-quick {
+    opacity: 1;
+  }
+}
+
+/* Subtle non-uniform staggered entrance (starts from scale 0.97, never 0) */
+@keyframes kh-cat-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .kh-cat-enter {
+    animation: kh-cat-card-enter 260ms var(--kh-ease-out) both;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kh-cat-enter {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .kh-cat-card:hover,
+  .kh-cat-card:hover .kh-cat-card-img {
+    transform: none !important;
+  }
+}
+
+/* Horizontal swipeable snap scroller for category chips & discovery rail */
+.kh-snap-strip {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+.kh-snap-strip::-webkit-scrollbar {
+  display: none;
+}
+.kh-snap-strip > * {
+  scroll-snap-align: start;
+}

@@ -42,6 +42,7 @@ import { ToastContainer } from '../common/ToastContainer';
 import { SystemNoticeModal } from '../common/SystemNoticeModal';
 import { StorefrontSkeleton } from '../common/AppSurfaceSkeleton';
 import { StoreBlockRenderer, getStoreCategories } from './StorefrontWidgets';
+import { StoreCategoryView } from './StoreCategoryView';
 import { StorefrontThemeHeader } from './StorefrontThemeHeader';
 import { DynamicStorefrontHeader } from './DynamicStorefrontHeader';
 import { DynamicStorefrontFooter } from './DynamicStorefrontFooter';
@@ -1032,21 +1033,6 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
 
   // Micro-state for 1-tap upsell buttons ("+ Sumar" -> "✓ Agregado")
   const [recentUpsellIds, setRecentUpsellIds] = useState<Record<string, boolean>>({});
-
-  // Sliding pill indicator for sticky category switcher
-  const catSwitcherRef = useRef<HTMLDivElement>(null);
-  const [catPillStyle, setCatPillStyle] = useState<{ left: number; width: number } | null>(null);
-  useEffect(() => {
-    const container = catSwitcherRef.current;
-    if (!container) return;
-    const activeBtn = container.querySelector<HTMLButtonElement>('[data-cat-active="true"]');
-    if (activeBtn) {
-      setCatPillStyle({ left: activeBtn.offsetLeft, width: activeBtn.offsetWidth });
-      activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
-    } else {
-      setCatPillStyle(null);
-    }
-  }, [activeCategory]);
 
   // Avoid showing both the top order card and floating pill at the same time
   const topOrderCardRef = useRef<HTMLButtonElement>(null);
@@ -2067,143 +2053,20 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
             );
           })()}
           {!isBuilderOpen && activeCategory !== 'todos' ? (
-            (() => {
-              const allCats = getStoreCategories();
-              const activeCatMeta = allCats.find(c => c.id === activeCategory);
-              const catCount = products.filter(
-                p => p.isAvailable && p.category === activeCategory
-              ).length;
-              const baseGridBlock = activeTemplate.blocks.find(b => b.type === 'product_grid');
-              const categoryGridBlock: StoreBlock = baseGridBlock
-                ? {
-                    ...baseGridBlock,
-                    categoryFilter: 'active_sync',
-                    title: '',
-                  }
-                : {
-                    id: 'spa-category-grid',
-                    type: 'product_grid',
-                    onlyMobile: false,
-                    onlyTablet: false,
-                    onlyDesktop: false,
-                    advanced: {
-                      paddingTop: 0,
-                      paddingBottom: 0,
-                      marginBottom: 0,
-                      animation: 'none',
-                    },
-                    title: '',
-                    categoryFilter: 'active_sync',
-                    manualIds: '',
-                    maxInitialProducts: 0,
-                    enableLoadMore: false,
-                    horizontalCarousel: false,
-                    bleedImages: false,
-                    quickViewButton: true,
-                    showPrice: true,
-                    showStock: false,
-                    columnsDesktop: 4,
-                    columnsTablet: 2,
-                    columnsMobile: 1,
-                    cardStyle: 'clasica',
-                    showDescription: true,
-                    showVariants: true,
-                    gapPx: 14,
-                  };
-
-              return (
-                <section aria-label={activeCatMeta?.label || 'Categoría'} className="space-y-4">
-                  {/* Sticky SPA Category Header + Quick Switcher */}
-                  <div
-                    className={`sticky top-[64px] sm:top-[74px] z-20 -mx-3 sm:-mx-4 px-3 sm:px-4 py-3 backdrop-blur-md border-b transition-colors ${
-                      isLightTheme
-                        ? 'bg-zinc-100/90 border-zinc-200/80'
-                        : 'bg-[#0b0c10]/90 border-white/10'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <button
-                          type="button"
-                          onClick={() => navigateToCategory('todos')}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all active:scale-95 whitespace-nowrap shrink-0 ${
-                            isLightTheme
-                              ? 'bg-white border-zinc-200 text-zinc-800 hover:bg-zinc-50 shadow-sm'
-                              : 'bg-white/5 border-white/15 text-zinc-100 hover:bg-white/10'
-                          }`}
-                        >
-                          <ArrowLeft className="w-3.5 h-3.5" />
-                          <span>Volver</span>
-                        </button>
-                        <div className="min-w-0 flex items-center gap-2">
-                          {activeCatMeta?.icon && (
-                            <span className="text-lg shrink-0">{activeCatMeta.icon}</span>
-                          )}
-                          <h2
-                            className={`text-base sm:text-xl font-black tracking-tight truncate ${
-                              isLightTheme ? 'text-zinc-900' : 'text-white'
-                            }`}
-                          >
-                            {activeCatMeta?.label || 'Categoría'}
-                          </h2>
-                          <span
-                            className={`text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                              isLightTheme
-                                ? 'bg-zinc-200/80 text-zinc-700'
-                                : 'bg-white/10 text-zinc-300'
-                            }`}
-                          >
-                            {catCount} {catCount === 1 ? 'producto' : 'productos'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Horizontal quick category switcher with sliding active pill */}
-                    <div
-                      ref={catSwitcherRef}
-                      className="relative mt-2.5 flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5"
-                    >
-                      {catPillStyle && (
-                        <span
-                          aria-hidden="true"
-                          style={{
-                            left: `${catPillStyle.left}px`,
-                            width: `${catPillStyle.width}px`,
-                            backgroundColor: accentColor,
-                          }}
-                          className="absolute top-0 bottom-0.5 rounded-full shadow-sm transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] pointer-events-none"
-                        />
-                      )}
-                      {allCats.map(cat => {
-                        const isCurrent = cat.id === activeCategory;
-                        return (
-                          <button
-                            key={cat.id}
-                            type="button"
-                            data-cat-active={isCurrent ? 'true' : undefined}
-                            onClick={() => navigateToCategory(cat.id)}
-                            className={`relative z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors whitespace-nowrap shrink-0 ${
-                              isCurrent
-                                ? 'text-white border-transparent'
-                                : isLightTheme
-                                ? 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
-                                : 'bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10'
-                            }`}
-                          >
-                            <span>{cat.icon}</span>
-                            <span>{cat.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Focused Category Product Grid */}
-                  {renderBlockContent(categoryGridBlock, 0)}
-                </section>
-              );
-            })()
+            <StoreCategoryView
+              activeCategory={activeCategory}
+              products={products}
+              cartItems={cartItems}
+              isLightTheme={isLightTheme}
+              accentColor={accentColor}
+              autoButtonContrast={autoButtonContrast}
+              branchName={activeTenant.name}
+              deliveryEtaLabel={deliveryType === 'delivery' ? '25-35 min' : '15-20 min'}
+              onSelectCategory={catId => navigateToCategory(catId)}
+              onSelectProduct={(prod, imgEl) => navigateToProductSlug(prod, imgEl ?? null)}
+              onQuickViewProduct={prod => setQuickViewProduct(prod)}
+              onOpenLocationModal={() => setIsLocationModalOpen(true)}
+            />
           ) : (
             activeTemplate.blocks.map((block, idx) => {
               const visibleOnCurrentDevice = isBlockVisibleOnViewport(block, effectiveViewport);

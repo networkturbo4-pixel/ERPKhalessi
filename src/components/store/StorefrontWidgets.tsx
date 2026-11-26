@@ -151,7 +151,7 @@ interface ProgressiveStoreImageProps {
   height?: number;
 }
 
-const ProgressiveStoreImage: React.FC<ProgressiveStoreImageProps> = ({
+export const ProgressiveStoreImage: React.FC<ProgressiveStoreImageProps> = ({
   src,
   alt,
   className = '',
