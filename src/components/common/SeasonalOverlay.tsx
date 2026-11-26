@@ -399,6 +399,17 @@ export const SeasonalOverlay: React.FC<SeasonalOverlayProps> = ({
     return buildParticles(finalCount);
   }, [cfg?.intensity, contained]);
 
+  const countdownParts = useMemo(() => {
+    if (!cfg?.showCountdown) return null;
+    if (Number.isNaN(countdownTargetMs)) {
+      // Fallback preview timer (12h) when previewing without an explicit date
+      return contained
+        ? { expired: false, days: 0, hours: 11, minutes: 59, seconds: 45 }
+        : null;
+    }
+    return formatCountdownParts(countdownTargetMs, nowMs);
+  }, [cfg?.showCountdown, countdownTargetMs, nowMs, contained]);
+
   if (!isVisibleOnSurface) return null;
 
   const motionClass =
@@ -785,17 +796,6 @@ export const SeasonalOverlay: React.FC<SeasonalOverlayProps> = ({
           ...(cfg.badgeTextColor ? { color: cfg.badgeTextColor } : {}),
         }
       : undefined;
-
-  const countdownParts = useMemo(() => {
-    if (!cfg.showCountdown) return null;
-    if (Number.isNaN(countdownTargetMs)) {
-      // Fallback preview timer (12h) when previewing without an explicit date
-      return contained
-        ? { expired: false, days: 0, hours: 11, minutes: 59, seconds: 45 }
-        : null;
-    }
-    return formatCountdownParts(countdownTargetMs, nowMs);
-  }, [cfg.showCountdown, countdownTargetMs, nowMs, contained]);
 
   const pad2 = (n: number) => String(n).padStart(2, '0');
 

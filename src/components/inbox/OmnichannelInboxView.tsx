@@ -2017,7 +2017,10 @@ export const OmnichannelInboxView: React.FC<OmnichannelInboxViewProps> = ({
                         </span>
                       )}
                       {activeConversation.channel === 'whatsapp' && (() => {
-                        const win = getMeta24hWindowStatus(activeConversation.lastCustomerMessageAt || activeConversation.lastMessageAt);
+                        const lastCustIso =
+                          activeConversation.lastCustomerMessageAt ||
+                          [...activeConversation.messages].reverse().find((m) => m.sender === 'customer')?.timestamp;
+                        const win = getMeta24hWindowStatus(lastCustIso);
                         return (
                           <span
                             className={`hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold shrink-0 ${

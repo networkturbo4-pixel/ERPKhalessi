@@ -69,7 +69,7 @@ export function createEmptyMetaCredentials(webhookBase?: string): WhatsAppMetaCr
     verifyToken: `kh_wa_${Math.random().toString(36).slice(2, 10)}`,
     appSecret: '',
     displayPhoneNumber: '',
-    apiVersion: 'v21.0',
+    apiVersion: 'v25.0',
     webhookUrl: `${origin.replace(/\/+$/, '')}/api/whatsapp/webhook`,
   };
 }
@@ -546,7 +546,7 @@ export async function testMetaConnection(
       body: JSON.stringify({
         phoneNumberId: creds.phoneNumberId,
         accessToken: creds.accessToken,
-        apiVersion: creds.apiVersion || 'v21.0',
+        apiVersion: creds.apiVersion || 'v25.0',
       }),
     });
     const data = await resp.json().catch(() => ({}));

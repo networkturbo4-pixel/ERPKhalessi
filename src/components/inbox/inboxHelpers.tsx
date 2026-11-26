@@ -96,7 +96,7 @@ export function getMeta24hWindowStatus(lastCustomerIso?: string): {
   label: string;
 } {
   if (!lastCustomerIso) {
-    return { isOpen: true, label: 'Ventana 24h activa' };
+    return { isOpen: false, label: 'Sin mensaje del cliente (usar plantilla)' };
   }
   const diffMs = 24 * 60 * 60 * 1000 - (Date.now() - Date.parse(lastCustomerIso));
   if (diffMs <= 0) {
