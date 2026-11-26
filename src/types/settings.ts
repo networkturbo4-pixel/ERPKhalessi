@@ -46,6 +46,21 @@ export interface SeasonalThemeConfig {
   bannerText?: string;
   styleMode?: SeasonalStyleMode;
   buttonAccent?: boolean;
+  // Programación automática por fechas
+  scheduleEnabled?: boolean;
+  startDate?: string; // YYYY-MM-DDTHH:mm
+  endDate?: string;   // YYYY-MM-DDTHH:mm
+  // Personalización de colores y badge del cintillo
+  bannerBgColor?: string;
+  bannerTextColor?: string;
+  showBadge?: boolean;
+  badgeText?: string;
+  badgeBgColor?: string;
+  badgeTextColor?: string;
+  // Cronómetro / cuenta regresiva
+  showCountdown?: boolean;
+  countdownEndAt?: string; // YYYY-MM-DDTHH:mm (si vacío usa endDate)
+  countdownLabel?: string;
 }
 
 export interface StoreSeoConfig {

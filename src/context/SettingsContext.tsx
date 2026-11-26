@@ -833,6 +833,15 @@ function mixHex(hexColor: string, targetRgb: [number, number, number], weight: n
   return `#${[mr, mg, mb].map(v => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('')}`;
 }
 
+export interface ErpNotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  type: ToastItem['type'];
+  createdAt: number;
+  read: boolean;
+}
+
 interface SettingsContextType {
   activeTab: TabId;
   setActiveTab: (tab: TabId) => void;
@@ -905,6 +914,13 @@ interface SettingsContextType {
   removeToast: (id: string) => void;
   clearAllToasts: () => void;
 
+  // Persistent ERP Notification Center
+  notifications: ErpNotificationItem[];
+  unreadNotificationsCount: number;
+  markNotificationRead: (id: string) => void;
+  markAllNotificationsRead: () => void;
+  clearNotifications: () => void;
+
   // Custom System Notice Modal (No Native Alerts Rule)
   noticeModal: NoticeModalOptions | null;
   openNoticeModal: (options: NoticeModalOptions) => void;
@@ -972,6 +988,26 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     customization.themePreference === 'dark'
   );
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [notifications, setNotifications] = useState<ErpNotificationItem[]>(() => {
+    try {
+      const raw = localStorage.getItem('kh_erp_notifications_v1');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed.slice(0, 80);
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('kh_erp_notifications_v1', JSON.stringify(notifications.slice(0, 80)));
+    } catch {
+      // ignore
+    }
+  }, [notifications]);
   const [noticeModal, setNoticeModal] = useState<NoticeModalOptions | null>(null);
 
   const lastSerializedPayloadRef = useRef<string>('');
@@ -1722,6 +1758,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     const id = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const isPinned = Boolean(options?.pinned || type === 'critical');
 
+    const createdAt = Date.now();
     setToasts(prev => {
       const next: ToastItem = {
         id,
@@ -1729,11 +1766,23 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         message,
         type,
         pinned: isPinned,
-        createdAt: Date.now(),
+        createdAt,
       };
       // Newest toast sits at the front (index 0) for 3D Dynamic Island stacking
       return [next, ...prev].slice(0, 8);
     });
+
+    setNotifications(prev => [
+      {
+        id,
+        title,
+        message,
+        type,
+        createdAt,
+        read: false,
+      },
+      ...prev,
+    ].slice(0, 80));
 
     soundSynth.play(customization.toastAudioTheme);
 
@@ -1751,6 +1800,23 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   const clearAllToasts = () => {
     setToasts([]);
   };
+
+  const unreadNotificationsCount = React.useMemo(
+    () => notifications.filter(n => !n.read).length,
+    [notifications]
+  );
+
+  const markNotificationRead = React.useCallback((id: string) => {
+    setNotifications(prev => prev.map(n => (n.id === id ? { ...n, read: true } : n)));
+  }, []);
+
+  const markAllNotificationsRead = React.useCallback(() => {
+    setNotifications(prev => prev.map(n => (n.read ? n : { ...n, read: true })));
+  }, []);
+
+  const clearNotifications = React.useCallback(() => {
+    setNotifications([]);
+  }, []);
 
   const openNoticeModal = (options: NoticeModalOptions) => {
     setNoticeModal(options);
@@ -2219,6 +2285,11 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         dispatchToast,
         removeToast,
         clearAllToasts,
+        notifications,
+        unreadNotificationsCount,
+        markNotificationRead,
+        markAllNotificationsRead,
+        clearNotifications,
         noticeModal,
         openNoticeModal,
         closeNoticeModal,

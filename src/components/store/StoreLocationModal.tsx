@@ -97,20 +97,42 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
     setDeliveryType(currentDeliveryType);
   }, [currentDeliveryType]);
 
-  const activeTenant = useMemo(() => {
-    return tenants.find(t => t.id === selectedTenantId) || tenants[0];
-  }, [tenants, selectedTenantId]);
+  // Branches eligible for the active mode:
+  // When in "Retiro en Local" (pickup), hide branches configured exclusively for Envío Nacional.
+  const modeEligibleTenants = useMemo(() => {
+    if (deliveryType === 'pickup') {
+      return tenants.filter(t => t.operations?.shippingScope !== 'national');
+    }
+    return tenants;
+  }, [tenants, deliveryType]);
 
-  // Filtered tenants by search query
+  // If user switches to Retiro en Local and the selected branch is national-only, switch to first local branch
+  useEffect(() => {
+    if (deliveryType !== 'pickup') return;
+    if (modeEligibleTenants.length === 0) return;
+    if (!modeEligibleTenants.some(t => t.id === selectedTenantId)) {
+      setSelectedTenantId(modeEligibleTenants[0].id);
+    }
+  }, [deliveryType, modeEligibleTenants, selectedTenantId]);
+
+  const activeTenant = useMemo(() => {
+    return (
+      modeEligibleTenants.find(t => t.id === selectedTenantId) ||
+      modeEligibleTenants[0] ||
+      tenants[0]
+    );
+  }, [modeEligibleTenants, tenants, selectedTenantId]);
+
+  // Filtered tenants by search query within mode-eligible branches
   const filteredTenants = useMemo(() => {
-    if (!searchQuery.trim()) return tenants;
+    if (!searchQuery.trim()) return modeEligibleTenants;
     const q = searchQuery.toLowerCase();
-    return tenants.filter(
+    return modeEligibleTenants.filter(
       t =>
         t.name.toLowerCase().includes(q) ||
         (t.operations?.address && t.operations.address.toLowerCase().includes(q))
     );
-  }, [tenants, searchQuery]);
+  }, [modeEligibleTenants, searchQuery]);
 
 
   // Distancia y tiempo reales por calles (OSRM público) con respaldo Haversine
@@ -180,7 +202,9 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
   );
 
   const selectedCoverage = coverageMatch.evaluations.get(selectedTenantId);
-  const isDeliveryBlocked = deliveryType === 'delivery' && !(selectedCoverage?.covered ?? false);
+  const isPickupUnavailable = deliveryType === 'pickup' && modeEligibleTenants.length === 0;
+  const isDeliveryBlocked =
+    isPickupUnavailable || (deliveryType === 'delivery' && !(selectedCoverage?.covered ?? false));
 
   const selectedDeliveryCalc = useMemo(
     () =>
@@ -535,7 +559,26 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
 
             {/* Store Cards List */}
             <div className="space-y-2.5 flex-1">
-              {filteredTenants.map(tenant => {
+              {filteredTenants.length === 0 ? (
+                <div
+                  className={`p-5 rounded-2xl border text-center space-y-1.5 ${
+                    isLightTheme
+                      ? 'bg-zinc-50 border-zinc-200 text-zinc-700'
+                      : 'bg-neutral-900/70 border-neutral-800 text-neutral-300'
+                  }`}
+                >
+                  <p className="text-xs font-black">
+                    {deliveryType === 'pickup' && modeEligibleTenants.length === 0
+                      ? 'No hay locales habilitados para Retiro en Local'
+                      : 'No encontramos tiendas con esa búsqueda'}
+                  </p>
+                  <p className="text-[11px] opacity-70">
+                    {deliveryType === 'pickup' && modeEligibleTenants.length === 0
+                      ? 'Nuestras sedes actuales atienden exclusivamente con Envío Nacional.'
+                      : 'Prueba con otro nombre o dirección.'}
+                  </p>
+                </div>
+              ) : filteredTenants.map(tenant => {
                 const isSelected = tenant.id === selectedTenantId;
                 const isCurrentActive = tenant.id === activeTenantId;
                 const name = tenant.name.replace('Gastro - ', '');
@@ -709,7 +752,7 @@ export const StoreLocationModal: React.FC<StoreLocationModalProps> = ({
             }`}
           >
             <LeafletStoreMap
-              tenants={tenants}
+              tenants={modeEligibleTenants}
               selectedTenantId={selectedTenantId}
               onSelectTenant={setSelectedTenantId}
               customerCoords={customerCoords}

@@ -1,8 +1,8 @@
 {
-  "buildId": "20261126001737",
-  "builtAt": "2026-11-26T00:17:37.313Z",
-  "commitSha": "8446dc3",
-  "message": "chore(release): merge origin/main y generar release 20261126000956 con vista de categoria tipo app",
+  "buildId": "20261126004256",
+  "builtAt": "2026-11-26T00:42:56.005Z",
+  "commitSha": "2d8de12",
+  "message": "feat(catalog,ui): iconos SVG/PNG personalizables en categorias y favicon en sidebar — release 20261126001737",
   "totalFiles": 127,
-  "manifestSha256": "59dae66938759ca8e88c8da41bbe12f6ceb2c6755e5ad20698e1fed9144e23dd"
+  "manifestSha256": "0acfde792b6c1936cdb2d99d4997c6d9956b92913794744be81242c375166ad9"
 }

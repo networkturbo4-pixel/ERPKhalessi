@@ -14,6 +14,46 @@ export function dispatchSeasonalBurst(detail: SeasonalBurstDetail = {}): void {
   window.dispatchEvent(new CustomEvent<SeasonalBurstDetail>('kh-seasonal-burst', { detail }));
 }
 
+export type SeasonalScheduleStatus = 'off' | 'active' | 'scheduled' | 'ended';
+
+export function getSeasonalCampaignStatus(
+  cfg?: SeasonalThemeConfig | null,
+  nowMs: number = Date.now()
+): { active: boolean; status: SeasonalScheduleStatus } {
+  if (!cfg?.enabled) return { active: false, status: 'off' };
+  if (!cfg.scheduleEnabled) return { active: true, status: 'active' };
+
+  const startMs = cfg.startDate ? Date.parse(cfg.startDate) : NaN;
+  const endMs = cfg.endDate ? Date.parse(cfg.endDate) : NaN;
+
+  if (!Number.isNaN(startMs) && nowMs < startMs) {
+    return { active: false, status: 'scheduled' };
+  }
+  if (!Number.isNaN(endMs) && nowMs > endMs) {
+    return { active: false, status: 'ended' };
+  }
+  return { active: true, status: 'active' };
+}
+
+function formatCountdownParts(targetMs: number, nowMs: number): {
+  expired: boolean;
+  days: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+} {
+  const diff = Math.max(0, targetMs - nowMs);
+  if (diff <= 0) {
+    return { expired: true, days: 0, hours: 0, minutes: 0, seconds: 0 };
+  }
+  const totalSec = Math.floor(diff / 1000);
+  const days = Math.floor(totalSec / 86400);
+  const hours = Math.floor((totalSec % 86400) / 3600);
+  const minutes = Math.floor((totalSec % 3600) / 60);
+  const seconds = totalSec % 60;
+  return { expired: false, days, hours, minutes, seconds };
+}
+
 export interface SeasonalThemeMeta {
   id: SeasonalThemeId;
   name: string;
@@ -229,16 +269,35 @@ export const SeasonalOverlay: React.FC<SeasonalOverlayProps> = ({
 }) => {
   const { customization } = useSettings();
   const cfg = previewConfig ?? customization.seasonalTheme;
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
+
+  const countdownTargetStr = cfg?.countdownEndAt || cfg?.endDate || '';
+  const countdownTargetMs = useMemo(() => {
+    if (!countdownTargetStr) return NaN;
+    return Date.parse(countdownTargetStr);
+  }, [countdownTargetStr]);
+
+  useEffect(() => {
+    const needsTick = Boolean(cfg?.enabled && (cfg?.showCountdown || cfg?.scheduleEnabled));
+    if (!needsTick) return;
+    const interval = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, [cfg?.enabled, cfg?.showCountdown, cfg?.scheduleEnabled]);
+
+  const campaignSchedule = useMemo(
+    () => (contained ? { active: Boolean(cfg?.enabled), status: cfg?.enabled ? 'active' : 'off' } : getSeasonalCampaignStatus(cfg, nowMs)),
+    [cfg, contained, nowMs]
+  );
 
   const isVisibleOnSurface = useMemo(() => {
-    if (!cfg?.enabled) return false;
+    if (!campaignSchedule.active) return false;
     if (contained) return true;
-    if (cfg.scope === 'all') return true;
-    if (cfg.scope === 'storefront_kiosk') {
+    if (cfg?.scope === 'all') return true;
+    if (cfg?.scope === 'storefront_kiosk') {
       return surface === 'storefront' || surface === 'kiosk';
     }
     return surface === 'storefront';
-  }, [cfg, contained, surface]);
+  }, [campaignSchedule.active, cfg?.scope, contained, surface]);
 
   const meta = SEASONAL_THEMES_META[cfg?.theme || 'christmas'] || SEASONAL_THEMES_META.christmas;
 
@@ -709,6 +768,57 @@ export const SeasonalOverlay: React.FC<SeasonalOverlayProps> = ({
     }
   };
 
+  const customBannerStyle: React.CSSProperties | undefined =
+    cfg.bannerBgColor || cfg.bannerTextColor
+      ? {
+          ...(cfg.bannerBgColor ? { backgroundColor: cfg.bannerBgColor, backgroundImage: 'none' } : {}),
+          ...(cfg.bannerTextColor ? { color: cfg.bannerTextColor } : {}),
+        }
+      : undefined;
+
+  const showBadge = cfg.showBadge ?? true;
+  const resolvedBadgeText = (cfg.badgeText || '').trim() || meta.badge;
+  const customBadgeStyle: React.CSSProperties | undefined =
+    cfg.badgeBgColor || cfg.badgeTextColor
+      ? {
+          ...(cfg.badgeBgColor ? { backgroundColor: cfg.badgeBgColor, borderColor: 'transparent' } : {}),
+          ...(cfg.badgeTextColor ? { color: cfg.badgeTextColor } : {}),
+        }
+      : undefined;
+
+  const countdownParts = useMemo(() => {
+    if (!cfg.showCountdown) return null;
+    if (Number.isNaN(countdownTargetMs)) {
+      // Fallback preview timer (12h) when previewing without an explicit date
+      return contained
+        ? { expired: false, days: 0, hours: 11, minutes: 59, seconds: 45 }
+        : null;
+    }
+    return formatCountdownParts(countdownTargetMs, nowMs);
+  }, [cfg.showCountdown, countdownTargetMs, nowMs, contained]);
+
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+
+  const renderCountdownPill = () => {
+    if (!cfg.showCountdown || !countdownParts || countdownParts.expired) return null;
+    return (
+      <span
+        style={customBadgeStyle}
+        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-black/25 backdrop-blur-xs border border-white/20 text-[10px] sm:text-[11px] font-black tabular-nums tracking-tight shrink-0"
+      >
+        {cfg.countdownLabel?.trim() && (
+          <span className="opacity-85 font-bold uppercase tracking-wider text-[9px]">
+            {cfg.countdownLabel.trim()}
+          </span>
+        )}
+        <span>
+          {countdownParts.days > 0 ? `${countdownParts.days}d ` : ''}
+          {pad2(countdownParts.hours)}:{pad2(countdownParts.minutes)}:{pad2(countdownParts.seconds)}
+        </span>
+      </span>
+    );
+  };
+
   return (
     <>
       {cfg.showBanner && (surface === 'storefront' || contained) && (
@@ -719,27 +829,48 @@ export const SeasonalOverlay: React.FC<SeasonalOverlayProps> = ({
             } w-full`}
           >
             <div
-              className={`w-full bg-gradient-to-r ${meta.bannerBgClass} text-white px-4 sm:px-6 py-2 shadow-sm overflow-hidden flex items-center justify-between gap-3`}
+              style={customBannerStyle}
+              className={`w-full ${
+                cfg.bannerBgColor ? '' : `bg-gradient-to-r ${meta.bannerBgClass}`
+              } text-white px-4 sm:px-6 py-2 shadow-sm overflow-hidden flex items-center justify-between gap-3`}
             >
               {renderDoodleCornerSvg('left')}
-              <div className="flex-1 flex items-center justify-center gap-2 text-center min-w-0">
-                <span className="hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-xs border border-white/25 text-[10px] font-black uppercase tracking-wider shrink-0">
-                  {meta.badge}
-                </span>
+              <div className="flex-1 flex items-center justify-center flex-wrap gap-2 text-center min-w-0">
+                {showBadge && (
+                  <span
+                    style={customBadgeStyle}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-xs border border-white/25 text-[10px] font-black uppercase tracking-wider shrink-0"
+                  >
+                    {resolvedBadgeText}
+                  </span>
+                )}
                 <span className="text-xs sm:text-[13px] font-bold tracking-tight truncate">
                   {bannerMessage}
                 </span>
+                {renderCountdownPill()}
               </div>
               {renderDoodleCornerSvg('right')}
             </div>
           </div>
         ) : (
           <div
+            style={customBannerStyle}
             className={`${
               contained ? 'relative' : 'relative z-40'
-            } w-full bg-gradient-to-r ${meta.bannerBgClass} text-white text-center px-4 py-1.5 text-xs font-semibold tracking-wide shadow-sm`}
+            } w-full ${
+              cfg.bannerBgColor ? '' : `bg-gradient-to-r ${meta.bannerBgClass}`
+            } text-white text-center px-4 py-1.5 text-xs font-semibold tracking-wide shadow-sm flex items-center justify-center flex-wrap gap-2`}
           >
+            {showBadge && (
+              <span
+                style={customBadgeStyle}
+                className="inline-flex items-center px-2 py-0.5 rounded-full bg-white/15 border border-white/25 text-[10px] font-black uppercase tracking-wider shrink-0"
+              >
+                {resolvedBadgeText}
+              </span>
+            )}
             <span>{bannerMessage}</span>
+            {renderCountdownPill()}
           </div>
         )
       )}
@@ -842,7 +973,7 @@ export const SeasonalOverlay: React.FC<SeasonalOverlayProps> = ({
 export const SeasonalLogoBadge: React.FC = () => {
   const { customization } = useSettings();
   const cfg = customization.seasonalTheme;
-  if (!cfg?.enabled) return null;
+  if (!getSeasonalCampaignStatus(cfg).active || !cfg) return null;
 
   switch (cfg.theme) {
     case 'christmas':
@@ -944,13 +1075,14 @@ export const SeasonalLogoBadge: React.FC = () => {
 export const SeasonalCelebration: React.FC = () => {
   const { customization } = useSettings();
   const cfg = customization.seasonalTheme;
+  const isActive = getSeasonalCampaignStatus(cfg).active;
 
   useEffect(() => {
-    if (!cfg?.enabled) return;
+    if (!isActive) return;
     dispatchSeasonalBurst({ count: 30, variant: 'celebration' });
-  }, [cfg?.enabled]);
+  }, [isActive]);
 
-  if (!cfg?.enabled) return null;
+  if (!isActive || !cfg) return null;
   const meta = SEASONAL_THEMES_META[cfg.theme] || SEASONAL_THEMES_META.christmas;
 
   return (

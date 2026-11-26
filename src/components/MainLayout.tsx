@@ -3,6 +3,8 @@ import { useSettings } from '../context/SettingsContext';
 import { useRBAC, erpModuleToMainModuleId } from '../context/RBACContext';
 import { useHR } from '../context/HRContext';
 import { useOrderCatalog } from '../context/OrderCatalogContext';
+import { useInventory } from '../context/InventoryContext';
+import { NotificationCenterDrawer } from './common/NotificationCenterDrawer';
 import { ToastContainer } from './common/ToastContainer';
 import { UnsavedChangesModal } from './common/UnsavedChangesModal';
 import { SystemNoticeModal } from './common/SystemNoticeModal';
@@ -92,6 +94,7 @@ import {
   Menu,
   X,
   PanelLeftClose,
+  Bell,
   PanelLeftOpen,
   ChevronsUpDown,
   Check,
@@ -228,9 +231,11 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
     users,
     updateUser,
     dispatchToast,
+    unreadNotificationsCount,
   } = useSettings();
 
   const [isProfileMediaPickerOpen, setIsProfileMediaPickerOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   const { currentUser, setCurrentUser, roles, hasPermission, resolvedDefaultModule } = useRBAC();
   const canAccessModule = React.useCallback(
@@ -244,6 +249,40 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
   );
   const { todayRecords, getEmployeeProfile, updateEmployeeProfile } = useHR();
   const { orders, customers } = useOrderCatalog();
+  const { items: invItems, getItemStock } = useInventory();
+
+  const liveKitchenQueueCount = React.useMemo(
+    () =>
+      orders.filter(
+        o =>
+          (branchScope === 'consolidated' || o.tenantId === activeTenant.id) &&
+          (o.status === 'recibido' || o.status === 'en_cocina' || o.status === 'en_horno')
+      ).length,
+    [orders, branchScope, activeTenant.id]
+  );
+
+  const liveDeliveryPendingCount = React.useMemo(
+    () =>
+      orders.filter(
+        o =>
+          (branchScope === 'consolidated' || o.tenantId === activeTenant.id) &&
+          o.channel !== 'pos-salon' &&
+          (o.status === 'listo' || o.status === 'en_ruta')
+      ).length,
+    [orders, branchScope, activeTenant.id]
+  );
+
+  const liveLowStockCount = React.useMemo(
+    () =>
+      invItems.filter(item => {
+        if (!item.enabled) return false;
+        const stock = getItemStock(item.id, activeTenant.id);
+        return stock <= item.minStock;
+      }).length,
+    [invItems, getItemStock, activeTenant.id]
+  );
+
+  const totalBellBadge = unreadNotificationsCount + (liveLowStockCount > 0 ? 1 : 0);
 
   const visibleCustomersCount = React.useMemo(() => {
     if (branchScope === 'consolidated') return customers.length;
@@ -521,6 +560,13 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
       >
         <ToastContainer />
         <SystemNoticeModal />
+        <NotificationCenterDrawer
+          isOpen={isNotificationsOpen}
+          onClose={() => setIsNotificationsOpen(false)}
+          kitchenQueueCount={liveKitchenQueueCount}
+          deliveryPendingCount={liveDeliveryPendingCount}
+          lowStockCount={liveLowStockCount}
+        />
 
         {/* Dedicated Operational Station Top Bar */}
         <header className="h-14 sm:h-16 px-2.5 sm:px-6 border-b border-erp-border bg-erp-card flex items-center justify-between gap-2 sm:gap-3 shrink-0 shadow-sm z-30">
@@ -605,8 +651,25 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
             </div>
           </div>
 
-          {/* Right: Cash Register Action (POS) + Operator Popover Dropdown */}
+          {/* Right: Cash Register Action (POS) + Notification Bell + Operator Popover Dropdown */}
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0" ref={stationUserMenuRef}>
+            <button
+              type="button"
+              onClick={() => setIsNotificationsOpen(true)}
+              aria-label="Abrir centro de notificaciones"
+              title="Centro de notificaciones"
+              className="relative h-9 w-9 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white transition-colors shrink-0"
+            >
+              <Bell className="w-4 h-4" />
+              {totalBellBadge > 0 && (
+                <span
+                  style={{ backgroundColor: customization.primaryColor }}
+                  className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-black text-white flex items-center justify-center tabular-nums shadow-xs"
+                >
+                  {totalBellBadge > 99 ? '99+' : totalBellBadge}
+                </span>
+              )}
+            </button>
             {isCashierRole && (
               stationCashSession.isOpen ? (
                 <button
@@ -1054,14 +1117,33 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
           </div>
 
           {(!sidebarCollapsed || mobileMenuOpen) && (
-            <button
-              type="button"
-              onClick={() => setSidebarCollapsed(true)}
-              className="hidden lg:flex p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-white/10 transition-colors shrink-0"
-              title="Colapsar barra lateral"
-            >
-              <PanelLeftClose className="h-4 w-4" />
-            </button>
+            <div className="hidden lg:flex items-center gap-0.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsNotificationsOpen(true)}
+                className="relative p-1.5 rounded-lg text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/10 transition-colors shrink-0"
+                title="Centro de notificaciones"
+                aria-label="Abrir centro de notificaciones"
+              >
+                <Bell className="h-4 w-4" />
+                {totalBellBadge > 0 && (
+                  <span
+                    style={{ backgroundColor: customization.primaryColor }}
+                    className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] px-1 rounded-full text-[9px] font-black text-white flex items-center justify-center tabular-nums leading-none"
+                  >
+                    {totalBellBadge > 99 ? '99+' : totalBellBadge}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSidebarCollapsed(true)}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-white/10 transition-colors shrink-0"
+                title="Colapsar barra lateral"
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </button>
+            </div>
           )}
 
           <button
@@ -1074,7 +1156,24 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
         </div>
 
         {sidebarCollapsed && !mobileMenuOpen && (
-          <div className="hidden lg:flex justify-center pb-1">
+          <div className="hidden lg:flex flex-col items-center gap-1 pb-1">
+            <button
+              type="button"
+              onClick={() => setIsNotificationsOpen(true)}
+              className="relative p-1.5 rounded-lg text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-white/10 transition-colors"
+              title="Centro de notificaciones"
+              aria-label="Abrir centro de notificaciones"
+            >
+              <Bell className="h-4 w-4" />
+              {totalBellBadge > 0 && (
+                <span
+                  style={{ backgroundColor: customization.primaryColor }}
+                  className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] px-0.5 rounded-full text-[8px] font-black text-white flex items-center justify-center tabular-nums"
+                >
+                  {totalBellBadge > 9 ? '9+' : totalBellBadge}
+                </span>
+              )}
+            </button>
             <button
               type="button"
               onClick={() => setSidebarCollapsed(false)}
@@ -1966,23 +2065,41 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                if (isSuperAdminOrManager) {
-                  setMobileMenuOpen(true);
-                  setTenantMenuOpen(true);
-                }
-              }}
-              className="min-h-[34px] text-[11px] font-semibold px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800/90 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-700 dark:text-zinc-200 truncate max-w-[155px] flex items-center gap-1 active:scale-95 transition-transform"
-            >
-              {branchScope === 'consolidated' ? (
-                <Globe2 className="h-3 w-3 shrink-0" style={{ color: customization.primaryColor }} />
-              ) : (
-                <Store className="h-3 w-3 shrink-0" style={{ color: customization.primaryColor }} />
-              )}
-              <span className="truncate">{activeBranchLabel}</span>
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsNotificationsOpen(true)}
+                aria-label="Abrir centro de notificaciones"
+                className="relative h-9 w-9 rounded-full bg-zinc-100 dark:bg-zinc-800/90 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-700 dark:text-zinc-200 flex items-center justify-center active:scale-95 transition-transform shrink-0"
+              >
+                <Bell className="h-4 w-4" />
+                {totalBellBadge > 0 && (
+                  <span
+                    style={{ backgroundColor: customization.primaryColor }}
+                    className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-black text-white flex items-center justify-center tabular-nums"
+                  >
+                    {totalBellBadge > 99 ? '99+' : totalBellBadge}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (isSuperAdminOrManager) {
+                    setMobileMenuOpen(true);
+                    setTenantMenuOpen(true);
+                  }
+                }}
+                className="min-h-[34px] text-[11px] font-semibold px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800/90 border border-zinc-200/80 dark:border-zinc-700/80 text-zinc-700 dark:text-zinc-200 truncate max-w-[135px] flex items-center gap-1 active:scale-95 transition-transform"
+              >
+                {branchScope === 'consolidated' ? (
+                  <Globe2 className="h-3 w-3 shrink-0" style={{ color: customization.primaryColor }} />
+                ) : (
+                  <Store className="h-3 w-3 shrink-0" style={{ color: customization.primaryColor }} />
+                )}
+                <span className="truncate">{activeBranchLabel}</span>
+              </button>
+            </div>
           </div>
         </header>
         )}
@@ -2212,6 +2329,18 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ onNavigateToStore, onNav
       <ToastContainer />
       <UnsavedChangesModal />
       <SystemNoticeModal />
+      <NotificationCenterDrawer
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        onNavigateModule={mod => {
+          if (canAccessModule(mod as MainModuleId)) {
+            setActiveMainModule(mod as MainModuleId);
+          }
+        }}
+        kitchenQueueCount={liveKitchenQueueCount}
+        deliveryPendingCount={liveDeliveryPendingCount}
+        lowStockCount={liveLowStockCount}
+      />
       <SeasonalOverlay surface="erp" />
 
       {/* MODAL NATIVO <dialog> PARA EDITAR PERFIL DESDE LA CARD DEL SIDEBAR */}
