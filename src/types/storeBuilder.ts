@@ -64,6 +64,15 @@ export interface SliderBlockConfig extends BlockDeviceVisibility {
 }
 
 export type CategoryWidgetStyle =
+  | 'bento_soft'
+  | 'editorial_photo'
+  | 'float_avatar'
+  | 'neon_pill'
+  | 'underline_tab'
+  | 'accent_rail'
+  | 'frosted_glass'
+  | 'solid_duo'
+  // Legacy styles preserved for backward compatibility with existing saved templates
   | 'app_stories'
   | 'app_dock'
   | 'ecom_segmented'

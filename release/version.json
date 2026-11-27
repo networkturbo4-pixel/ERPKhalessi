@@ -1,8 +1,8 @@
 {
-  "buildId": "20261126165014",
-  "builtAt": "2026-11-26T16:50:14.333Z",
-  "commitSha": "8622de5",
-  "message": "feat(campaigns,notifications,branches): programacion y cronometro en tematicas, centro de notificaciones con campanita y filtro de retiro en local — release 20261126004256",
+  "buildId": "20261127021157",
+  "builtAt": "2026-11-27T02:11:57.103Z",
+  "commitSha": "805d3e2",
+  "message": "fix(seasonal,whatsapp): corregir React error #310 en SeasonalOverlay y ajustes de ventana 24h WhatsApp — release 20261126165014",
   "totalFiles": 127,
-  "manifestSha256": "40c60579cec08100b99dbf5481aca980bba287512260d91cb827a5d0dd0a12a0"
+  "manifestSha256": "e9f92f42293747b6994ebe68807ea0de6333af63ccf2a58d585f1756515adad7"
 }

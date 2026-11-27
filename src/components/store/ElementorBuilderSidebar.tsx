@@ -233,101 +233,154 @@ function VisualStyleGrid<T extends string>({
 
 const CATEGORY_STYLE_OPTIONS: VisualStyleOption<CategoryWidgetStyle>[] = [
   {
-    value: 'app_stories',
-    label: 'App Stories',
-    tag: 'App',
-    preview: (
-      <div className="flex items-center gap-2">
-        <span className="w-6 h-6 rounded-full ring-2 ring-rose-500 bg-zinc-800" />
-        <span className="w-6 h-6 rounded-full ring-1 ring-zinc-700 bg-zinc-800" />
-        <span className="w-6 h-6 rounded-full ring-1 ring-zinc-700 bg-zinc-800" />
-      </div>
-    ),
-  },
-  {
-    value: 'app_dock',
-    label: 'App Dock',
+    value: 'bento_soft',
+    label: 'Bento Suave',
     tag: 'App',
     preview: (
       <div className="grid grid-cols-3 gap-1.5 w-full">
-        <div className="h-7 rounded-lg bg-rose-500/25 border border-rose-500/60 flex items-center justify-center">
-          <span className="w-2.5 h-2.5 rounded bg-rose-400" />
+        <div className="h-8 rounded-xl bg-rose-500/20 border border-rose-500/70 flex flex-col items-center justify-center gap-0.5 px-1">
+          <span className="w-3 h-3 rounded-md bg-rose-500" />
+          <span className="h-1 w-6 rounded-full bg-white/90" />
         </div>
-        <div className="h-7 rounded-lg bg-zinc-800/80 border border-zinc-700/60" />
-        <div className="h-7 rounded-lg bg-zinc-800/80 border border-zinc-700/60" />
+        <div className="h-8 rounded-xl bg-zinc-800/80 border border-zinc-700/70 flex flex-col items-center justify-center gap-0.5 px-1">
+          <span className="w-3 h-3 rounded-md bg-zinc-700" />
+          <span className="h-1 w-5 rounded-full bg-zinc-500" />
+        </div>
+        <div className="h-8 rounded-xl bg-zinc-800/80 border border-zinc-700/70 flex flex-col items-center justify-center gap-0.5 px-1">
+          <span className="w-3 h-3 rounded-md bg-zinc-700" />
+          <span className="h-1 w-5 rounded-full bg-zinc-500" />
+        </div>
       </div>
     ),
   },
   {
-    value: 'ecom_segmented',
-    label: 'Segmentada',
-    tag: 'Ecom',
+    value: 'editorial_photo',
+    label: 'Vitrina Foto',
+    tag: 'Visual',
     preview: (
-      <div className="w-full p-1 rounded-lg bg-zinc-900 border border-zinc-800 grid grid-cols-3 gap-1">
-        <span className="h-4 rounded bg-white/90" />
-        <span className="h-4 rounded bg-zinc-800" />
-        <span className="h-4 rounded bg-zinc-800" />
+      <div className="grid grid-cols-2 gap-1.5 w-full">
+        <div className="h-8 rounded-xl bg-gradient-to-tr from-rose-950 via-rose-700/60 to-amber-500/50 border border-rose-400/70 p-1 flex flex-col justify-end">
+          <span className="h-1.5 w-8 rounded-full bg-white" />
+        </div>
+        <div className="h-8 rounded-xl bg-gradient-to-tr from-zinc-900 via-zinc-800 to-zinc-700 border border-zinc-700/70 p-1 flex flex-col justify-end">
+          <span className="h-1.5 w-7 rounded-full bg-zinc-400" />
+        </div>
       </div>
     ),
   },
   {
-    value: 'ecom_tile',
-    label: 'Tiles Ecom',
+    value: 'float_avatar',
+    label: 'Medallón Pro',
+    tag: 'App',
+    preview: (
+      <div className="flex items-center justify-center gap-2.5 w-full">
+        <div className="flex flex-col items-center gap-1">
+          <span className="w-5 h-5 rounded-full ring-2 ring-rose-500 ring-offset-1 ring-offset-[#12141c] bg-rose-500/30" />
+          <span className="h-1 w-5 rounded-full bg-white/90" />
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <span className="w-5 h-5 rounded-full ring-1 ring-zinc-700 bg-zinc-800" />
+          <span className="h-1 w-4 rounded-full bg-zinc-500" />
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <span className="w-5 h-5 rounded-full ring-1 ring-zinc-700 bg-zinc-800" />
+          <span className="h-1 w-4 rounded-full bg-zinc-500" />
+        </div>
+      </div>
+    ),
+  },
+  {
+    value: 'neon_pill',
+    label: 'Cápsula Neo',
+    tag: 'Moderna',
+    preview: (
+      <div className="flex items-center justify-center gap-1.5 w-full">
+        <span className="h-5 px-2 rounded-full bg-rose-500 flex items-center gap-1">
+          <span className="w-2 h-2 rounded-full bg-white" />
+          <span className="h-1 w-5 rounded-full bg-white/90" />
+        </span>
+        <span className="h-5 px-2 rounded-full bg-zinc-800/90 border border-zinc-700 flex items-center gap-1">
+          <span className="w-2 h-2 rounded-full bg-zinc-500" />
+          <span className="h-1 w-4 rounded-full bg-zinc-400" />
+        </span>
+      </div>
+    ),
+  },
+  {
+    value: 'underline_tab',
+    label: 'Línea Editorial',
+    tag: 'Clean',
+    preview: (
+      <div className="grid grid-cols-3 gap-1.5 w-full items-end pb-0.5">
+        <div className="flex flex-col items-center gap-1">
+          <span className="h-1.5 w-7 rounded-full bg-white" />
+          <span className="h-0.5 w-full rounded-full bg-rose-500" />
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <span className="h-1.5 w-6 rounded-full bg-zinc-500" />
+          <span className="h-0.5 w-full rounded-full bg-zinc-800" />
+        </div>
+        <div className="flex flex-col items-center gap-1">
+          <span className="h-1.5 w-6 rounded-full bg-zinc-500" />
+          <span className="h-0.5 w-full rounded-full bg-zinc-800" />
+        </div>
+      </div>
+    ),
+  },
+  {
+    value: 'accent_rail',
+    label: 'Barra Acento',
     tag: 'Ecom',
     preview: (
       <div className="grid grid-cols-2 gap-1.5 w-full">
-        <div className="h-6 rounded-lg bg-zinc-800 border border-rose-500/60 flex items-center gap-1 px-1">
-          <span className="w-3.5 h-3.5 rounded bg-rose-500 shrink-0" />
-          <span className="h-1.5 flex-1 rounded bg-zinc-300" />
+        <div className="h-7 rounded-lg bg-zinc-800 border border-zinc-700 overflow-hidden flex items-center">
+          <span className="w-1 h-full bg-rose-500 shrink-0" />
+          <div className="flex items-center gap-1 px-1.5 flex-1">
+            <span className="w-2.5 h-2.5 rounded bg-rose-500/30 shrink-0" />
+            <span className="h-1.5 flex-1 rounded bg-white/85" />
+          </div>
         </div>
-        <div className="h-6 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center gap-1 px-1">
-          <span className="w-3.5 h-3.5 rounded bg-zinc-700 shrink-0" />
-          <span className="h-1.5 flex-1 rounded bg-zinc-600" />
+        <div className="h-7 rounded-lg bg-zinc-900 border border-zinc-800 overflow-hidden flex items-center">
+          <span className="w-1 h-full bg-zinc-700 shrink-0" />
+          <div className="flex items-center gap-1 px-1.5 flex-1">
+            <span className="w-2.5 h-2.5 rounded bg-zinc-800 shrink-0" />
+            <span className="h-1.5 flex-1 rounded bg-zinc-600" />
+          </div>
         </div>
       </div>
     ),
   },
   {
-    value: 'pills',
-    label: 'Pastillas',
+    value: 'frosted_glass',
+    label: 'Cristal Frosted',
+    tag: 'Glass',
     preview: (
-      <div className="flex items-center gap-1.5 w-full justify-center">
-        <span className="h-4 w-10 rounded-full bg-rose-500" />
-        <span className="h-4 w-9 rounded-full bg-zinc-800 border border-zinc-700" />
-        <span className="h-4 w-8 rounded-full bg-zinc-800 border border-zinc-700" />
+      <div className="grid grid-cols-2 gap-1.5 w-full">
+        <div className="h-7 rounded-xl bg-white/15 border border-white/30 backdrop-blur-md flex items-center justify-center gap-1 px-1.5 shadow-inner">
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-400" />
+          <span className="h-1.5 w-7 rounded-full bg-white" />
+        </div>
+        <div className="h-7 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center gap-1 px-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-zinc-600" />
+          <span className="h-1.5 w-6 rounded-full bg-zinc-500" />
+        </div>
       </div>
     ),
   },
   {
-    value: 'glass',
-    label: 'Cristal Glass',
+    value: 'solid_duo',
+    label: 'Bloque Dúo',
+    tag: 'Bold',
     preview: (
-      <div className="flex items-center gap-1.5 w-full justify-center">
-        <span className="h-5 w-12 rounded-xl bg-white/15 border border-white/25 backdrop-blur" />
-        <span className="h-5 w-12 rounded-xl bg-white/5 border border-white/10" />
-      </div>
-    ),
-  },
-  {
-    value: 'minimal_chip',
-    label: 'Chip Minimal',
-    preview: (
-      <div className="flex items-center gap-1.5 w-full justify-center">
-        <span className="h-4 w-11 rounded-md bg-white text-[8px] flex items-center px-1 gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-        </span>
-        <span className="h-4 w-10 rounded-md border border-zinc-700" />
-      </div>
-    ),
-  },
-  {
-    value: 'cards',
-    label: 'Tarjetas',
-    preview: (
-      <div className="grid grid-cols-3 gap-1 w-full">
-        <span className="h-7 rounded-lg bg-zinc-800 border border-rose-500/60" />
-        <span className="h-7 rounded-lg bg-zinc-900 border border-zinc-800" />
-        <span className="h-7 rounded-lg bg-zinc-900 border border-zinc-800" />
+      <div className="grid grid-cols-2 gap-1.5 w-full">
+        <div className="h-7 rounded-xl bg-rose-500 flex items-center gap-1.5 px-1.5 shadow-sm">
+          <span className="w-3.5 h-3.5 rounded-lg bg-black/20 shrink-0" />
+          <span className="h-1.5 flex-1 rounded-full bg-white" />
+        </div>
+        <div className="h-7 rounded-xl bg-zinc-800/90 border border-zinc-700/70 flex items-center gap-1.5 px-1.5">
+          <span className="w-3.5 h-3.5 rounded-lg bg-zinc-700 shrink-0" />
+          <span className="h-1.5 flex-1 rounded-full bg-zinc-500" />
+        </div>
       </div>
     ),
   },

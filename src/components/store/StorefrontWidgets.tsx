@@ -762,11 +762,608 @@ export const StoreCategoriesWidget: React.FC<StoreCategoriesWidgetProps> = ({
 
       <div
         style={containerStyle}
-        className={isAutoCols ? 'overflow-x-auto pb-1 items-center' : 'w-full'}
+        className={isAutoCols ? 'kh-cat-rail overflow-x-auto pb-1.5 items-stretch' : 'w-full'}
       >
         {visibleCategories.map(cat => {
           const isActive = activeCategory === cat.id;
           const count = countByCategory[cat.id] ?? 0;
+          const cardModeClass = isAutoCols ? 'kh-cat-auto' : 'kh-cat-cq';
+
+          const renderModernMedia = (
+            size: 'xs' | 'sm' | 'md' = 'sm',
+            shapeClass = 'rounded-xl',
+            preferBanner = false
+          ) => {
+            if (cat.iconType === 'svg' || cat.iconType === 'image') {
+              return <CategoryIconBadge category={cat} alt={cat.label} size={size} className={shapeClass} />;
+            }
+            if (preferBanner && cat.bannerImg) {
+              const dim = size === 'xs' ? 'w-5 h-5' : size === 'md' ? 'w-9 h-9' : 'w-7 h-7';
+              return (
+                <img
+                  src={cat.bannerImg}
+                  alt={cat.label}
+                  width={36}
+                  height={36}
+                  loading="lazy"
+                  decoding="async"
+                  className={`${dim} ${shapeClass} object-cover shrink-0`}
+                />
+              );
+            }
+            if (cat.bannerImg) {
+              const dim = size === 'xs' ? 'w-5 h-5' : size === 'md' ? 'w-8 h-8' : 'w-6 h-6';
+              return (
+                <img
+                  src={cat.bannerImg}
+                  alt={cat.label}
+                  width={32}
+                  height={32}
+                  loading="lazy"
+                  decoding="async"
+                  className={`${dim} ${shapeClass} object-cover shrink-0`}
+                />
+              );
+            }
+            return <CategoryIconBadge category={cat} alt={cat.label} size={size} className={shapeClass} />;
+          };
+
+          /* ================================================================
+             8 MODERN COLUMN-ADAPTIVE CATEGORY STYLES
+             ================================================================ */
+
+          // 1. BENTO SUAVE (App) — Soft elevated pedestal card, stacks cleanly when narrow, horizontal when wide
+          if (block.style === 'bento_soft') {
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => onSelectCategory(cat.id)}
+                style={{
+                  touchAction: 'manipulation',
+                  ...(isActive
+                    ? {
+                        borderColor: accentColor,
+                        boxShadow: `0 6px 18px -8px ${accentColor}75`,
+                        backgroundColor: isLightTheme ? `${accentColor}12` : `${accentColor}1c`,
+                      }
+                    : {}),
+                }}
+                className={`${cardModeClass} group relative rounded-2xl border p-2.5 sm:p-3 transition-all duration-200 active:scale-[0.97] ${
+                  isAutoCols ? 'px-3.5 py-2.5' : ''
+                } ${
+                  isActive
+                    ? isLightTheme
+                      ? 'text-zinc-950'
+                      : 'text-white'
+                    : isLightTheme
+                    ? 'bg-zinc-50/90 border-zinc-200/80 text-zinc-700 hover:bg-white hover:border-zinc-300'
+                    : 'bg-neutral-900/75 border-neutral-800/90 text-neutral-300 hover:bg-neutral-900 hover:border-neutral-700'
+                }`}
+              >
+                <div className="kh-cat-inner">
+                  <span
+                    style={
+                      isActive
+                        ? { backgroundColor: `${accentColor}26`, color: accentColor }
+                        : undefined
+                    }
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
+                      isActive
+                        ? 'shadow-xs'
+                        : isLightTheme
+                        ? 'bg-white shadow-2xs ring-1 ring-black/5'
+                        : 'bg-neutral-800/90 ring-1 ring-white/5'
+                    }`}
+                  >
+                    {renderModernMedia('sm', 'rounded-lg')}
+                  </span>
+                  <div className="kh-cat-text-wrap">
+                    <span className="kh-cat-label font-extrabold tracking-tight">{cat.label}</span>
+                  </div>
+                  {block.showCount && (
+                    <span
+                      style={isActive ? { backgroundColor: accentColor, color: '#09090b' } : undefined}
+                      className={`kh-cat-count-adaptive text-[10px] font-mono font-black px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
+                        isActive
+                          ? ''
+                          : isLightTheme
+                          ? 'bg-zinc-200/80 text-zinc-600'
+                          : 'bg-neutral-800 text-neutral-400'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          }
+
+          // 2. VITRINA FOTO (Visual) — Rich photo-backdrop tile with dark gradient scrim & frosted count badge
+          if (block.style === 'editorial_photo') {
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => onSelectCategory(cat.id)}
+                style={{
+                  touchAction: 'manipulation',
+                  ...(isActive
+                    ? {
+                        borderColor: accentColor,
+                        boxShadow: `0 8px 22px -8px ${accentColor}90`,
+                      }
+                    : {}),
+                }}
+                className={`${cardModeClass} group relative rounded-2xl overflow-hidden border-2 text-left transition-all duration-200 active:scale-[0.98] ${
+                  isAutoCols ? 'min-w-[136px] h-[76px]' : 'min-h-[82px]'
+                } ${
+                  isActive
+                    ? ''
+                    : isLightTheme
+                    ? 'border-zinc-200/80'
+                    : 'border-neutral-800/90'
+                }`}
+              >
+                {cat.bannerImg ? (
+                  <img
+                    src={cat.bannerImg}
+                    alt={cat.label}
+                    width={220}
+                    height={110}
+                    loading="lazy"
+                    decoding="async"
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                ) : (
+                  <div
+                    style={{
+                      background: isActive
+                        ? `linear-gradient(135deg, ${accentColor}dd, #18181b)`
+                        : 'linear-gradient(135deg, #27272a, #09090b)',
+                    }}
+                    className="absolute inset-0"
+                  />
+                )}
+                <div
+                  className={`absolute inset-0 transition-opacity ${
+                    isActive
+                      ? 'bg-gradient-to-t from-black/85 via-black/45 to-black/15'
+                      : 'bg-gradient-to-t from-black/80 via-black/50 to-black/25 group-hover:from-black/75'
+                  }`}
+                />
+                {block.showCount && (
+                  <span
+                    style={isActive ? { backgroundColor: accentColor, color: '#09090b' } : undefined}
+                    className={`absolute top-2 right-2 z-10 text-[10px] font-mono font-black px-1.5 py-0.5 rounded-full leading-none backdrop-blur-md ${
+                      isActive ? '' : 'bg-black/45 text-white/90 border border-white/15'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
+                <div className="relative z-10 h-full p-2.5 flex flex-col justify-end gap-1">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {!cat.bannerImg && (
+                      <span className="shrink-0 text-white">
+                        {renderModernMedia('xs', 'rounded-md')}
+                      </span>
+                    )}
+                    <span className="kh-cat-label font-black text-white drop-shadow-xs">
+                      {cat.label}
+                    </span>
+                  </div>
+                  {isActive && (
+                    <span
+                      style={{ backgroundColor: accentColor }}
+                      className="h-[3px] w-7 rounded-full block"
+                    />
+                  )}
+                </div>
+              </button>
+            );
+          }
+
+          // 3. MEDALLÓN PRO (App) — Clean circular avatar medallion; adapts to sleek avatar-row in wide 1–2 col grids
+          if (block.style === 'float_avatar') {
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => onSelectCategory(cat.id)}
+                style={{
+                  touchAction: 'manipulation',
+                  ...(isActive
+                    ? {
+                        borderColor: `${accentColor}70`,
+                        backgroundColor: isLightTheme ? `${accentColor}0d` : `${accentColor}16`,
+                      }
+                    : {}),
+                }}
+                className={`${cardModeClass} group relative rounded-2xl border p-1.5 transition-all duration-200 active:scale-[0.97] ${
+                  isAutoCols ? 'min-w-[76px] px-2 py-1.5' : ''
+                } ${
+                  isActive
+                    ? ''
+                    : 'border-transparent hover:bg-black/[0.03] dark:hover:bg-white/[0.04]'
+                }`}
+              >
+                <div className="kh-cat-avatar-inner">
+                  <div className="relative shrink-0">
+                    <div
+                      style={
+                        isActive
+                          ? {
+                              borderColor: accentColor,
+                              boxShadow: `0 6px 16px -6px ${accentColor}88`,
+                            }
+                          : undefined
+                      }
+                      className={`kh-cat-avatar-ring rounded-full p-[2.5px] border-2 transition-transform duration-200 group-hover:scale-105 ${
+                        isActive
+                          ? ''
+                          : isLightTheme
+                          ? 'border-zinc-200 bg-white'
+                          : 'border-neutral-800 bg-neutral-900'
+                      }`}
+                    >
+                      <div
+                        className={`w-full h-full rounded-full overflow-hidden flex items-center justify-center ${
+                          isLightTheme ? 'bg-zinc-50 text-zinc-800' : 'bg-neutral-900 text-white'
+                        }`}
+                      >
+                        {cat.iconType === 'svg' || cat.iconType === 'image' ? (
+                          <CategoryIconBadge category={cat} alt={cat.label} size="md" className="rounded-full" />
+                        ) : cat.bannerImg ? (
+                          <img
+                            src={cat.bannerImg}
+                            alt={cat.label}
+                            width={56}
+                            height={56}
+                            loading="lazy"
+                            decoding="async"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <CategoryIconBadge category={cat} alt={cat.label} size="md" className="rounded-full" />
+                        )}
+                      </div>
+                    </div>
+                    {block.showCount && (
+                      <span
+                        style={isActive ? { backgroundColor: accentColor, color: '#09090b' } : undefined}
+                        className={`absolute -top-0.5 -right-1 text-[9px] font-mono font-black px-1.5 py-0.5 rounded-full leading-none shadow-xs border ${
+                          isActive
+                            ? 'border-transparent'
+                            : isLightTheme
+                            ? 'bg-white border-zinc-200 text-zinc-700'
+                            : 'bg-neutral-900 border-neutral-700 text-neutral-300'
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    )}
+                  </div>
+                  <div className="kh-cat-text-wrap">
+                    <span
+                      style={isActive ? { color: isLightTheme ? '#09090b' : '#ffffff' } : undefined}
+                      className={`kh-cat-label font-extrabold ${
+                        isActive
+                          ? ''
+                          : isLightTheme
+                          ? 'text-zinc-600'
+                          : 'text-neutral-400'
+                      }`}
+                    >
+                      {cat.label}
+                    </span>
+                  </div>
+                </div>
+              </button>
+            );
+          }
+
+          // 4. CÁPSULA NEO (Moderna) — Adaptive capsule: squircle stack when narrow, full pill when wide/auto
+          if (block.style === 'neon_pill') {
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => onSelectCategory(cat.id)}
+                style={{ touchAction: 'manipulation' }}
+                className={`${cardModeClass} group text-left transition-transform duration-200 active:scale-[0.97]`}
+              >
+                <div
+                  data-auto-contrast={isActive && autoButtonContrast ? 'true' : 'false'}
+                  className={`kh-cat-inner kh-cat-pill-surface relative border transition-all duration-200 ${
+                    isActive
+                      ? 'store-btn-solid border-transparent shadow-md'
+                      : isLightTheme
+                      ? 'bg-white border-zinc-200/90 text-zinc-700 hover:border-zinc-400 hover:bg-zinc-50'
+                      : 'bg-neutral-900/90 border-neutral-800 text-neutral-300 hover:border-neutral-600 hover:text-white'
+                  }`}
+                >
+                  <span
+                    className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+                      isActive
+                        ? 'bg-black/15'
+                        : isLightTheme
+                        ? 'bg-zinc-100'
+                        : 'bg-neutral-800'
+                    }`}
+                  >
+                    {renderModernMedia('xs', 'rounded-full')}
+                  </span>
+                  <div className="kh-cat-text-wrap">
+                    <span className="kh-cat-label font-extrabold">{cat.label}</span>
+                  </div>
+                  {block.showCount && (
+                    <span
+                      className={`kh-cat-count-adaptive text-[10px] font-mono font-black px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
+                        isActive
+                          ? 'bg-black/20'
+                          : isLightTheme
+                          ? 'bg-zinc-100 text-zinc-600'
+                          : 'bg-neutral-800 text-neutral-400'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          }
+
+          // 5. LÍNEA EDITORIAL (Clean) — Minimalist navigation tab with bold bottom accent bar
+          if (block.style === 'underline_tab') {
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => onSelectCategory(cat.id)}
+                style={{ touchAction: 'manipulation' }}
+                className={`${cardModeClass} group relative rounded-t-xl px-2.5 pt-2.5 pb-3 transition-colors duration-200 ${
+                  isAutoCols ? 'px-3.5' : ''
+                } ${
+                  isActive
+                    ? isLightTheme
+                      ? 'bg-zinc-100/70 text-zinc-950'
+                      : 'bg-white/[0.06] text-white'
+                    : isLightTheme
+                    ? 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100/40'
+                    : 'text-neutral-400 hover:text-white hover:bg-white/[0.03]'
+                }`}
+              >
+                <div className="kh-cat-inner">
+                  <span className="shrink-0 opacity-90">
+                    {renderModernMedia('xs', 'rounded-md')}
+                  </span>
+                  <div className="kh-cat-text-wrap">
+                    <span className="kh-cat-label font-extrabold">{cat.label}</span>
+                  </div>
+                  {block.showCount && (
+                    <span
+                      style={isActive ? { color: accentColor } : undefined}
+                      className={`kh-cat-count-adaptive text-[10px] font-mono font-bold leading-none shrink-0 ${
+                        isActive ? '' : 'opacity-60'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </div>
+                <span
+                  style={isActive ? { backgroundColor: accentColor } : undefined}
+                  className={`absolute bottom-0 inset-x-1.5 h-[3px] rounded-full transition-all duration-200 ${
+                    isActive
+                      ? 'opacity-100 scale-x-100'
+                      : isLightTheme
+                      ? 'bg-zinc-200 opacity-60 scale-x-75 group-hover:opacity-100'
+                      : 'bg-neutral-800 opacity-70 scale-x-75 group-hover:opacity-100'
+                  }`}
+                />
+              </button>
+            );
+          }
+
+          // 6. BARRA ACENTO (Ecom) — Crisp e-commerce card with top (narrow) or left (wide/auto) accent rail
+          if (block.style === 'accent_rail') {
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => onSelectCategory(cat.id)}
+                style={{
+                  touchAction: 'manipulation',
+                  ...(isActive ? { borderColor: `${accentColor}75` } : {}),
+                }}
+                className={`${cardModeClass} group relative rounded-2xl border overflow-hidden transition-all duration-200 active:scale-[0.98] ${
+                  isActive
+                    ? isLightTheme
+                      ? 'bg-white text-zinc-950 shadow-sm'
+                      : 'bg-neutral-900 text-white shadow-md'
+                    : isLightTheme
+                    ? 'bg-white/90 border-zinc-200/90 text-zinc-700 hover:border-zinc-300 hover:bg-zinc-50/80'
+                    : 'bg-neutral-900/70 border-neutral-800 text-neutral-300 hover:border-neutral-700 hover:bg-neutral-900'
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    backgroundColor: isActive
+                      ? accentColor
+                      : isLightTheme
+                      ? '#e4e4e7'
+                      : '#262626',
+                  }}
+                  className="kh-cat-rail-bar transition-colors"
+                />
+                <div className="kh-cat-inner kh-cat-rail-inner">
+                  <span
+                    style={
+                      isActive
+                        ? { backgroundColor: `${accentColor}20`, color: accentColor }
+                        : undefined
+                    }
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                      isActive
+                        ? ''
+                        : isLightTheme
+                        ? 'bg-zinc-100'
+                        : 'bg-neutral-800/90'
+                    }`}
+                  >
+                    {renderModernMedia('xs', 'rounded-lg')}
+                  </span>
+                  <div className="kh-cat-text-wrap">
+                    <span className="kh-cat-label font-extrabold">{cat.label}</span>
+                  </div>
+                  {block.showCount && (
+                    <span
+                      style={isActive ? { backgroundColor: accentColor, color: '#09090b' } : undefined}
+                      className={`kh-cat-count-adaptive text-[10px] font-mono font-black px-1.5 py-0.5 rounded-md leading-none shrink-0 ${
+                        isActive
+                          ? ''
+                          : isLightTheme
+                          ? 'bg-zinc-100 text-zinc-600'
+                          : 'bg-neutral-800 text-neutral-400'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          }
+
+          // 7. CRISTAL FROSTED (Glass) — Translucent frosted glassmorphism with luminous active halo
+          if (block.style === 'frosted_glass') {
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => onSelectCategory(cat.id)}
+                style={{
+                  touchAction: 'manipulation',
+                  ...(isActive
+                    ? {
+                        borderColor: `${accentColor}bb`,
+                        boxShadow: `0 8px 24px -8px ${accentColor}75, inset 0 1px 0 rgba(255,255,255,0.28)`,
+                      }
+                    : {}),
+                }}
+                className={`${cardModeClass} group relative rounded-2xl border backdrop-blur-xl transition-all duration-200 active:scale-[0.97] ${
+                  isAutoCols ? 'px-3.5 py-2.5' : 'p-2.5'
+                } ${
+                  isActive
+                    ? isLightTheme
+                      ? 'bg-white/90 text-zinc-950'
+                      : 'bg-white/14 text-white'
+                    : isLightTheme
+                    ? 'bg-white/55 border-zinc-200/80 text-zinc-700 hover:bg-white/80'
+                    : 'bg-white/[0.04] border-white/10 text-neutral-300 hover:bg-white/[0.08]'
+                }`}
+              >
+                <div className="kh-cat-inner">
+                  <span
+                    style={
+                      isActive
+                        ? {
+                            backgroundColor: `${accentColor}26`,
+                            boxShadow: `0 0 12px -2px ${accentColor}70`,
+                          }
+                        : undefined
+                    }
+                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border ${
+                      isActive
+                        ? 'border-white/30'
+                        : isLightTheme
+                        ? 'bg-white/80 border-zinc-200/70'
+                        : 'bg-white/10 border-white/10'
+                    }`}
+                  >
+                    {renderModernMedia('xs', 'rounded-full')}
+                  </span>
+                  <div className="kh-cat-text-wrap">
+                    <span className="kh-cat-label font-extrabold">{cat.label}</span>
+                  </div>
+                  {block.showCount && (
+                    <span
+                      style={isActive ? { backgroundColor: accentColor, color: '#09090b' } : undefined}
+                      className={`kh-cat-count-adaptive text-[10px] font-mono font-black px-1.5 py-0.5 rounded-full leading-none shrink-0 ${
+                        isActive
+                          ? ''
+                          : isLightTheme
+                          ? 'bg-black/5 text-zinc-600'
+                          : 'bg-white/10 text-neutral-300'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          }
+
+          // 8. BLOQUE DÚO (Bold) — High-contrast brand block with solid active fill & tinted icon well
+          if (block.style === 'solid_duo') {
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => onSelectCategory(cat.id)}
+                data-auto-contrast={isActive && autoButtonContrast ? 'true' : 'false'}
+                style={{ touchAction: 'manipulation' }}
+                className={`${cardModeClass} group relative rounded-2xl border transition-all duration-200 active:scale-[0.97] ${
+                  isAutoCols ? 'px-3.5 py-2.5' : 'p-2.5'
+                } ${
+                  isActive
+                    ? 'store-btn-solid border-transparent shadow-md'
+                    : isLightTheme
+                    ? 'bg-zinc-100/90 border-zinc-200/70 text-zinc-800 hover:bg-zinc-200/70'
+                    : 'bg-neutral-900 border-neutral-800 text-neutral-200 hover:bg-neutral-800'
+                }`}
+              >
+                <div className="kh-cat-inner">
+                  <span
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-200 group-hover:scale-105 ${
+                      isActive
+                        ? 'bg-black/15'
+                        : isLightTheme
+                        ? 'bg-white shadow-2xs'
+                        : 'bg-neutral-800'
+                    }`}
+                  >
+                    {renderModernMedia('sm', 'rounded-lg')}
+                  </span>
+                  <div className="kh-cat-text-wrap">
+                    <span className="kh-cat-label font-black tracking-tight">{cat.label}</span>
+                  </div>
+                  {block.showCount && (
+                    <span
+                      className={`kh-cat-count-adaptive text-[10px] font-mono font-black px-1.5 py-0.5 rounded-lg leading-none shrink-0 ${
+                        isActive
+                          ? 'bg-black/20'
+                          : isLightTheme
+                          ? 'bg-white text-zinc-700'
+                          : 'bg-neutral-800 text-neutral-400'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          }
+
+          /* ================================================================
+             LEGACY STYLES (preserved for backward compatibility)
+             ================================================================ */
 
           if (block.style === 'cards') {
             return (

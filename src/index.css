@@ -1210,6 +1210,204 @@ dialog.store-responsive-drawer[open]::backdrop {
   }
 }
 
+/* ============================================================================
+   Column-Adaptive Category Widgets (Container Queries + Auto-Rail Safe Sizing)
+   ============================================================================ */
+.kh-cat-rail {
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.kh-cat-rail::-webkit-scrollbar {
+  display: none;
+}
+
+/* Grid mode: definite track width enables inline-size container queries */
+.kh-cat-cq {
+  container-type: inline-size;
+  min-inline-size: 0;
+  inline-size: 100%;
+}
+
+/* Auto flex-rail mode: no size containment so intrinsic max-content sizing works */
+.kh-cat-auto {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+
+.kh-cat-label {
+  font-size: 0.75rem;
+  line-height: 1.22;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  overflow: clip;
+  text-wrap: balance;
+  overflow-wrap: break-word;
+}
+
+@supports (font-size: 1cqi) {
+  .kh-cat-cq .kh-cat-label {
+    font-size: clamp(0.6875rem, 8.8cqi, 0.875rem);
+  }
+}
+
+.kh-cat-auto .kh-cat-label {
+  font-size: 0.8125rem;
+  line-height: 1.2;
+  display: block;
+  white-space: nowrap;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+}
+
+/* Adaptive layout: stacked by default in narrow columns, horizontal when wide or auto */
+.kh-cat-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.375rem;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.kh-cat-text-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.kh-cat-count-adaptive {
+  position: absolute;
+  inset-block-start: 0.375rem;
+  inset-inline-end: 0.375rem;
+}
+
+.kh-cat-pill-surface {
+  border-radius: 1rem;
+  padding: 0.625rem;
+}
+
+.kh-cat-rail-inner {
+  padding: 0.8rem 0.625rem 0.625rem;
+}
+
+.kh-cat-rail-bar {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  block-size: 3px;
+  inline-size: 100%;
+}
+
+.kh-cat-avatar-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.4rem;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.kh-cat-avatar-ring {
+  inline-size: 3rem;
+  block-size: 3rem;
+}
+
+@supports (inline-size: 1cqi) {
+  .kh-cat-cq .kh-cat-avatar-ring {
+    inline-size: clamp(2.5rem, 42cqi, 3.5rem);
+    block-size: clamp(2.5rem, 42cqi, 3.5rem);
+  }
+}
+
+/* Auto flex-rail items always use crisp horizontal layout (except float_avatar which stays medallion) */
+.kh-cat-auto .kh-cat-inner {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  text-align: left;
+  gap: 0.55rem;
+}
+.kh-cat-auto .kh-cat-text-wrap {
+  align-items: flex-start;
+}
+.kh-cat-auto .kh-cat-count-adaptive {
+  position: static;
+  margin-inline-start: 0.125rem;
+}
+.kh-cat-auto .kh-cat-pill-surface {
+  border-radius: 9999px;
+  padding: 0.5rem 0.95rem;
+}
+.kh-cat-auto .kh-cat-rail-inner {
+  padding: 0.625rem 0.85rem 0.625rem 1rem;
+}
+.kh-cat-auto .kh-cat-rail-bar {
+  inset-block: 0;
+  inset-inline-start: 0;
+  inset-inline-end: auto;
+  inline-size: 3.5px;
+  block-size: 100%;
+}
+
+/* Container-query breakpoints for Grid mode (1 to 8 columns) */
+@supports (container-type: inline-size) {
+  @container (min-width: 148px) {
+    .kh-cat-inner {
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      text-align: left;
+      gap: 0.625rem;
+    }
+    .kh-cat-text-wrap {
+      align-items: flex-start;
+      flex: 1 1 0%;
+    }
+    .kh-cat-count-adaptive {
+      position: static;
+      margin-inline-start: auto;
+    }
+    .kh-cat-rail-bar {
+      inset-block: 0;
+      inset-inline-start: 0;
+      inset-inline-end: auto;
+      inline-size: 3.5px;
+      block-size: 100%;
+    }
+    .kh-cat-rail-inner {
+      padding: 0.625rem 0.75rem 0.625rem 0.95rem;
+    }
+    .kh-cat-pill-surface {
+      border-radius: 9999px;
+      padding: 0.5rem 0.85rem;
+    }
+  }
+
+  @container (min-width: 192px) {
+    .kh-cat-avatar-inner {
+      flex-direction: row;
+      justify-content: flex-start;
+      text-align: left;
+      gap: 0.75rem;
+      padding: 0.5rem 0.75rem;
+    }
+    .kh-cat-avatar-ring {
+      inline-size: 2.75rem;
+      block-size: 2.75rem;
+    }
+  }
+}
+
 /* Storefront Footer container-aware grid so Builder Mobile/Tablet/PC previews render accurately */
 .kh-footer-grid {
   display: grid;
