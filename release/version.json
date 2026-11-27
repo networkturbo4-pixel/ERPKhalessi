@@ -1,8 +1,8 @@
 {
-  "buildId": "20261127021157",
-  "builtAt": "2026-11-27T02:11:57.103Z",
-  "commitSha": "805d3e2",
-  "message": "fix(seasonal,whatsapp): corregir React error #310 en SeasonalOverlay y ajustes de ventana 24h WhatsApp — release 20261126165014",
+  "buildId": "20261127022326",
+  "builtAt": "2026-11-27T02:23:26.309Z",
+  "commitSha": "a36d931",
+  "message": "feat(store): 8 nuevos estilos modernos y adaptables para categorias — release 20261127021157",
   "totalFiles": 127,
-  "manifestSha256": "e9f92f42293747b6994ebe68807ea0de6333af63ccf2a58d585f1756515adad7"
+  "manifestSha256": "3c8f7747823c2210e64e7fd8359034f02376793bd9ec40a6d75c5f6f9071b66f"
 }

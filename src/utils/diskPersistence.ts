@@ -295,6 +295,7 @@ const inFlightWrites = new Map<string, number>();
 const lastLocalWriteAt = new Map<string, number>();
 const failedSyncValues = new Map<string, { action: 'set'; value: string } | { action: 'remove' }>();
 const writeChains = new Map<string, Promise<void>>();
+const pendingDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 export function isInitialReconcileCompleted(): boolean {
   return initialReconcileCompleted;
@@ -312,24 +313,53 @@ function recordServerRevs(rawRevs: unknown): void {
 function mergePublicSettingsValue(remoteJson: string): string {
   try {
     const remote = JSON.parse(remoteJson);
-    if (!remote || !remote.__public) {
+    if (!remote || typeof remote !== 'object') return remoteJson;
+    const isPublic = Boolean(remote.__public);
+    if (!isPublic) {
       settingsHasUnhydratedSensitiveFields = false;
-      return remoteJson;
+    } else {
+      delete remote.__public;
     }
-    delete remote.__public;
-    const local = JSON.parse(memoryMirror.get(SETTINGS_KEY) ?? originalGetItemFn?.(SETTINGS_KEY) ?? '{}');
-    const localHasUsers = Array.isArray(local?.users) && local.users.length > 0 && !settingsHasUnhydratedSensitiveFields;
-    if (!localHasUsers) {
-      settingsHasUnhydratedSensitiveFields = true;
+    const localRaw = memoryMirror.get(SETTINGS_KEY) ?? originalGetItemFn?.(SETTINGS_KEY);
+    if (!localRaw) return isPublic ? JSON.stringify(remote) : remoteJson;
+    const local = JSON.parse(localRaw);
+    if (isPublic) {
+      const localHasUsers = Array.isArray(local?.users) && local.users.length > 0 && !settingsHasUnhydratedSensitiveFields;
+      if (!localHasUsers) {
+        settingsHasUnhydratedSensitiveFields = true;
+      }
     }
-    const merged = { ...local, ...remote };
+    const merged = isPublic ? { ...local, ...remote } : { ...remote };
+    // Preservar siempre el estado de vista local de cada dispositivo para evitar rebotes entre pestañas/equipos
     for (const k of ['activeTenantId', 'branchScope', 'activeTab']) {
-      if (local[k] !== undefined) merged[k] = local[k];
+      if (local?.[k] !== undefined) merged[k] = local[k];
     }
     return JSON.stringify(merged);
   } catch {
     return remoteJson;
   }
+}
+
+function mergeRemoteRbacValue(remoteJson: string): string {
+  try {
+    const remote = JSON.parse(remoteJson);
+    if (!remote || typeof remote !== 'object') return remoteJson;
+    const localRaw = memoryMirror.get(RBAC_KEY) ?? originalGetItemFn?.(RBAC_KEY);
+    if (!localRaw) return remoteJson;
+    const local = JSON.parse(localRaw);
+    if (local?.currentUser) {
+      return JSON.stringify({ ...remote, currentUser: local.currentUser });
+    }
+    return remoteJson;
+  } catch {
+    return remoteJson;
+  }
+}
+
+function normalizeIncomingRemoteValue(key: string, remoteJson: string): string {
+  if (key === SETTINGS_KEY) return mergePublicSettingsValue(remoteJson);
+  if (key === RBAC_KEY) return mergeRemoteRbacValue(remoteJson);
+  return remoteJson;
 }
 
 const offlineFlushOptions = {
@@ -565,10 +595,36 @@ function resolveAuthenticatedUserPin(): string {
 
 function enqueueServerSync(
   key: string,
-  op: { action: 'set'; value: string } | { action: 'remove' }
+  op: { action: 'set'; value: string } | { action: 'remove' },
+  skipDebounce = false
 ): void {
   if (!originalGetItemFn) return;
   lastLocalWriteAt.set(key, Date.now());
+
+  // Coalescer escrituras rápidas en todas las claves compartidas para no disparar 1 POST por tecla o arrastre
+  if (!skipDebounce && op.action === 'set') {
+    const existingTimer = pendingDebounceTimers.get(key);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+    const delayMs = key === ORDERS_KEY ? 80 : 380;
+    const timer = setTimeout(() => {
+      pendingDebounceTimers.delete(key);
+      const latest = memoryMirror.get(key);
+      if (typeof latest === 'string') {
+        enqueueServerSync(key, { action: 'set', value: latest }, true);
+      }
+    }, delayMs);
+    pendingDebounceTimers.set(key, timer);
+    return;
+  }
+
+  // Cancelar cualquier debounce pendiente de esta clave antes de persistir explícitamente
+  const pendingTimer = pendingDebounceTimers.get(key);
+  if (pendingTimer) {
+    clearTimeout(pendingTimer);
+    pendingDebounceTimers.delete(key);
+  }
   inFlightWrites.set(key, (inFlightWrites.get(key) || 0) + 1);
 
   const prevChain = writeChains.get(key) || Promise.resolve();
@@ -576,6 +632,11 @@ function enqueueServerSync(
     .catch(() => {})
     .then(async () => {
       try {
+        // Si una escritura local más reciente ya reemplazó este valor, omitir el envío obsoleto
+        if (op.action === 'set' && memoryMirror.get(key) !== op.value) {
+          return;
+        }
+
         const isPublicWritable = PUBLIC_WRITABLE_KEYS.has(key);
 
         // Solo intentar autenticación automática para claves administrativas cuando el operador está dentro del ERP
@@ -592,38 +653,38 @@ function enqueueServerSync(
         }
 
         if (op.action === 'set') {
-          const baseRev = serverRevisions.get(key);
-          const payloadObj: Record<string, unknown> = { data: op.value };
-          if (typeof baseRev === 'number') {
-            payloadObj.baseRev = baseRev;
-          }
-          const payloadBody = JSON.stringify(payloadObj);
-          const doPost = (includeAuth: boolean) =>
-            fetch(`/api/storage/${encodeURIComponent(key)}`, {
+          const buildPost = (includeAuth: boolean, revOverride?: number) => {
+            const baseRev = revOverride !== undefined ? revOverride : serverRevisions.get(key);
+            const payloadObj: Record<string, unknown> = { data: op.value };
+            if (typeof baseRev === 'number') {
+              payloadObj.baseRev = baseRev;
+            }
+            return fetch(`/api/storage/${encodeURIComponent(key)}`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 'x-client-id': CLIENT_ID,
                 ...(includeAuth ? getAuthHeaders() : {}),
               },
-              body: payloadBody,
+              body: JSON.stringify(payloadObj),
             });
+          };
 
-          let res = await doPost(true);
+          let res = await buildPost(true);
 
           if (res.status === 401) {
             originalRemoveItemFn?.(TOKEN_KEY);
             memoryMirror.delete(TOKEN_KEY);
             if (isPublicWritable) {
               // Reintentar inmediatamente sin token vencido para que el pedido jamás se pierda
-              res = await doPost(false);
+              res = await buildPost(false);
             } else if (
               originalGetItemFn?.('gastro_erp_auth_v1') === 'authenticated' &&
               isErpAdminSurface()
             ) {
               const activePin = resolveAuthenticatedUserPin();
               if (activePin && (await authenticateServer(activePin, true))) {
-                res = await doPost(true);
+                res = await buildPost(true);
               } else {
                 return;
               }
@@ -633,14 +694,45 @@ function enqueueServerSync(
           }
 
           if (res.status === 409) {
-            // El servidor tiene una revisión más nueva: conservar servidor y actualizar vista local
             const conflictJson = await res.json().catch(() => null);
-            failedSyncValues.delete(key);
-            if (conflictJson && typeof conflictJson.rev === 'number') {
-              serverRevisions.set(key, conflictJson.rev);
+            const freshRev =
+              conflictJson && typeof conflictJson.rev === 'number' && Number.isFinite(conflictJson.rev)
+                ? conflictJson.rev
+                : undefined;
+            if (freshRev !== undefined) {
+              serverRevisions.set(key, freshRev);
             }
+
+            // Si el operador autenticado del ERP acaba de editar cualquier clave y solo tenía un baseRev desfasado,
+            // reintentar UNA vez con el rev vigente para no perder su edición ni generar errores 409 en consola.
+            if (
+              freshRev !== undefined &&
+              (isErpAdminSurface() || isPublicWritable) &&
+              (Boolean(getServerToken()) || isPublicWritable) &&
+              memoryMirror.get(key) === op.value
+            ) {
+              const retryRes = await buildPost(true, freshRev);
+              if (retryRes.ok) {
+                const retryJson = await retryRes.json().catch(() => null);
+                if (typeof retryJson?.rev === 'number' && Number.isFinite(retryJson.rev)) {
+                  serverRevisions.set(key, retryJson.rev);
+                }
+                if (
+                  retryJson &&
+                  typeof retryJson.data === 'string' &&
+                  memoryMirror.get(key) === op.value
+                ) {
+                  applyRemoteUpdate(key, normalizeIncomingRemoteValue(key, retryJson.data), true);
+                }
+                failedSyncValues.delete(key);
+                return;
+              }
+            }
+
+            // En cualquier otro conflicto real: conservar servidor y actualizar vista local
+            failedSyncValues.delete(key);
             if (conflictJson && typeof conflictJson.data === 'string') {
-              const nextVal = key === SETTINGS_KEY ? mergePublicSettingsValue(conflictJson.data) : conflictJson.data;
+              const nextVal = normalizeIncomingRemoteValue(key, conflictJson.data);
               applyRemoteUpdate(key, nextVal, true);
             }
             console.warn(`[Storage] Conflict (409) on "${key}": preserved newer server data.`);
@@ -664,7 +756,7 @@ function enqueueServerSync(
             if (!isPublicWritable && onAdminSurface) {
               const activePin = resolveAuthenticatedUserPin();
               if (activePin && (await authenticateServer(activePin, true))) {
-                const retry = await doPost(true);
+                const retry = await buildPost(true);
                 const retryJson = retry.ok ? await retry.json().catch(() => null) : null;
                 if (retry.ok && !retryJson?.ignored) {
                   if (typeof retryJson?.rev === 'number' && Number.isFinite(retryJson.rev)) {
@@ -857,6 +949,12 @@ export async function forcePersistKeyToServer(
 
   const isPublicWritable = PUBLIC_WRITABLE_KEYS.has(key);
   lastLocalWriteAt.set(key, Date.now());
+  // Cancelar cualquier debounce pendiente de esta clave antes de persistir explícitamente
+  const pendingTimer = pendingDebounceTimers.get(key);
+  if (pendingTimer) {
+    clearTimeout(pendingTimer);
+    pendingDebounceTimers.delete(key);
+  }
   inFlightWrites.set(key, (inFlightWrites.get(key) || 0) + 1);
 
   let result: { ok: boolean; syncedToServer: boolean; reason?: string } = {
@@ -1029,9 +1127,9 @@ export async function initDiskPersistence(): Promise<void> {
 
       for (const [key, rawValue] of Object.entries(records)) {
         if (typeof rawValue !== 'string' || !isSharedKey(key)) continue;
-        const value = key === SETTINGS_KEY ? mergePublicSettingsValue(rawValue) : rawValue;
+        const value = normalizeIncomingRemoteValue(key, rawValue);
 
-        if ((inFlightWrites.get(key) || 0) > 0) continue;
+        if ((inFlightWrites.get(key) || 0) > 0 || pendingDebounceTimers.has(key)) continue;
         if (failedSyncValues.has(key)) continue;
         const isForced = forceKeys?.has(key) ?? false;
         const lastWriteTs = lastLocalWriteAt.get(key) || 0;
@@ -1070,7 +1168,7 @@ export async function initDiskPersistence(): Promise<void> {
 
   const fetchSingleKeyFromServer = async (key: string) => {
     if (!getServerToken() && !PUBLIC_READ_KEYS.has(key)) return;
-    if ((inFlightWrites.get(key) || 0) > 0 || failedSyncValues.has(key)) return;
+    if ((inFlightWrites.get(key) || 0) > 0 || pendingDebounceTimers.has(key) || failedSyncValues.has(key)) return;
     if (key !== 'kh_orders_list' && (lastLocalWriteAt.get(key) || 0) >= Date.now() - 2500) return;
     lastHash = '';
     try {
@@ -1087,7 +1185,7 @@ export async function initDiskPersistence(): Promise<void> {
         serverRevisions.set(key, body.rev);
       }
       if (body && typeof body.data === 'string') {
-        const nextVal = key === SETTINGS_KEY ? mergePublicSettingsValue(body.data) : body.data;
+        const nextVal = normalizeIncomingRemoteValue(key, body.data);
         applyRemoteUpdate(key, nextVal, true);
       }
     } catch {
@@ -1103,6 +1201,7 @@ export async function initDiskPersistence(): Promise<void> {
       // Jamás sobrescribir claves que tienen escrituras locales recientes o pendientes por sincronizar
       const hasPendingLocal =
         (inFlightWrites.get(k) || 0) > 0 ||
+        pendingDebounceTimers.has(k) ||
         failedSyncValues.has(k) ||
         now - (lastLocalWriteAt.get(k) || 0) < 10_000;
       if (!hasPendingLocal) {

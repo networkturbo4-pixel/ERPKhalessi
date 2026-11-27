@@ -2976,7 +2976,9 @@ export const StoreBuilderProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
-  // Persist immediately on any change
+  const hasMountedBuilderPersistRef = useRef(false);
+
+  // Persist immediately on any change (sin disparar escrituras en el montaje inicial ni rebotar eventos remotos)
   useEffect(() => {
     try {
       const snapshot: PersistedBuilderState = {
@@ -2989,6 +2991,12 @@ export const StoreBuilderProvider: React.FC<{ children: React.ReactNode }> = ({ 
         globalFooterId,
       };
       const serialized = JSON.stringify(snapshot);
+      if (!hasMountedBuilderPersistRef.current) {
+        hasMountedBuilderPersistRef.current = true;
+        lastPersistedJsonRef.current = serialized;
+        return;
+      }
+      if (lastPersistedJsonRef.current === serialized) return;
       lastPersistedJsonRef.current = serialized;
       lastLocalWriteAtRef.current = Date.now();
       localStorage.setItem(BUILDER_STORAGE_KEY, serialized);
@@ -3013,6 +3021,16 @@ export const StoreBuilderProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (Date.now() - lastLocalWriteAtRef.current < 1500) return;
       const fresh = loadPersistedBuilder();
       if (!fresh) return;
+      const nextSnapshot: PersistedBuilderState = {
+        activeTemplateId: fresh.activeTemplateId,
+        templates: fresh.templates,
+        customPages: Array.isArray(fresh.customPages) ? fresh.customPages : customPages,
+        headerTemplates: Array.isArray(fresh.headerTemplates) ? fresh.headerTemplates : headerTemplates,
+        globalHeaderId: fresh.globalHeaderId !== undefined ? fresh.globalHeaderId : globalHeaderId,
+        footerTemplates: Array.isArray(fresh.footerTemplates) ? fresh.footerTemplates : footerTemplates,
+        globalFooterId: fresh.globalFooterId !== undefined ? fresh.globalFooterId : globalFooterId,
+      };
+      lastPersistedJsonRef.current = JSON.stringify(nextSnapshot);
       setTemplates(fresh.templates);
       setActiveTemplateId(fresh.activeTemplateId);
       if (Array.isArray(fresh.customPages)) {

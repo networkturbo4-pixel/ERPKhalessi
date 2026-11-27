@@ -683,7 +683,10 @@ export const HRProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     });
   }, [users]);
 
-  // Persist HR state immediately when authenticated (or when public data already synced)
+  const hasMountedHrPersistRef = React.useRef(false);
+  const lastSerializedHrRef = React.useRef<string>('');
+
+  // Persist HR state immediately when authenticated (sin rebotar eventos remotos ni el montaje inicial)
   useEffect(() => {
     if (!isAuthenticated) return;
     try {
@@ -696,7 +699,15 @@ export const HRProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         jobPostings,
         jobApplications,
       };
-      localStorage.setItem(HR_STORAGE_KEY, JSON.stringify(payload));
+      const json = JSON.stringify(payload);
+      if (!hasMountedHrPersistRef.current) {
+        hasMountedHrPersistRef.current = true;
+        lastSerializedHrRef.current = json;
+        return;
+      }
+      if (lastSerializedHrRef.current === json) return;
+      lastSerializedHrRef.current = json;
+      localStorage.setItem(HR_STORAGE_KEY, json);
     } catch {
       // Ignore storage quota errors
     }
@@ -706,6 +717,7 @@ export const HRProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key !== HR_STORAGE_KEY) return;
+      if (e.newValue && e.newValue === lastSerializedHrRef.current) return;
       try {
         const raw = localStorage.getItem(HR_STORAGE_KEY);
         if (raw) {
@@ -722,6 +734,18 @@ export const HRProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
       }
       const fresh = loadPersistedHR();
       if (!fresh) return;
+      const normalizedPayload: PersistedHRData = {
+        profiles: fresh.profiles,
+        attendanceRecords: fresh.attendanceRecords,
+        weeklyShifts: fresh.weeklyShifts,
+        payrollMovements: fresh.payrollMovements,
+        securityPolicy: fresh.securityPolicy,
+        jobPostings: fresh.jobPostings || jobPostings,
+        jobApplications: fresh.jobApplications || jobApplications,
+      };
+      const nextJson = JSON.stringify(normalizedPayload);
+      if (nextJson === lastSerializedHrRef.current) return;
+      lastSerializedHrRef.current = nextJson;
       setProfiles(fresh.profiles);
       setAttendanceRecords(fresh.attendanceRecords);
       setWeeklyShifts(fresh.weeklyShifts);

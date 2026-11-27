@@ -452,10 +452,28 @@ export const RBACProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const initial = loadSavedRBAC();
   const [currentUser, setCurrentUser] = useState<User>(initial.currentUser);
   const [roles, setRoles] = useState<Role[]>(initial.roles);
+  const hasMountedRef = React.useRef(false);
+  const lastSerializedRolesRef = React.useRef<string>(JSON.stringify(initial.roles));
+  const lastSerializedUserIdRef = React.useRef<string>(initial.currentUser.id);
 
-  // Persist RBAC state across reloads immediately
+  // Persist RBAC state across reloads immediately (sin disparar POST redundante al montar o tras evento remoto)
   useEffect(() => {
     try {
+      const rolesJson = JSON.stringify(roles);
+      if (!hasMountedRef.current) {
+        hasMountedRef.current = true;
+        lastSerializedRolesRef.current = rolesJson;
+        lastSerializedUserIdRef.current = currentUser.id;
+        return;
+      }
+      if (
+        rolesJson === lastSerializedRolesRef.current &&
+        currentUser.id === lastSerializedUserIdRef.current
+      ) {
+        return;
+      }
+      lastSerializedRolesRef.current = rolesJson;
+      lastSerializedUserIdRef.current = currentUser.id;
       localStorage.setItem(RBAC_STORAGE_KEY, JSON.stringify({ roles, currentUser }));
     } catch {
       // Ignore storage quota errors
@@ -467,6 +485,9 @@ export const RBACProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const onStorage = (e: StorageEvent) => {
       if (e.key !== RBAC_STORAGE_KEY) return;
       const fresh = loadSavedRBAC();
+      const freshRolesJson = JSON.stringify(fresh.roles);
+      if (freshRolesJson === lastSerializedRolesRef.current) return;
+      lastSerializedRolesRef.current = freshRolesJson;
       setRoles(fresh.roles);
     };
     window.addEventListener('storage', onStorage);

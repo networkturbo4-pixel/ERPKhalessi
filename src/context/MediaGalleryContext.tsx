@@ -96,11 +96,21 @@ export const MediaGalleryProvider: React.FC<{ children: React.ReactNode }> = ({ 
   });
 
   const [isProcessing, setIsProcessing] = useState(false);
+  const hasMountedMediaRef = React.useRef(false);
+  const lastSerializedMediaRef = React.useRef<string>('');
 
   // Persist to localStorage safely with quota protection
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(mediaItems));
+      const json = JSON.stringify(mediaItems);
+      if (!hasMountedMediaRef.current) {
+        hasMountedMediaRef.current = true;
+        lastSerializedMediaRef.current = json;
+        return;
+      }
+      if (lastSerializedMediaRef.current === json) return;
+      lastSerializedMediaRef.current = json;
+      localStorage.setItem(STORAGE_KEY, json);
     } catch (err) {
       console.warn('MediaGallery: Error saving to localStorage (possible quota limit):', err);
     }
@@ -110,9 +120,11 @@ export const MediaGalleryProvider: React.FC<{ children: React.ReactNode }> = ({ 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY && e.newValue) {
+        if (e.newValue === lastSerializedMediaRef.current) return;
         try {
           const parsed = JSON.parse(e.newValue);
           if (Array.isArray(parsed) && parsed.length > 0) {
+            lastSerializedMediaRef.current = JSON.stringify(parsed);
             setMediaItems(parsed);
           }
         } catch {

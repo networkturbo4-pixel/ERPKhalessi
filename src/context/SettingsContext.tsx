@@ -1109,16 +1109,55 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     currentUserRef.current = currentUser;
   }, [currentUser]);
 
+  const activeTabRef = useRef<TabId>(activeTab);
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  const branchScopeRef = useRef<BranchViewScope>(branchScope);
+  useEffect(() => {
+    branchScopeRef.current = branchScope;
+  }, [branchScope]);
+
+  const activeTenantIdRef = useRef<string>(activeTenant.id);
+  useEffect(() => {
+    activeTenantIdRef.current = activeTenant.id;
+  }, [activeTenant.id]);
+
+  const isDirtyRef = useRef<boolean>(isDirty);
+  useEffect(() => {
+    isDirtyRef.current = isDirty;
+  }, [isDirty]);
+
   // Real-time cross-tab & cross-device sync via SSE StorageEvents
   useEffect(() => {
     const handleStorageSync = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY && e.newValue) {
         // Ignorar eventos que coincidan exactamente con la última serialización local
         if (e.newValue === lastSerializedPayloadRef.current) return;
-        lastSerializedPayloadRef.current = e.newValue;
+        // No pisar cambios en curso mientras el administrador está editando en Configuración
+        if (isDirtyRef.current) return;
 
         const loaded = normalizeLoadedState(e.newValue);
         if (!loaded) return;
+
+        const resolvedTenantId = loaded.tenants.some(t => t.id === activeTenantIdRef.current)
+          ? activeTenantIdRef.current
+          : loaded.activeTenantId;
+
+        // Memorizar la serialización con el estado de vista local (activeTab, branchScope, activeTenantId)
+        // para evitar que el useEffect de persistencia rebote inmediatamente un POST redundante al servidor.
+        lastSerializedPayloadRef.current = JSON.stringify({
+          customization: loaded.customization,
+          companyInfo: loaded.companyInfo,
+          tenants: loaded.tenants,
+          activeTenantId: resolvedTenantId,
+          branchScope: branchScopeRef.current,
+          users: loaded.users,
+          driveConfig: loaded.driveConfig,
+          geminiConfig: loaded.geminiConfig,
+          activeTab: activeTabRef.current,
+        });
 
         // Preservar igualdad referencial si el contenido no ha cambiado
         setCustomization(prev =>
