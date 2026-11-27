@@ -219,8 +219,10 @@ export const ProductLivePreviewModal: React.FC<ProductLivePreviewModalProps> = (
             </div>
           ) : (
             <div
-              className={`w-full overflow-y-auto rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-lg transition-[max-width] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] ${
-                viewport === 'mobile' ? 'max-w-[390px] my-auto max-h-full' : 'max-w-full'
+              className={`w-full overflow-y-auto transition-[max-width] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+                viewport === 'mobile'
+                  ? 'max-w-[390px] h-full max-h-[820px] my-auto rounded-[2rem] border-4 border-zinc-300 dark:border-zinc-700 shadow-2xl'
+                  : 'max-w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-lg'
               } ${isLightTheme ? 'bg-white' : 'bg-zinc-950'}`}
             >
               <StoreProductDetailPage
@@ -238,6 +240,7 @@ export const ProductLivePreviewModal: React.FC<ProductLivePreviewModalProps> = (
                 onOpenCart={() => {}}
                 onAddToCart={handleSimulatedAddToCart}
                 isPreview={true}
+                forceMobileLayout={viewport === 'mobile'}
                 previewTenantId={selectedTenantId || undefined}
               />
             </div>

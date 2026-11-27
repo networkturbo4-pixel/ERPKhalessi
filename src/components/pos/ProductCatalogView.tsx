@@ -2415,8 +2415,8 @@ export const ProductCatalogView: React.FC = () => {
 
           {/* 2-Column Clean Workspace */}
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 items-start">
-            {/* LEFT COLUMN: Compact Media + Identity + Pricing */}
-            <div className="xl:col-span-5 space-y-4">
+            {/* LEFT COLUMN: Compact Media + Identity + Pricing (Sticky while scrolling right options) */}
+            <div className="xl:col-span-5 space-y-4 xl:sticky xl:top-20 xl:self-start xl:max-h-[calc(100dvh-6rem)] xl:overflow-y-auto xl:pr-1">
               {/* Media Dropzone Card */}
               <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-xs space-y-3">
                 <div className="flex items-center justify-between gap-2">

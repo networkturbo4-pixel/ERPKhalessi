@@ -1,8 +1,8 @@
 {
-  "buildId": "20261127035853",
-  "builtAt": "2026-11-27T03:58:53.173Z",
-  "commitSha": "88b54d7",
-  "message": "fix(sync): eliminar bucles 409 y rebotes SSE en todos los modulos del sistema — release 20261127022326",
+  "buildId": "20261127043811",
+  "builtAt": "2026-11-27T04:38:11.737Z",
+  "commitSha": "adfea55",
+  "message": "feat(pos,qr): rediseno POS, plano arquitectonico 2D con pisos y carta QR en mesa — release 20261127035853",
   "totalFiles": 127,
-  "manifestSha256": "22003dd02e1f79e8b34210f57e71c71049261c74a5a3f4481600098f840905d9"
+  "manifestSha256": "db9d0d2fb4876f4ffac725268484667f2c49f6f4365dccfa60be73ba69accf1c"
 }

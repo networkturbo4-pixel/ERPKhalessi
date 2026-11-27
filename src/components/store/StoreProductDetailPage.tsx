@@ -55,6 +55,7 @@ interface StoreProductDetailPageProps {
   onOpenCart: () => void;
   onAddToCart: (item: OrderItem) => void;
   isPreview?: boolean;
+  forceMobileLayout?: boolean;
   previewTenantId?: string;
 }
 
@@ -72,6 +73,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
   onOpenCart,
   onAddToCart,
   isPreview = false,
+  forceMobileLayout = false,
   previewTenantId,
 }) => {
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -719,24 +721,26 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
   return (
     <div
       style={buttonVars}
-      className={`min-h-dvh w-full max-w-full overflow-x-clip flex flex-col pb-28 ${
+      className={`${isPreview ? 'min-h-full pb-0' : 'min-h-dvh pb-28'} w-full max-w-full overflow-x-clip flex flex-col ${
         isLightTheme ? 'bg-zinc-50 text-zinc-900' : 'bg-neutral-950 text-neutral-100'
       }`}
     >
       {/* App-Style Top Navigation Bar */}
       <div
-        className={`sticky top-0 z-30 border-b px-4 py-3 ${
+        className={`sticky top-0 z-30 border-b ${forceMobileLayout ? 'px-3 py-2.5' : 'px-4 py-3'} ${
           isLightTheme
             ? 'bg-white border-zinc-200 text-zinc-900 shadow-xs'
             : 'bg-neutral-950 border-neutral-800 text-neutral-100'
         }`}
       >
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
+        <div className="max-w-6xl mx-auto flex items-center justify-between gap-2">
           <button
             type="button"
             onClick={onBackToCatalog}
             style={{ touchAction: 'manipulation' }}
-            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs sm:text-sm font-bold border active:scale-[0.97] transition-transform whitespace-nowrap shrink-0 ${
+            className={`inline-flex items-center gap-1.5 ${
+              forceMobileLayout ? 'px-3 py-1.5 text-xs' : 'px-3.5 py-2 text-xs sm:text-sm'
+            } rounded-2xl font-bold border active:scale-[0.97] transition-transform whitespace-nowrap shrink-0 ${
               isLightTheme
                 ? 'bg-zinc-100 border-zinc-200 text-zinc-800 hover:bg-zinc-200'
                 : 'bg-neutral-900 border-neutral-800 text-neutral-100 hover:bg-neutral-800'
@@ -747,24 +751,26 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
           </button>
 
           <div className="flex items-center gap-2">
-            <span
-              className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold border ${
-                isLightTheme
-                  ? 'bg-zinc-100 border-zinc-200 text-zinc-700'
-                  : 'bg-neutral-900 border-neutral-800 text-neutral-300'
-              }`}
-            >
-              <MapPin className="w-3.5 h-3.5" style={{ color: accentColor }} />
-              <span className="truncate max-w-[160px]">{branchName}</span>
-              <span>•</span>
-              <span>{orderMode === 'delivery' ? 'Delivery' : 'Para Llevar'}</span>
-            </span>
+            {!forceMobileLayout && (
+              <span
+                className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold border ${
+                  isLightTheme
+                    ? 'bg-zinc-100 border-zinc-200 text-zinc-700'
+                    : 'bg-neutral-900 border-neutral-800 text-neutral-300'
+                }`}
+              >
+                <MapPin className="w-3.5 h-3.5" style={{ color: accentColor }} />
+                <span className="truncate max-w-[160px]">{branchName}</span>
+                <span>•</span>
+                <span>{orderMode === 'delivery' ? 'Delivery' : 'Para Llevar'}</span>
+              </span>
+            )}
 
             <button
               type="button"
               onClick={onOpenCart}
               data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-              className="store-btn-solid relative inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-black active:scale-[0.97] transition-transform whitespace-nowrap shrink-0 shadow-xs"
+              className="store-btn-solid relative inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-2xl text-xs font-black active:scale-[0.97] transition-transform whitespace-nowrap shrink-0 shadow-xs"
             >
               <ShoppingBag className="w-4 h-4" />
               <span>Pedido</span>
@@ -778,11 +784,21 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
         </div>
       </div>
 
-      {/* Product Slug Page Main Content (Image 5 Modern 2-Column Layout) */}
-      <main className="max-w-6xl mx-auto w-full px-4 sm:px-6 pt-6 pb-8 flex-1">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column: Product Hero Image (Sticky, Category Tag + Share Button) */}
-          <div className="lg:col-span-5 lg:sticky lg:top-20 space-y-4">
+      {/* Product Slug Page Main Content (Image 5 Modern 2-Column Layout, 1-Column in Mobile Preview) */}
+      <main
+        className={`max-w-6xl mx-auto w-full flex-1 ${
+          forceMobileLayout ? 'px-3.5 pt-4 pb-6' : 'px-4 sm:px-6 pt-6 pb-8'
+        }`}
+      >
+        <div
+          className={
+            forceMobileLayout
+              ? 'grid grid-cols-1 gap-5 items-start'
+              : 'grid grid-cols-1 lg:grid-cols-12 gap-8 items-start'
+          }
+        >
+          {/* Left Column: Product Hero Image (Sticky on Desktop, Full-Width Top on Mobile) */}
+          <div className={forceMobileLayout ? 'space-y-3' : 'lg:col-span-5 lg:sticky lg:top-20 space-y-4'}>
             <div
               className={`relative rounded-3xl overflow-hidden border aspect-square shadow-sm ${
                 isLightTheme
@@ -861,7 +877,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
           </div>
 
           {/* Right Column: Category Tag, Title, Price Box, Ingredients & Option Accordions */}
-          <div className="lg:col-span-7 space-y-4">
+          <div className={forceMobileLayout ? 'space-y-4' : 'lg:col-span-7 space-y-4'}>
             {/* Category Tag & SKU */}
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <span
@@ -891,7 +907,9 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
               id="detail-heading"
               ref={headingRef}
               tabIndex={-1}
-              className={`text-2xl sm:text-3xl font-black tracking-tight focus:outline-none ${
+              className={`${
+                forceMobileLayout ? 'text-xl' : 'text-2xl sm:text-3xl'
+              } font-black tracking-tight focus:outline-none ${
                 isLightTheme ? 'text-zinc-950' : 'text-white'
               }`}
             >
@@ -2437,18 +2455,28 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
         </div>
       </main>
 
-      {/* Fixed Mobile-App Bottom Action Bar */}
+      {/* Fixed (or Sticky inside Preview) Mobile-App Bottom Action Bar */}
       <div
-        className={`fixed bottom-0 left-0 right-0 z-40 border-t safe-bottom-bar px-3 sm:px-6 py-2.5 sm:py-3 ${
+        className={`${
+          isPreview ? 'sticky bottom-0 z-30' : 'fixed bottom-0 left-0 right-0 z-40'
+        } border-t safe-bottom-bar ${
+          forceMobileLayout ? 'px-3 py-2.5' : 'px-3 sm:px-6 py-2.5 sm:py-3'
+        } ${
           isLightTheme
             ? 'bg-white border-zinc-200 shadow-[0_-8px_24px_rgba(0,0,0,0.06)]'
             : 'bg-neutral-950 border-neutral-800 shadow-[0_-8px_28px_rgba(0,0,0,0.6)]'
         }`}
       >
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-2.5 sm:gap-4">
+        <div
+          className={`max-w-6xl mx-auto flex items-center justify-between ${
+            forceMobileLayout ? 'gap-2' : 'gap-2.5 sm:gap-4'
+          }`}
+        >
           {/* App-Style Stepper */}
           <div
-            className={`flex items-center rounded-2xl border p-0.5 sm:p-1 shrink-0 ${
+            className={`flex items-center rounded-2xl border ${
+              forceMobileLayout ? 'p-0.5' : 'p-0.5 sm:p-1'
+            } shrink-0 ${
               isLightTheme
                 ? 'bg-zinc-100 border-zinc-200'
                 : 'bg-neutral-900 border-neutral-800'
@@ -2460,12 +2488,16 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
               disabled={quantity <= 1}
               onClick={() => setQuantity(q => Math.max(1, q - 1))}
               style={{ touchAction: 'manipulation' }}
-              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center disabled:opacity-30 active:scale-90 transition-transform"
+              className={`${
+                forceMobileLayout ? 'w-8 h-8' : 'w-8 h-8 sm:w-10 sm:h-10'
+              } rounded-xl flex items-center justify-center disabled:opacity-30 active:scale-90 transition-transform`}
             >
-              <Minus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <Minus className={forceMobileLayout ? 'w-3.5 h-3.5' : 'w-3.5 h-3.5 sm:w-4 sm:h-4'} />
             </button>
             <span
-              className={`w-6 sm:w-8 text-center font-black text-sm sm:text-base ${
+              className={`${
+                forceMobileLayout ? 'w-6 text-sm' : 'w-6 sm:w-8 text-sm sm:text-base'
+              } text-center font-black ${
                 isLightTheme ? 'text-zinc-950' : 'text-white'
               }`}
             >
@@ -2476,7 +2508,9 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
               aria-label="Aumentar cantidad"
               onClick={() => setQuantity(q => q + 1)}
               style={{ touchAction: 'manipulation' }}
-              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center active:scale-90 transition-transform"
+              className={`${
+                forceMobileLayout ? 'w-8 h-8' : 'w-8 h-8 sm:w-10 sm:h-10'
+              } rounded-xl flex items-center justify-center active:scale-90 transition-transform`}
             >
               <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
