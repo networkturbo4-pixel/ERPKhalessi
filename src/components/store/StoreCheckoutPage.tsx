@@ -133,6 +133,7 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
 
   // Quick Auth Modal State
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isEditingContact, setIsEditingContact] = useState(false);
 
   // QR Table Quick Points Lookup (Nombre, DNI o Celular)
   const [pointsLookupQuery, setPointsLookupQuery] = useState('');
@@ -212,22 +213,22 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
   const [deliveryReference, setDeliveryReference] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
 
-  // Payment Selection & Enabled Methods
+  // Payment Selection & Enabled Methods (respects system-configured checkoutPaymentMethods for both Web and QR Table)
   const hasWallets = (companyInfo.wallets || []).length > 0;
   const hasBankAccounts = (companyInfo.bankAccounts || []).length > 0;
-  const culqiEnabled =
-    isTableQrMode ||
-    ((companyInfo.checkoutPaymentMethods?.culqiEnabled ?? true) &&
-      (companyInfo.culqiConfig?.enabled ?? true));
+  const rawCulqiEnabled =
+    (companyInfo.checkoutPaymentMethods?.culqiEnabled ?? true) &&
+    (companyInfo.culqiConfig?.enabled ?? true);
   const walletsEnabled =
-    !isTableQrMode && hasWallets && (companyInfo.checkoutPaymentMethods?.walletsEnabled ?? true);
+    hasWallets && (companyInfo.checkoutPaymentMethods?.walletsEnabled ?? true);
   const bankTransferEnabled =
-    !isTableQrMode && hasBankAccounts && (companyInfo.checkoutPaymentMethods?.bankTransferEnabled ?? true);
+    hasBankAccounts && (companyInfo.checkoutPaymentMethods?.bankTransferEnabled ?? true);
   const cashEnabled =
-    !isTableQrMode &&
-    (companyInfo.checkoutPaymentMethods?.cashEnabled ??
-      companyInfo.culqiConfig?.allowCashFallback ??
-      true);
+    companyInfo.checkoutPaymentMethods?.cashEnabled ??
+    companyInfo.culqiConfig?.allowCashFallback ??
+    true;
+  const culqiEnabled =
+    rawCulqiEnabled || (!walletsEnabled && !bankTransferEnabled && !cashEnabled);
 
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(() => {
     if (culqiEnabled) return 'culqi';
@@ -603,16 +604,16 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
             }`}
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Volver a la Tienda</span>
+            <span>{isTableQrMode ? 'Volver a la Carta' : 'Volver a la Tienda'}</span>
           </button>
 
-          {/* Brand Logo & Title */}
-          <div className="flex items-center gap-3">
+          {/* Brand Logo & Title / Branch + Table in QR Mode */}
+          <div className="flex items-center gap-2.5 min-w-0">
             {headerLogoUrl ? (
               <img
                 src={headerLogoUrl}
                 alt={companyInfo.commercialName || customization.appName || 'Logo'}
-                className="h-8 sm:h-9 w-auto max-w-[140px] sm:max-w-[180px] object-contain"
+                className="h-7 sm:h-9 w-auto max-w-[96px] sm:max-w-[160px] object-contain shrink-0"
               />
             ) : (
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-red-600 to-rose-700 flex flex-col items-center justify-center text-white shrink-0 shadow-sm">
@@ -620,9 +621,21 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
                 <span className="text-[5px] font-bold tracking-tighter opacity-90">GASTRO</span>
               </div>
             )}
-            <span className="font-black text-sm sm:text-base tracking-tight hidden sm:inline">
-              Finalizar Pedido
-            </span>
+            {isTableQrMode && qrTableContext ? (
+              <div className="min-w-0 flex flex-col leading-tight">
+                <span className="font-black text-xs sm:text-sm tracking-tight truncate">
+                  {activeTenant.name.replace(/^Gastro\s*-\s*/i, '')}
+                </span>
+                <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-extrabold text-amber-600 dark:text-amber-400 truncate">
+                  <QrCode className="w-3 h-3 shrink-0" />
+                  <span>{qrTableContext.tableName}</span>
+                </span>
+              </div>
+            ) : (
+              <span className="font-black text-sm sm:text-base tracking-tight hidden sm:inline">
+                Finalizar Pedido
+              </span>
+            )}
           </div>
 
           {/* Trust Badge */}
@@ -847,80 +860,250 @@ export const StoreCheckoutPage: React.FC<StoreCheckoutPageProps> = ({
 
             {/* Step 2: Datos de Contacto */}
             <div className={`p-5 rounded-3xl border shadow-sm ${isLightTheme ? 'bg-white border-zinc-200' : 'bg-neutral-900 border-neutral-800'}`}>
-              <div className="flex items-center gap-2 pb-3 border-b border-zinc-200 dark:border-neutral-800 mb-4">
-                <div className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center font-black text-xs">
-                  2
+              <div className="flex items-center justify-between gap-2 pb-3 border-b border-zinc-200 dark:border-neutral-800 mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center font-black text-xs">
+                    2
+                  </div>
+                  <h3 className="font-black text-sm sm:text-base">Datos de Contacto</h3>
                 </div>
-                <h3 className="font-black text-sm sm:text-base">Datos de Contacto</h3>
+                {currentCustomer && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingContact((v) => !v)}
+                    className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline whitespace-nowrap shrink-0"
+                  >
+                    {isEditingContact ? 'Listo' : 'Editar datos'}
+                  </button>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="checkout-customer-name" className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
-                    Nombre y Apellidos *
-                  </label>
-                  <div className="relative">
-                    <User className="w-4 h-4 absolute left-3 top-3 text-zinc-400" />
-                    <input
-                      id="checkout-customer-name"
-                      name="name"
-                      type="text"
-                      autoComplete="name"
-                      required
-                      placeholder="Tu nombre completo"
-                      value={customerName}
-                      onChange={e => setCustomerName(e.target.value)}
-                      className={`w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition-all ${
-                        isLightTheme ? 'bg-zinc-50 border-zinc-200 text-zinc-900' : 'bg-neutral-950 border-neutral-800 text-white'
-                      }`}
-                    />
+              {currentCustomer ? (
+                <div className="space-y-4">
+                  <div
+                    className={`p-3.5 rounded-2xl border flex items-center justify-between gap-3 ${
+                      isLightTheme
+                        ? 'bg-emerald-50/70 border-emerald-200'
+                        : 'bg-emerald-950/20 border-emerald-800/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-emerald-600 text-white font-black text-xs flex items-center justify-center shrink-0">
+                        {currentCustomer.fullName
+                          .split(' ')
+                          .slice(0, 2)
+                          .map((w) => w[0])
+                          .join('')
+                          .toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Sesión activa
+                          </span>
+                        </div>
+                        <p className="text-xs sm:text-sm font-black truncate">
+                          {customerName || currentCustomer.fullName}
+                        </p>
+                        <p className={`text-[11px] truncate ${isLightTheme ? 'text-zinc-600' : 'text-neutral-400'}`}>
+                          {customerPhone || currentCustomer.phone}
+                          {(customerEmail || currentCustomer.email)
+                            ? ` · ${customerEmail || currentCustomer.email}`
+                            : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/40 px-2.5 py-1 rounded-full text-[11px] whitespace-nowrap shrink-0">
+                      ⭐ {currentCustomer.points || 0} pts
+                    </span>
                   </div>
-                </div>
 
-                <div>
-                  <label htmlFor="checkout-customer-phone" className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
-                    Teléfono Celular / WhatsApp *
-                  </label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 absolute left-3 top-3 text-zinc-400" />
-                    <input
-                      id="checkout-customer-phone"
-                      name="tel"
-                      type="tel"
-                      inputMode="tel"
-                      autoComplete="tel"
-                      required
-                      placeholder="987 654 321"
-                      value={customerPhone}
-                      onChange={e => setCustomerPhone(e.target.value)}
-                      className={`w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition-all ${
-                        isLightTheme ? 'bg-zinc-50 border-zinc-200 text-zinc-900' : 'bg-neutral-950 border-neutral-800 text-white'
-                      }`}
-                    />
-                  </div>
-                </div>
+                  {isEditingContact && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                      <div>
+                        <label htmlFor="checkout-customer-name" className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
+                          Nombre y Apellidos *
+                        </label>
+                        <div className="relative">
+                          <User className="w-4 h-4 absolute left-3 top-3 text-zinc-400" />
+                          <input
+                            id="checkout-customer-name"
+                            name="name"
+                            type="text"
+                            autoComplete="name"
+                            required
+                            placeholder="Tu nombre completo"
+                            value={customerName}
+                            onChange={e => setCustomerName(e.target.value)}
+                            className={`w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition-all ${
+                              isLightTheme ? 'bg-zinc-50 border-zinc-200 text-zinc-900' : 'bg-neutral-950 border-neutral-800 text-white'
+                            }`}
+                          />
+                        </div>
+                      </div>
 
-                <div className="sm:col-span-2">
-                  <label htmlFor="checkout-customer-email" className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
-                    Correo Electrónico (Opcional para recibo)
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 absolute left-3 top-3 text-zinc-400" />
-                    <input
-                      id="checkout-customer-email"
-                      name="email"
-                      type="email"
-                      autoComplete="email"
-                      placeholder="tu-correo@ejemplo.com"
-                      value={customerEmail}
-                      onChange={e => setCustomerEmail(e.target.value)}
-                      className={`w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition-all ${
-                        isLightTheme ? 'bg-zinc-50 border-zinc-200 text-zinc-900' : 'bg-neutral-950 border-neutral-800 text-white'
-                      }`}
-                    />
+                      <div>
+                        <label htmlFor="checkout-customer-phone" className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
+                          Teléfono Celular / WhatsApp *
+                        </label>
+                        <div className="relative">
+                          <Phone className="w-4 h-4 absolute left-3 top-3 text-zinc-400" />
+                          <input
+                            id="checkout-customer-phone"
+                            name="tel"
+                            type="tel"
+                            inputMode="tel"
+                            autoComplete="tel"
+                            required
+                            placeholder="987 654 321"
+                            value={customerPhone}
+                            onChange={e => setCustomerPhone(e.target.value)}
+                            className={`w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition-all ${
+                              isLightTheme ? 'bg-zinc-50 border-zinc-200 text-zinc-900' : 'bg-neutral-950 border-neutral-800 text-white'
+                            }`}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label htmlFor="checkout-customer-email" className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
+                          Correo Electrónico (Opcional para recibo)
+                        </label>
+                        <div className="relative">
+                          <Mail className="w-4 h-4 absolute left-3 top-3 text-zinc-400" />
+                          <input
+                            id="checkout-customer-email"
+                            name="email"
+                            type="email"
+                            autoComplete="email"
+                            placeholder="tu-correo@ejemplo.com"
+                            value={customerEmail}
+                            onChange={e => setCustomerEmail(e.target.value)}
+                            className={`w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition-all ${
+                              isLightTheme ? 'bg-zinc-50 border-zinc-200 text-zinc-900' : 'bg-neutral-950 border-neutral-800 text-white'
+                            }`}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Session detection prompt: Sign in or Register */}
+                  <div
+                    className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                      isLightTheme
+                        ? 'bg-amber-50/70 border-amber-200'
+                        : 'bg-amber-950/20 border-amber-800/50'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-black text-zinc-900 dark:text-white">
+                        No tienes sesión iniciada
+                      </p>
+                      <p className="text-[11px] text-zinc-600 dark:text-zinc-400 mt-0.5">
+                        Inicia sesión o regístrate para autocompletar tus datos y sumar puntos.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthModalTab('login');
+                          setIsAuthModalOpen(true);
+                        }}
+                        className={`px-3 py-2 rounded-xl border text-xs font-bold transition-colors whitespace-nowrap shrink-0 ${
+                          isLightTheme
+                            ? 'bg-white border-zinc-300 text-zinc-800 hover:bg-zinc-100'
+                            : 'bg-neutral-900 border-neutral-700 text-neutral-200 hover:bg-neutral-800'
+                        }`}
+                      >
+                        Iniciar Sesión
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthModalTab('signup');
+                          setIsAuthModalOpen(true);
+                        }}
+                        style={{ backgroundColor: accentColor }}
+                        className="px-3.5 py-2 rounded-xl text-white text-xs font-black shadow-xs hover:brightness-110 transition-all whitespace-nowrap shrink-0"
+                      >
+                        Registrarse
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="checkout-customer-name" className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
+                        Nombre y Apellidos *
+                      </label>
+                      <div className="relative">
+                        <User className="w-4 h-4 absolute left-3 top-3 text-zinc-400" />
+                        <input
+                          id="checkout-customer-name"
+                          name="name"
+                          type="text"
+                          autoComplete="name"
+                          required
+                          placeholder="Tu nombre completo"
+                          value={customerName}
+                          onChange={e => setCustomerName(e.target.value)}
+                          className={`w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition-all ${
+                            isLightTheme ? 'bg-zinc-50 border-zinc-200 text-zinc-900' : 'bg-neutral-950 border-neutral-800 text-white'
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label htmlFor="checkout-customer-phone" className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
+                        Teléfono Celular / WhatsApp *
+                      </label>
+                      <div className="relative">
+                        <Phone className="w-4 h-4 absolute left-3 top-3 text-zinc-400" />
+                        <input
+                          id="checkout-customer-phone"
+                          name="tel"
+                          type="tel"
+                          inputMode="tel"
+                          autoComplete="tel"
+                          required
+                          placeholder="987 654 321"
+                          value={customerPhone}
+                          onChange={e => setCustomerPhone(e.target.value)}
+                          className={`w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition-all ${
+                            isLightTheme ? 'bg-zinc-50 border-zinc-200 text-zinc-900' : 'bg-neutral-950 border-neutral-800 text-white'
+                          }`}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label htmlFor="checkout-customer-email" className="text-xs font-bold text-zinc-700 dark:text-zinc-300 block mb-1">
+                        Correo Electrónico (Opcional para recibo)
+                      </label>
+                      <div className="relative">
+                        <Mail className="w-4 h-4 absolute left-3 top-3 text-zinc-400" />
+                        <input
+                          id="checkout-customer-email"
+                          name="email"
+                          type="email"
+                          autoComplete="email"
+                          placeholder="tu-correo@ejemplo.com"
+                          value={customerEmail}
+                          onChange={e => setCustomerEmail(e.target.value)}
+                          className={`w-full pl-9 pr-3 py-2.5 text-xs rounded-xl border focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition-all ${
+                            isLightTheme ? 'bg-zinc-50 border-zinc-200 text-zinc-900' : 'bg-neutral-950 border-neutral-800 text-white'
+                          }`}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Step 3: Método de Pago */}

@@ -1,5 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { Order, PaymentMethod, RestaurantTable, TableReservation } from '../../types/catalog';
+import {
+  Order,
+  PaymentMethod,
+  InvoiceDocumentType,
+  RestaurantTable,
+  TableReservation,
+} from '../../types/catalog';
+import { lookupRucFacturalo } from '../../utils/facturaloApi';
 import {
   X,
   Plus,
@@ -12,7 +19,20 @@ import {
   CreditCard,
   Banknote,
   Smartphone,
+  FileCheck2,
+  Loader2,
+  Printer,
 } from 'lucide-react';
+
+export interface TableCollectPayload {
+  method: PaymentMethod;
+  cashReceived?: number;
+  changeAmount?: number;
+  invoiceType: InvoiceDocumentType;
+  invoiceDocument?: string;
+  invoiceBusinessName?: string;
+  invoiceFiscalAddress?: string;
+}
 
 interface TableOperationsModalProps {
   isOpen: boolean;
@@ -25,7 +45,8 @@ interface TableOperationsModalProps {
   onToggleBillRequested: (table: RestaurantTable, requested: boolean) => void;
   onTransferOrMerge: (orderId: string, targetTable: RestaurantTable) => void;
   onSplitByItems: (orderId: string, itemIds: string[], method: PaymentMethod) => void;
-  onCollectFullTable: (order: Order, method: PaymentMethod) => void;
+  onCollectFullTable: (order: Order, method: PaymentMethod, details?: TableCollectPayload) => void;
+  onPrintPreBill?: (order: Order) => void;
   onSaveReservation: (table: RestaurantTable, reservation: TableReservation | null) => void;
 }
 
@@ -50,6 +71,7 @@ export const TableOperationsModal: React.FC<TableOperationsModalProps> = ({
   onTransferOrMerge,
   onSplitByItems,
   onCollectFullTable,
+  onPrintPreBill,
   onSaveReservation,
 }) => {
   const [tab, setTab] = useState<ModalTab>('cuenta');
@@ -58,7 +80,28 @@ export const TableOperationsModal: React.FC<TableOperationsModalProps> = ({
   const [equalWays, setEqualWays] = useState<number>(2);
   const [equalPaidCount, setEqualPaidCount] = useState<number>(0);
   const [payMethod, setPayMethod] = useState<PaymentMethod>('efectivo');
+  const [cashReceivedInput, setCashReceivedInput] = useState<string>('');
+  const [invoiceDocType, setInvoiceDocType] = useState<InvoiceDocumentType>('boleta_simple');
+  const [invoiceDocNumber, setInvoiceDocNumber] = useState<string>('');
+  const [invoiceBusinessName, setInvoiceBusinessName] = useState<string>('');
+  const [invoiceFiscalAddress, setInvoiceFiscalAddress] = useState<string>('');
+  const [isLookingUpRuc, setIsLookingUpRuc] = useState<boolean>(false);
   const [targetTableId, setTargetTableId] = useState<string>('');
+
+  const handleLookupRuc = async () => {
+    const clean = invoiceDocNumber.replace(/\D/g, '');
+    if (clean.length !== 11) return;
+    setIsLookingUpRuc(true);
+    try {
+      const res = await lookupRucFacturalo(clean);
+      if (res.success) {
+        setInvoiceBusinessName(res.razonSocial);
+        setInvoiceFiscalAddress(res.direccion);
+      }
+    } finally {
+      setIsLookingUpRuc(false);
+    }
+  };
 
   // Reservation state (when table has no active order)
   const [resName, setResName] = useState(table?.reservation?.customerName || '');
@@ -319,9 +362,9 @@ export const TableOperationsModal: React.FC<TableOperationsModalProps> = ({
                 ))}
               </div>
 
-              <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-2.5">
+              <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 space-y-3">
                 <p className="text-[11px] font-bold uppercase text-zinc-500">
-                  Método de cobro rápido (Cuenta completa)
+                  Método de Pago
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {PAYMENT_OPTIONS.map((pm) => (
@@ -329,7 +372,7 @@ export const TableOperationsModal: React.FC<TableOperationsModalProps> = ({
                       key={pm.id}
                       type="button"
                       onClick={() => setPayMethod(pm.id)}
-                      className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 ${
+                      className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 transition-colors ${
                         payMethod === pm.id
                           ? 'border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
                           : 'border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300'
@@ -339,6 +382,127 @@ export const TableOperationsModal: React.FC<TableOperationsModalProps> = ({
                       <span>{pm.label}</span>
                     </button>
                   ))}
+                </div>
+
+                {payMethod === 'efectivo' && (
+                  <div className="pt-2 border-t border-zinc-200/70 dark:border-zinc-800 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+                        Efectivo recibido (S/):
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        value={cashReceivedInput}
+                        onChange={(e) => setCashReceivedInput(e.target.value)}
+                        placeholder={activeOrder.total.toFixed(2)}
+                        className="w-28 px-2.5 py-1.5 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs font-mono font-bold tabular-nums text-right text-zinc-900 dark:text-white"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {[20, 50, 100, 200].map((bill) => (
+                          <button
+                            key={bill}
+                            type="button"
+                            onClick={() => setCashReceivedInput(String(bill))}
+                            className="px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-[11px] font-mono font-bold text-zinc-700 dark:text-zinc-300 hover:border-amber-500"
+                          >
+                            S/{bill}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => setCashReceivedInput(activeOrder.total.toFixed(2))}
+                          className="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-[11px] font-bold text-emerald-700 dark:text-emerald-300"
+                        >
+                          Exacto
+                        </button>
+                      </div>
+                      {cashReceivedInput.trim() !== '' && (
+                        <span className="text-xs font-mono font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                          Vuelto: S/ {Math.max(0, (Number(cashReceivedInput) || 0) - activeOrder.total).toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Comprobante SUNAT inside Modal */}
+                <div className="pt-2.5 border-t border-zinc-200/70 dark:border-zinc-800 space-y-2">
+                  <span className="text-[11px] font-bold uppercase text-zinc-500 flex items-center gap-1.5">
+                    <FileCheck2 className="w-3.5 h-3.5 text-amber-500" />
+                    Comprobante SUNAT
+                  </span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'boleta_simple' as const, label: 'Ticket' },
+                      { id: 'boleta_dni' as const, label: 'Boleta DNI' },
+                      { id: 'factura_ruc' as const, label: 'Factura RUC' },
+                    ].map((docOpt) => (
+                      <button
+                        key={docOpt.id}
+                        type="button"
+                        onClick={() => setInvoiceDocType(docOpt.id)}
+                        className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-colors whitespace-nowrap shrink-0 ${
+                          invoiceDocType === docOpt.id
+                            ? 'border-amber-500 bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                            : 'border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400'
+                        }`}
+                      >
+                        {docOpt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {invoiceDocType === 'boleta_dni' && (
+                    <input
+                      type="text"
+                      maxLength={8}
+                      value={invoiceDocNumber}
+                      onChange={(e) => setInvoiceDocNumber(e.target.value.replace(/\D/g, ''))}
+                      placeholder="DNI del cliente (8 dígitos)"
+                      className="w-full px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs font-mono text-zinc-900 dark:text-white"
+                    />
+                  )}
+
+                  {invoiceDocType === 'factura_ruc' && (
+                    <div className="space-y-2 pt-1">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          maxLength={11}
+                          value={invoiceDocNumber}
+                          onChange={(e) => setInvoiceDocNumber(e.target.value.replace(/\D/g, ''))}
+                          placeholder="RUC (11 dígitos)"
+                          className="flex-1 px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs font-mono font-bold text-zinc-900 dark:text-white"
+                        />
+                        <button
+                          type="button"
+                          disabled={isLookingUpRuc}
+                          onClick={() => void handleLookupRuc()}
+                          className="px-3.5 py-2 rounded-xl bg-amber-500 text-zinc-950 text-xs font-bold whitespace-nowrap shrink-0 flex items-center gap-1"
+                        >
+                          {isLookingUpRuc ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Consultar RUC'}
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        value={invoiceBusinessName}
+                        onChange={(e) => setInvoiceBusinessName(e.target.value)}
+                        placeholder="Razón Social *"
+                        className="w-full px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-white"
+                      />
+                      <input
+                        type="text"
+                        value={invoiceFiscalAddress}
+                        onChange={(e) => setInvoiceFiscalAddress(e.target.value)}
+                        placeholder="Dirección Fiscal (opcional)"
+                        className="w-full px-3 py-2 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-white"
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </>
@@ -562,11 +726,37 @@ export const TableOperationsModal: React.FC<TableOperationsModalProps> = ({
                 >
                   {table.billRequested ? 'Cuenta Pedida ✓' : 'Pedir Cuenta'}
                 </button>
+                {onPrintPreBill && (
+                  <button
+                    type="button"
+                    onClick={() => onPrintPreBill(activeOrder)}
+                    className="px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-bold text-zinc-800 dark:text-zinc-100 hover:bg-zinc-100 flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                  >
+                    <Printer className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Pre-cuenta</span>
+                  </button>
+                )}
               </div>
               <button
                 type="button"
                 onClick={() => {
-                  onCollectFullTable(activeOrder, payMethod);
+                  const received =
+                    payMethod === 'efectivo' && cashReceivedInput.trim() !== ''
+                      ? Number(cashReceivedInput)
+                      : activeOrder.total;
+                  const change =
+                    payMethod === 'efectivo'
+                      ? Math.max(0, Number((received - activeOrder.total).toFixed(2)))
+                      : 0;
+                  onCollectFullTable(activeOrder, payMethod, {
+                    method: payMethod,
+                    cashReceived: received,
+                    changeAmount: change,
+                    invoiceType: invoiceDocType,
+                    invoiceDocument: invoiceDocNumber.trim() || undefined,
+                    invoiceBusinessName: invoiceBusinessName.trim() || undefined,
+                    invoiceFiscalAddress: invoiceFiscalAddress.trim() || undefined,
+                  });
                   onClose();
                 }}
                 className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5 whitespace-nowrap shrink-0"

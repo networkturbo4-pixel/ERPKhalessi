@@ -48,11 +48,12 @@ export const KitchenKDSView: React.FC = () => {
         ).length
       : 0;
 
-  // Retener pedidos con enlace de pago online Culqi pendiente hasta que la pasarela confirme el pago
+  // Retener pedidos con enlace de pago online Culqi pendiente y pedidos QR de mesa hasta que el pago sea confirmado
   const isAwaitingOnlinePayment = (o: Order) =>
     o.paymentStatus === 'pendiente' &&
-    o.paymentMethod === 'culqi' &&
-    Boolean(o.deliveryReference?.includes('Bandeja Omnicanal') || o.channel === 'online');
+    ((o.paymentMethod === 'culqi' &&
+      Boolean(o.deliveryReference?.includes('Bandeja Omnicanal') || o.channel === 'online')) ||
+      (o.channel === 'online' && Boolean(o.tableId || o.tableNumber)));
 
   const awaitingPaymentCount = branchOrders.filter(
     (o) => o.status === 'recibido' && isAwaitingOnlinePayment(o)

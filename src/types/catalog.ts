@@ -335,6 +335,34 @@ export interface RestaurantTable {
   orderIndex: number;
   billRequested?: boolean;
   reservation?: TableReservation | null;
+  /** Coordenadas porcentuales (0-100) en el plano arquitectónico 2D */
+  x?: number;
+  y?: number;
+  rotation?: number;
+}
+
+export type FloorFixtureType =
+  | 'entrance'
+  | 'exit'
+  | 'restroom'
+  | 'bar'
+  | 'kitchen'
+  | 'cashier'
+  | 'wall';
+
+export interface FloorPlanFixture {
+  id: string;
+  tenantId: string;
+  zone: string;
+  type: FloorFixtureType;
+  label: string;
+  /** Coordenadas porcentuales (0-100) del centro en el lienzo 2D */
+  x: number;
+  y: number;
+  /** Tamaño relativo en el plano: 'sm' | 'md' | 'lg' | 'xl' */
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  /** Rotación en grados: 0, 90, 180, 270 */
+  rotation?: number;
 }
 
 export interface Customer {

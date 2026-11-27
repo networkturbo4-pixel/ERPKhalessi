@@ -1,8 +1,8 @@
 {
-  "buildId": "20261127022326",
-  "builtAt": "2026-11-27T02:23:26.309Z",
-  "commitSha": "a36d931",
-  "message": "feat(store): 8 nuevos estilos modernos y adaptables para categorias — release 20261127021157",
+  "buildId": "20261127035853",
+  "builtAt": "2026-11-27T03:58:53.173Z",
+  "commitSha": "88b54d7",
+  "message": "fix(sync): eliminar bucles 409 y rebotes SSE en todos los modulos del sistema — release 20261127022326",
   "totalFiles": 127,
-  "manifestSha256": "3c8f7747823c2210e64e7fd8359034f02376793bd9ec40a6d75c5f6f9071b66f"
+  "manifestSha256": "22003dd02e1f79e8b34210f57e71c71049261c74a5a3f4481600098f840905d9"
 }

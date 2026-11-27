@@ -43,6 +43,7 @@ interface ProductCustomizerModalProps {
   onClose: () => void;
   onAddToCart: (item: OrderItem) => void;
   mode?: 'storefront' | 'pos';
+  previewTenantId?: string;
 }
 
 const getNestedKey = (choiceId: string, nestId: string) => `${choiceId}::${nestId}`;
@@ -61,13 +62,14 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
   onClose,
   onAddToCart,
   mode = 'storefront',
+  previewTenantId,
 }) => {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const notesId = useId();
   const { products: catalogProducts } = useOrderCatalog();
   const { activeTenant } = useSettings();
-  const activeTenantId = activeTenant?.id;
+  const activeTenantId = previewTenantId ?? activeTenant?.id;
 
   const isHalfAndHalf = product?.productType === 'half_and_half';
   const isApparel = product?.productType === 'apparel';

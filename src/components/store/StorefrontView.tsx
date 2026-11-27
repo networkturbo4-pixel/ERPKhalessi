@@ -47,6 +47,7 @@ import { StorefrontThemeHeader } from './StorefrontThemeHeader';
 import { DynamicStorefrontHeader } from './DynamicStorefrontHeader';
 import { DynamicStorefrontFooter } from './DynamicStorefrontFooter';
 import { StoreAccountMenu } from './StoreAccountMenu';
+import { QRTableOrderingView } from './QRTableOrderingView';
 
 const loadStoreProductDetailPage = () =>
   import('./StoreProductDetailPage').then(m => ({ default: m.StoreProductDetailPage }));
@@ -853,6 +854,27 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
     [orderConfirmed, orders]
   );
   const [isCulqiSandboxOpen, setIsCulqiSandboxOpen] = useState(false);
+  const [culqiPendingCheckout, setCulqiPendingCheckout] = useState<{
+    amount?: number;
+    customerName?: string;
+    customerPhone?: string;
+    onSuccess?: (refId: string) => void;
+  } | null>(null);
+
+  const activeQrTableOrder = useMemo(() => {
+    if (!qrTableContext) return null;
+    return (
+      orders.find(
+        (o) =>
+          o.tenantId === qrTableContext.tenantId &&
+          (o.tableId === qrTableContext.tableId ||
+            (o.tableNumber &&
+              o.tableNumber.toLowerCase() === qrTableContext.tableName.toLowerCase())) &&
+          o.status !== 'entregado' &&
+          o.status !== 'cancelado'
+      ) || null
+    );
+  }, [orders, qrTableContext]);
 
   const hasOpenedLocationModal = useHasOpened(isLocationModalOpen);
   const hasOpenedProfile = useHasOpened(isProfileOpen);
@@ -1220,14 +1242,17 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
       customerName: customerName.trim(),
       customerPhone: customerPhone.trim(),
       customerEmail: currentCustomer?.email || undefined,
-      deliveryAddress:
-        deliveryType === 'delivery'
-          ? deliveryAddress.trim()
-          : `Para Llevar — Recojo en ${activeTenant.name}`,
+      deliveryAddress: qrTableContext
+        ? `Consumo en Mesa — ${qrTableContext.tableName} (${activeTenant.name})`
+        : deliveryType === 'delivery'
+        ? deliveryAddress.trim()
+        : `Para Llevar — Recojo en ${activeTenant.name}`,
       deliveryReference:
-        deliveryType === 'delivery' && deliveryReference.trim()
+        !qrTableContext && deliveryType === 'delivery' && deliveryReference.trim()
           ? deliveryReference.trim()
           : undefined,
+      tableId: qrTableContext?.tableId,
+      tableNumber: qrTableContext?.tableName,
       deliveryDistanceKm:
         deliveryType === 'delivery' && activeBranchDistanceKm !== null
           ? Number(activeBranchDistanceKm.toFixed(2))
@@ -1523,7 +1548,10 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
           }}
           initialRewardId={selectedRewardId}
           initialCouponCode={appliedCouponCode}
-          onOpenCulqiSandbox={() => setIsCulqiSandboxOpen(true)}
+          onOpenCulqiSandbox={(pendingData) => {
+            setCulqiPendingCheckout(pendingData || null);
+            setIsCulqiSandboxOpen(true);
+          }}
           customization={customization}
           companyInfo={companyInfo}
           isLightTheme={isLightTheme}
@@ -1531,6 +1559,33 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
           initialPointsAccountId={selectedCartPointsAccountId}
         />
       </Suspense>
+    ) : qrTableContext && !isBuilderOpen ? (
+      <QRTableOrderingView
+        qrTableContext={qrTableContext}
+        activeTenant={activeTenant}
+        products={products}
+        cartItems={cartItems}
+        cartSubtotal={cartSubtotal}
+        totalCartUnits={totalCartUnits}
+        activeTableOrder={activeQrTableOrder}
+        companyInfo={companyInfo}
+        customization={customization}
+        isLightTheme={isLightTheme}
+        accentColor={accentColor}
+        onAddQuickItem={(item) => {
+          addToCart(item);
+          dispatchToast('Agregado a tu mesa', `${item.productName} añadido al pedido.`, 'success');
+        }}
+        onUpdateCartQty={(itemId, delta) => updateCartItemQty(itemId, delta)}
+        onRemoveCartItem={(itemId) => removeFromCart(itemId)}
+        onClearCart={clearCart}
+        onProceedToCheckout={() => setIsCheckoutPageOpen(true)}
+        onOpenOrderTracker={(orderId) => {
+          if (orderId) setFocusedOrderId(orderId);
+          setIsOrdersOpen(true);
+        }}
+        onExitQrTableMode={handleExitQrTableMode}
+      />
     ) : activeSlugProduct && !isBuilderOpen ? (
       <Suspense fallback={<StorefrontSkeleton isLight={isLightTheme} accentColor={accentColor} />}>
         <StoreProductDetailPage
@@ -4300,15 +4355,24 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
           <StoreCulqiSandboxDialog
             isOpen={isCulqiSandboxOpen}
             storeTitle={companyInfo.commercialName || customization.appName}
-            amountSoles={resolvedPayableTotal}
+            amountSoles={culqiPendingCheckout?.amount ?? resolvedPayableTotal}
             customerEmail={currentCustomer?.email || ''}
             yapeEnabled={companyInfo.culqiConfig?.yapeEnabled ?? true}
             accentColor={buttonColor}
             autoButtonContrast={autoButtonContrast}
-            onCancel={() => setIsCulqiSandboxOpen(false)}
+            onCancel={() => {
+              setIsCulqiSandboxOpen(false);
+              setCulqiPendingCheckout(null);
+            }}
             onApproved={({ referenceId }) => {
               setIsCulqiSandboxOpen(false);
-              finalizeOrderCreation({ culqiReference: referenceId, forcePaid: true });
+              if (culqiPendingCheckout?.onSuccess) {
+                const cb = culqiPendingCheckout.onSuccess;
+                setCulqiPendingCheckout(null);
+                cb(referenceId);
+              } else {
+                finalizeOrderCreation({ culqiReference: referenceId, forcePaid: true });
+              }
             }}
           />
         </Suspense>
@@ -4346,23 +4410,41 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
 
               {/* Live Status Chip inside Confirmation Modal */}
               {liveConfirmedOrder && (
-                <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-[11px] font-black text-emerald-700 dark:text-emerald-300">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <div
+                  className={`mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-black ${
+                    liveConfirmedOrder.paymentStatus === 'pendiente' &&
+                    (liveConfirmedOrder.tableNumber || qrTableContext)
+                      ? 'bg-amber-500/15 border-amber-500/30 text-amber-700 dark:text-amber-300'
+                      : 'bg-emerald-500/15 border-emerald-500/30 text-emerald-700 dark:text-emerald-300'
+                  }`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full animate-pulse ${
+                      liveConfirmedOrder.paymentStatus === 'pendiente' &&
+                      (liveConfirmedOrder.tableNumber || qrTableContext)
+                        ? 'bg-amber-500'
+                        : 'bg-emerald-500'
+                    }`}
+                  />
                   <span>
-                    Estado en vivo:{' '}
-                    {liveConfirmedOrder.status === 'recibido'
-                      ? 'En cola de cocina'
-                      : liveConfirmedOrder.status === 'en_cocina'
-                      ? 'Preparando masa 👨‍🍳'
-                      : liveConfirmedOrder.status === 'en_horno'
-                      ? 'En horno a la leña 🔥'
-                      : liveConfirmedOrder.status === 'listo'
-                      ? '¡Listo para despacho! ✅'
-                      : liveConfirmedOrder.status === 'en_ruta'
-                      ? 'Motorizado en ruta 🛵'
-                      : liveConfirmedOrder.status === 'entregado'
-                      ? 'Entregado 🎉'
-                      : 'Cancelado'}
+                    {liveConfirmedOrder.paymentStatus === 'pendiente' &&
+                    (liveConfirmedOrder.tableNumber || qrTableContext)
+                      ? 'Esperando confirmación de pago en caja'
+                      : `Estado en vivo: ${
+                          liveConfirmedOrder.status === 'recibido'
+                            ? 'En cola de cocina'
+                            : liveConfirmedOrder.status === 'en_cocina'
+                            ? 'Preparando masa 👨‍🍳'
+                            : liveConfirmedOrder.status === 'en_horno'
+                            ? 'En horno a la leña 🔥'
+                            : liveConfirmedOrder.status === 'listo'
+                            ? '¡Listo para despacho! ✅'
+                            : liveConfirmedOrder.status === 'en_ruta'
+                            ? 'Motorizado en ruta 🛵'
+                            : liveConfirmedOrder.status === 'entregado'
+                            ? 'Entregado 🎉'
+                            : 'Cancelado'
+                        }`}
                   </span>
                 </div>
               )}
@@ -4374,9 +4456,18 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
               >
                 Modalidad:{' '}
                 <strong className={isLightTheme ? 'text-zinc-900' : 'text-neutral-200'}>
-                  {deliveryType === 'delivery' ? 'Delivery a Domicilio' : 'Retiro en Tienda'}
+                  {liveConfirmedOrder?.tableNumber || qrTableContext
+                    ? `Consumo en Mesa (${liveConfirmedOrder?.tableNumber || qrTableContext?.tableName})`
+                    : deliveryType === 'delivery'
+                    ? 'Delivery a Domicilio'
+                    : 'Retiro en Tienda'}
                 </strong>
-                . Sincronizado automáticamente con Cocina KDS y Delivery.
+                .{' '}
+                {liveConfirmedOrder?.tableNumber || qrTableContext
+                  ? liveConfirmedOrder?.paymentStatus === 'pendiente'
+                    ? 'Una vez confirmado el pago, ingresará a Cocina KDS y tu mesa pasará a atención en el POS.'
+                    : 'Sincronizado automáticamente con Cocina KDS y tu mesa ya figura ocupada en el POS.'
+                  : 'Sincronizado automáticamente con Cocina KDS y Delivery.'}
               </p>
             </div>
 
@@ -4425,34 +4516,6 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
                 )}
             </div>
 
-            {(() => {
-              const rawBranchWa = (activeTenant.operations?.whatsappNumber || '').replace(/\D/g, '');
-              const normalizedWaDigits = rawBranchWa
-                ? rawBranchWa.length === 9
-                  ? `51${rawBranchWa}`
-                  : rawBranchWa
-                : '';
-              const fallbackWa = companyInfo.socialLinks?.whatsapp || '';
-              const waBase = normalizedWaDigits
-                ? `https://wa.me/${normalizedWaDigits}`
-                : fallbackWa;
-              if (!waBase) return null;
-              const waMsg = encodeURIComponent(
-                `Hola ${activeTenant.name.replace('Gastro - ', '')}, acabo de realizar mi pedido ${orderConfirmed.orderNumber} por S/ ${orderConfirmed.total.toFixed(2)} (${deliveryType === 'delivery' ? 'Delivery' : 'Retiro en Tienda'}).`
-              );
-              const sep = waBase.includes('?') ? '&' : '?';
-              return (
-                <a
-                  href={`${waBase}${sep}text=${waMsg}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm transition-colors shadow-sm"
-                >
-                  <span>Enviar Pedido / Contactar por WhatsApp</span>
-                </a>
-              );
-            })()}
-
             <div className="flex flex-col sm:flex-row gap-2.5">
               <button
                 type="button"
@@ -4491,7 +4554,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
           6. MODERN FLOATING APP CAPSULE NAVBAR (Mobile & Touch Tablet < 1024px)
              Solid opaque pill with concentric Cart button & live status badges
           ===================================================================== */}
-      {!isBuilderOpen && !activeSlugProduct && !isCheckoutPageOpen && !isCheckoutModalOpen && (
+      {!isBuilderOpen && !activeSlugProduct && !isCheckoutPageOpen && !isCheckoutModalOpen && !qrTableContext && (
         <div className="fixed inset-x-0 bottom-0 z-30 lg:hidden px-3.5 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pt-1 pointer-events-none flex justify-center">
           <nav
             aria-label="Navegación principal móvil y tablet"
@@ -4695,7 +4758,7 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
           </div>
         )}
 
-        {(customization.enableOrderBot ?? true) && !isBuilderOpen && (
+        {(customization.enableOrderBot ?? true) && !isBuilderOpen && !qrTableContext && (
           <Suspense fallback={null}>
             <StoreOrderBotDrawer
               products={products}

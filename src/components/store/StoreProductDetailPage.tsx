@@ -54,6 +54,8 @@ interface StoreProductDetailPageProps {
   onBackToCatalog: () => void;
   onOpenCart: () => void;
   onAddToCart: (item: OrderItem) => void;
+  isPreview?: boolean;
+  previewTenantId?: string;
 }
 
 export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
@@ -69,12 +71,14 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
   onBackToCatalog,
   onOpenCart,
   onAddToCart,
+  isPreview = false,
+  previewTenantId,
 }) => {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const accordionContainerRef = useRef<HTMLDivElement>(null);
   const { products: catalogProducts } = useOrderCatalog();
   const { activeTenant } = useSettings();
-  const activeTenantId = activeTenant?.id;
+  const activeTenantId = previewTenantId ?? activeTenant?.id;
 
   const isHalfAndHalf = product.productType === 'half_and_half';
   const isApparel = product.productType === 'apparel';
@@ -276,9 +280,10 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
 
   // Route programmatic focus to heading on entry for accessibility after View Transition
   useEffect(() => {
+    if (isPreview) return;
     headingRef.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0 });
-  }, [product.id]);
+  }, [product.id, isPreview]);
 
   // Sync Expand/Collapse All button state when individual <details> toggle
   const syncExpandAllState = () => {
@@ -663,7 +668,9 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
     };
 
     onAddToCart(item);
-    onBackToCatalog();
+    if (!isPreview) {
+      onBackToCatalog();
+    }
   };
 
   const shareDisplayPrice = useMemo(() => {
@@ -674,6 +681,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
   }, [product, activeTenantId]);
 
   useEffect(() => {
+    if (isPreview) return;
     const slug = toProductSlug(product.name);
     const shareUrl = `${window.location.origin}/producto/${slug}`;
     updateDocumentShareMeta({
@@ -683,7 +691,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
       url: shareUrl,
       type: 'product',
     });
-  }, [product.id, product.name, shareDisplayPrice, product.description, product.imageUrl, branchName]);
+  }, [product.id, product.name, shareDisplayPrice, product.description, product.imageUrl, branchName, isPreview]);
 
   const handleShareProduct = async () => {
     const slug = toProductSlug(product.name);

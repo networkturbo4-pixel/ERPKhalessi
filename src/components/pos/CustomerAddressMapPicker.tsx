@@ -52,11 +52,29 @@ export const CustomerAddressMapPicker: React.FC<CustomerAddressMapPickerProps> =
   tariff,
   onConfirm,
 }) => {
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const customerMarkerRef = useRef<L.Marker | null>(null);
   const radiusCircleRef = useRef<L.Circle | null>(null);
   const titleId = useId();
+
+  // Sync native <dialog> into the browser's Top Layer so it always renders ABOVE parent <dialog> modals
+  useEffect(() => {
+    const dlg = dialogRef.current;
+    if (!dlg) return;
+    if (isOpen) {
+      if (!dlg.open) {
+        try {
+          dlg.showModal();
+        } catch {
+          // ignore if already open
+        }
+      }
+    } else if (dlg.open) {
+      dlg.close();
+    }
+  }, [isOpen]);
 
   // Current selected location [lat, lng] - defaults to initialCoords or offset from branch
   const [selectedCoords, setSelectedCoords] = useState<[number, number]>(() => {
@@ -258,27 +276,34 @@ export const CustomerAddressMapPicker: React.FC<CustomerAddressMapPickerProps> =
         void fetchAddressFromCoords(e.latlng.lat, e.latlng.lng);
       });
 
-      // Invalidate size once rendered
+      // Invalidate size once rendered in top-layer <dialog>
       setTimeout(() => {
         map.invalidateSize();
       }, 150);
     }
 
     return () => {
-      // Map cleanup
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+        customerMarkerRef.current = null;
+        radiusCircleRef.current = null;
+      }
     };
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
+    <dialog
+      ref={dialogRef}
       aria-labelledby={titleId}
-      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-xs animate-in fade-in duration-150"
+      onClose={onClose}
+      onClick={(e) => {
+        if (e.target === dialogRef.current) onClose();
+      }}
+      className="max-w-2xl w-full p-0 bg-transparent border-0 backdrop:bg-black/75 backdrop:backdrop-blur-xs"
     >
-      <div className="w-full max-w-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      {isOpen && (
+      <div className="w-full max-w-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] text-zinc-900 dark:text-zinc-100">
         {/* Header */}
         <div className="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between bg-zinc-50 dark:bg-zinc-950 shrink-0">
           <div className="flex items-center gap-2.5">
@@ -397,7 +422,7 @@ export const CustomerAddressMapPicker: React.FC<CustomerAddressMapPickerProps> =
                 onConfirm(selectedCoords, addressInput, distanceKm);
                 onClose();
               }}
-              className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black flex items-center gap-1.5 shadow-md shadow-amber-500/20 whitespace-nowrap active:scale-95 transition-all"
+              className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 text-xs font-black flex items-center gap-1.5 shadow-md shadow-amber-500/20 whitespace-nowrap shrink-0 active:scale-95 transition-all"
             >
               <Check className="w-4 h-4" />
               <span>Usar esta Ubicación</span>
@@ -405,6 +430,7 @@ export const CustomerAddressMapPicker: React.FC<CustomerAddressMapPickerProps> =
           </div>
         </div>
       </div>
-    </div>
+      )}
+    </dialog>
   );
 };

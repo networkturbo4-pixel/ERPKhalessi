@@ -33,9 +33,17 @@ import { useRBAC } from '../../context/RBACContext';
 import { useStoreCustomer } from '../../context/StoreCustomerContext';
 import { lookupPersonByDni } from '../../utils/dniLookup';
 import { ProductCustomizerModal } from '../common/ProductCustomizerModal';
+import { CategoryIconBadge } from '../common/CategoryIconBadge';
 import { ThermalTicketBuilderModal } from './ThermalTicketBuilderModal';
 import { TableOperationsModal } from './TableOperationsModal';
 import { TableQRModal } from './TableQRModal';
+import {
+  POSFloorPlanBuilder,
+  FLOOR_ZONES_STORAGE_KEY,
+  loadBranchFloorZonesRecord,
+  saveBranchFloorZonesRecord,
+  BranchFloorZonesRecord,
+} from './POSFloorPlanBuilder';
 import { OfflineStatusBadge } from '../common/OfflineStatusBadge';
 import { CustomerAddressMapPicker } from './CustomerAddressMapPicker';
 import { calculateDynamicDeliveryFee } from '../../utils/culqiCheckout';
@@ -97,6 +105,9 @@ import {
   Ban,
   FileCheck2,
   Split,
+  SlidersHorizontal,
+  MessageSquarePlus,
+  Map as MapIcon,
 } from 'lucide-react';
 import { useBenefits } from '../../context/BenefitsContext';
 import { PointReward } from '../../types/benefits';
@@ -179,6 +190,8 @@ export const POSView: React.FC<POSViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isThermalModalOpen, setIsThermalModalOpen] = useState(false);
+  const [editingNoteItemId, setEditingNoteItemId] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Cash Register State (persisted per branch and cashier)
   const cashRegisterStorageKey = `kh_cash_register_${activeTenant.id}_${currentUser.id}`;
@@ -290,10 +303,29 @@ export const POSView: React.FC<POSViewProps> = ({
 
   // Floor Tables & Builder State
   const branchTables = getTablesForTenant(activeTenant.id);
+  const [branchZonesRecord, setBranchZonesRecord] = useState<BranchFloorZonesRecord>(() =>
+    loadBranchFloorZonesRecord()
+  );
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === FLOOR_ZONES_STORAGE_KEY) {
+        setBranchZonesRecord(loadBranchFloorZonesRecord());
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   const [selectedTableId, setSelectedTableId] = useState<string>('');
   const [showFloorMap, setShowFloorMap] = useState<boolean>(true);
   const [isTableBuilderMode, setIsTableBuilderMode] = useState<boolean>(false);
-  const [activeZoneFilter, setActiveZoneFilter] = useState<string>('todas');
+  const [activeZoneFilter, setActiveZoneFilter] = useState<string>(() => {
+    const rec = loadBranchFloorZonesRecord();
+    const saved = rec.zonesByTenant?.[activeTenant.id];
+    if (saved && saved.length > 0) return saved[0];
+    return 'Salón Principal';
+  });
 
   // Table Editor Modal State
   const [isTableModalOpen, setIsTableModalOpen] = useState(false);
@@ -472,12 +504,34 @@ export const POSView: React.FC<POSViewProps> = ({
     }
   }, [isMobileCartOpen]);
 
-  // Zones for active branch
+  // Zones / Floors for active branch (persisted in kh_floor_zones_v1 so users can create, rename & delete floors)
   const availableZones = useMemo(() => {
-    const set = new Set<string>(['Salón Principal', 'Terraza', 'Barra']);
-    branchTables.forEach((t) => set.add(t.zone));
-    return Array.from(set);
-  }, [branchTables]);
+    const savedZones = branchZonesRecord.zonesByTenant?.[activeTenant.id];
+    if (Array.isArray(savedZones) && savedZones.length > 0) {
+      const merged = [...savedZones];
+      branchTables.forEach((t) => {
+        if (t.zone && !merged.includes(t.zone)) {
+          merged.push(t.zone);
+        }
+      });
+      return merged;
+    }
+    const initialSet = new Set<string>(['Salón Principal', 'Terraza', 'Barra']);
+    branchTables.forEach((t) => {
+      if (t.zone) initialSet.add(t.zone);
+    });
+    return Array.from(initialSet);
+  }, [branchZonesRecord, activeTenant.id, branchTables]);
+
+  useEffect(() => {
+    if (
+      activeZoneFilter !== 'todas' &&
+      availableZones.length > 0 &&
+      !availableZones.includes(activeZoneFilter)
+    ) {
+      setActiveZoneFilter(availableZones[0]);
+    }
+  }, [availableZones, activeZoneFilter]);
 
   const visibleTables = useMemo(() => {
     if (activeZoneFilter === 'todas') return branchTables;
@@ -492,7 +546,9 @@ export const POSView: React.FC<POSViewProps> = ({
         (o) =>
           o.tenantId === activeTenant.id &&
           (o.channel === 'pos-salon' ||
-            (o.channel === 'online' && Boolean(o.tableId || o.tableNumber))) &&
+            (o.channel === 'online' &&
+              Boolean(o.tableId || o.tableNumber) &&
+              o.paymentStatus === 'pagado')) &&
           o.status !== 'entregado' &&
           o.status !== 'cancelado'
       )
@@ -513,17 +569,43 @@ export const POSView: React.FC<POSViewProps> = ({
     return activeSalonOrdersByTable.size;
   }, [activeSalonOrdersByTable]);
 
-  // Filter catalog products
+  // Filter catalog products & count per category
+  const availableBranchProducts = useMemo(() => {
+    return products.filter((p) => resolveProductAvailability(p, activeTenant.id));
+  }, [products, activeTenant.id]);
+
+  const productCountByCategory = useMemo(() => {
+    const map: Record<string, number> = { todos: availableBranchProducts.length };
+    availableBranchProducts.forEach((p) => {
+      map[p.category] = (map[p.category] || 0) + 1;
+    });
+    return map;
+  }, [availableBranchProducts]);
+
   const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      if (!resolveProductAvailability(p, activeTenant.id)) return false;
+    const q = searchQuery.trim().toLowerCase();
+    return availableBranchProducts.filter((p) => {
       const matchesCategory = activeCategory === 'todos' || p.category === activeCategory;
       const matchesSearch =
-        p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.description.toLowerCase().includes(searchQuery.toLowerCase());
+        !q ||
+        p.name.toLowerCase().includes(q) ||
+        p.description.toLowerCase().includes(q);
       return matchesCategory && matchesSearch;
     });
-  }, [products, activeCategory, searchQuery, activeTenant.id]);
+  }, [availableBranchProducts, activeCategory, searchQuery]);
+
+  // Quick quantity lookup by productId in active comanda
+  const ticketQtyByProductId = useMemo(() => {
+    const map: Record<string, { qty: number; lastItemId: string }> = {};
+    ticketItems.forEach((it) => {
+      const cur = map[it.productId];
+      map[it.productId] = {
+        qty: (cur?.qty || 0) + it.quantity,
+        lastItemId: it.itemId,
+      };
+    });
+    return map;
+  }, [ticketItems]);
 
   const subtotal = ticketItems.reduce((acc, item) => acc + item.totalPrice, 0);
   const activeBranchTariff = activeTenant.operations?.deliveryTariff || companyInfo.deliveryTariff;
@@ -563,6 +645,61 @@ export const POSView: React.FC<POSViewProps> = ({
       }
       return [...prev, item];
     });
+  };
+
+  const handleUpdateItemNote = (itemId: string, noteText: string) => {
+    setTicketItems((prev) =>
+      prev.map((item) => (item.itemId === itemId ? { ...item, notes: noteText } : item))
+    );
+  };
+
+  // Direct 1-tap add for products without required sub-options (or when a specific size pill is tapped)
+  const handleQuickAddProduct = (
+    product: Product,
+    chosenSize?: Product['sizes'][number]
+  ) => {
+    const hasRequiredSubOptions =
+      Array.isArray(product.subOptions) && product.subOptions.some((g) => g.required);
+    if (hasRequiredSubOptions || product.productType === 'apparel') {
+      setSelectedProduct(product);
+      return;
+    }
+
+    const enabledSizes = product.hasSizes ? product.sizes.filter((s) => s.enabled) : [];
+    if (product.hasSizes && enabledSizes.length > 0 && !chosenSize) {
+      if (enabledSizes.length === 1) {
+        chosenSize = enabledSizes[0];
+      } else {
+        setSelectedProduct(product);
+        return;
+      }
+    }
+
+    const unitPrice = chosenSize
+      ? resolveSizePrice(product, chosenSize, activeTenant.id)
+      : resolveProductBasePrice(product, activeTenant.id);
+
+    const newItem: OrderItem = {
+      itemId: `pos-item-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      productId: product.id,
+      productName: product.name,
+      productImage: product.imageUrl,
+      size: chosenSize
+        ? {
+            id: chosenSize.id,
+            name: chosenSize.name,
+            slices: chosenSize.slices,
+            price: unitPrice,
+          }
+        : undefined,
+      subOptions: [],
+      extras: [],
+      unitPrice,
+      quantity: 1,
+      totalPrice: unitPrice,
+    };
+
+    handleAddItemToTicket(newItem);
   };
 
   const handleRemoveTicketItem = (itemId: string) => {
@@ -837,11 +974,94 @@ export const POSView: React.FC<POSViewProps> = ({
     setIsCustomerModalOpen(false);
   };
 
-  // Floor Table Builder handlers
+  // Floor Table Builder & Floor/Zone CRUD handlers
+  const persistTenantZones = (nextZones: string[]) => {
+    const cleaned = Array.from(new Set(nextZones.map((z) => z.trim()).filter(Boolean)));
+    const finalZones = cleaned.length > 0 ? cleaned : ['Salón Principal'];
+    setBranchZonesRecord((prev) => {
+      const next: BranchFloorZonesRecord = {
+        ...prev,
+        zonesByTenant: {
+          ...(prev.zonesByTenant || {}),
+          [activeTenant.id]: finalZones,
+        },
+      };
+      saveBranchFloorZonesRecord(next);
+      return next;
+    });
+    return finalZones;
+  };
+
+  const handleCreateZone = (zoneName: string) => {
+    const trimmed = zoneName.trim();
+    if (!trimmed) return;
+    const nextZones = persistTenantZones([...availableZones, trimmed]);
+    if (nextZones.includes(trimmed)) {
+      setActiveZoneFilter(trimmed);
+      dispatchToast(
+        'Piso / Ambiente Creado',
+        `Se creó "${trimmed}" en ${activeTenant.name}. Ahora puedes agregar mesas y detalles arquitectónicos.`,
+        'success'
+      );
+    }
+  };
+
+  const handleRenameZone = (oldName: string, newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === oldName) return;
+    const updatedList = availableZones.map((z) => (z === oldName ? trimmed : z));
+    persistTenantZones(updatedList);
+    branchTables.forEach((t) => {
+      if (t.zone === oldName) {
+        updateTable({ ...t, zone: trimmed });
+      }
+    });
+    setActiveZoneFilter(trimmed);
+    dispatchToast(
+      'Piso / Ambiente Actualizado',
+      `"${oldName}" ahora se llama "${trimmed}".`,
+      'success'
+    );
+  };
+
+  const handleDeleteZone = (zoneName: string) => {
+    if (availableZones.length <= 1) {
+      dispatchToast(
+        'Acción No Permitida',
+        'El local debe conservar al menos un piso o ambiente activo.',
+        'warning'
+      );
+      return;
+    }
+    const tablesInZone = branchTables.filter((t) => t.zone === zoneName);
+    const hasOccupied = tablesInZone.some((t) => activeSalonOrdersByTable.has(t.id));
+    if (hasOccupied) {
+      dispatchToast(
+        'Piso con Mesas en Consumo',
+        `No puedes eliminar "${zoneName}" mientras tenga mesas con comandas abiertas.`,
+        'warning'
+      );
+      return;
+    }
+    tablesInZone.forEach((t) => deleteTable(t.id));
+    const remaining = persistTenantZones(availableZones.filter((z) => z !== zoneName));
+    setActiveZoneFilter(remaining[0] || 'Salón Principal');
+    dispatchToast(
+      'Piso / Ambiente Eliminado',
+      `Se eliminó "${zoneName}" y sus elementos del plano de ${activeTenant.name}.`,
+      'info'
+    );
+  };
+
   const handleOpenCreateTable = () => {
     setEditingTable(null);
-    setTblName(`Mesa ${branchTables.length + 1}`);
-    setTblZone(activeZoneFilter === 'todas' ? 'Salón Principal' : activeZoneFilter);
+    const targetZone =
+      activeZoneFilter === 'todas'
+        ? availableZones[0] || 'Salón Principal'
+        : activeZoneFilter;
+    const zoneCount = branchTables.filter((t) => t.zone === targetZone).length;
+    setTblName(`Mesa ${zoneCount + 1}`);
+    setTblZone(targetZone);
     setTblCapacity(4);
     setTblShape('square');
     setIsTableModalOpen(true);
@@ -859,39 +1079,53 @@ export const POSView: React.FC<POSViewProps> = ({
   const handleSaveTableModal = (e: React.FormEvent) => {
     e.preventDefault();
     if (!tblName.trim()) return;
+    const chosenZone = tblZone.trim() || availableZones[0] || 'Salón Principal';
+    if (!availableZones.includes(chosenZone)) {
+      persistTenantZones([...availableZones, chosenZone]);
+    }
     if (editingTable) {
       updateTable({
         ...editingTable,
         name: tblName.trim(),
-        zone: tblZone.trim() || 'Salón Principal',
+        zone: chosenZone,
         capacity: tblCapacity,
         shape: tblShape,
       });
+      dispatchToast('Mesa Actualizada', `Se guardaron los cambios de ${tblName.trim()}.`, 'success');
     } else {
       const created = addTable({
         tenantId: activeTenant.id,
         name: tblName.trim(),
-        zone: tblZone.trim() || 'Salón Principal',
+        zone: chosenZone,
         capacity: tblCapacity,
         shape: tblShape,
       });
       setSelectedTableId(created.id);
+      setActiveZoneFilter(chosenZone);
+      dispatchToast('Mesa Creada', `Se agregó ${created.name} en ${chosenZone}.`, 'success');
     }
     setIsTableModalOpen(false);
   };
 
   const handleConfirmDeleteTable = (table: RestaurantTable) => {
-    if (branchTables.length <= 1) {
-      dispatchToast('Acción No Permitida', 'Debe existir al menos una mesa configurada en la sucursal.', 'warning');
+    if (activeSalonOrdersByTable.has(table.id)) {
+      dispatchToast(
+        'Mesa con Comanda Activa',
+        `Cobra o transfiere la cuenta de ${table.name} antes de eliminarla del plano.`,
+        'warning'
+      );
       return;
     }
     openNoticeModal({
       title: `¿Eliminar ${table.name}?`,
-      message: `Se retirará "${table.name}" (${table.zone}) del constructor de salón de ${activeTenant.name}.`,
+      message: `Se retirará "${table.name}" (${table.zone}) del plano de ${activeTenant.name}.`,
       tone: 'danger',
       confirmLabel: 'Eliminar Mesa',
       cancelLabel: 'Cancelar',
-      onConfirm: () => deleteTable(table.id),
+      onConfirm: () => {
+        deleteTable(table.id);
+        dispatchToast('Mesa Eliminada', `Se retiró ${table.name} de ${table.zone}.`, 'info');
+      },
     });
   };
 
@@ -1700,20 +1934,60 @@ export const POSView: React.FC<POSViewProps> = ({
                       </div>
                     )}
 
-                    {item.notes && (
-                      <div className="text-[10px] text-zinc-500 italic">"{item.notes}"</div>
+                    {item.notes && editingNoteItemId !== item.itemId && (
+                      <div className="text-[10px] text-amber-700 dark:text-amber-300 italic mt-0.5">
+                        Nota: "{item.notes}"
+                      </div>
                     )}
                   </div>
 
-                  <button
-                    type="button"
-                    aria-label={`Quitar ${item.productName}`}
-                    onClick={() => handleRemoveTicketItem(item.itemId)}
-                    className="h-8 w-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-red-600 hover:bg-red-500/10 shrink-0 transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-                  </button>
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <button
+                      type="button"
+                      title="Agregar nota de cocina"
+                      aria-label={`Nota para ${item.productName}`}
+                      onClick={() =>
+                        setEditingNoteItemId((prev) =>
+                          prev === item.itemId ? null : item.itemId
+                        )
+                      }
+                      className={`h-7 w-7 rounded-lg flex items-center justify-center transition-colors ${
+                        item.notes || editingNoteItemId === item.itemId
+                          ? 'text-amber-600 dark:text-amber-400 bg-amber-500/15'
+                          : 'text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                      }`}
+                    >
+                      <MessageSquarePlus className="w-3.5 h-3.5" aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Quitar ${item.productName}`}
+                      onClick={() => handleRemoveTicketItem(item.itemId)}
+                      className="h-7 w-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-red-600 hover:bg-red-500/10 shrink-0 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                    </button>
+                  </div>
                 </div>
+
+                {editingNoteItemId === item.itemId && (
+                  <div className="pt-1">
+                    <input
+                      type="text"
+                      value={item.notes || ''}
+                      onChange={(e) => handleUpdateItemNote(item.itemId, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          setEditingNoteItemId(null);
+                        }
+                      }}
+                      placeholder="Nota cocina (ej: sin cebolla, bien cocido)..."
+                      autoFocus
+                      className="w-full px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-amber-500/50 text-[11px] text-zinc-900 dark:text-white focus:outline-none"
+                    />
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between pt-1.5 border-t border-zinc-200/80 dark:border-zinc-800">
                   <div className="flex items-center bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg p-0.5">
@@ -1721,24 +1995,24 @@ export const POSView: React.FC<POSViewProps> = ({
                       type="button"
                       aria-label="Restar unidad"
                       onClick={() => handleUpdateItemQty(item.itemId, -1)}
-                      className="h-8 w-8 rounded-md flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                      className="h-7 w-7 rounded-md flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 active:scale-95 transition-transform"
                     >
                       <Minus className="w-3.5 h-3.5" aria-hidden="true" />
                     </button>
-                    <span className="w-7 text-center font-bold text-xs text-zinc-900 dark:text-white">
+                    <span className="w-7 text-center font-mono font-bold text-xs tabular-nums text-zinc-900 dark:text-white">
                       {item.quantity}
                     </span>
                     <button
                       type="button"
                       aria-label="Sumar unidad"
                       onClick={() => handleUpdateItemQty(item.itemId, 1)}
-                      className="h-8 w-8 rounded-md flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                      className="h-7 w-7 rounded-md flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 active:scale-95 transition-transform"
                     >
                       <Plus className="w-3.5 h-3.5" aria-hidden="true" />
                     </button>
                   </div>
 
-                  <span className="font-black text-xs text-amber-600 dark:text-amber-400">
+                  <span className="font-mono font-bold text-xs tabular-nums text-amber-600 dark:text-amber-400">
                     S/ {item.totalPrice.toFixed(2)}
                   </span>
                 </div>
@@ -1782,12 +2056,11 @@ export const POSView: React.FC<POSViewProps> = ({
         </button>
       </div>
 
-      {/* Tactile Payment Method Selector (Único vs Mixto + Vuelto) */}
-      {(() => {
-        const activeAmountDue =
-          currentTableActiveOrder && ticketItems.length === 0
-            ? currentTableActiveOrder.total
-            : total;
+      {/* Tactile Payment Method & SUNAT Selector:
+          Oculto en canal Salón (porque el cobro y comprobante se gestionan en el modal de la mesa)
+          y oculto cuando la comanda está vacía para mantener la barra lateral limpia. */}
+      {channel !== 'pos-salon' && ticketItems.length > 0 && (() => {
+        const activeAmountDue = total;
         const payOutcome = computePaymentOutcome(activeAmountDue);
 
         return (
@@ -2075,7 +2348,14 @@ export const POSView: React.FC<POSViewProps> = ({
 
               <button
                 type="button"
-                onClick={() => handlePayTableOrder(currentTableActiveOrder)}
+                onClick={() => {
+                  if (selectedTable) {
+                    setIsMobileCartOpen(false);
+                    setOpsTableId(selectedTable.id);
+                  } else {
+                    handlePayTableOrder(currentTableActiveOrder);
+                  }
+                }}
                 className="min-h-[46px] whitespace-nowrap shrink-0 py-2 px-3 rounded-xl font-black text-xs bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-md shadow-emerald-500/20 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5"
               >
                 <CheckCircle2 className="w-4 h-4" />
@@ -2154,41 +2434,100 @@ export const POSView: React.FC<POSViewProps> = ({
     <div className="touch-surface w-full max-w-[1600px] mx-auto space-y-4 pb-24 lg:pb-4">
       {/* Clean Unified Top Header (Hidden in dedicated Cashier Station mode to avoid double headers) */}
       {!hideHeader && (
-        <header className="p-3 sm:p-4 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <header className="p-3 sm:px-4 sm:py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 shadow-xs flex flex-wrap items-center justify-between gap-3">
           {/* Left: Branding & Branch & Cash badge */}
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 font-black text-xl overflow-hidden">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 font-bold text-lg overflow-hidden">
               {customization.favicon ? (
                 <img src={customization.favicon} alt="Favicon" className="w-7 h-7 object-contain rounded-lg" />
               ) : (
-                '🍕'
+                <UtensilsCrossed className="w-5 h-5 text-amber-500" />
               )}
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-base sm:text-lg font-black text-zinc-950 dark:text-white leading-tight">
+                <h2 className="text-base font-bold text-zinc-950 dark:text-white leading-tight">
                   Punto de Venta POS
                 </h2>
                 {cashSession.isOpen ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    Caja Abierta (S/ {cashSession.initialFloat.toFixed(2)})
-                  </span>
+                  <button
+                    type="button"
+                    onClick={handleCloseCashRegister}
+                    title="Clic para ver resumen o cerrar turno de caja"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/12 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 transition-colors"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="font-mono tabular-nums">Caja S/ {cashSession.initialFloat.toFixed(2)}</span>
+                  </button>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                  <button
+                    type="button"
+                    onClick={() => setIsAperturaModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/30 transition-colors"
+                  >
                     <Lock className="w-3 h-3" />
-                    Caja Cerrada
-                  </span>
+                    <span>Abrir Caja</span>
+                  </button>
                 )}
               </div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
-                Sucursal: <strong className="text-zinc-800 dark:text-zinc-200">{activeTenant.name}</strong>
+                Sucursal: <strong className="font-semibold text-zinc-800 dark:text-zinc-200">{activeTenant.name}</strong>
               </p>
             </div>
           </div>
 
-          {/* Right: Offline-First Sync Badge + User / Operator Popover Menu */}
+          {/* Center: Prominent 1-Tap Workspace Switcher (Carta vs Plano de Salón 2D) */}
+          <div className="inline-flex p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800/90 border border-zinc-200/80 dark:border-zinc-700/80">
+            <button
+              type="button"
+              onClick={() => setActivePosTab('carta')}
+              className={`min-h-[36px] px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors active:scale-[0.97] ${
+                activePosTab === 'carta'
+                  ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-2xs'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+              }`}
+            >
+              <UtensilsCrossed className="w-3.5 h-3.5 text-amber-500" />
+              <span>Carta</span>
+              <span className="text-[10px] font-mono tabular-nums px-1.5 py-0.2 rounded bg-zinc-200/70 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+                {availableBranchProducts.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActivePosTab('mesas')}
+              className={`min-h-[36px] px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-colors active:scale-[0.97] ${
+                activePosTab === 'mesas'
+                  ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-2xs'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+              }`}
+            >
+              <MapIcon className="w-3.5 h-3.5 text-amber-500" />
+              <span>Plano de Salón</span>
+              <span
+                className={`text-[10px] font-mono tabular-nums px-1.5 py-0.2 rounded font-bold ${
+                  occupiedTablesCount > 0
+                    ? 'bg-amber-500 text-zinc-950'
+                    : 'bg-zinc-200/70 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300'
+                }`}
+              >
+                {occupiedTablesCount}/{branchTables.length}
+              </span>
+            </button>
+          </div>
+
+          {/* Right: Quick Gasto + Offline Badge + User Popover */}
           <div className="flex items-center gap-2 justify-end">
+            <button
+              type="button"
+              onClick={handleOpenExpenseModal}
+              className="min-h-[38px] px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 hover:border-rose-500/50 text-zinc-700 dark:text-zinc-200 text-xs font-semibold hidden sm:flex items-center gap-1.5 transition-colors active:scale-[0.97]"
+              title="Registrar gasto rápido de caja chica"
+            >
+              <Wallet className="w-3.5 h-3.5 text-rose-500" />
+              <span>Gasto</span>
+            </button>
             <OfflineStatusBadge />
             <div className="relative" ref={userMenuRef}>
               <button
@@ -2382,132 +2721,237 @@ export const POSView: React.FC<POSViewProps> = ({
         </header>
       )}
 
+      {/* When hideHeader is true (inside MainLayout), still provide a compact 1-tap Carta / Plano 2D bar */}
+      {hideHeader && (
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 shadow-2xs">
+          <div className="inline-flex p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700">
+            <button
+              type="button"
+              onClick={() => setActivePosTab('carta')}
+              className={`min-h-[34px] px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors active:scale-[0.97] ${
+                activePosTab === 'carta'
+                  ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-2xs'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+              }`}
+            >
+              <UtensilsCrossed className="w-3.5 h-3.5 text-amber-500" />
+              <span>Carta ({availableBranchProducts.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActivePosTab('mesas')}
+              className={`min-h-[34px] px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors active:scale-[0.97] ${
+                activePosTab === 'mesas'
+                  ? 'bg-white dark:bg-zinc-900 text-zinc-950 dark:text-white shadow-2xs'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+              }`}
+            >
+              <MapIcon className="w-3.5 h-3.5 text-amber-500" />
+              <span>Plano de Salón ({occupiedTablesCount}/{branchTables.length})</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleOpenExpenseModal}
+              className="min-h-[34px] px-2.5 py-1 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-200 flex items-center gap-1 hover:border-rose-500/50 active:scale-[0.97]"
+            >
+              <Wallet className="w-3.5 h-3.5 text-rose-500" />
+              <span>Gasto</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsThermalModalOpen(true)}
+              className="min-h-[34px] px-2.5 py-1 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-semibold text-zinc-700 dark:text-zinc-200 flex items-center gap-1 hover:border-amber-500/50 active:scale-[0.97]"
+            >
+              <Printer className="w-3.5 h-3.5 text-amber-500" />
+              <span>Tickets</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Two-Area Workspace: Wide Left Area + Sticky Right Cart Sidebar */}
       <div className="flex flex-col lg:flex-row items-start gap-4">
-        {/* LEFT AREA: Either Floor Table Map OR Product Catalog based on activePosTab */}
-        <div className="flex-1 w-full min-w-0 space-y-4">
+        {/* LEFT AREA: Either 2D Architectural Floor Plan OR Product Catalog based on activePosTab */}
+        <div className="flex-1 w-full min-w-0 space-y-3.5">
           {activePosTab === 'mesas' ? (
-            /* Dedicated Floor Map View */
-            <section className="rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
-              <div className="px-5 py-4 bg-zinc-50/80 dark:bg-zinc-950/60 border-b border-zinc-200 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="p-2 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0">
-                    <LayoutGrid className="w-5 h-5" aria-hidden="true" />
+            <POSFloorPlanBuilder
+              tenantId={activeTenant.id}
+              tenantName={activeTenant.name}
+              branchTables={branchTables}
+              visibleTables={visibleTables}
+              availableZones={availableZones}
+              activeZoneFilter={activeZoneFilter}
+              onChangeZoneFilter={setActiveZoneFilter}
+              selectedTable={selectedTable}
+              activeSalonOrdersByTable={activeSalonOrdersByTable}
+              isBuilderMode={isTableBuilderMode}
+              onToggleBuilderMode={() => setIsTableBuilderMode((v) => !v)}
+              onSelectTable={(table, activeOrder) => {
+                setSelectedTableId(table.id);
+                setChannel('pos-salon');
+                if (activeOrder) {
+                  setOpsTableId(table.id);
+                } else {
+                  setActivePosTab('carta');
+                  dispatchToast(
+                    'Mesa Asignada',
+                    `${table.name} lista. Toca los productos para agregarlos a la comanda.`,
+                    'info'
+                  );
+                }
+              }}
+              onOpenTableOps={(tableId) => setOpsTableId(tableId)}
+              onOpenCreateTable={handleOpenCreateTable}
+              onOpenEditTable={handleOpenEditTable}
+              onConfirmDeleteTable={handleConfirmDeleteTable}
+              onUpdateTable={updateTable}
+              onMoveTableOrder={moveTableOrder}
+              onMarkOrderServed={(orderId) => updateOrderStatus(orderId, 'entregado')}
+              onOpenQrModal={(initialTableId) => {
+                setQrInitialTableId(initialTableId);
+                setIsQrModalOpen(true);
+              }}
+              onCreateZone={handleCreateZone}
+              onRenameZone={handleRenameZone}
+              onDeleteZone={handleDeleteZone}
+              openNoticeModal={openNoticeModal}
+              dispatchToast={dispatchToast}
+            />
+          ) : (
+            /* Dedicated Product Catalog View (Fast 1-Tap Add, Inline Sizes & Live Quantity Steppers) */
+            <>
+              {/* Tactile Search & Category Filter Bar */}
+              <div className="p-2.5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/90 dark:border-zinc-800 shadow-2xs space-y-2.5">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <div className="relative flex-1 min-w-0">
+                    <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" aria-hidden="true" />
+                    <input
+                      ref={searchInputRef}
+                      type="search"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Buscar producto por nombre o ingrediente..."
+                      aria-label="Buscar productos en el catálogo POS"
+                      className="min-h-[40px] w-full pl-10 pr-8 py-2 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:border-amber-500 transition-colors"
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        aria-label="Limpiar búsqueda"
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
-                  <div>
-                    <h3 className="text-sm sm:text-base font-black text-zinc-900 dark:text-white flex items-center gap-2">
-                      <span>Plano & Constructor de Mesas</span>
-                      {selectedTable && (
-                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500 text-zinc-950">
-                          Mesa Activa: {selectedTable.name}
-                        </span>
-                      )}
-                    </h3>
-                    <p className="text-xs text-zinc-400">
-                      Toca una mesa disponible para seleccionarla y abrir la carta, o toca una mesa ocupada para ver su cuenta.
-                    </p>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setQrInitialTableId(null);
-                      setIsQrModalOpen(true);
-                    }}
-                    className="min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:border-amber-500/60 hover:text-amber-600 dark:hover:text-amber-400 transition-all whitespace-nowrap shrink-0"
-                  >
-                    <QrCode className="w-3.5 h-3.5" aria-hidden="true" />
-                    <span>QRs de Mesas</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsTableBuilderMode((v) => !v)}
-                    className={`min-h-[38px] px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all whitespace-nowrap shrink-0 ${
-                      isTableBuilderMode
-                        ? 'bg-amber-500 text-zinc-950 border-amber-500 shadow-sm'
-                        : 'bg-white dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:border-amber-500/50'
-                    }`}
-                  >
-                    <Wrench className="w-3.5 h-3.5" aria-hidden="true" />
-                    <span>{isTableBuilderMode ? 'Salir de Constructor' : 'Modo Constructor'}</span>
-                  </button>
-
-                  {isTableBuilderMode && (
+                  {/* Quick Context Pill when Salon table is selected */}
+                  {channel === 'pos-salon' && selectedTable && (
                     <button
                       type="button"
-                      onClick={handleOpenCreateTable}
-                      className="min-h-[38px] px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-black flex items-center gap-1 whitespace-nowrap shrink-0 shadow-sm"
+                      onClick={() => setActivePosTab('mesas')}
+                      className="min-h-[40px] px-3 py-1.5 rounded-xl bg-amber-500/12 hover:bg-amber-500/20 border border-amber-500/30 text-xs font-semibold text-zinc-900 dark:text-white flex items-center justify-between sm:justify-center gap-2 shrink-0 transition-colors active:scale-[0.97]"
                     >
-                      <Plus className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>Nueva Mesa</span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-amber-500" />
+                        <span className="font-bold">{selectedTable.name}</span>
+                        <span className="text-zinc-500 dark:text-zinc-400 text-[11px]">
+                          ({selectedTable.zone})
+                        </span>
+                      </span>
+                      <span className="text-[11px] font-bold text-amber-700 dark:text-amber-300 underline">
+                        Plano 2D
+                      </span>
                     </button>
                   )}
                 </div>
-              </div>
 
-              <div className="p-4 sm:p-5 space-y-4">
-                {/* Zone Tabs & Legend */}
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-                    {['todas', ...availableZones].map((zone) => (
+                {/* Clean Category Filter Strip with CategoryIconBadge & Counts */}
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+                  {getStoreCategories().map((cat) => {
+                    const count = productCountByCategory[cat.id] ?? 0;
+                    if (cat.id !== 'todos' && count === 0) return null;
+                    const active = activeCategory === cat.id;
+                    return (
                       <button
-                        key={zone}
+                        key={cat.id}
                         type="button"
-                        onClick={() => setActiveZoneFilter(zone)}
-                        className={`min-h-[36px] px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                          activeZoneFilter === zone
-                            ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 shadow-sm'
-                            : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white'
+                        onClick={() => setActiveCategory(cat.id)}
+                        className={`min-h-[38px] px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-colors active:scale-[0.97] flex items-center gap-1.5 shrink-0 ${
+                          active
+                            ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 shadow-2xs'
+                            : 'bg-zinc-100/80 dark:bg-zinc-800/80 border border-zinc-200/70 dark:border-zinc-700/70 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200/70 dark:hover:bg-zinc-800'
                         }`}
                       >
-                        {zone === 'todas' ? `Todas (${branchTables.length})` : zone}
+                        {cat.id !== 'todos' && (
+                          <CategoryIconBadge category={cat} alt={cat.label} size="xs" />
+                        )}
+                        <span>{cat.id === 'todos' ? 'Todos' : cat.label}</span>
+                        <span
+                          className={`text-[10px] font-mono tabular-nums px-1.5 py-0.2 rounded-md ${
+                            active
+                              ? 'bg-white/15 dark:bg-zinc-900/15'
+                              : 'bg-white/80 dark:bg-zinc-900/80 text-zinc-500 dark:text-zinc-400'
+                          }`}
+                        >
+                          {count}
+                        </span>
                       </button>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center gap-3 text-[11px] text-zinc-500 dark:text-zinc-400 flex-wrap">
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Disponible
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Ocupada
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" /> Cuenta Pedida
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-purple-500" /> Reservada
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Lista p/ Servir
-                    </span>
-                  </div>
+                    );
+                  })}
                 </div>
+              </div>
 
-                {/* Interactive Floor Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(165px,1fr))] gap-3">
-                  {visibleTables.map((table) => {
-                    const isSelected = selectedTable?.id === table.id;
-                    const activeOrder = activeSalonOrdersByTable.get(table.id);
-                    const isReady = activeOrder?.status === 'listo';
-                    const isOccupied = !!activeOrder;
-                    const isBillReq = Boolean(isOccupied && table.billRequested);
-                    const isReserved = Boolean(!isOccupied && table.reservation);
+              {/* Wide Tactile Product Grid (1-Tap Add, Inline Size Buttons & Live Comanda Counter) */}
+              {filteredProducts.length === 0 ? (
+                <div className="p-10 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 text-center space-y-2">
+                  <p className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
+                    No se encontraron productos con "{searchQuery}"
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setActiveCategory('todos');
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-amber-500 text-zinc-950 text-xs font-bold"
+                  >
+                    Ver toda la carta
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3">
+                  {filteredProducts.map((p) => {
+                    const enabledSizes =
+                      p.productType !== 'apparel' && p.hasSizes
+                        ? p.sizes.filter((s) => s.enabled)
+                        : [];
+                    const basePrice =
+                      enabledSizes.length > 0
+                        ? Math.min(
+                            ...enabledSizes.map((s) => resolveSizePrice(p, s, activeTenant.id))
+                          )
+                        : resolveProductBasePrice(p, activeTenant.id);
+                    const inTicket = ticketQtyByProductId[p.id];
+                    const hasRequiredSubOptions =
+                      Array.isArray(p.subOptions) && p.subOptions.some((g) => g.required);
+                    const canQuickAddSingle =
+                      enabledSizes.length <= 1 &&
+                      !hasRequiredSubOptions &&
+                      p.productType !== 'apparel';
 
                     return (
                       <div
-                        key={table.id}
+                        key={p.id}
                         onClick={() => {
-                          setSelectedTableId(table.id);
-                          if (isTableBuilderMode) return;
-                          if (activeOrder) {
-                            setOpsTableId(table.id);
+                          if (canQuickAddSingle) {
+                            handleQuickAddProduct(p, enabledSizes[0]);
                           } else {
-                            setActivePosTab('carta');
-                            dispatchToast('Mesa Seleccionada', `${table.name} seleccionada. Elige los productos en la carta.`, 'info');
+                            setSelectedProduct(p);
                           }
                         }}
                         role="button"
@@ -2515,256 +2959,121 @@ export const POSView: React.FC<POSViewProps> = ({
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
-                            setSelectedTableId(table.id);
-                            if (isTableBuilderMode) return;
-                            if (activeOrder) {
-                              setOpsTableId(table.id);
+                            if (canQuickAddSingle) {
+                              handleQuickAddProduct(p, enabledSizes[0]);
                             } else {
-                              setActivePosTab('carta');
+                              setSelectedProduct(p);
                             }
                           }
                         }}
-                        className={`relative p-3.5 border transition-all cursor-pointer select-none active:scale-[0.98] flex flex-col justify-between min-h-[105px] ${
-                          table.shape === 'round'
-                            ? 'rounded-3xl'
-                            : table.shape === 'rect'
-                            ? 'rounded-xl sm:col-span-1'
-                            : 'rounded-2xl'
-                        } ${
-                          isSelected
-                            ? 'border-amber-500 bg-amber-500/15 ring-2 ring-amber-500/40 shadow-sm'
-                            : isBillReq
-                            ? 'border-indigo-500/70 bg-indigo-50/70 dark:bg-indigo-950/25 hover:border-indigo-500'
-                            : isReady
-                            ? 'border-blue-500/60 bg-blue-50/60 dark:bg-blue-950/25 hover:border-blue-500'
-                            : isOccupied
-                            ? 'border-amber-400/60 bg-amber-50/50 dark:bg-amber-950/20 hover:border-amber-500'
-                            : isReserved
-                            ? 'border-purple-400/70 bg-purple-50/60 dark:bg-purple-950/20 hover:border-purple-500'
-                            : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-950/60 hover:border-zinc-300 dark:hover:border-zinc-700'
+                        className={`p-2.5 bg-white dark:bg-zinc-900 border rounded-2xl flex flex-col justify-between text-left transition-colors cursor-pointer select-none group active:scale-[0.98] shadow-2xs ${
+                          inTicket
+                            ? 'border-amber-500 ring-1 ring-amber-500/35'
+                            : 'border-zinc-200/90 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'
                         }`}
                       >
-                        <div className="flex items-start justify-between gap-1">
-                          <div className="min-w-0">
-                            <span className="font-black text-xs sm:text-sm text-zinc-900 dark:text-white block truncate">
-                              {table.name}
-                            </span>
-                            <span className="text-[10px] text-zinc-500 dark:text-zinc-400 block truncate">
-                              {table.zone}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
+                        <div>
+                          <div className="relative h-28 w-full rounded-xl overflow-hidden mb-2 bg-zinc-100 dark:bg-zinc-950">
+                            <img
+                              src={p.imageUrl}
+                              alt={p.name}
+                              loading="lazy"
+                              className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-200"
+                            />
+                            {p.badge && (
+                              <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-bold bg-zinc-900/85 text-white backdrop-blur-xs">
+                                {p.badge}
+                              </span>
+                            )}
+
+                            {/* Options / Customizer trigger button */}
                             <button
                               type="button"
-                              aria-label={`Ver código QR de ${table.name}`}
-                              title={`Ver QR de ${table.name}`}
+                              title="Personalizar tamaños, mitad y mitad, extras o notas"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setQrInitialTableId(table.id);
-                                setIsQrModalOpen(true);
+                                setSelectedProduct(p);
                               }}
-                              className="w-6 h-6 rounded-md bg-white/80 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-amber-600 dark:hover:text-amber-400 border border-zinc-200/70 dark:border-zinc-700 flex items-center justify-center transition-colors"
+                              className="absolute top-2 right-2 h-7 px-2 rounded-lg bg-black/65 hover:bg-black/80 text-white text-[10px] font-semibold backdrop-blur-xs flex items-center gap-1 transition-colors"
                             >
-                              <QrCode className="w-3 h-3" aria-hidden="true" />
+                              <SlidersHorizontal className="w-3 h-3" />
+                              <span>Opciones</span>
                             </button>
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-white/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200/70 dark:border-zinc-700 shrink-0">
-                              <Users className="w-2.5 h-2.5" aria-hidden="true" />
-                              {table.capacity}
-                            </span>
-                          </div>
-                        </div>
 
-                        {/* Status or Builder Controls */}
-                        {isTableBuilderMode ? (
-                          <div
-                            className="flex items-center justify-between gap-1 pt-2 mt-2 border-t border-zinc-200/80 dark:border-zinc-800"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="flex items-center gap-0.5">
-                              <button
-                                type="button"
-                                aria-label={`Mover ${table.name} antes`}
-                                onClick={() => moveTableOrder(table.id, 'prev')}
-                                className="h-7 w-7 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-amber-500"
+                            {/* Active quantity badge when already in comanda */}
+                            {inTicket && (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                className="absolute bottom-2 left-2 right-2 px-2 py-1 rounded-xl bg-zinc-950/90 text-white backdrop-blur-md flex items-center justify-between shadow-md"
                               >
-                                <ChevronLeft className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                aria-label={`Mover ${table.name} después`}
-                                onClick={() => moveTableOrder(table.id, 'next')}
-                                className="h-7 w-7 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-amber-500"
-                              >
-                                <ChevronRight className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                aria-label={`Editar ${table.name}`}
-                                onClick={() => handleOpenEditTable(table)}
-                                className="h-7 w-7 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-600 dark:text-zinc-300 hover:text-amber-500"
-                              >
-                                <Edit2 className="w-3 h-3" />
-                              </button>
-                              <button
-                                type="button"
-                                aria-label={`Eliminar ${table.name}`}
-                                onClick={() => handleConfirmDeleteTable(table)}
-                                className="h-7 w-7 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center text-zinc-500 hover:text-red-600"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            </div>
-                          </div>
-                        ) : activeOrder ? (
-                          <div className="pt-2 mt-1.5 border-t border-zinc-200/70 dark:border-zinc-800 flex items-center justify-between gap-1">
-                            <span
-                              className={`text-[10px] font-extrabold truncate ${
-                                isReady ? 'text-blue-700 dark:text-blue-300' : 'text-amber-700 dark:text-amber-400'
-                              }`}
-                            >
-                              {activeOrder.orderNumber} · S/{activeOrder.total.toFixed(0)}
-                            </span>
-                            {isReady && (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  updateOrderStatus(activeOrder.id, 'entregado');
-                                }}
-                                className="px-1.5 py-0.5 rounded bg-blue-600 hover:bg-blue-500 text-white text-[9px] font-bold shrink-0"
-                                title="Marcar servida y liberar mesa"
-                              >
-                                Servir ✓
-                              </button>
+                                <button
+                                  type="button"
+                                  aria-label="Restar unidad"
+                                  onClick={() => handleUpdateItemQty(inTicket.lastItemId, -1)}
+                                  className="w-6 h-6 rounded-lg bg-white/15 hover:bg-white/25 flex items-center justify-center active:scale-95"
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </button>
+                                <span className="text-[11px] font-mono font-bold tabular-nums text-amber-400">
+                                  {inTicket.qty} en comanda
+                                </span>
+                                <button
+                                  type="button"
+                                  aria-label="Sumar unidad"
+                                  onClick={() => handleUpdateItemQty(inTicket.lastItemId, 1)}
+                                  className="w-6 h-6 rounded-lg bg-amber-500 text-zinc-950 flex items-center justify-center active:scale-95"
+                                >
+                                  <Plus className="w-3 h-3 stroke-[2.5]" />
+                                </button>
+                              </div>
                             )}
                           </div>
-                        ) : isReserved && table.reservation ? (
-                          <div className="pt-2 mt-1.5 border-t border-purple-200/70 dark:border-purple-900/50 flex items-center justify-between gap-1 text-[10px]">
-                            <span className="font-bold text-purple-700 dark:text-purple-300 truncate">
-                              {table.reservation.time} · {table.reservation.customerName}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpsTableId(table.id);
-                              }}
-                              className="px-1.5 py-0.5 rounded bg-purple-600 text-white text-[9px] font-bold shrink-0"
-                            >
-                              Ver
-                            </button>
+
+                          <h4 className="font-semibold text-xs sm:text-sm text-zinc-900 dark:text-white line-clamp-1 leading-snug">
+                            {p.name}
+                          </h4>
+                        </div>
+
+                        {/* Bottom Action Area: Either Direct 1-Tap Size Pills OR Single Price + Quick Add */}
+                        {enabledSizes.length > 1 && !hasRequiredSubOptions ? (
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            className="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800/80 grid grid-cols-2 gap-1"
+                          >
+                            {enabledSizes.slice(0, 4).map((sz) => {
+                              const szPrice = resolveSizePrice(p, sz, activeTenant.id);
+                              return (
+                                <button
+                                  key={sz.id}
+                                  type="button"
+                                  onClick={() => handleQuickAddProduct(p, sz)}
+                                  className="px-2 py-1 rounded-lg bg-zinc-100/90 dark:bg-zinc-800/90 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 text-[10px] font-semibold flex items-center justify-between gap-1 transition-colors active:scale-95"
+                                  title={`Agregar ${p.name} (${sz.name})`}
+                                >
+                                  <span className="truncate">{sz.name.slice(0, 6)}.</span>
+                                  <span className="font-mono font-bold tabular-nums shrink-0">
+                                    S/{szPrice.toFixed(0)}
+                                  </span>
+                                </button>
+                              );
+                            })}
                           </div>
                         ) : (
-                          <div className="pt-2 mt-1.5 flex items-center justify-between text-[10px]">
-                            <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                              Disponible
+                          <div className="flex items-center justify-between gap-1 mt-2 pt-1.5 border-t border-zinc-100 dark:border-zinc-800/80">
+                            <span className="text-xs sm:text-sm font-mono font-bold tabular-nums text-zinc-900 dark:text-white">
+                              S/ {basePrice.toFixed(2)}
                             </span>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpsTableId(table.id);
-                              }}
-                              className="px-1.5 py-0.5 rounded border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:border-purple-500 hover:text-purple-600 text-[9px] font-bold"
-                            >
-                              Reservar
-                            </button>
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/15 group-hover:bg-amber-500 text-amber-700 dark:text-amber-300 group-hover:text-zinc-950 text-[11px] font-bold transition-colors">
+                              <Plus className="w-3 h-3 stroke-[2.5]" />
+                              <span>{canQuickAddSingle ? 'Agregar' : 'Elegir'}</span>
+                            </span>
                           </div>
                         )}
                       </div>
                     );
                   })}
                 </div>
-              </div>
-            </section>
-          ) : (
-            /* Dedicated Product Catalog View (Zero Clutter, Immediate Access) */
-            <>
-          {/* Tactile Search & Category Filter Bar */}
-          <div className="flex flex-col sm:flex-row gap-2.5">
-            <div className="relative flex-1 min-w-0">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" aria-hidden="true" />
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar pizza artesanal, combo, entrada o bebida..."
-                aria-label="Buscar productos en el catálogo POS"
-                className="min-h-[44px] w-full pl-10 pr-3.5 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs sm:text-sm text-zinc-900 dark:text-white placeholder-zinc-400 focus:outline-none focus:border-amber-500 shadow-sm"
-              />
-            </div>
-
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5 shrink-0">
-              {getStoreCategories().map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setActiveCategory(cat.id)}
-                  className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all active:scale-95 ${
-                    activeCategory === cat.id
-                      ? 'bg-amber-500 text-zinc-950 shadow-sm'
-                      : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white'
-                  }`}
-                >
-                  {cat.id === 'todos' ? 'Todos' : `${cat.icon} ${cat.label}`}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Wide Tactile Product Grid (Fluid container-aware auto-fill across mobile, square 4:3, tablet & widescreen) */}
-          <div className="grid grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(175px,1fr))] gap-3">
-            {filteredProducts.map((p) => {
-              const basePrice =
-                p.productType !== 'apparel' && p.hasSizes && p.sizes.filter((s) => s.enabled).length > 0
-                  ? Math.min(...p.sizes.filter((s) => s.enabled).map((s) => resolveSizePrice(p, s, activeTenant.id)))
-                  : resolveProductBasePrice(p, activeTenant.id);
-
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setSelectedProduct(p)}
-                  className="p-3 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-800 hover:border-amber-500/60 rounded-2xl flex flex-col justify-between text-left transition-all group active:scale-[0.98] shadow-sm"
-                >
-                  <div className="relative h-28 sm:h-32 w-full rounded-xl overflow-hidden mb-2.5 bg-zinc-100 dark:bg-zinc-950">
-                    <img
-                      src={p.imageUrl}
-                      alt={p.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    {p.badge && (
-                      <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-500 text-zinc-950 shadow-sm">
-                        {p.badge}
-                      </span>
-                    )}
-                    <span className="absolute bottom-2 right-2 h-8 w-8 rounded-xl bg-amber-500 text-zinc-950 flex items-center justify-center shadow-md">
-                      <Plus className="w-4 h-4 stroke-[2.75]" aria-hidden="true" />
-                    </span>
-                  </div>
-
-                  <div className="w-full min-w-0">
-                    <h4 className="font-bold text-xs sm:text-sm text-zinc-900 dark:text-white line-clamp-1 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                      {p.name}
-                    </h4>
-                    <div className="flex items-center justify-between gap-1 mt-1">
-                      <span className="text-xs sm:text-sm font-black text-amber-600 dark:text-amber-400">
-                        S/ {basePrice.toFixed(2)}
-                      </span>
-                      {p.hasSizes && (
-                        <span className="text-[10px] font-semibold text-zinc-400">
-                          {p.sizes.filter((s) => s.enabled).length} tam.
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+              )}
             </>
           )}
         </div>
@@ -3646,18 +3955,45 @@ export const POSView: React.FC<POSViewProps> = ({
             );
           }
         }}
-        onCollectFullTable={(order, method) => {
+        onCollectFullTable={(order, method, details) => {
+          const docType = details?.invoiceType || 'boleta_simple';
+          const enrichedOrder: Order = {
+            ...order,
+            paymentMethod: method,
+            cashReceived: details?.cashReceived ?? order.total,
+            changeAmount: details?.changeAmount ?? 0,
+            invoiceType: docType,
+            invoiceDocument: details?.invoiceDocument || order.customerDni,
+            invoiceBusinessName: details?.invoiceBusinessName || order.customerName,
+            invoiceFiscalAddress: details?.invoiceFiscalAddress || order.deliveryAddress,
+          };
           markOrderPaid(order.id);
-          updateOrderStatus(order.id, 'entregado', { paymentStatus: 'pagado' });
+          updateOrderStatus(order.id, 'entregado', {
+            paymentStatus: 'pagado',
+            paymentMethod: enrichedOrder.paymentMethod,
+            cashReceived: enrichedOrder.cashReceived,
+            changeAmount: enrichedOrder.changeAmount,
+            invoiceType: enrichedOrder.invoiceType,
+            invoiceDocument: enrichedOrder.invoiceDocument,
+            invoiceBusinessName: enrichedOrder.invoiceBusinessName,
+            invoiceFiscalAddress: enrichedOrder.invoiceFiscalAddress,
+          });
           if (order.tableId) {
             setTableBillRequested(order.tableId, false);
           }
+          if (docType !== 'boleta_simple') {
+            void triggerSunatEmission(enrichedOrder, docType);
+          }
+          printThermalTicket('receipt', enrichedOrder);
           dispatchToast(
             'Mesa Cobrada y Liberada',
-            `${order.tableNumber || 'Mesa'} cobrada por S/ ${order.total.toFixed(2)} (${method}).`,
+            details?.changeAmount && details.changeAmount > 0
+              ? `${order.tableNumber || 'Mesa'} cobrada. Vuelto: S/ ${details.changeAmount.toFixed(2)}.`
+              : `${order.tableNumber || 'Mesa'} cobrada por S/ ${order.total.toFixed(2)} (${method}).`,
             'success'
           );
         }}
+        onPrintPreBill={(order) => handlePrintTableBill(order)}
         onSaveReservation={(tbl, reservation) => {
           setTableReservation(tbl.id, reservation);
           dispatchToast(
