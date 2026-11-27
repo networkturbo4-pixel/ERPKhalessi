@@ -593,6 +593,7 @@ dialog::backdrop {
 }
 
 [data-seasonal-doodle] .store-btn-solid[data-no-doodle="true"] {
+  overflow: visible;
   box-shadow: none;
 }
 

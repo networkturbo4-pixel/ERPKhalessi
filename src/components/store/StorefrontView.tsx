@@ -4631,28 +4631,29 @@ export const StorefrontView: React.FC<StorefrontViewProps> = ({ onNavigateToAdmi
 
             {/* Slot 3 (Center): Concentric Capsule Cart Pill */}
             <div className="flex items-center justify-center">
-              <button
-                type="button"
-                aria-label={`Abrir carrito (${totalCartUnits} productos)`}
-                onClick={() => setIsCartOpen(true)}
-                data-no-doodle="true"
-                data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
-                style={{ touchAction: 'manipulation' }}
-                className={`store-btn-solid relative w-12 h-12 rounded-full shadow-md flex items-center justify-center active:scale-95 transition-transform ${
-                  isCartPopping ? 'kh-cart-pop' : ''
-                }`}
-              >
-                <ShoppingBag aria-hidden="true" className="w-5 h-5" />
+              <div className={`relative inline-flex ${isCartPopping ? 'kh-cart-pop' : ''}`}>
+                <button
+                  type="button"
+                  aria-label={`Abrir carrito (${totalCartUnits} productos)`}
+                  onClick={() => setIsCartOpen(true)}
+                  data-no-doodle="true"
+                  data-auto-contrast={autoButtonContrast ? 'true' : 'false'}
+                  style={{ touchAction: 'manipulation' }}
+                  className="store-btn-solid w-12 h-12 rounded-full shadow-md flex items-center justify-center active:scale-95 transition-transform"
+                >
+                  <ShoppingBag aria-hidden="true" className="w-5 h-5" />
+                </button>
                 {totalCartUnits > 0 && (
                   <span
-                    className={`absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-zinc-950 text-white ring-2 text-[9px] font-black flex items-center justify-center tabular-nums ${
+                    aria-hidden="true"
+                    className={`pointer-events-none absolute -top-1 -right-1 z-10 min-w-[20px] h-[20px] px-1 rounded-full bg-zinc-950 text-white ring-2 text-[10px] font-black leading-none flex items-center justify-center tabular-nums shadow-sm ${
                       isLightTheme ? 'ring-white' : 'ring-neutral-900'
                     }`}
                   >
                     {totalCartUnits}
                   </span>
                 )}
-              </button>
+              </div>
             </div>
 
             {/* Slot 4: Premios */}

@@ -1,8 +1,8 @@
 {
-  "buildId": "20261127043811",
-  "builtAt": "2026-11-27T04:38:11.737Z",
-  "commitSha": "adfea55",
-  "message": "feat(pos,qr): rediseno POS, plano arquitectonico 2D con pisos y carta QR en mesa — release 20261127035853",
+  "buildId": "20261127050523",
+  "builtAt": "2026-11-27T05:05:23.924Z",
+  "commitSha": "86789d0",
+  "message": "feat(catalog,preview): columna izquierda fija en editor de productos y vista previa movil 390px fiel — release 20261127043811",
   "totalFiles": 127,
-  "manifestSha256": "db9d0d2fb4876f4ffac725268484667f2c49f6f4365dccfa60be73ba69accf1c"
+  "manifestSha256": "629be9081762631131094b4f373656f47dadd5b9ad6efc4821d97c197493c764"
 }
