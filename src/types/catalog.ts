@@ -172,6 +172,7 @@ export interface Product {
   badge?: string;
   compareAtPrice?: number;
   dineInOnly?: boolean;
+  hideBasePriceCard?: boolean;
   isAvailable: boolean;
   hasSizes: boolean;
   basePrice: number; // Used if hasSizes is false

@@ -10,6 +10,19 @@ const path = require('path');
 const STATE_FILE = path.join(__dirname, 'whatsapp_state.json');
 const MAX_LOGS = 200;
 const MAX_MESSAGES_PER_CHAT = 100;
+const D360_CLOUD_BASE = 'https://waba-v2.360dialog.io';
+
+function is360Dialog(creds) {
+  return Boolean(creds && creds.provider === '360dialog');
+}
+
+function hasValidCredentials(creds) {
+  if (!creds || !creds.enabled) return false;
+  if (is360Dialog(creds)) {
+    return Boolean(creds.d360ApiKey && String(creds.d360ApiKey).trim());
+  }
+  return Boolean(creds.phoneNumberId && creds.accessToken);
+}
 
 function loadState() {
   try {
@@ -85,7 +98,7 @@ function resolveCredentials(branchId, incomingPhoneNumberId) {
     if (branchId && map[branchId]) {
       return { creds: map[branchId], branchId };
     }
-    const firstEntry = Object.entries(map).find(([, c]) => c && c.enabled && c.phoneNumberId);
+    const firstEntry = Object.entries(map).find(([, c]) => hasValidCredentials(c));
     if (firstEntry) {
       return { creds: firstEntry[1], branchId: firstEntry[0] };
     }
@@ -129,17 +142,26 @@ function verifyMetaSignature(rawBodyBuffer, signatureHeader, appSecret) {
 }
 
 async function sendMetaGraphPayload(creds, payload) {
-  if (!creds || !creds.enabled || !creds.phoneNumberId || !creds.accessToken) {
-    return { ok: false, simulated: true, error: 'Credenciales de Meta Cloud API no configuradas o desactivadas' };
+  if (!hasValidCredentials(creds)) {
+    return { ok: false, simulated: true, error: 'Credenciales de WhatsApp API no configuradas o desactivadas' };
   }
+  const use360 = is360Dialog(creds);
   const version = creds.apiVersion || 'v25.0';
-  const endpoint = `https://graph.facebook.com/${version}/${creds.phoneNumberId}/messages`;
+  const endpoint = use360
+    ? `${D360_CLOUD_BASE}/messages`
+    : `https://graph.facebook.com/${version}/${creds.phoneNumberId}/messages`;
+  const headers = use360
+    ? {
+        'Content-Type': 'application/json',
+        'D360-API-KEY': String(creds.d360ApiKey).trim(),
+      }
+    : {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${creds.accessToken}`,
+      };
   const resp = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${creds.accessToken}`,
-    },
+    headers,
     body: JSON.stringify({
       messaging_product: 'whatsapp',
       recipient_type: 'individual',
@@ -151,7 +173,7 @@ async function sendMetaGraphPayload(creds, payload) {
     return {
       ok: false,
       simulated: false,
-      error: data?.error?.message || `HTTP ${resp.status}`,
+      error: data?.error?.message || data?.meta?.developer_message || `HTTP ${resp.status}`,
       raw: data,
     };
   }
@@ -216,12 +238,18 @@ async function sendInteractiveOrText(creds, toPhone, text, interactiveType, opti
 async function uploadMediaToMeta(creds, dataUrl, filename) {
   const match = String(dataUrl || '').match(/^data:([^;]+);base64,(.+)$/);
   if (!match) {
-    throw new Error('Formato dataUrl inválido para subir multimedia a Meta');
+    throw new Error('Formato dataUrl inválido para subir multimedia');
   }
   const mimeType = match[1] || 'application/octet-stream';
   const buffer = Buffer.from(match[2], 'base64');
+  const use360 = is360Dialog(creds);
   const version = creds.apiVersion || 'v25.0';
-  const endpoint = `https://graph.facebook.com/${version}/${creds.phoneNumberId}/media`;
+  const endpoint = use360
+    ? `${D360_CLOUD_BASE}/media`
+    : `https://graph.facebook.com/${version}/${creds.phoneNumberId}/media`;
+  const headers = use360
+    ? { 'D360-API-KEY': String(creds.d360ApiKey).trim() }
+    : { Authorization: `Bearer ${creds.accessToken}` };
   const form = new FormData();
   form.append('messaging_product', 'whatsapp');
   form.append('type', mimeType);
@@ -229,12 +257,12 @@ async function uploadMediaToMeta(creds, dataUrl, filename) {
 
   const resp = await fetch(endpoint, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${creds.accessToken}` },
+    headers,
     body: form,
   });
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok || !data?.id) {
-    throw new Error(data?.error?.message || `Error subiendo media a Meta (HTTP ${resp.status})`);
+    throw new Error(data?.error?.message || `Error subiendo media (HTTP ${resp.status})`);
   }
   return data.id;
 }
@@ -242,8 +270,8 @@ async function uploadMediaToMeta(creds, dataUrl, filename) {
 async function sendMediaMessage(creds, toPhone, { mediaType, mediaUrl, mediaFilename, caption }) {
   const cleanTo = normalizePhone(toPhone);
   if (!cleanTo) return { ok: false, error: 'Número de destino inválido' };
-  if (!creds || !creds.enabled || !creds.phoneNumberId || !creds.accessToken) {
-    return { ok: false, simulated: true, error: 'Credenciales de Meta Cloud API no configuradas o desactivadas' };
+  if (!hasValidCredentials(creds)) {
+    return { ok: false, simulated: true, error: 'Credenciales de WhatsApp API no configuradas o desactivadas' };
   }
 
   const normalizedType = ['image', 'video', 'audio', 'document'].includes(mediaType) ? mediaType : 'document';
@@ -279,6 +307,103 @@ function buildMediaProxyUrl(mediaId, branchId) {
   const prefix = base || '/realtime';
   const query = branchId ? `?branchId=${encodeURIComponent(branchId)}` : '';
   return `${prefix}/api/whatsapp/media/${encodeURIComponent(mediaId)}${query}`;
+}
+
+function getZonedDateParts(now, timezone) {
+  try {
+    const tz = timezone || 'America/Lima';
+    const dtf = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const parts = dtf.formatToParts(now);
+    const get = (t) => (parts.find((p) => p.type === t) || {}).value || '';
+    const weekdayMap = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    const dayIndex = weekdayMap[get('weekday')] ?? now.getDay();
+    const hour = parseInt(get('hour'), 10) % 24;
+    const minute = parseInt(get('minute'), 10) || 0;
+    const dateKey = `${get('year')}-${get('month')}-${get('day')}`;
+    return { dayIndex, minutesOfDay: hour * 60 + minute, dateKey };
+  } catch {
+    return {
+      dayIndex: now.getDay(),
+      minutesOfDay: now.getHours() * 60 + now.getMinutes(),
+      dateKey: now.toISOString().slice(0, 10),
+    };
+  }
+}
+
+function parseTimeMinutes(hhmm, fallbackMinutes) {
+  const [hStr, mStr] = String(hhmm || '').split(':');
+  const h = parseInt(hStr, 10);
+  const m = parseInt(mStr, 10);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return fallbackMinutes;
+  return Math.max(0, Math.min(23, h)) * 60 + Math.max(0, Math.min(59, m));
+}
+
+function evaluateAutoReplySchedule(cfg, conv, now = new Date()) {
+  if (!cfg || cfg.autoReplyEnabled === false) {
+    return { action: 'skip', reason: 'auto_reply_disabled' };
+  }
+  const schedule = cfg.autoReplySchedule;
+  if (!schedule || schedule.mode === '24_7') {
+    return { action: 'bot_flow' };
+  }
+
+  const { dayIndex, minutesOfDay, dateKey } = getZonedDateParts(now, schedule.timezone);
+  const activeDays = Array.isArray(schedule.activeDays) ? schedule.activeDays : [1, 2, 3, 4, 5, 6];
+  const dayActive = activeDays.includes(dayIndex);
+
+  let hourActive = true;
+  if (schedule.restrictHours) {
+    const startMins = parseTimeMinutes(schedule.startTime, 9 * 60);
+    const endMins = parseTimeMinutes(schedule.endTime, 23 * 60);
+    hourActive =
+      startMins <= endMins
+        ? minutesOfDay >= startMins && minutesOfDay <= endMins
+        : minutesOfDay >= startMins || minutesOfDay <= endMins;
+  }
+
+  if (dayActive && hourActive) {
+    return { action: 'bot_flow' };
+  }
+
+  const behavior = schedule.offHoursBehavior || 'away_once_per_day';
+  if (behavior === 'silent') {
+    return { action: 'skip', reason: 'off_hours_silent' };
+  }
+
+  if (behavior === 'away_once_per_day' && conv.lastOffHoursReplyAt) {
+    const prevDate = new Date(conv.lastOffHoursReplyAt);
+    if (!Number.isNaN(prevDate.getTime())) {
+      const prevParts = getZonedDateParts(prevDate, schedule.timezone);
+      if (prevParts.dateKey === dateKey) {
+        return { action: 'skip', reason: 'away_already_sent_today' };
+      }
+    }
+  }
+
+  const storeUrl = cfg.storefrontBaseUrl || 'https://tu-tienda.com';
+  const brandName = (state.branches[0] && state.branches[0].name) || 'nuestra tienda';
+  const template =
+    schedule.offHoursMessage ||
+    '¡Hola {{cliente}}! Hoy es nuestro día de descanso / fuera de horario en *{{marca}}*. Tu mensaje quedó registrado y te responderemos en cuanto reanudemos atención.';
+  const replyText = String(template)
+    .replace(/\{\{cliente\}\}/g, conv.customerName || 'cliente')
+    .replace(/\{\{marca\}\}/g, brandName)
+    .replace(/\{\{link_tienda\}\}/g, storeUrl);
+
+  return {
+    action: 'away_reply',
+    replyText,
+    stampIso: now.toISOString(),
+  };
 }
 
 function buildBotReply(conv, userInput, buttonId) {
@@ -673,36 +798,50 @@ async function processWebhookEntries(entries, broadcastSseEvent) {
           conv.pausedUntil = undefined;
         }
 
-        // Auto-respuesta del chatbot
-        if (state.config?.autoReplyEnabled !== false && conv.controlMode === 'bot') {
-          const reply = buildBotReply(conv, userText, buttonId);
-          const sendRes = await sendInteractiveOrText(
-            creds,
-            fromPhone,
-            reply.text,
-            reply.interactiveType,
-            reply.options
-          );
+        // Auto-respuesta del chatbot (respeta esquema 24/7, 24/6 o horario personalizado)
+        if (conv.controlMode === 'bot') {
+          const decision = evaluateAutoReplySchedule(state.config, conv);
+          let reply = null;
+          if (decision.action === 'bot_flow') {
+            reply = buildBotReply(conv, userText, buttonId);
+          } else if (decision.action === 'away_reply') {
+            conv.lastOffHoursReplyAt = decision.stampIso;
+            reply = {
+              text: decision.replyText,
+              interactiveType: 'text',
+              options: [],
+            };
+          }
 
-          conv.messages.push({
-            id: sendRes.messageId || `bot_${Date.now()}`,
-            sender: 'bot',
-            text: reply.text,
-            timestamp: new Date().toISOString(),
-            status: sendRes.ok ? 'sent' : 'failed',
-            interactiveType: reply.interactiveType,
-            buttons: reply.options,
-          });
+          if (reply) {
+            const sendRes = await sendInteractiveOrText(
+              creds,
+              fromPhone,
+              reply.text,
+              reply.interactiveType,
+              reply.options
+            );
 
-          appendLog({
-            direction: 'outbound',
-            channelType: 'chatbot_flow',
-            branchId: conv.branchId || 'central',
-            toPhone: fromPhone,
-            summary: reply.text.slice(0, 120),
-            status: sendRes.ok ? 'sent' : sendRes.simulated ? 'simulated' : 'failed',
-            errorMessage: sendRes.ok ? undefined : sendRes.error,
-          });
+            conv.messages.push({
+              id: sendRes.messageId || `bot_${Date.now()}`,
+              sender: 'bot',
+              text: reply.text,
+              timestamp: new Date().toISOString(),
+              status: sendRes.ok ? 'sent' : 'failed',
+              interactiveType: reply.interactiveType,
+              buttons: reply.options,
+            });
+
+            appendLog({
+              direction: 'outbound',
+              channelType: 'chatbot_flow',
+              branchId: conv.branchId || 'central',
+              toPhone: fromPhone,
+              summary: reply.text.slice(0, 120),
+              status: sendRes.ok ? 'sent' : sendRes.simulated ? 'simulated' : 'failed',
+              errorMessage: sendRes.ok ? undefined : sendRes.error,
+            });
+          }
         }
 
         persistState();
@@ -751,7 +890,7 @@ async function handleWhatsAppRoute(req, res, parsedUrl, pathname, maxBodyBytes, 
           const resolved = resolveCredentials(null, incomingPhoneNumberId);
           const creds = resolved ? resolved.creds : null;
 
-          if (creds && creds.appSecret) {
+          if (creds && !is360Dialog(creds) && creds.appSecret) {
             const sig = String(req.headers['x-hub-signature-256'] || '');
             if (!verifyMetaSignature(rawBuf, sig, creds.appSecret)) {
               appendLog({
@@ -955,16 +1094,21 @@ async function handleWhatsAppRoute(req, res, parsedUrl, pathname, maxBodyBytes, 
       const resolved = resolveCredentials(branchId, null);
       const creds = resolved ? resolved.creds : null;
 
-      if (!mediaId || !creds || !creds.accessToken) {
+      const use360 = is360Dialog(creds);
+      if (!mediaId || !creds || (use360 ? !creds.d360ApiKey : !creds.accessToken)) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: false, error: 'Media o credenciales no disponibles' }));
         return true;
       }
 
+      const authHeaders = use360
+        ? { 'D360-API-KEY': String(creds.d360ApiKey).trim() }
+        : { Authorization: `Bearer ${creds.accessToken}` };
       const version = creds.apiVersion || 'v25.0';
-      const metaResp = await fetch(`https://graph.facebook.com/${version}/${mediaId}`, {
-        headers: { Authorization: `Bearer ${creds.accessToken}` },
-      });
+      const metaUrl = use360
+        ? `${D360_CLOUD_BASE}/${mediaId}`
+        : `https://graph.facebook.com/${version}/${mediaId}`;
+      const metaResp = await fetch(metaUrl, { headers: authHeaders });
       const metaInfo = await metaResp.json().catch(() => ({}));
       if (!metaResp.ok || !metaInfo?.url) {
         res.writeHead(metaResp.status || 502, { 'Content-Type': 'application/json' });
@@ -972,9 +1116,10 @@ async function handleWhatsAppRoute(req, res, parsedUrl, pathname, maxBodyBytes, 
         return true;
       }
 
-      const fileResp = await fetch(metaInfo.url, {
-        headers: { Authorization: `Bearer ${creds.accessToken}` },
-      });
+      const downloadUrl = use360
+        ? String(metaInfo.url).replace(/^https:\/\/lookaside\.fbsbx\.com/i, D360_CLOUD_BASE)
+        : metaInfo.url;
+      const fileResp = await fetch(downloadUrl, { headers: authHeaders });
       if (!fileResp.ok) {
         res.writeHead(fileResp.status, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: false, error: `Error descargando media (${fileResp.status})` }));
@@ -997,11 +1142,51 @@ async function handleWhatsAppRoute(req, res, parsedUrl, pathname, maxBodyBytes, 
     return true;
   }
 
-  // 6. Probar credenciales oficiales de Meta Graph API
+  // 6. Probar credenciales oficiales (Meta Cloud API o 360dialog Cloud API)
   if (pathname === '/api/whatsapp/test-connection' && req.method === 'POST') {
     try {
       const rawBuf = await readBodyBuffer(req, maxBodyBytes);
-      const { phoneNumberId, accessToken, apiVersion = 'v25.0' } = JSON.parse(rawBuf.toString('utf8') || '{}');
+      const {
+        provider = 'meta_cloud',
+        d360ApiKey = '',
+        phoneNumberId,
+        accessToken,
+        apiVersion = 'v25.0',
+      } = JSON.parse(rawBuf.toString('utf8') || '{}');
+
+      if (provider === '360dialog') {
+        if (!d360ApiKey || !String(d360ApiKey).trim()) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: 'D360-API-KEY es obligatoria para 360dialog' }));
+          return true;
+        }
+        const resp = await fetch(`${D360_CLOUD_BASE}/v1/configs/webhook`, {
+          method: 'GET',
+          headers: { 'D360-API-KEY': String(d360ApiKey).trim() },
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(
+            JSON.stringify({
+              ok: false,
+              error: data?.meta?.developer_message || data?.error?.message || `Error HTTP ${resp.status}`,
+            })
+          );
+          return true;
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            ok: true,
+            verifiedName: '360dialog Cloud API',
+            displayPhoneNumber: phoneNumberId || 'Canal 360dialog activo',
+            webhookUrl: data?.url || '',
+          })
+        );
+        return true;
+      }
+
       if (!phoneNumberId || !accessToken) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: false, error: 'Phone Number ID y Access Token son obligatorios' }));
@@ -1025,6 +1210,44 @@ async function handleWhatsAppRoute(req, res, parsedUrl, pathname, maxBodyBytes, 
           qualityRating: data.quality_rating,
         })
       );
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: false, error: err.message }));
+    }
+    return true;
+  }
+
+  // 6B. Registrar URL del Webhook automáticamente en 360dialog Cloud API
+  if (pathname === '/api/whatsapp/register-360dialog-webhook' && req.method === 'POST') {
+    try {
+      const rawBuf = await readBodyBuffer(req, maxBodyBytes);
+      const { d360ApiKey = '', webhookUrl = '' } = JSON.parse(rawBuf.toString('utf8') || '{}');
+      if (!d360ApiKey.trim() || !webhookUrl.trim()) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'D360-API-KEY y URL del Webhook son obligatorias' }));
+        return true;
+      }
+      const resp = await fetch(`${D360_CLOUD_BASE}/v1/configs/webhook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'D360-API-KEY': String(d360ApiKey).trim(),
+        },
+        body: JSON.stringify({ url: String(webhookUrl).trim() }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            ok: false,
+            error: data?.meta?.developer_message || data?.error?.message || `Error HTTP ${resp.status}`,
+          })
+        );
+        return true;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, webhookUrl: data?.url || webhookUrl }));
     } catch (err) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: false, error: err.message }));

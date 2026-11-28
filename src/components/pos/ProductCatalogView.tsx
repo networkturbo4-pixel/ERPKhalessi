@@ -994,6 +994,7 @@ export const ProductCatalogView: React.FC = () => {
       badge: '',
       isAvailable: true,
       dineInOnly: false,
+      hideBasePriceCard: false,
       hasSizes:
         productType === 'apparel'
           ? false
@@ -2793,6 +2794,41 @@ export const ProductCatalogView: React.FC = () => {
                       className="w-4 h-4 rounded accent-zinc-900 dark:accent-white shrink-0"
                     />
                   </label>
+
+                  {(tempProduct.productType || 'standard') === 'standard' && (
+                    <div className="flex items-center justify-between gap-3 pt-2 border-t border-zinc-100 dark:border-zinc-800/80">
+                      <div>
+                        <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 block">
+                          Mostrar bloque de precio base en tienda
+                        </span>
+                        <span className="text-[11px] text-zinc-500">
+                          Muestra u oculta el precio base y el estado de disponibilidad en la vista del producto.
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={!tempProduct.hideBasePriceCard}
+                        onClick={() =>
+                          setTempProduct({
+                            ...tempProduct,
+                            hideBasePriceCard: !tempProduct.hideBasePriceCard,
+                          })
+                        }
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          !tempProduct.hideBasePriceCard
+                            ? 'bg-emerald-500'
+                            : 'bg-zinc-300 dark:bg-zinc-700'
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                            !tempProduct.hideBasePriceCard ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

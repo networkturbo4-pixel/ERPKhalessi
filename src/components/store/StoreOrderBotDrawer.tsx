@@ -571,7 +571,7 @@ export const StoreOrderBotDrawer: React.FC<StoreOrderBotDrawerProps> = ({
           if (qty > 0) {
             const freeQty = ch.isIncluded ? Math.max(1, ch.freeQuantity || 1) : ch.freeQuantity || 0;
             const chargeable = Math.max(0, qty - freeQty);
-            const delta = ch.hidePrice ? 0 : chargeable * ch.priceDelta;
+            const delta = chargeable * ch.priceDelta;
             subDelta += delta;
             chosenSubs.push({
               groupId: g.id,
@@ -583,14 +583,14 @@ export const StoreOrderBotDrawer: React.FC<StoreOrderBotDrawerProps> = ({
             });
           }
         } else if (singleIds.includes(ch.id)) {
-          const delta = ch.hidePrice || ch.isIncluded ? 0 : ch.priceDelta;
+          const delta = ch.isIncluded ? 0 : ch.priceDelta;
           subDelta += delta;
 
           const nestedIds = cfgNestedSelected[ch.id] || [];
           const nestedNames: string[] = [];
           (ch.nestedChoices || []).forEach(nest => {
             if (nestedIds.includes(nest.id)) {
-              const nDelta = nest.hidePrice ? 0 : nest.priceDelta;
+              const nDelta = nest.priceDelta;
               subDelta += nDelta;
               nestedNames.push(nest.name);
             }

@@ -361,18 +361,16 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
         const qty = subOptionQuantities[choice.id] || 0;
         if (qty > 0) {
           isChoiceActive = true;
-          if (!choice.hidePrice) {
-            const freeQty = choice.isIncluded
-              ? Math.max(1, choice.freeQuantity || 1)
-              : (choice.freeQuantity || 0);
-            const billableQty = Math.max(0, qty - freeQty);
-            subOptionsDelta += billableQty * (choice.priceDelta || 0);
-          }
+          const freeQty = choice.isIncluded
+            ? Math.max(1, choice.freeQuantity || 1)
+            : (choice.freeQuantity || 0);
+          const billableQty = Math.max(0, qty - freeQty);
+          subOptionsDelta += billableQty * (choice.priceDelta || 0);
         }
       } else {
         if (isSingleChoiceSelected(group, choice.id)) {
           isChoiceActive = true;
-          if (!choice.hidePrice && !choice.isIncluded) {
+          if (!choice.isIncluded) {
             subOptionsDelta += choice.priceDelta || 0;
           }
         }
@@ -383,10 +381,10 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
         (choice.nestedChoices || []).forEach(nest => {
           if (nest.isMultiple) {
             const nestQty = nestedChoiceQuantities[`${choice.id}::${nest.id}`] || 0;
-            if (nestQty > 0 && !nest.hidePrice) {
+            if (nestQty > 0) {
               subOptionsDelta += nestQty * (nest.priceDelta || 0);
             }
-          } else if (nestedSelected.includes(nest.id) && !nest.hidePrice) {
+          } else if (nestedSelected.includes(nest.id)) {
             subOptionsDelta += nest.priceDelta || 0;
           }
         });
@@ -500,18 +498,20 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
             const nq = nestedChoiceQuantities[`${choice.id}::${n.id}`] || 0;
             if (nq > 0) {
               nestedNames.push(nq > 1 ? `${n.name} x${nq}` : n.name);
-              if (!n.hidePrice) nestedPriceDelta += nq * (n.priceDelta || 0);
+              nestedPriceDelta += nq * (n.priceDelta || 0);
             }
           } else if (nestedSelected.includes(n.id)) {
             nestedNames.push(n.name);
-            if (!n.hidePrice) nestedPriceDelta += n.priceDelta || 0;
+            nestedPriceDelta += n.priceDelta || 0;
           }
         });
 
         if (choice.isMultiple) {
           const qty = subOptionQuantities[choice.id] || 0;
           if (qty > 0) {
-            const freeQty = choice.freeQuantity || 0;
+            const freeQty = choice.isIncluded
+              ? Math.max(1, choice.freeQuantity || 1)
+              : (choice.freeQuantity || 0);
             const billableQty = Math.max(0, qty - freeQty);
             const totalChoicePrice = billableQty * (choice.priceDelta || 0) + nestedPriceDelta;
 
@@ -544,7 +544,7 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
               groupName: group.name,
               choiceId: choice.id,
               choiceName: fullChoiceName,
-              priceDelta: (choice.hidePrice ? 0 : (choice.priceDelta || 0)) + nestedPriceDelta,
+              priceDelta: (choice.isIncluded ? 0 : (choice.priceDelta || 0)) + nestedPriceDelta,
               quantity: 1,
             });
           }
@@ -917,44 +917,46 @@ export const StoreProductDetailPage: React.FC<StoreProductDetailPageProps> = ({
             </h1>
 
             {/* Base Price Card (Never wraps awkwardly on mobile) */}
-            <div
-              className={`p-3.5 sm:p-4 rounded-2xl border flex items-center justify-between gap-3 shadow-xs ${
-                isLightTheme
-                  ? 'bg-zinc-50/90 border-zinc-200/90'
-                  : 'bg-neutral-900/90 border-neutral-800'
-              }`}
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span
-                  className={`text-2xl sm:text-3xl font-black tracking-tight whitespace-nowrap shrink-0 ${
-                    isLightTheme ? 'text-zinc-950' : 'text-white'
-                  }`}
-                >
-                  S/&nbsp;{basePrice.toFixed(2)}
-                </span>
-                <span
-                  className={`text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${
-                    isLightTheme
-                      ? 'bg-zinc-200/80 border-zinc-300 text-zinc-600'
-                      : 'bg-neutral-800 border-neutral-700 text-zinc-400'
-                  }`}
-                >
-                  PRECIO BASE
-                </span>
-              </div>
+            {!product.hideBasePriceCard && (
               <div
-                className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold border shrink-0 ${
+                className={`p-3.5 sm:p-4 rounded-2xl border flex items-center justify-between gap-3 shadow-xs ${
                   isLightTheme
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                    : 'bg-emerald-950/40 text-emerald-300 border-emerald-800/60'
+                    ? 'bg-zinc-50/90 border-zinc-200/90'
+                    : 'bg-neutral-900/90 border-neutral-800'
                 }`}
               >
-                <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                <span className="whitespace-nowrap">
-                  Disponible<span className="hidden sm:inline"> para pedido</span>
-                </span>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span
+                    className={`text-2xl sm:text-3xl font-black tracking-tight whitespace-nowrap shrink-0 ${
+                      isLightTheme ? 'text-zinc-950' : 'text-white'
+                    }`}
+                  >
+                    S/&nbsp;{basePrice.toFixed(2)}
+                  </span>
+                  <span
+                    className={`text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${
+                      isLightTheme
+                        ? 'bg-zinc-200/80 border-zinc-300 text-zinc-600'
+                        : 'bg-neutral-800 border-neutral-700 text-zinc-400'
+                    }`}
+                  >
+                    PRECIO BASE
+                  </span>
+                </div>
+                <div
+                  className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold border shrink-0 ${
+                    isLightTheme
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-emerald-950/40 text-emerald-300 border-emerald-800/60'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  <span className="whitespace-nowrap">
+                    Disponible<span className="hidden sm:inline"> para pedido</span>
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Ingredients Description */}
             {product.description && (

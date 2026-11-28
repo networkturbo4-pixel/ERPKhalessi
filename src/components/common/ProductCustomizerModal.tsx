@@ -339,11 +339,9 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
 
       if (choice.isMultiple) {
         const qty = subOptionQuantities[choice.id] || 0;
-        if (!choice.hidePrice) {
-          const billableQty = Math.max(0, qty - (choice.freeQuantity || 0));
-          subOptionsDelta += billableQty * effectiveDelta;
-        }
-      } else if (!choice.hidePrice) {
+        const billableQty = Math.max(0, qty - (choice.freeQuantity || 0));
+        subOptionsDelta += billableQty * effectiveDelta;
+      } else {
         subOptionsDelta += effectiveDelta;
       }
 
@@ -351,10 +349,10 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
       (choice.nestedChoices || []).forEach((nest) => {
         if (nest.isMultiple) {
           const nestQty = nestedChoiceQuantities[getNestedKey(choice.id, nest.id)] || 0;
-          if (nestQty > 0 && !nest.hidePrice) {
+          if (nestQty > 0) {
             subOptionsDelta += nestQty * (nest.priceDelta || 0);
           }
-        } else if (nestedSelected.includes(nest.id) && !nest.hidePrice) {
+        } else if (nestedSelected.includes(nest.id)) {
           subOptionsDelta += nest.priceDelta || 0;
         }
       });
@@ -570,11 +568,11 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
             const nq = nestedChoiceQuantities[getNestedKey(choice.id, nest.id)] || 0;
             if (nq > 0) {
               nestedNames.push(nq > 1 ? `${nest.name} x${nq}` : nest.name);
-              if (!nest.hidePrice) nestedPriceDelta += nq * (nest.priceDelta || 0);
+              nestedPriceDelta += nq * (nest.priceDelta || 0);
             }
           } else if (nestedSelected.includes(nest.id)) {
             nestedNames.push(nest.name);
-            if (!nest.hidePrice) nestedPriceDelta += nest.priceDelta || 0;
+            nestedPriceDelta += nest.priceDelta || 0;
           }
         });
 
@@ -582,7 +580,7 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
         if (choice.isMultiple) {
           const qty = subOptionQuantities[choice.id] || 0;
           const billableQty = Math.max(0, qty - (choice.freeQuantity || 0));
-          const baseDelta = choice.hidePrice ? 0 : billableQty * effectiveDelta;
+          const baseDelta = billableQty * effectiveDelta;
           let choiceName = choice.name;
           if (qty > 1) choiceName += ` (x${qty})`;
           if (nestedNames.length > 0) choiceName += ` (${nestedNames.join(', ')})`;
@@ -596,7 +594,7 @@ export const ProductCustomizerModal: React.FC<ProductCustomizerModalProps> = ({
             quantity: qty,
           });
         } else {
-          const baseDelta = choice.hidePrice ? 0 : effectiveDelta;
+          const baseDelta = effectiveDelta;
           const choiceName =
             nestedNames.length > 0 ? `${choice.name} (${nestedNames.join(', ')})` : choice.name;
 
